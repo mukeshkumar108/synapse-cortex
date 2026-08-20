@@ -1,0 +1,75 @@
+[
+  {
+    "id": "adv-1",
+    "text": "If a user says \"I will call tomorrow\", the system should create an expectation.",
+    "category": "quoted_product_discussion",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": "adv-2",
+    "text": "Great, I'll totally rewrite the whole system tonight 🙄",
+    "category": "sarcasm",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": "adv-3",
+    "text": "I told her I will call tomorrow.",
+    "category": "reported_self_statement",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": "adv-4",
+    "text": "I don't think I'll call tomorrow.",
+    "category": "negated_belief",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": "adv-5",
+    "text": "I'll call James tomorrow and send Morgan the report tonight.",
+    "category": "multiple_expectations",
+    "expected_candidates": 2,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": "adv-6",
+    "text": "He'll do it tomorrow.",
+    "category": "ambiguous_actor",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": "adv-7",
+    "text": "The deploy should finish tonight.",
+    "category": "expected_outcome",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "expected_outcome"
+  },
+  {
+    "id": "adv-8",
+    "text": "I wonder what happened to James.",
+    "category": "weak_curiosity",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": "adv-9",
+    "text": "Maybe we'll find out someday.",
+    "category": "weak_open_loop",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": "adv-10",
+    "text": "I was wrong when I said she was angry.",
+    "category": "epistemic_correction",
+    "expected_candidates": 1,
+    "should_persist": false
+  }
+]

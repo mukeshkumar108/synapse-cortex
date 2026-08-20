@@ -1,0 +1,875 @@
+[
+  {
+    "id": 1,
+    "text": "I'll test Sophie tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 2,
+    "text": "I have to submit the architecture report by 5pm Friday.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_commitment",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 3,
+    "text": "I will deploy the fix tomorrow morning.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 4,
+    "text": "I need to call Ashley this evening.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_commitment",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 5,
+    "text": "I'm going to review the pull requests tomorrow.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 6,
+    "text": "I plan to finish the database migration by Thursday.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 7,
+    "text": "I have a dentist appointment tomorrow at 10am.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "planned_event",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 8,
+    "text": "I must update the API schema tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_commitment",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 9,
+    "text": "I'll email the client Friday afternoon.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 10,
+    "text": "I'm gonna run the eval benchmark tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 11,
+    "text": "I will check the server logs tomorrow.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 12,
+    "text": "I have to send out invoices by Friday.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_commitment",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 13,
+    "text": "I'll refactor the router tomorrow morning.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 14,
+    "text": "I plan to travel next Monday.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "planned_event",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 15,
+    "text": "I need to fix the memory leak tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_commitment",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 16,
+    "text": "I'm going to write the unit tests this afternoon.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 17,
+    "text": "I have a flight tomorrow at 6pm.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "planned_event",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 18,
+    "text": "I'll call Morgan Friday morning.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 19,
+    "text": "I must double-check the credentials tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_commitment",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 20,
+    "text": "I will inspect the test results tomorrow.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 21,
+    "text": "I might test it tonight.",
+    "category": "uncertainty",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 22,
+    "text": "If I have time I would test it.",
+    "category": "uncertainty",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 23,
+    "text": "Maybe I'll look into it tomorrow.",
+    "category": "uncertainty",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 24,
+    "text": "Not sure if I'll finish by Friday.",
+    "category": "uncertainty",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 25,
+    "text": "I wonder if I could test it tonight.",
+    "category": "uncertainty",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 26,
+    "text": "I might go to the store later.",
+    "category": "uncertainty",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 27,
+    "text": "In case I finish early I could call.",
+    "category": "uncertainty",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 28,
+    "text": "Maybe we will talk tomorrow.",
+    "category": "uncertainty",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 29,
+    "text": "I could try to fix it tonight.",
+    "category": "uncertainty",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 30,
+    "text": "If Ashley gets back I might ask her.",
+    "category": "uncertainty",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 31,
+    "text": "James said he'll send it tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 32,
+    "text": "Ashley said she would reply by Friday.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "Ashley"
+  },
+  {
+    "id": 33,
+    "text": "Morgan reported that the deploy will finish tonight.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "Morgan"
+  },
+  {
+    "id": 34,
+    "text": "James told me he will call tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 35,
+    "text": "Waiting for Ashley to send the designs tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency"
+  },
+  {
+    "id": 36,
+    "text": "Sophie said \"I will call tomorrow.\"",
+    "category": "quoted_negated",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 37,
+    "text": "I'm not going to call him tomorrow.",
+    "category": "quoted_negated",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 38,
+    "text": "I won't be testing Sophie tonight.",
+    "category": "quoted_negated",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 39,
+    "text": "I don't plan to deploy until next week.",
+    "category": "quoted_negated",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 40,
+    "text": "She explicitly said \"I am not coming tomorrow.\"",
+    "category": "quoted_negated",
+    "expected_candidates": 1,
+    "should_persist": false
+  },
+  {
+    "id": 41,
+    "text": "Actually I said Friday, not Saturday.",
+    "category": "corrections_fulfillment",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 42,
+    "text": "Actually, I'm not doing that tonight.",
+    "category": "corrections_fulfillment",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 43,
+    "text": "James sent it.",
+    "category": "corrections_fulfillment",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 44,
+    "text": "James replied to the message.",
+    "category": "corrections_fulfillment",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 45,
+    "text": "I finished the report.",
+    "category": "corrections_fulfillment",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 46,
+    "text": "Don't ask me about Ashley until next week.",
+    "category": "suppression_loops",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 47,
+    "text": "Stop asking me about the investor deck.",
+    "category": "suppression_loops",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 48,
+    "text": "Ask me tomorrow how the appointment went.",
+    "category": "suppression_loops",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 49,
+    "text": "Remind me to ask Ashley tomorrow.",
+    "category": "suppression_loops",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 50,
+    "text": "Leave this alone for now.",
+    "category": "suppression_loops",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 51,
+    "text": "I think Ashley might be stressed because of work.",
+    "category": "epistemic_domain",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 52,
+    "text": "Ashley is stressed about the launch.",
+    "category": "epistemic_domain",
+    "expected_candidates": 1,
+    "should_persist": true
+  },
+  {
+    "id": 53,
+    "text": "lol",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 54,
+    "text": "Good morning!",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 55,
+    "text": "Thanks so much!",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 56,
+    "text": "Haha that's funny.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 57,
+    "text": "Okay sounds good.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 58,
+    "text": "James said he'll complete task 58 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 59,
+    "text": "Thanks for help on 59.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 60,
+    "text": "I'll work on item 60 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 61,
+    "text": "I'm really happy about progress 61!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 62,
+    "text": "James said he'll complete task 62 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 63,
+    "text": "Thanks for help on 63.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 64,
+    "text": "I'll work on item 64 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 65,
+    "text": "I'm really happy about progress 65!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 66,
+    "text": "James said he'll complete task 66 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 67,
+    "text": "Thanks for help on 67.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 68,
+    "text": "I'll work on item 68 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 69,
+    "text": "I'm really happy about progress 69!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 70,
+    "text": "James said he'll complete task 70 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 71,
+    "text": "Thanks for help on 71.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 72,
+    "text": "I'll work on item 72 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 73,
+    "text": "I'm really happy about progress 73!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 74,
+    "text": "James said he'll complete task 74 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 75,
+    "text": "Thanks for help on 75.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 76,
+    "text": "I'll work on item 76 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 77,
+    "text": "I'm really happy about progress 77!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 78,
+    "text": "James said he'll complete task 78 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 79,
+    "text": "Thanks for help on 79.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 80,
+    "text": "I'll work on item 80 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 81,
+    "text": "I'm really happy about progress 81!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 82,
+    "text": "James said he'll complete task 82 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 83,
+    "text": "Thanks for help on 83.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 84,
+    "text": "I'll work on item 84 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 85,
+    "text": "I'm really happy about progress 85!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 86,
+    "text": "James said he'll complete task 86 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 87,
+    "text": "Thanks for help on 87.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 88,
+    "text": "I'll work on item 88 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 89,
+    "text": "I'm really happy about progress 89!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 90,
+    "text": "James said he'll complete task 90 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 91,
+    "text": "Thanks for help on 91.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 92,
+    "text": "I'll work on item 92 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 93,
+    "text": "I'm really happy about progress 93!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 94,
+    "text": "James said he'll complete task 94 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 95,
+    "text": "Thanks for help on 95.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 96,
+    "text": "I'll work on item 96 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 97,
+    "text": "I'm really happy about progress 97!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 98,
+    "text": "James said he'll complete task 98 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 99,
+    "text": "Thanks for help on 99.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 100,
+    "text": "I'll work on item 100 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 101,
+    "text": "I'm really happy about progress 101!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 102,
+    "text": "James said he'll complete task 102 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 103,
+    "text": "Thanks for help on 103.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 104,
+    "text": "I'll work on item 104 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 105,
+    "text": "I'm really happy about progress 105!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 106,
+    "text": "James said he'll complete task 106 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  },
+  {
+    "id": 107,
+    "text": "Thanks for help on 107.",
+    "category": "ordinary_chat",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 108,
+    "text": "I'll work on item 108 tonight.",
+    "category": "commitments_intentions",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "user_intention",
+    "expected_actor": "mukesh"
+  },
+  {
+    "id": 109,
+    "text": "I'm really happy about progress 109!",
+    "category": "emotional_non_operational",
+    "expected_candidates": 0,
+    "should_persist": false
+  },
+  {
+    "id": 110,
+    "text": "James said he'll complete task 110 tomorrow.",
+    "category": "third_party_promises",
+    "expected_candidates": 1,
+    "should_persist": true,
+    "expected_type": "external_dependency",
+    "expected_actor": "James"
+  }
+]

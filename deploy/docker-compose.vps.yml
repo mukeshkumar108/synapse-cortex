@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: synapse-cortex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: synapse_cortex
+      POSTGRES_USER: synapse_cortex
+      POSTGRES_PASSWORD: ${SYNAPSE_CORTEX_DB_PASSWORD}
+    volumes:
+      - synapse_cortex_pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse_cortex -d synapse_cortex"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: synapse-cortex
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENV: production
+      PYTHONPATH: /app
+      DATABASE_URL: postgresql+asyncpg://synapse_cortex:${SYNAPSE_CORTEX_DB_PASSWORD}@postgres:5432/synapse_cortex
+      SYNAPSE_CORTEX_API_TOKEN: ${SYNAPSE_CORTEX_API_TOKEN}
+    expose: ["8010"]
+    networks: [internal, proxy]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+volumes:
+  synapse_cortex_pgdata:
+
+networks:
+  internal:
+    internal: true
+  proxy:
+    external: true
+    name: stack_backend
