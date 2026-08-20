@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.expectation import Expectation, OutcomeState, ExpectationType
 from src.models.open_loop import OpenLoop, OpenLoopStatus
 from src.models.suppression import Suppression, SuppressionStatus
+from src.models.attention_candidate import AttentionCandidate, AttentionCandidateStatus
 from src.services.expectation_engine import derive_expectation_read_model, derive_temporal_state
 
 logger = logging.getLogger(__name__)
@@ -208,6 +209,48 @@ class CortexPacketService:
                     "explicitly_invited": explicitly_invited,
                 })
 
+        # 4. Fetch grounded Sophie-side attention. Candidates are permission to
+        # carry something, never an instruction to say it now.
+        stmt_attention = select(AttentionCandidate).where(
+            AttentionCandidate.honcho_workspace_id == workspace_id,
+            AttentionCandidate.honcho_session_id == session_id,
+            AttentionCandidate.status == AttentionCandidateStatus.ACTIVE,
+        )
+        res_attention = await db.execute(stmt_attention)
+        attention_rows = list(res_attention.scalars().all())
+        active_attention = []
+        for candidate in attention_rows:
+            if candidate.expires_at and candidate.expires_at < now_utc:
+                candidate.status = AttentionCandidateStatus.EXPIRED
+                candidate.updated_at = now_utc
+                db.add(candidate)
+                continue
+            if candidate.not_before and candidate.not_before > now_utc:
+                continue
+            active_attention.append(candidate)
+        if len(active_attention) != len(attention_rows):
+            await db.commit()
+        active_attention.sort(
+            key=lambda item: (-item.salience, -item.confidence, item.created_at)
+        )
+        sophie_attention = [
+            {
+                "id": str(item.id),
+                "type": item.kind.value,
+                "content": item.content,
+                "salience": item.salience,
+                "confidence": item.confidence,
+                "evidence_refs": [
+                    ref for ref in (
+                        item.source_message_id,
+                        item.source_assistant_message_id,
+                    ) if ref
+                ],
+                "surfaced_count": item.surfaced_count,
+            }
+            for item in active_attention[:5]
+        ]
+
         temporal_priority = {
             "deadline_passed": 0,
             "window_elapsed": 1,
@@ -256,6 +299,7 @@ class CortexPacketService:
                 for s in active_suppressions[:5]
             ],
             "important_but_can_wait": [],
+            "sophie_attention": sophie_attention,
             "relevant_honcho_message_ids": sorted({
                 item["honcho_message_id"] for item in followups[:5]
             } | {
@@ -346,6 +390,7 @@ class CortexPacketService:
             }
             for item in packet.get("open_loops", [])[:3]
         ]
+        sophie_attention = packet.get("sophie_attention", [])[:5]
         recent_resolutions = [
             {
                 "topic": item.get("title") or "Resolved thread",
@@ -369,6 +414,7 @@ class CortexPacketService:
             },
             "continuity": continuity[:5],
             "open_threads": open_threads,
+            "sophie_attention": sophie_attention,
             "recent_resolutions": recent_resolutions,
             "avoid_repeating": avoid_repeating,
             "relevant_honcho_message_ids": packet.get(

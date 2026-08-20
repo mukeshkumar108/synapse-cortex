@@ -1,6 +1,7 @@
 import logging
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert
 
 from src.db import get_async_session
 from src.schemas.expectation import TurnEventIngest
@@ -9,6 +10,12 @@ from src.services.expectation_shaper import ExpectationShaper
 from src.services.temporal_grounding import TemporalGrounding
 from src.services.persistence import save_expectation_idempotent
 from src.services.lifecycle_service import LifecycleService
+from src.models.attention_candidate import (
+    AttentionCandidate,
+    AttentionCandidateStatus,
+    utc_now as attention_utc_now,
+)
+from src.schemas.attention_candidate import AttentionCandidatesIngest
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +25,45 @@ turn_extractor = TurnExtractor()
 expectation_shaper = ExpectationShaper()
 temporal_grounder = TemporalGrounding()
 lifecycle_service = LifecycleService()
+
+
+@router.post("/attention", status_code=status.HTTP_202_ACCEPTED)
+async def ingest_attention_candidates(
+    payload: AttentionCandidatesIngest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Persist bounded, provenance-linked Sophie-side attention candidates."""
+    created = 0
+    for candidate in payload.candidates:
+        values = {
+            "honcho_workspace_id": payload.workspace_id,
+            "honcho_session_id": payload.session_id,
+            "source_message_id": payload.source_message_id,
+            "source_assistant_message_id": payload.source_assistant_message_id,
+            "candidate_key": candidate.key,
+            "kind": candidate.kind,
+            "content": candidate.content,
+            "salience": candidate.salience,
+            "confidence": candidate.confidence,
+            "not_before": candidate.not_before,
+            "expires_at": candidate.expires_at,
+            "status": AttentionCandidateStatus.ACTIVE,
+            "surfaced_count": 0,
+            "created_at": attention_utc_now(),
+            "updated_at": attention_utc_now(),
+        }
+        result = await db.execute(
+            insert(AttentionCandidate)
+            .values(**values)
+            .on_conflict_do_nothing(
+                constraint="uq_attention_candidate_workspace_source_key"
+            )
+            .returning(AttentionCandidate.id)
+        )
+        if result.scalar_one_or_none() is not None:
+            created += 1
+    await db.commit()
+    return {"status": "accepted", "candidates_created": created}
 
 
 @router.post("/turn", status_code=status.HTTP_202_ACCEPTED)

@@ -4,6 +4,7 @@ from src.models.suppression import Suppression, SuppressionTarget, SuppressionSt
 from src.models.clarification import ClarificationCandidate, ClarificationType, ClarificationStatus
 from src.models.epistemic import EpistemicAnnotation, EpistemicProvenance
 from src.models.domain_annotation import DomainAnnotation, DomainTag, CategoryTag
+from src.models.attention_candidate import AttentionCandidate, AttentionCandidateKind, AttentionCandidateStatus
 
 __all__ = [
     "Expectation",
@@ -23,4 +24,7 @@ __all__ = [
     "DomainAnnotation",
     "DomainTag",
     "CategoryTag",
+    "AttentionCandidate",
+    "AttentionCandidateKind",
+    "AttentionCandidateStatus",
 ]
