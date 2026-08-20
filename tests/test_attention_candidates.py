@@ -2,6 +2,15 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from src.routers.v1_events import _naive_utc
+
+
+def test_attention_timestamps_are_normalized_to_naive_utc_for_postgres():
+    value = datetime(2026, 8, 20, 21, 0, tzinfo=timezone(timedelta(hours=1)))
+    normalized = _naive_utc(value)
+    assert normalized == datetime(2026, 8, 20, 20, 0)
+    assert normalized.tzinfo is None
+
 
 @pytest.mark.asyncio
 async def test_attention_candidate_is_idempotent_and_reaches_continuity(async_client):

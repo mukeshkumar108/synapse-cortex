@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
@@ -27,6 +28,13 @@ temporal_grounder = TemporalGrounding()
 lifecycle_service = LifecycleService()
 
 
+def _naive_utc(value: datetime | None) -> datetime | None:
+    """Match PostgreSQL TIMESTAMP WITHOUT TIME ZONE columns at the API edge."""
+    if value is None or value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 @router.post("/attention", status_code=status.HTTP_202_ACCEPTED)
 async def ingest_attention_candidates(
     payload: AttentionCandidatesIngest,
@@ -45,8 +53,8 @@ async def ingest_attention_candidates(
             "content": candidate.content,
             "salience": candidate.salience,
             "confidence": candidate.confidence,
-            "not_before": candidate.not_before,
-            "expires_at": candidate.expires_at,
+            "not_before": _naive_utc(candidate.not_before),
+            "expires_at": _naive_utc(candidate.expires_at),
             "status": AttentionCandidateStatus.ACTIVE,
             "surfaced_count": 0,
             "created_at": attention_utc_now(),
