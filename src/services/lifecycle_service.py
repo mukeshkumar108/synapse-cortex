@@ -244,6 +244,8 @@ class LifecycleService:
         message_id: str,
         candidate: ExtractionCandidate,
         expectation_id: Optional[UUID] = None,
+        now: Optional[datetime] = None,
+        timezone_str: str = "UTC",
     ) -> Optional[OpenLoop]:
         if not candidate.open_loop_hint:
             return None
@@ -257,15 +259,23 @@ class LifecycleService:
         if existing:
             return existing
 
+        expires_at = None
+        expiry_phrase = candidate.expiry_phrase or candidate.temporal_phrase
+        if expiry_phrase and now:
+            _start, window_end, deadline = temporal_grounder.ground_expression(
+                raw_phrase=expiry_phrase, now=now, timezone_str=timezone_str
+            )
+            expires_at = deadline or window_end
         open_loop = OpenLoop(
             honcho_workspace_id=workspace_id,
             honcho_session_id=session_id,
             honcho_message_id=message_id,
             candidate_key=candidate.candidate_key,
             expectation_id=expectation_id,
-            title="Invited follow-up" if "follow" in candidate.open_loop_hint.lower() else "Open loop",
-            summary=f"honcho_message:{message_id}#candidate:{candidate.candidate_key}",
+            title="Invited follow-up" if "follow" in candidate.open_loop_hint.lower() or candidate.operational_kind == "open_loop" else "Open loop",
+            summary=candidate.canonical_title or candidate.open_loop_hint,
             status=OpenLoopStatus.OPEN,
+            expires_at=expires_at,
         )
         db.add(open_loop)
         try:
@@ -330,14 +340,20 @@ class LifecycleService:
         )
         suppressed_until = win_end or hard_deadline
 
+        try:
+            target_type = SuppressionTarget(hint.get("target_type", "topic"))
+        except ValueError:
+            logger.warning("Rejected invalid suppression target_type=%r", hint.get("target_type"))
+            return None
         suppression = Suppression(
             honcho_workspace_id=workspace_id,
             honcho_session_id=session_id,
             honcho_message_id=message_id,
             candidate_key=candidate.candidate_key,
-            target_type=SuppressionTarget(hint.get("target_type", "topic")),
+            target_type=target_type,
             topic_or_entity=hint.get("topic_or_entity"),
             reason="user_explicit_suppression",
+            surface_scope=hint.get("action_scope") or "all_surfaces",
             suppressed_until=suppressed_until,
             reopen_condition=hint.get("reopen_condition"),
             status=SuppressionStatus.ACTIVE,

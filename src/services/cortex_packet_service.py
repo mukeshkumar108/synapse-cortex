@@ -8,6 +8,8 @@ from src.models.expectation import Expectation, OutcomeState, ExpectationType
 from src.models.open_loop import OpenLoop, OpenLoopStatus
 from src.models.suppression import Suppression, SuppressionStatus
 from src.models.attention_candidate import AttentionCandidate, AttentionCandidateStatus
+from src.models.operational_state import (RecurringIntention, RecurringOccurrence,
+    ObjectiveProgress, OperationalStatus)
 from src.services.expectation_engine import derive_expectation_read_model, derive_temporal_state
 
 logger = logging.getLogger(__name__)
@@ -79,6 +81,7 @@ class CortexPacketService:
             # Check suppression match
             exp_text = f"{exp.title} {exp.summary}".lower()
             is_suppressed = any(
+                supp.surface_scope in ("all_surfaces", "followup_prompt") and (
                 (supp.target_type.value == "expectation" and supp.target_id == str(exp.id))
                 or (
                     supp.topic_or_entity
@@ -87,7 +90,7 @@ class CortexPacketService:
                         for token in supp.topic_or_entity.lower().split()
                         if len(token) >= 4
                     )
-                )
+                ))
                 for supp in active_suppressions
             )
 
@@ -179,6 +182,7 @@ class CortexPacketService:
             ):
                 continue
             is_suppressed = any(
+                supp.surface_scope in ("all_surfaces", "followup_prompt") and (
                 (supp.target_type.value == "open_loop" and supp.target_id == str(loop.id))
                 or (
                     supp.topic_or_entity
@@ -186,7 +190,7 @@ class CortexPacketService:
                         supp.topic_or_entity.lower() in loop.title.lower()
                         or supp.topic_or_entity.lower() in loop.summary.lower()
                     )
-                )
+                ))
                 for supp in active_suppressions
             ) or (loop.expectation_id is not None and str(loop.expectation_id) in suppressed_expectation_ids) \
                 or loop.honcho_message_id in suppressed_message_ids
@@ -196,8 +200,8 @@ class CortexPacketService:
                     "id": str(loop.id),
                     "honcho_message_id": loop.honcho_message_id,
                     "title": (
-                        linked_expectation.title
-                        if linked_expectation and loop.title == "Invited follow-up"
+                        (linked_expectation.title if linked_expectation else loop.summary)
+                        if loop.title == "Invited follow-up"
                         else loop.title
                     ),
                     "summary": (
@@ -277,6 +281,35 @@ class CortexPacketService:
             )
         )
 
+        try:
+            from zoneinfo import ZoneInfo
+            user_day = (now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now).astimezone(ZoneInfo(timezone_str)).date()
+        except Exception:
+            user_day = now_utc.date()
+        recurrences = (await db.execute(select(RecurringIntention).where(
+            RecurringIntention.honcho_workspace_id == workspace_id,
+            RecurringIntention.honcho_session_id == session_id,
+            RecurringIntention.status == OperationalStatus.ACTIVE,
+        ).order_by(RecurringIntention.updated_at.desc()))).scalars().all()
+        recurring_items = []
+        for recurrence in recurrences[:8]:
+            occurrence = (await db.execute(select(RecurringOccurrence).where(
+                RecurringOccurrence.recurring_intention_id == recurrence.id,
+                RecurringOccurrence.user_day == user_day,
+            ))).scalar_one_or_none()
+            recurring_items.append({
+                "id": str(recurrence.id), "title": recurrence.title,
+                "cadence": recurrence.cadence, "preferred_window": recurrence.preferred_window,
+                "target_amount": recurrence.target_amount, "target_unit": recurrence.target_unit,
+                "user_day": user_day.isoformat(),
+                "occurrence_status": occurrence.status.value if occurrence else "pending",
+                "evidence_ref": recurrence.honcho_message_id,
+            })
+        progress_rows = (await db.execute(select(ObjectiveProgress).where(
+            ObjectiveProgress.honcho_workspace_id == workspace_id,
+            ObjectiveProgress.honcho_session_id == session_id,
+        ).order_by(ObjectiveProgress.created_at.desc()).limit(3))).scalars().all()
+
         packet = {
             "workspace_id": workspace_id,
             "session_id": session_id,
@@ -294,12 +327,19 @@ class CortexPacketService:
                     "target_type": s.target_type.value,
                     "topic_or_entity": s.topic_or_entity,
                     "reason": s.reason,
+                    "surface_scope": s.surface_scope,
                     "suppressed_until": s.suppressed_until.isoformat() if s.suppressed_until else None,
                 }
                 for s in active_suppressions[:5]
             ],
             "important_but_can_wait": [],
             "sophie_attention": sophie_attention,
+            "recurring_intentions": recurring_items[:4],
+            "recent_progress": [{
+                "id": str(item.id), "expectation_id": str(item.expectation_id) if item.expectation_id else None,
+                "title": item.title, "amount": item.amount, "unit": item.unit,
+                "user_day": item.user_day.isoformat(), "evidence_ref": item.honcho_message_id,
+            } for item in progress_rows],
             "relevant_honcho_message_ids": sorted({
                 item["honcho_message_id"] for item in followups[:5]
             } | {
@@ -360,6 +400,16 @@ class CortexPacketService:
                 "why_relevant_now": item.get("reason") or "A follow-up window is active.",
                 "evidence_refs": [item.get("honcho_message_id")]
                 if item.get("honcho_message_id") else [],
+            })
+        for item in packet.get("recurring_intentions", [])[:2]:
+            if item.get("occurrence_status") != "pending" or len(continuity) >= 5:
+                continue
+            continuity.append({
+                "type": "recurring_intention",
+                "topic": item.get("title") or "Recurring intention",
+                "status": "pending_today",
+                "why_relevant_now": "This occurrence is pending for the current UserDay.",
+                "evidence_refs": [item.get("evidence_ref")] if item.get("evidence_ref") else [],
             })
         seen_topics = {str(item.get("topic", "")).lower() for item in continuity}
         for item in packet.get("active_expectations", [])[:4]:

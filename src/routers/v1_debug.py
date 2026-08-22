@@ -12,6 +12,8 @@ from src.models.suppression import Suppression
 from src.models.epistemic import EpistemicAnnotation
 from src.models.domain_annotation import DomainAnnotation
 from src.models.clarification import ClarificationCandidate
+from src.models.operational_state import (ExtractionTrace, RecurringIntention,
+    RecurringOccurrence, ObjectiveProgress)
 from src.services.expectation_engine import derive_expectation_read_model
 
 logger = logging.getLogger(__name__)
@@ -114,6 +116,31 @@ async def get_recent_decisions(
         stmt_clar = stmt_clar.where(ClarificationCandidate.honcho_message_id == message_id)
     clarifications = (await db.execute(stmt_clar)).scalars().all()
 
+    trace_stmt = select(ExtractionTrace)
+    recurrence_stmt = select(RecurringIntention)
+    occurrence_stmt = select(RecurringOccurrence)
+    progress_stmt = select(ObjectiveProgress)
+    if workspace_id:
+        trace_stmt = trace_stmt.where(ExtractionTrace.honcho_workspace_id == workspace_id)
+        recurrence_stmt = recurrence_stmt.where(RecurringIntention.honcho_workspace_id == workspace_id)
+        occurrence_stmt = occurrence_stmt.where(RecurringOccurrence.honcho_workspace_id == workspace_id)
+        progress_stmt = progress_stmt.where(ObjectiveProgress.honcho_workspace_id == workspace_id)
+    if session_id:
+        trace_stmt = trace_stmt.where(ExtractionTrace.honcho_session_id == session_id)
+        recurrence_stmt = recurrence_stmt.where(RecurringIntention.honcho_session_id == session_id)
+        progress_stmt = progress_stmt.where(ObjectiveProgress.honcho_session_id == session_id)
+    if message_id is not None:
+        trace_stmt = trace_stmt.where(ExtractionTrace.honcho_message_id == message_id)
+        recurrence_stmt = recurrence_stmt.where(RecurringIntention.honcho_message_id == message_id)
+        progress_stmt = progress_stmt.where(ObjectiveProgress.honcho_message_id == message_id)
+    traces = (await db.execute(trace_stmt.order_by(ExtractionTrace.created_at.desc()).limit(limit))).scalars().all()
+    recurrences = (await db.execute(recurrence_stmt)).scalars().all()
+    occurrences = (await db.execute(occurrence_stmt)).scalars().all()
+    if workspace_id or session_id:
+        recurrence_ids = {item.id for item in recurrences}
+        occurrences = [item for item in occurrences if item.recurring_intention_id in recurrence_ids]
+    progress = (await db.execute(progress_stmt)).scalars().all()
+
     return {
         "count": len(decisions),
         "decisions": decisions,
@@ -133,6 +160,7 @@ async def get_recent_decisions(
                 "target_type": s.target_type.value,
                 "topic_or_entity": s.topic_or_entity,
                 "reason": s.reason,
+                "surface_scope": s.surface_scope,
                 "suppressed_until": s.suppressed_until.isoformat() if s.suppressed_until else None,
                 "status": s.status.value,
             }
@@ -158,4 +186,12 @@ async def get_recent_decisions(
             }
             for item in clarifications
         ],
+        "extraction_traces": [{"stage": t.stage, "item_key": t.item_key, "status": t.status,
+            "detail": t.detail_json, "model": t.model} for t in traces],
+        "recurring_intentions": [{"id": str(r.id), "title": r.title, "cadence": r.cadence,
+            "status": r.status.value, "source_message_id": r.honcho_message_id} for r in recurrences],
+        "recurring_occurrences": [{"id": str(o.id), "recurring_intention_id": str(o.recurring_intention_id),
+            "user_day": o.user_day.isoformat(), "status": o.status.value} for o in occurrences],
+        "objective_progress": [{"id": str(p.id), "title": p.title, "amount": p.amount,
+            "unit": p.unit, "expectation_id": str(p.expectation_id) if p.expectation_id else None} for p in progress],
     }

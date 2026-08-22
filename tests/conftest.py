@@ -1,3 +1,6 @@
+import os
+os.environ.setdefault("SYNAPSE_EXTRACTOR_PROVIDER", "rules")
+
 import pytest
 from httpx import AsyncClient, ASGITransport
 from sqlmodel import SQLModel

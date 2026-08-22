@@ -3,9 +3,10 @@ import json
 import logging
 import os
 import re
+import time
 from typing import Any, Dict, List, Optional
 import httpx
-from src.schemas.candidate import ExtractionCandidate
+from src.schemas.candidate import ExtractionCandidate, ExtractionResult, LooseObservation
 
 logger = logging.getLogger(__name__)
 
@@ -321,108 +322,246 @@ class RuleBasedExtractorProvider(BaseExtractorProvider):
 
 
 class LLMExtractorProvider(BaseExtractorProvider):
-    """
-    Model-backed extraction provider utilizing configured LLM endpoint.
-    Parses turn text into typed `ExtractionCandidate` models.
-    """
+    """Two-stage model-led watcher: loose noticing, then schema shaping."""
 
     def __init__(
         self, api_url: Optional[str] = None, api_key: Optional[str] = None,
-        model: Optional[str] = None, fallback_on_error: bool = True,
+        model: Optional[str] = None, fallback_on_error: bool = False,
     ):
-        self.api_url = api_url or os.getenv("SYNAPSE_MODEL_URL") or "https://api.openai.com/v1/chat/completions"
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or ""
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("XAI_API_KEY") or ""
+        default_url = ("https://openrouter.ai/api/v1/chat/completions"
+                       if os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY")
+                       else "https://api.openai.com/v1/chat/completions")
+        self.api_url = api_url or os.getenv("SYNAPSE_MODEL_URL") or default_url
         self.model = model or os.getenv("SYNAPSE_EXTRACTOR_MODEL") or "gpt-4o-mini"
         self.fallback_on_error = fallback_on_error
         self.last_backend = "unavailable"
+        self.last_observations: List[LooseObservation] = []
+        self.last_failure: Optional[str] = None
+        self.last_stage_metrics: Dict[str, Dict[str, Any]] = {}
+        self._last_call_usage: Dict[str, Any] = {}
+
+    def _chat_json(self, prompt: str) -> Any:
+        attempts = max(1, min(2, int(os.getenv("SYNAPSE_EXTRACTOR_MAX_ATTEMPTS", "2"))))
+        last_error: Optional[Exception] = None
+        for attempt in range(attempts):
+            try:
+                with httpx.Client(timeout=float(os.getenv("SYNAPSE_EXTRACTOR_TIMEOUT_SECONDS", "8"))) as client:
+                    response = client.post(
+                        self.api_url,
+                        headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                        json={
+                            "model": self.model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "temperature": 0.0,
+                            "response_format": {"type": "json_object"},
+                        },
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    self._last_call_usage = payload.get("usage") or {}
+                    content = payload["choices"][0]["message"]["content"]
+                    return json.loads(content)
+            except (httpx.HTTPError, KeyError, TypeError, json.JSONDecodeError) as err:
+                last_error = err
+                if attempt + 1 < attempts:
+                    logger.warning("Model stage attempt %s/%s failed; retrying", attempt + 1, attempts)
+        assert last_error is not None
+        raise last_error
 
     def extract(self, text: str, peer_id: Optional[str] = None) -> List[ExtractionCandidate]:
         if not self.api_key:
-            if not self.fallback_on_error:
-                raise RuntimeError("LLM extractor credentials are unavailable")
-            logger.warning("LLMExtractorProvider called without API key; falling back to RuleBasedExtractorProvider")
-            self.last_backend = "rules_fallback"
-            return RuleBasedExtractorProvider().extract(text, peer_id=peer_id)
-
-        prompt = f"""Extract companion state candidates from the following turn.
-Turn Text: "{text}"
-Peer ID: "{peer_id or 'user'}"
-
-Return JSON array of candidates matching this schema:
-[
-  {{
-    "candidate_key": "ignored_by_server",
-    "source_start": 0,
-    "source_end": 12,
-    "observation": "exact verbatim substring of Turn Text",
-    "actor_peer_id": "user",
-    "subject_peer_id": "user",
-    "expectation_type_hint": "user_intention | user_commitment | external_dependency | planned_event | expected_outcome | followup_invitation | null",
-    "temporal_phrase": "tonight",
-    "confidence": 0.9,
-    "is_negated": false,
-    "is_hypothetical": false,
-    "is_reported_speech": false,
-    "is_quoted": false,
-    "is_sarcastic": false,
-    "epistemic_provenance": "direct_statement | attributed_belief | reported_statement",
-    "domain_tag": "work | relationship | health",
-    "category_tag": "win | struggle | ask_about_later",
-    "open_loop_hint": null,
-    "suppression_hint": null,
-    "clarification_hint": null,
-    "resolution_hint": null
-  }}
-]
-
-Emit evidence candidates only. Never decide or mutate lifecycle state. Preserve negation,
-quotation, uncertainty, reported speech, actor, subject, and exact source spans. Use null
-for absent hints. Prefer no candidate over an unsupported inference."""
+            self.last_backend = "failed"
+            self.last_failure = "credentials_unavailable"
+            return []
 
         try:
-            with httpx.Client(timeout=4.0) as client:
-                response = client.post(
-                    self.api_url,
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self.model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.0,
-                    },
-                )
-                if response.status_code == 200:
-                    self.last_backend = "model"
-                    content = response.json()["choices"][0]["message"]["content"]
-                    match = re.search(r"\[.*\]", content, re.DOTALL)
-                    if match:
-                        raw_candidates = json.loads(match.group(0))
-                        candidates = []
-                        for i, item in enumerate(raw_candidates):
-                            observation = str(item.get("observation") or "")
-                            start = item.get("source_start")
-                            end = item.get("source_end")
-                            if not isinstance(start, int) or not isinstance(end, int) or text[start:end] != observation:
-                                start = text.lower().find(observation.lower()) if observation else -1
-                                end = start + len(observation) if start >= 0 else -1
-                            if start < 0 or end <= start or text[start:end].lower() != observation.lower():
-                                logger.warning("Discarding model candidate without verbatim source evidence")
-                                continue
-                            item["source_start"] = start
-                            item["source_end"] = end
-                            key_raw = f"{start}:{end}:{observation.lower()}"
-                            item["candidate_key"] = f"c_{hashlib.md5(key_raw.encode()).hexdigest()[:10]}"
-                            candidates.append(ExtractionCandidate(**item))
-                        return candidates
-        except Exception as err:
-            logger.warning("LLMExtractorProvider call failed (%s); falling back to rules", err)
+            self.last_stage_metrics = {}
+            loose_started = time.perf_counter()
+            loose = self._chat_json(f"""You are the loose-noticing stage of a companion's operational watcher.
+Notice meaning before categorising. From the latest USER TURN, describe only things that may
+have changed operationally: unresolved obligations, commitments, recurring intentions,
+upcoming events, follow-ups, important current state, cancellations, completions, progress,
+boundaries/suppressions, or active project focus. Static background or aspirations normally
+belong in semantic memory and should not be promoted. Natural phrasing such as 'still need',
+'been meaning to', 'I'd like to', 'managed to', and 'forget that' is meaningful.
+Return JSON {{"observations": [...]}} with at most 8 items. Each item: description (plain
+semantic English, need not be verbatim), evidence_text (verbatim supporting excerpt),
+source_start/source_end when confident, confidence 0..1, actor_peer_id, subject_refs array,
+temporal_language. When one turn reports concrete progress/accomplishment AND says the larger
+goal remains unresolved (for example "sent three applications but still need to keep
+applying"), emit two observations: the progress event and the continuing objective. Do not
+collapse them. Do not assign operational types. Do not invent context.
+Treat "I did my walk today" as completion of today's walk, not generic progress. Notice
+explicit recurrence revisions such as changing "every day" to Monday/Wednesday/Friday as a
+replacement of the prior cadence. Treat an outcome report such as "Ashley's event went
+really well" as resolution/outcome of that event or follow-up, not as a newly upcoming event.
+USER TURN: {json.dumps(text)}
+PEER: {json.dumps(peer_id or 'user')}""")
+            self.last_stage_metrics["loose"] = {
+                "latency_ms": round((time.perf_counter() - loose_started) * 1000, 1),
+                "usage": dict(self._last_call_usage),
+            }
+            observations = []
+            for i, raw in enumerate((loose.get("observations") or [])[:8]):
+                evidence = str(raw.get("evidence_text") or "")
+                if not evidence or evidence.lower() not in text.lower():
+                    continue
+                start = text.lower().find(evidence.lower())
+                raw.update(observation_id=f"o_{hashlib.sha1(evidence.lower().encode()).hexdigest()[:10]}",
+                           source_start=start, source_end=start + len(evidence))
+                observations.append(LooseObservation(**raw))
+            self.last_observations = observations
+            if not observations:
+                self.last_backend = "model"
+                return []
 
-        if not self.fallback_on_error:
-            raise RuntimeError("LLM extractor request failed")
-        self.last_backend = "rules_fallback"
-        return RuleBasedExtractorProvider().extract(text, peer_id=peer_id)
+            shape_started = time.perf_counter()
+            shaped = self._chat_json(f"""You are the lane-shaping stage. Map untrusted loose observations into
+bounded operational proposals. Return JSON {{"candidates": [...]}}. Valid operational_kind:
+expectation, durable_objective, recurring_intention, progress, completion, cancellation,
+suppression, open_loop, event, semantic_only. Recurrence must include cadence daily/weekly/
+interval; optional days_of_week uses Monday=0. Use recurring_intention ONLY when the user
+explicitly states an established cadence or clear scheduled commitment (for example "every
+day", "weekly", or named weekdays). Never invent a cadence for an ongoing objective, a
+one-off follow-up, "keep applying", "start exercising", or something the user explicitly
+says is not yet a routine. "I still need to apply for jobs" is a durable_objective, not a
+recurrence. "Check in later" is a one-off open_loop. Progress must not imply parent
+completion; a progress turn may also restate a durable parent objective, but never convert
+that parent into an invented recurrence.
+Use progress only for a concrete accomplishment or measurable advancement that already
+happened (for example sent/submitted/completed/built a count or portion). "I'm fixing X
+right now" is current focus/objective, not a progress event. A desire that a product should
+not feel/look/sound a certain way is product semantics, not a companion suppression.
+"Leave her alone while the event is happening" is an outbound_contact suppression scoped
+to that event/window, while a separate desire to check in later is an open_loop.
+"I did my walk today" is completion (target_key walk), not progress. "Ashley's event went
+well" is completion/resolution (target_key Ashley event), not a new event. A change from
+daily to Monday/Wednesday/Friday is a revised recurring_intention with cadence weekly and
+days_of_week [0,2,4], so deterministic reconciliation can supersede the prior cadence.
+Cancellation/completion should include target_key/canonical_title. Time-bound follow-ups use
+open_loop_hint and expiry_phrase. Suppressions include suppression_hint with target_type,
+topic_or_entity, action_scope, raw_temporal_phrase. Static descriptions use semantic_only.
+Project descriptions, product purpose, motivation, and hoped-for impact are semantic_only
+unless the turn contains a concrete operational transition beyond "I'm working on X because
+I want to create Y". If the user says a possible routine is not established, preserve that
+uncertainty: use durable_objective/expectation at reduced confidence or semantic_only, never
+an established recurring_intention.
+Each candidate must include loose_observation_id, observation, raw_evidence, confidence,
+canonical_title, actor_peer_id, subject_peer_id, temporal_phrase, expectation_type_hint,
+cadence, interval_days, days_of_week, preferred_window, target_amount, target_unit,
+progress_amount, progress_unit, expiry_phrase, open_loop_hint, suppression_hint,
+resolution_hint. Use null/[] when absent. At most one proposal per observation.
+OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}""")
+            self.last_stage_metrics["shape"] = {
+                "latency_ms": round((time.perf_counter() - shape_started) * 1000, 1),
+                "usage": dict(self._last_call_usage),
+            }
+            candidates = []
+            by_id = {o.observation_id: o for o in observations}
+            for raw in (shaped.get("candidates") or [])[:8]:
+                obs = by_id.get(raw.get("loose_observation_id"))
+                if not obs:
+                    continue
+                kind = raw.get("operational_kind")
+                validation_notes = []
+                for hint_field in ("resolution_hint", "suppression_hint", "clarification_hint"):
+                    if raw.get(hint_field) is not None and not isinstance(raw.get(hint_field), dict):
+                        raw[hint_field] = None
+                        validation_notes.append(f"discarded_malformed_{hint_field}")
+                if raw.get("suppression_hint") and kind != "suppression":
+                    raw["suppression_hint"] = None
+                    validation_notes.append("discarded_suppression_hint_from_non_suppression_lane")
+                if raw.get("suppression_hint"):
+                    hint = raw["suppression_hint"]
+                    if hint.get("target_type") not in {
+                        "expectation", "open_loop", "topic", "entity", "honcho_ref"
+                    }:
+                        hint["target_type"] = "topic"
+                        validation_notes.append("normalized_invalid_suppression_target_type")
+                    if hint.get("action_scope") not in {
+                        None, "all_surfaces", "followup_prompt", "outbound_contact"
+                    }:
+                        hint["action_scope"] = "all_surfaces"
+                        validation_notes.append("normalized_invalid_suppression_action_scope")
+                evidence_lower = obs.evidence_text.lower()
+                if kind == "suppression" and re.search(
+                    r"\bdon't want (?:it|the .+?) to (?:feel|look|sound|be)\b", evidence_lower
+                ):
+                    raw["operational_kind"] = "semantic_only"
+                    raw["suppression_hint"] = None
+                    kind = "semantic_only"
+                    validation_notes.append("demoted_product_preference_from_suppression")
+                if kind == "progress" and not re.search(
+                    r"\b(?:sent|submitted|completed|finished|did|made|built|wrote|applied|managed)\b|\b\d+\b",
+                    evidence_lower,
+                ):
+                    raw["operational_kind"] = "durable_objective"
+                    kind = "durable_objective"
+                    validation_notes.append("demoted_non_accomplishment_from_progress")
+                if kind == "durable_objective" and not raw.get("expectation_type_hint"):
+                    raw["expectation_type_hint"] = "user_commitment"
+                    validation_notes.append("defaulted_durable_objective_expectation_type")
+                elif kind == "event" and not raw.get("expectation_type_hint"):
+                    raw["expectation_type_hint"] = "planned_event"
+                    validation_notes.append("defaulted_event_expectation_type")
+                elif kind == "expectation" and not raw.get("expectation_type_hint"):
+                    raw["expectation_type_hint"] = "user_intention"
+                    validation_notes.append("defaulted_expectation_type")
+                if kind == "open_loop" and not raw.get("open_loop_hint"):
+                    raw["open_loop_hint"] = raw.get("canonical_title") or obs.description
+                    validation_notes.append("defaulted_open_loop_hint")
+                if kind == "durable_objective" and re.search(
+                    r"\b(?:is|are|feels?) more (?:interesting|important|fun|appealing)\b",
+                    evidence_lower,
+                ) and not re.search(r"\b(?:still need|need to|have to|must)\b", evidence_lower):
+                    raw["operational_kind"] = "semantic_only"
+                    kind = "semantic_only"
+                    validation_notes.append("demoted_comparative_preference_from_objective")
+                if kind == "durable_objective" and re.search(
+                    r"\b(?:haven't|have not|isn't|is not|not)\b.+\b(?:habit|routine|established)\b",
+                    text,
+                    re.IGNORECASE,
+                ):
+                    raw["confidence"] = min(float(raw.get("confidence", 0)), 0.75)
+                    validation_notes.append("reduced_confidence_for_unestablished_routine")
+                if kind == "cancellation" and not raw.get("resolution_hint"):
+                    raw["resolution_hint"] = {"action": "cancel", "target_text": raw.get("canonical_title")}
+                    validation_notes.append("defaulted_cancellation_resolution_hint")
+                if kind == "completion" and not raw.get("resolution_hint"):
+                    raw["resolution_hint"] = {"action": "fulfill", "target_text": raw.get("canonical_title")}
+                    validation_notes.append("defaulted_completion_resolution_hint")
+                if kind == "durable_objective" and re.search(
+                    r"\b(?:i(?:'m| am)\s+)?working on\b.+\bbecause\b.+\b(?:want|hope) to (?:create|build|make)\b",
+                    text,
+                    re.IGNORECASE,
+                ):
+                    raw["operational_kind"] = "semantic_only"
+                    kind = "semantic_only"
+                    validation_notes.append("demoted_project_purpose_without_operational_transition")
+                # Stable across model wording changes on retry; one proposal per loose observation.
+                key_material = f"{obs.observation_id}:{kind}"
+                raw.update(
+                    candidate_key=f"c_{hashlib.sha1(key_material.lower().encode()).hexdigest()[:12]}",
+                    source_start=obs.source_start, source_end=obs.source_end,
+                    observation=raw.get("observation") or obs.description,
+                    raw_evidence=obs.evidence_text, confidence=min(float(raw.get("confidence", 0)), obs.confidence),
+                    extractor_version="model-loose-shape-v1",
+                    validation_notes=validation_notes,
+                )
+                candidates.append(ExtractionCandidate(**raw))
+            self.last_backend = "model"
+            self.last_failure = None
+            return candidates
+        except Exception as err:
+            logger.exception("Model-led extraction failed")
+            self.last_backend = "failed"
+            self.last_failure = f"{type(err).__name__}: {err}"[:500]
+
+        if self.fallback_on_error:
+            self.last_backend = "rules_fallback_explicit"
+            return RuleBasedExtractorProvider().extract(text, peer_id=peer_id)
+        return []
 
 
 class TurnExtractor:
@@ -433,7 +572,7 @@ class TurnExtractor:
     """
 
     def __init__(self, provider: Optional[BaseExtractorProvider] = None):
-        provider_type = os.getenv("SYNAPSE_EXTRACTOR_PROVIDER", "rules").lower()
+        provider_type = os.getenv("SYNAPSE_EXTRACTOR_PROVIDER", "model").lower()
         if provider:
             self.provider = provider
         elif provider_type in ("llm", "model"):
@@ -447,3 +586,12 @@ class TurnExtractor:
         if not text or not text.strip():
             return []
         return self.provider.extract(text, peer_id=peer_id)
+
+    def extraction_result(self, candidates: List[ExtractionCandidate]) -> ExtractionResult:
+        return ExtractionResult(
+            candidates=candidates,
+            observations=getattr(self.provider, "last_observations", []),
+            backend=getattr(self.provider, "last_backend", "rules"),
+            model=getattr(self.provider, "model", None),
+            failure=getattr(self.provider, "last_failure", None),
+        )

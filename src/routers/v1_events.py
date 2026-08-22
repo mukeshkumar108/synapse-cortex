@@ -1,4 +1,5 @@
 import logging
+import json
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,11 +12,15 @@ from src.services.expectation_shaper import ExpectationShaper
 from src.services.temporal_grounding import TemporalGrounding
 from src.services.persistence import save_expectation_idempotent
 from src.services.lifecycle_service import LifecycleService
+from src.services.operational_state_service import OperationalStateService
 from src.models.attention_candidate import (
     AttentionCandidate,
     AttentionCandidateStatus,
     utc_now as attention_utc_now,
 )
+from src.models.operational_state import ExtractionTrace
+from src.schemas.candidate import ExtractionCandidate, ExtractionResult
+from sqlmodel import select
 from src.schemas.attention_candidate import AttentionCandidatesIngest
 
 logger = logging.getLogger(__name__)
@@ -26,6 +31,7 @@ turn_extractor = TurnExtractor()
 expectation_shaper = ExpectationShaper()
 temporal_grounder = TemporalGrounding()
 lifecycle_service = LifecycleService()
+operational_state_service = OperationalStateService()
 
 
 def _naive_utc(value: datetime | None) -> datetime | None:
@@ -84,21 +90,51 @@ async def ingest_turn_event(
     Executes V4 multi-pass extraction -> shaping -> temporal grounding -> lifecycle mutations -> idempotent persistence.
     """
     # 1. Multi-pass Turn Extraction
-    candidates = turn_extractor.extract_candidates(payload.text, peer_id=payload.peer_id)
+    await operational_state_service.sweep(db, workspace_id=payload.workspace_id, now=payload.now)
+    prior_shapes = (await db.execute(select(ExtractionTrace).where(
+        ExtractionTrace.honcho_workspace_id == payload.workspace_id,
+        ExtractionTrace.honcho_message_id == payload.honcho_message_id,
+        ExtractionTrace.stage == "shape",
+    ).order_by(ExtractionTrace.created_at.asc()))).scalars().all()
+    if prior_shapes:
+        candidates = [ExtractionCandidate(**json.loads(item.detail_json)) for item in prior_shapes]
+        extraction_result = ExtractionResult(
+            candidates=candidates, backend="trace_replay",
+            model=prior_shapes[0].model,
+        )
+    else:
+        candidates = turn_extractor.extract_candidates(payload.text, peer_id=payload.peer_id)
+        extraction_result = turn_extractor.extraction_result(candidates)
+    await operational_state_service.trace_result(
+        db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+        message_id=payload.honcho_message_id, result=extraction_result,
+    )
     if not candidates:
         logger.info("No state candidates extracted from turn msg_id=%s", payload.honcho_message_id)
         return {
             "status": "accepted",
             "expectation_created": False,
             "candidates_extracted": 0,
+            "extraction_backend": extraction_result.backend,
+            "extraction_failure": extraction_result.failure,
         }
 
     expectations_created = []
     mutated_ids = []
+    operational_mutations = []
 
     for cand in candidates:
+        operational_result = await operational_state_service.apply(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            message_id=payload.honcho_message_id, peer_id=payload.peer_id,
+            candidate=cand, now=payload.now, timezone_str=payload.timezone,
+        )
+        operational_mutations.append(operational_result)
+        special_lifecycle = cand.operational_kind in ("recurring_intention", "progress") or str(
+            operational_result.get("mutation", "")
+        ).startswith(("recurrence_", "occurrence_", "open_loop_"))
         # A. Outcome mutations (fulfilled, cancelled, corrected)
-        mutated = await lifecycle_service.handle_outcome_mutations(
+        mutated = [] if special_lifecycle else await lifecycle_service.handle_outcome_mutations(
             db=db,
             workspace_id=payload.workspace_id,
             session_id=payload.session_id,
@@ -124,8 +160,14 @@ async def ingest_turn_event(
             cand.resolution_hint
             and cand.resolution_hint.get("action") in ("correct", "reschedule")
         )
-        shaped_data = None if is_replacement_event else expectation_shaper.shape_expectation(cand, payload.peer_id)
-        expectation_record_id = None
+        existing_objective = None
+        if cand.operational_kind == "durable_objective":
+            existing_objective = await operational_state_service.match_expectation(
+                db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                candidate=cand,
+            )
+        shaped_data = None if (is_replacement_event or special_lifecycle or existing_objective) else expectation_shaper.shape_expectation(cand, payload.peer_id)
+        expectation_record_id = existing_objective.id if existing_objective else None
         if shaped_data:
             raw_phrase = shaped_data.get("raw_temporal_phrase")
             win_start, win_end, hard_deadline = temporal_grounder.ground_expression(
@@ -163,6 +205,8 @@ async def ingest_turn_event(
             message_id=payload.honcho_message_id,
             candidate=cand,
             expectation_id=expectation_record_id,
+            now=payload.now,
+            timezone_str=payload.timezone,
         )
 
         # E. Epistemic & Domain Annotations
@@ -190,4 +234,6 @@ async def ingest_turn_event(
         "expectation_ids": [str(eid) for eid in expectations_created],
         "mutated_expectation_ids": [str(mid) for mid in mutated_ids],
         "honcho_message_id": payload.honcho_message_id,
+        "extraction_backend": extraction_result.backend,
+        "operational_mutations": operational_mutations,
     }

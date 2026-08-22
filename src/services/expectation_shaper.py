@@ -14,7 +14,10 @@ class ExpectationShaper:
         self, candidate: ExtractionCandidate, subject_peer_id: str
     ) -> Optional[Dict[str, Any]]:
         # High-precision rejection rules (evaluated FIRST)
-        if candidate.confidence < 0.8:
+        if candidate.operational_kind == "semantic_only":
+            return None
+        minimum_confidence = 0.65 if candidate.operational_kind == "durable_objective" else 0.8
+        if candidate.confidence < minimum_confidence:
             return None
         if candidate.is_negated:
             return None
@@ -53,6 +56,7 @@ class ExpectationShaper:
         if (
             expectation_type == ExpectationType.USER_INTENTION
             and not candidate.temporal_phrase
+            and candidate.operational_kind != "durable_objective"
         ):
             return None
 

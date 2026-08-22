@@ -16,6 +16,7 @@ class OpenLoopStatus(str, Enum):
     ABANDONED = "abandoned"
     SUPPRESSED = "suppressed"
     SUPERSEDED = "superseded"
+    EXPIRED = "expired"
 
 
 class OpenLoop(SQLModel, table=True):
@@ -43,6 +44,7 @@ class OpenLoop(SQLModel, table=True):
         sa_column=Column(SAEnum(OpenLoopStatus, native_enum=False), nullable=False, index=True),
     )
     resolution_evidence: Optional[str] = Field(default=None)
+    expires_at: Optional[datetime] = Field(default=None, index=True)
     
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)

@@ -61,6 +61,17 @@ class TemporalGrounding:
             start = local_now.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
             return start, start + timedelta(hours=2), None
 
+        if phrase in ("later", "later today"):
+            start_local = local_now + timedelta(hours=1)
+            end_local = datetime.combine(local_today, time(23, 59, 59), tzinfo=tz)
+            if start_local >= end_local:
+                start_local = local_now
+            return (
+                start_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None),
+                end_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None),
+                None,
+            )
+
         if phrase in ("this week", "for a few days", "for a few days"):
             days = (6 - local_today.weekday()) if phrase == "this week" else 3
             end_date = local_today + timedelta(days=max(1, days))

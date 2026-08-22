@@ -47,6 +47,7 @@ class Suppression(SQLModel, table=True):
     target_id: Optional[str] = Field(default=None, index=True)
     topic_or_entity: Optional[str] = Field(default=None, index=True)
     reason: str = Field(nullable=False)
+    surface_scope: str = Field(default="all_surfaces", nullable=False, index=True)
     
     suppressed_until: Optional[datetime] = Field(default=None, index=True)
     reopen_condition: Optional[str] = Field(default=None)

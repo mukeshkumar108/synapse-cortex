@@ -11,12 +11,20 @@ Companion State & JIT Context Compiler Sidecar for **Honcho** & **Sophie**.
 - **Lifecycle-worthy -> Synapse:** Dynamic expectations, expected windows, suppressions, open loops.
 - **Moment-worthy -> Cortex:** JIT context compilation, follow-up packets, prompt surfaces.
 
-## Phase 1 Scope (Expectation Vertical Slice)
-Phase 1 implements ONLY the expectation lifecycle:
-1. `expectations` table schema (Migration `0001`).
-2. Multi-pass extraction pipeline (`turn_extractor`, `expectation_shaper`, `temporal_grounding`).
-3. Pure deterministic expectation read model (`expectation_engine`).
-4. Event ingestion (`POST /v1/events/turn`) & Follow-up packet (`GET /v1/context/followup-packet`).
+## Operational watcher
+
+Production uses a two-stage, model-led watcher: meaning-first loose observations are
+lane-shaped into bounded proposals, then deterministic services validate, dedupe,
+reconcile, persist and expire them. Honcho remains the semantic evidence substrate.
+Cortex stores only lifecycle-worthy state: expectations, time-bounded loops,
+suppressions, recurring intentions and occurrence-level completions, and progress on
+durable objectives. App/Postgres remains authoritative for chronology and timezone.
+
+Set `SYNAPSE_EXTRACTOR_PROVIDER=model` plus either `OPENAI_API_KEY` or
+`OPENROUTER_API_KEY`. `SYNAPSE_EXTRACTOR_MODEL`, `SYNAPSE_MODEL_URL`, and
+`SYNAPSE_EXTRACTOR_TIMEOUT_SECONDS` are configurable. Model failure is observable and
+does not silently fall back to rules. Set the provider to `rules` only for explicit
+legacy/smoke-test operation.
 
 ## Quickstart
 

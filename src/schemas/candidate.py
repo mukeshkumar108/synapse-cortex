@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -35,3 +35,43 @@ class ExtractionCandidate(BaseModel):
     resolution_hint: Optional[Dict[str, Any]] = Field(default=None, description="Resolution or correction target hint for outcome updates")
     epistemic_claim: Optional[Dict[str, Any]] = Field(default=None, description="Structured belief owner, target, claim, and optional nested belief")
     extractor_version: str = Field(default="rules-v2", description="Auditable extractor version")
+    operational_kind: Optional[Literal[
+        "expectation", "durable_objective", "recurring_intention", "progress",
+        "completion", "cancellation", "suppression", "open_loop", "event",
+        "semantic_only",
+    ]] = None
+    canonical_title: Optional[str] = None
+    target_key: Optional[str] = None
+    cadence: Optional[Literal["daily", "weekly", "interval"]] = None
+    interval_days: Optional[int] = Field(default=None, ge=1, le=31)
+    days_of_week: List[int] = Field(default_factory=list)
+    preferred_window: Optional[str] = None
+    target_amount: Optional[float] = None
+    target_unit: Optional[str] = None
+    progress_amount: Optional[float] = None
+    progress_unit: Optional[str] = None
+    expiry_phrase: Optional[str] = None
+    raw_evidence: Optional[str] = None
+    loose_observation_id: Optional[str] = None
+    validation_notes: List[str] = Field(default_factory=list)
+
+
+class LooseObservation(BaseModel):
+    """Meaning-first proposal. Evidence is traceable but description need not be verbatim."""
+    observation_id: str
+    description: str = Field(min_length=3, max_length=500)
+    evidence_text: str = Field(min_length=1, max_length=2000)
+    source_start: Optional[int] = Field(default=None, ge=0)
+    source_end: Optional[int] = Field(default=None, ge=0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    actor_peer_id: Optional[str] = None
+    subject_refs: List[str] = Field(default_factory=list, max_length=8)
+    temporal_language: Optional[str] = None
+
+
+class ExtractionResult(BaseModel):
+    candidates: List[ExtractionCandidate] = Field(default_factory=list)
+    observations: List[LooseObservation] = Field(default_factory=list)
+    backend: str
+    model: Optional[str] = None
+    failure: Optional[str] = None
