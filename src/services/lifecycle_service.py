@@ -177,8 +177,17 @@ class LifecycleService:
         if scored and (len(scored) == 1 or scored[0][0] > scored[1][0]):
             return [scored[0][1]]
 
-        # A deictic outcome is safe only when exactly one unresolved target exists.
-        return expectations if len(expectations) == 1 else []
+        # A genuinely deictic outcome is safe only when exactly one unresolved target
+        # exists. Explicit unmatched nouns (for example "tidy" versus "walk") must
+        # never mutate that sole unrelated row.
+        deictic = bool(re.fullmatch(
+            r"\s*(?:i\s+)?(?:did|finished|cancelled|canceled|forget)?\s*"
+            r"(?:it|that|this|the thing|done)\s*(?:today|btw|now)?[.!]?\s*",
+            text,
+        ))
+        if len(expectations) == 1 and hint.get("action") != "cancel":
+            return expectations
+        return expectations if deictic and len(expectations) == 1 else []
 
     async def _create_clarification(
         self, db: AsyncSession, workspace_id: str, session_id: str,

@@ -469,6 +469,13 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     if raw.get(hint_field) is not None and not isinstance(raw.get(hint_field), dict):
                         raw[hint_field] = None
                         validation_notes.append(f"discarded_malformed_{hint_field}")
+                if raw.get("open_loop_hint") is not None and not isinstance(raw.get("open_loop_hint"), str):
+                    hint_value = raw.get("open_loop_hint")
+                    raw["open_loop_hint"] = (
+                        raw.get("canonical_title")
+                        or (" ".join(str(value) for value in hint_value.values()) if isinstance(hint_value, dict) else None)
+                    )
+                    validation_notes.append("normalized_malformed_open_loop_hint")
                 if raw.get("suppression_hint") and kind != "suppression":
                     raw["suppression_hint"] = None
                     validation_notes.append("discarded_suppression_hint_from_non_suppression_lane")
@@ -485,6 +492,18 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                         hint["action_scope"] = "all_surfaces"
                         validation_notes.append("normalized_invalid_suppression_action_scope")
                 evidence_lower = obs.evidence_text.lower()
+                explicit_daily = bool(re.search(r"\b(?:every day|daily|each day)\b", text, re.IGNORECASE))
+                unestablished = bool(re.search(
+                    r"\b(?:haven't|have not|isn't|is not|not)\b.+\b(?:habit|routine|established)\b",
+                    text,
+                    re.IGNORECASE,
+                ))
+                if kind in {"expectation", "durable_objective"} and explicit_daily and not unestablished:
+                    raw["operational_kind"] = "recurring_intention"
+                    raw["cadence"] = "daily"
+                    raw["expectation_type_hint"] = None
+                    kind = "recurring_intention"
+                    validation_notes.append("promoted_explicit_daily_recurrence")
                 if kind == "suppression" and re.search(
                     r"\bdon't want (?:it|the .+?) to (?:feel|look|sound|be)\b", evidence_lower
                 ):
