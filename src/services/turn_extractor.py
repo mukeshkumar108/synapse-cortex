@@ -504,6 +504,14 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     raw["expectation_type_hint"] = None
                     kind = "recurring_intention"
                     validation_notes.append("promoted_explicit_daily_recurrence")
+                elif kind == "recurring_intention" and unestablished:
+                    raw["operational_kind"] = "durable_objective"
+                    raw["cadence"] = None
+                    raw["interval_days"] = None
+                    raw["days_of_week"] = []
+                    raw["confidence"] = min(float(raw.get("confidence", 0)), 0.75)
+                    kind = "durable_objective"
+                    validation_notes.append("demoted_unestablished_recurrence_to_objective")
                 if kind == "suppression" and re.search(
                     r"\bdon't want (?:it|the .+?) to (?:feel|look|sound|be)\b", evidence_lower
                 ):
