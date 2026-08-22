@@ -510,7 +510,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     raw["cadence"] = None
                     raw["interval_days"] = None
                     raw["days_of_week"] = []
-                    raw["confidence"] = min(float(raw.get("confidence", 0)), 0.75)
+                    raw["confidence"] = min(float(raw.get("confidence") or 0), 0.75)
                     kind = "durable_objective"
                     validation_notes.append("demoted_unestablished_recurrence_to_objective")
                 if kind == "suppression" and re.search(
@@ -551,7 +551,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     normalized_text,
                     re.IGNORECASE,
                 ):
-                    raw["confidence"] = min(float(raw.get("confidence", 0)), 0.75)
+                    raw["confidence"] = min(float(raw.get("confidence") or 0), 0.75)
                     validation_notes.append("reduced_confidence_for_unestablished_routine")
                 if kind == "cancellation" and not raw.get("resolution_hint"):
                     raw["resolution_hint"] = {"action": "cancel", "target_text": raw.get("canonical_title")}
@@ -573,7 +573,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     candidate_key=f"c_{hashlib.sha1(key_material.lower().encode()).hexdigest()[:12]}",
                     source_start=obs.source_start, source_end=obs.source_end,
                     observation=raw.get("observation") or obs.description,
-                    raw_evidence=obs.evidence_text, confidence=min(float(raw.get("confidence", 0)), obs.confidence),
+                    raw_evidence=obs.evidence_text, confidence=min(float(raw.get("confidence") or 0), obs.confidence),
                     extractor_version="model-loose-shape-v1",
                     validation_notes=validation_notes,
                 )

@@ -1,5 +1,28 @@
 from typing import Any, Dict, List, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+# Fields where omission is valid and an explicit JSON null from an untrusted
+# producer (model output, persisted prior shape) semantically means "absent",
+# but the trusted internal schema declares a non-null default. Map null -> default
+# at the validation boundary so strict internal invariants stay non-null.
+_EXPLICIT_NULL_TO_DEFAULT = {
+    "days_of_week": [],
+    "validation_notes": [],
+    "is_negated": False,
+    "is_hypothetical": False,
+    "is_reported_speech": False,
+    "is_quoted": False,
+    "is_sarcastic": False,
+    "confidence": 1.0,
+    "extractor_version": "rules-v2",
+}
+
+
+def _explicit_null_to_default(value: Any, field_name: str) -> Any:
+    if value is not None:
+        return value
+    return _EXPLICIT_NULL_TO_DEFAULT[field_name]
 
 
 class ExtractionCandidate(BaseModel):
@@ -55,6 +78,11 @@ class ExtractionCandidate(BaseModel):
     loose_observation_id: Optional[str] = None
     validation_notes: List[str] = Field(default_factory=list)
 
+    @field_validator(*_EXPLICIT_NULL_TO_DEFAULT, mode="before")
+    @classmethod
+    def _normalize_explicit_null(cls, value: Any, info: Any) -> Any:
+        return _explicit_null_to_default(value, info.field_name)
+
 
 class LooseObservation(BaseModel):
     """Meaning-first proposal. Evidence is traceable but description need not be verbatim."""
@@ -67,6 +95,11 @@ class LooseObservation(BaseModel):
     actor_peer_id: Optional[str] = None
     subject_refs: List[str] = Field(default_factory=list, max_length=8)
     temporal_language: Optional[str] = None
+
+    @field_validator("subject_refs", mode="before")
+    @classmethod
+    def _normalize_subject_refs_null(cls, value: Any) -> Any:
+        return [] if value is None else value
 
 
 class ExtractionResult(BaseModel):
