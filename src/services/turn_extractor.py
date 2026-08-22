@@ -491,11 +491,12 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     }:
                         hint["action_scope"] = "all_surfaces"
                         validation_notes.append("normalized_invalid_suppression_action_scope")
-                evidence_lower = obs.evidence_text.lower()
+                evidence_lower = obs.evidence_text.lower().replace("’", "'")
+                normalized_text = text.replace("’", "'")
                 explicit_daily = bool(re.search(r"\b(?:every day|daily|each day)\b", text, re.IGNORECASE))
                 unestablished = bool(re.search(
                     r"\b(?:haven't|have not|isn't|is not|not)\b.+\b(?:habit|routine|established)\b",
-                    text,
+                    normalized_text,
                     re.IGNORECASE,
                 ))
                 if kind in {"expectation", "durable_objective"} and explicit_daily and not unestablished:
@@ -547,7 +548,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     validation_notes.append("demoted_comparative_preference_from_objective")
                 if kind == "durable_objective" and re.search(
                     r"\b(?:haven't|have not|isn't|is not|not)\b.+\b(?:habit|routine|established)\b",
-                    text,
+                    normalized_text,
                     re.IGNORECASE,
                 ):
                     raw["confidence"] = min(float(raw.get("confidence", 0)), 0.75)
@@ -560,7 +561,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     validation_notes.append("defaulted_completion_resolution_hint")
                 if kind == "durable_objective" and re.search(
                     r"\b(?:i(?:'m| am)\s+)?working on\b.+\bbecause\b.+\b(?:want|hope) to (?:create|build|make)\b",
-                    text,
+                    normalized_text,
                     re.IGNORECASE,
                 ):
                     raw["operational_kind"] = "semantic_only"
