@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -25,6 +25,7 @@ class HandshakeRequest(BaseModel):
     now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     timezone: str = "Europe/London"
     last_interaction_time: Optional[datetime] = None
+    chronology: Optional[Dict[str, Any]] = None
 
 
 class RouteRequest(BaseModel):
@@ -47,6 +48,7 @@ async def get_cortex_handshake(
         now=req.now,
         timezone_str=req.timezone,
         last_interaction_time=req.last_interaction_time,
+        chronology=req.chronology,
     )
 
 

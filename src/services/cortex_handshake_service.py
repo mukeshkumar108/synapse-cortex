@@ -25,6 +25,7 @@ class CortexHandshakeService:
         now: datetime,
         timezone_str: str = "Europe/London",
         last_interaction_time: Optional[datetime] = None,
+        chronology: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         # 1. Local Daypart Determination
         try:
@@ -43,14 +44,18 @@ class CortexHandshakeService:
         else:
             daypart = "night"
 
-        # 2. Time Since Last Interaction
-        time_since_minutes = None
-        orientation = "fresh_start"
-        if last_interaction_time:
-            delta = now - (last_interaction_time if last_interaction_time.tzinfo else last_interaction_time.replace(tzinfo=timezone.utc))
-            time_since_minutes = max(0, int(delta.total_seconds() // 60))
-            if time_since_minutes < 120:
-                orientation = "continuation"
+        # 2. Chronology is supplied by the canonical app/PostgreSQL boundary.
+        # Cortex never invents a competing gap threshold. Legacy callers that
+        # omit chronology receive a non-authoritative unknown orientation.
+        chronology = chronology or {}
+        temporal_session = chronology.get("temporalSession")
+        orientation = (
+            "continuation" if temporal_session == "same"
+            else "returning" if temporal_session == "new"
+            else "unknown"
+        )
+        supplied_gap = chronology.get("gapMinutes")
+        time_since_minutes = supplied_gap if isinstance(supplied_gap, int) else None
 
         # 3. Attention Packet Compilation
         packet = await packet_service.compile_attention_packet(
@@ -61,6 +66,7 @@ class CortexHandshakeService:
             "workspace_id": workspace_id,
             "session_id": session_id,
             "orientation": orientation,
+            "chronology": chronology or None,
             "daypart": daypart,
             "time_since_last_interaction_minutes": time_since_minutes,
             "live_threads": packet["open_loops"] + packet["active_expectations"],
