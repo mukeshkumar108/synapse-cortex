@@ -25,7 +25,8 @@ def _utc(value: datetime) -> datetime:
 def canonical_key(value: str) -> str:
     stop = {"a", "an", "the", "to", "for", "my", "proper", "every", "daily", "weekly", "today",
             "user", "need", "needs", "still", "keep", "send", "sent", "larger", "objective",
-            "unresolved", "active", "continue", "continuing", "has", "but", "remains"}
+            "unresolved", "active", "continue", "continuing", "has", "but", "remains",
+            "routine", "habit", "establish", "established", "start", "again"}
     normalize = {"jobs": "job", "applications": "application", "applying": "application",
                  "applied": "application", "apply": "application", "walking": "walk", "walks": "walk"}
     words = [normalize.get(w, w) for w in re.findall(r"[a-z0-9]+", value.lower()) if w not in stop]

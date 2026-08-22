@@ -174,17 +174,18 @@ class LifecycleService:
             if score:
                 scored.append((score, exp))
         scored.sort(key=lambda item: (item[0], item[1].created_at), reverse=True)
+        if hint.get("action") == "cancel" and hint.get("target_text") and scored and scored[0][0] < 2:
+            return []
         if scored and (len(scored) == 1 or scored[0][0] > scored[1][0]):
             return [scored[0][1]]
 
         # A genuinely deictic outcome is safe only when exactly one unresolved target
         # exists. Explicit unmatched nouns (for example "tidy" versus "walk") must
         # never mutate that sole unrelated row.
-        deictic = bool(re.fullmatch(
-            r"\s*(?:i\s+)?(?:did|finished|cancelled|canceled|forget)?\s*"
-            r"(?:it|that|this|the thing|done)\s*(?:today|btw|now)?[.!]?\s*",
-            text,
-        ))
+        deictic = (
+            not hint.get("target_text")
+            and bool(re.search(r"\b(?:it|that|this|the thing)\b", candidate.observation.lower()))
+        )
         if len(expectations) == 1 and hint.get("action") != "cancel":
             return expectations
         return expectations if deictic and len(expectations) == 1 else []
