@@ -7,6 +7,8 @@ import time
 from typing import Any, Dict, List, Optional
 import httpx
 from src.schemas.candidate import ExtractionCandidate, ExtractionResult, LooseObservation
+from src.services import model_retry
+from src.services.model_retry import ModelCallError
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +18,11 @@ def extractor_config_status() -> Dict[str, Any]:
     provider = os.getenv("SYNAPSE_EXTRACTOR_PROVIDER", "model").lower()
     effective_provider = "model" if provider in ("llm", "model") else provider
     model = os.getenv("SYNAPSE_EXTRACTOR_MODEL") or "gpt-4o-mini"
+    fallback_models = [
+        candidate.strip()
+        for candidate in os.getenv("SYNAPSE_EXTRACTOR_FALLBACK_MODELS", "").split(",")
+        if candidate.strip()
+    ]
     key_present = bool(
         os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("XAI_API_KEY")
     )
@@ -32,6 +39,9 @@ def extractor_config_status() -> Dict[str, Any]:
         "configured_provider": provider,
         "provider": effective_provider,
         "model": model,
+        "fallback_models": fallback_models,
+        "max_attempts": int(os.getenv("SYNAPSE_EXTRACTOR_MAX_ATTEMPTS", "2")),
+        "timeout_seconds": float(os.getenv("SYNAPSE_EXTRACTOR_TIMEOUT_SECONDS", "8")),
         "credentials_present": key_present,
         "url_overridden": url_overridden,
         "degraded": degraded,
@@ -427,7 +437,8 @@ class LLMExtractorProvider(BaseExtractorProvider):
 
     def __init__(
         self, api_url: Optional[str] = None, api_key: Optional[str] = None,
-        model: Optional[str] = None, fallback_on_error: bool = False,
+        model: Optional[str] = None, models: Optional[List[str]] = None,
+        fallback_on_error: bool = False,
     ):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("XAI_API_KEY") or ""
         default_url = ("https://openrouter.ai/api/v1/chat/completions"
@@ -435,40 +446,97 @@ class LLMExtractorProvider(BaseExtractorProvider):
                        else "https://api.openai.com/v1/chat/completions")
         self.api_url = api_url or os.getenv("SYNAPSE_MODEL_URL") or default_url
         self.model = model or os.getenv("SYNAPSE_EXTRACTOR_MODEL") or "gpt-4o-mini"
+        if models is None:
+            raw = os.getenv("SYNAPSE_EXTRACTOR_FALLBACK_MODELS", "")
+            models = [
+                candidate.strip()
+                for candidate in raw.split(",")
+                if candidate.strip()
+            ]
+        self.models = [self.model, *models]
+        self.fallback_models = list(models)
         self.fallback_on_error = fallback_on_error
         self.last_backend = "unavailable"
         self.last_observations: List[LooseObservation] = []
         self.last_failure: Optional[str] = None
+        self.last_failure_kind: Optional[str] = None
+        self.last_model_used: Optional[str] = None
+        self.last_fallback_count = 0
         self.last_stage_metrics: Dict[str, Dict[str, Any]] = {}
         self._last_call_usage: Dict[str, Any] = {}
 
+    def _call_model(self, model: str, prompt: str) -> Any:
+        """Single model call; raises ModelCallError with a classifier kind."""
+        try:
+            with httpx.Client(timeout=float(os.getenv("SYNAPSE_EXTRACTOR_TIMEOUT_SECONDS", "8"))) as client:
+                response = client.post(
+                    self.api_url,
+                    headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.0,
+                        "response_format": {"type": "json_object"},
+                    },
+                )
+                status = response.status_code
+                if status != 200:
+                    raise ModelCallError(
+                        model_retry.classify_status(status),
+                        model=model, status=status,
+                        message=f"HTTP {status}",
+                    )
+                payload = response.json()
+                self._last_call_usage = payload.get("usage") or {}
+                content = payload["choices"][0]["message"]["content"]
+                return json.loads(content)
+        except httpx.HTTPError as err:
+            raise ModelCallError(
+                model_retry.classify_exception(err),
+                model=model,
+                message=str(err)[:300],
+            ) from err
+        except (KeyError, TypeError, json.JSONDecodeError) as err:
+            raise ModelCallError(
+                model_retry.MALFORMED_JSON,
+                model=model,
+                message=f"{type(err).__name__}: {err}"[:300],
+            ) from err
+
     def _chat_json(self, prompt: str) -> Any:
         attempts = max(1, min(2, int(os.getenv("SYNAPSE_EXTRACTOR_MAX_ATTEMPTS", "2"))))
-        last_error: Optional[Exception] = None
-        for attempt in range(attempts):
-            try:
-                with httpx.Client(timeout=float(os.getenv("SYNAPSE_EXTRACTOR_TIMEOUT_SECONDS", "8"))) as client:
-                    response = client.post(
-                        self.api_url,
-                        headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-                        json={
-                            "model": self.model,
-                            "messages": [{"role": "user", "content": prompt}],
-                            "temperature": 0.0,
-                            "response_format": {"type": "json_object"},
-                        },
+        self.last_fallback_count = 0
+        for index, model in enumerate(self.models):
+            for attempt in range(attempts):
+                self.last_model_used = model
+                try:
+                    return self._call_model(model, prompt)
+                except ModelCallError as err:
+                    if model_retry.is_permanent(err.kind):
+                        logger.warning(
+                            "Model %s permanent failure kind=%s; not retrying/failing over",
+                            model, err.kind,
+                        )
+                        raise
+                    if model_retry.is_retryable(err.kind) and attempt + 1 < attempts:
+                        delay = model_retry.sleep_backoff(attempt)
+                        logger.warning(
+                            "Model %s stage attempt %s/%s failed kind=%s; retrying in %.2fs",
+                            model, attempt + 1, attempts, err.kind, delay,
+                        )
+                        continue
+                    logger.warning(
+                        "Model %s exhausted after %s attempt(s) kind=%s; %s",
+                        model, attempts, err.kind, "next model" if index + 1 < len(self.models) else "no model left",
                     )
-                    response.raise_for_status()
-                    payload = response.json()
-                    self._last_call_usage = payload.get("usage") or {}
-                    content = payload["choices"][0]["message"]["content"]
-                    return json.loads(content)
-            except (httpx.HTTPError, KeyError, TypeError, json.JSONDecodeError) as err:
-                last_error = err
-                if attempt + 1 < attempts:
-                    logger.warning("Model stage attempt %s/%s failed; retrying", attempt + 1, attempts)
-        assert last_error is not None
-        raise last_error
+                    break
+            if index + 1 < len(self.models):
+                self.last_fallback_count += 1
+        raise ModelCallError(
+            model_retry.UNKNOWN,
+            model=self.models[-1],
+            message="All extraction models exhausted",
+        )
 
     def extract(self, text: str, peer_id: Optional[str] = None,
                 prior_state: Optional[Dict[str, Any]] = None) -> List[ExtractionCandidate]:
@@ -736,6 +804,9 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
             logger.exception("Model-led extraction failed")
             self.last_backend = "failed"
             self.last_failure = f"{type(err).__name__}: {err}"[:500]
+            self.last_failure_kind = (
+                err.kind if isinstance(err, model_retry.ModelCallError) else model_retry.UNKNOWN
+            )
 
         if self.fallback_on_error:
             self.last_backend = "rules_fallback_explicit"
