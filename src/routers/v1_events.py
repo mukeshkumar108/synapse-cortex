@@ -14,6 +14,7 @@ from src.services.persistence import save_expectation_idempotent
 from src.services.lifecycle_service import LifecycleService
 from src.services.operational_state_service import OperationalStateService
 from src.services.turn_context import TurnContextAssembler
+from src.services.sleep_signal import SleepSignalTracker
 from src.models.attention_candidate import (
     AttentionCandidate,
     AttentionCandidateStatus,
@@ -34,6 +35,7 @@ temporal_grounder = TemporalGrounding()
 lifecycle_service = LifecycleService()
 operational_state_service = OperationalStateService()
 turn_context_assembler = TurnContextAssembler()
+sleep_tracker = SleepSignalTracker()
 
 
 def _naive_utc(value: datetime | None) -> datetime | None:
@@ -93,6 +95,13 @@ async def ingest_turn_event(
     """
     # 1. Multi-pass Turn Extraction
     await operational_state_service.sweep(db, workspace_id=payload.workspace_id, now=payload.now)
+    await lifecycle_service.apply_reopen_conditions(
+        db, workspace_id=payload.workspace_id, session_id=payload.session_id, text=payload.text,
+    )
+    await sleep_tracker.observe(
+        db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+        message_id=payload.honcho_message_id, text=payload.text, now=payload.now,
+    )
     prior_shapes = (await db.execute(select(ExtractionTrace).where(
         ExtractionTrace.honcho_workspace_id == payload.workspace_id,
         ExtractionTrace.honcho_message_id == payload.honcho_message_id,

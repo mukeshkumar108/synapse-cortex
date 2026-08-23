@@ -7,11 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.expectation import Expectation, OutcomeState, ExpectationType
 from src.models.open_loop import OpenLoop, OpenLoopStatus
 from src.models.suppression import Suppression, SuppressionStatus
-from src.models.attention_candidate import AttentionCandidate, AttentionCandidateStatus
+from src.models.attention_candidate import AttentionCandidate, AttentionCandidateKind, AttentionCandidateStatus
 from src.models.operational_state import (RecurringIntention, RecurringOccurrence,
     ObjectiveProgress, OperationalStatus)
 from src.services.expectation_engine import derive_expectation_read_model, derive_temporal_state
 from src.services.daypart import resolve_daypart
+from src.services.sleep_signal import SleepSignalTracker
+from src.services.relational_health import recurrence_week_health, _week_start
 from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
@@ -293,12 +295,24 @@ class CortexPacketService:
             RecurringIntention.honcho_session_id == session_id,
             RecurringIntention.status == OperationalStatus.ACTIVE,
         ).order_by(RecurringIntention.updated_at.desc()))).scalars().all()
+        week_start = _week_start(user_day)
+        week_occurrences = (await db.execute(select(RecurringOccurrence).where(
+            RecurringOccurrence.recurring_intention_id.in_([r.id for r in recurrences[:8]]),
+            RecurringOccurrence.user_day >= week_start,
+            RecurringOccurrence.user_day <= user_day,
+        ))).scalars().all()
+        occurrences_by_intention: dict = {}
+        for occurrence in week_occurrences:
+            occurrences_by_intention.setdefault(str(occurrence.recurring_intention_id), []).append(occurrence)
         recurring_items = []
         for recurrence in recurrences[:8]:
             occurrence = (await db.execute(select(RecurringOccurrence).where(
                 RecurringOccurrence.recurring_intention_id == recurrence.id,
                 RecurringOccurrence.user_day == user_day,
             ))).scalar_one_or_none()
+            health = recurrence_week_health(
+                recurrence, occurrences_by_intention.get(str(recurrence.id), []), user_day
+            )
             recurring_items.append({
                 "id": str(recurrence.id), "title": recurrence.title,
                 "cadence": recurrence.cadence, "preferred_window": recurrence.preferred_window,
@@ -306,6 +320,7 @@ class CortexPacketService:
                 "user_day": user_day.isoformat(),
                 "occurrence_status": occurrence.status.value if occurrence else "pending",
                 "evidence_ref": recurrence.honcho_message_id,
+                **health,
             })
         progress_rows = (await db.execute(select(ObjectiveProgress).where(
             ObjectiveProgress.honcho_workspace_id == workspace_id,
@@ -351,7 +366,71 @@ class CortexPacketService:
         packet["continuity_context"] = self._compile_continuity_context(
             packet, now=now, timezone_str=timezone_str
         )
+        packet["sleep"] = await self._compile_sleep_signal(db, workspace_id, session_id)
+        packet["curiosity"] = await self._compile_curiosity(
+            db, workspace_id, session_id, recurring_items, user_day, now
+        )
         return packet
+
+    @staticmethod
+    async def _compile_curiosity(
+        db: AsyncSession,
+        workspace_id: str,
+        session_id: str,
+        recurring_items: List[Dict[str, Any]],
+        user_day,
+        now: datetime,
+    ) -> List[Dict[str, Any]]:
+        """Bounded, non-nagging curiosity candidates derived from recurring
+        intentions that are slipping. Self-extinguishes once the routine is
+        observed again (fresh occurrence), and never duplicates an attention
+        item that has already surfaced repeatedly.
+        """
+        slipping = [item for item in recurring_items if item.get("slipping")]
+        if not slipping:
+            return []
+        existing = (await db.execute(select(AttentionCandidate).where(
+            AttentionCandidate.honcho_workspace_id == workspace_id,
+            AttentionCandidate.honcho_session_id == session_id,
+            AttentionCandidate.kind == AttentionCandidateKind.PENDING_QUESTION,
+            AttentionCandidate.status == AttentionCandidateStatus.ACTIVE,
+        ))).scalars().all()
+        already_asked_enough = []
+        for candidate in existing:
+            if candidate.content and candidate.surfaced_count >= 3:
+                already_asked_enough.append(candidate.content.lower())
+
+        output: List[Dict[str, Any]] = []
+        for item in slipping[:4]:
+            topic = (item.get("title") or "").strip()
+            if not topic or len(topic) < 3:
+                continue
+            if any(topic.lower() in note for note in already_asked_enough):
+                continue
+            output.append({
+                "key": f"curiosity_{item['id']}",
+                "topic": topic,
+                "reason": "this routine has been slipping this week",
+                "progress": item.get("progress_line"),
+                "salience": 0.55,
+                "not_before": now.isoformat(),
+            })
+        return output[:2]
+
+    @staticmethod
+    async def _compile_sleep_signal(
+        db: AsyncSession, workspace_id: str, session_id: str
+    ) -> Dict[str, Any]:
+        """Compact decision-ready sleep signal. Backstage detail stays in the row."""
+        payload = await SleepSignalTracker().read(
+            db, workspace_id=workspace_id, session_id=session_id
+        )
+        if not payload or not payload.get("signal"):
+            return {"signal": None}
+        return {
+            "signal": payload["signal"],
+            "confidence": payload.get("confidence"),
+        }
 
     @staticmethod
     def _compile_continuity_context(

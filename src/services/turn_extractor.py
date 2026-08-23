@@ -552,6 +552,9 @@ right now" is current focus/objective, not a progress event. A desire that a pro
 not feel/look/sound a certain way is product semantics, not a companion suppression.
 "Leave her alone while the event is happening" is an outbound_contact suppression scoped
 to that event/window, while a separate desire to check in later is an open_loop.
+Explicit permission such as "we can talk about X now", "you can ask me about X now", or
+"fine to talk about X" is a suppression REOPEN (suppression_hint.action = "reopen" with
+topic_or_entity = X). Recognize it and do not suppress X again.
 "I did my walk today" is completion (target_key walk), not progress. "Ashley's event went
 well" is completion/resolution (target_key Ashley event), not a new event. A change from
 daily to Monday/Wednesday/Friday is a revised recurring_intention with cadence weekly and
@@ -608,6 +611,23 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     }:
                         hint["action_scope"] = "all_surfaces"
                         validation_notes.append("normalized_invalid_suppression_action_scope")
+                if kind == "suppression":
+                    fold_back = text.replace("’", "'")
+                    reopen = re.search(
+                        r"\b(?:we can (?:talk about|discuss|mention)|"
+                        r"you can (?:ask me about|mention)|fine to (?:talk about|bring up|ask about)|"
+                        r"okay to (?:talk about|bring up|ask about)|nice to talk about)\s+(.+?)(?:\s+now)?[\s.]*$",
+                        fold_back,
+                        re.IGNORECASE,
+                    )
+                    if reopen:
+                        raw["suppression_hint"] = {
+                            "action": "reopen",
+                            "target_type": "topic",
+                            "topic_or_entity": reopen.group(1).strip().strip("."),
+                            "reason": "user_explicit_reopen",
+                        }
+                        validation_notes.append("normalized_reopen_language")
                 for enum_key, allowed in (
                     ("domain_tag", _VALID_DOMAIN_TAGS),
                     ("category_tag", _VALID_CATEGORY_TAGS),

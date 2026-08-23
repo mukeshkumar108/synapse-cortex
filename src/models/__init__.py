@@ -7,6 +7,7 @@ from src.models.domain_annotation import DomainAnnotation, DomainTag, CategoryTa
 from src.models.attention_candidate import AttentionCandidate, AttentionCandidateKind, AttentionCandidateStatus
 from src.models.operational_state import (RecurringIntention, RecurringOccurrence, ObjectiveProgress,
     ExtractionTrace, OperationalStatus, OccurrenceStatus)
+from src.models.derived_signal import DerivedSignal, DerivedSignalKind
 
 __all__ = [
     "Expectation",
@@ -31,4 +32,5 @@ __all__ = [
     "AttentionCandidateStatus",
     "RecurringIntention", "RecurringOccurrence", "ObjectiveProgress", "ExtractionTrace",
     "OperationalStatus", "OccurrenceStatus",
+    "DerivedSignal", "DerivedSignalKind",
 ]

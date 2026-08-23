@@ -489,3 +489,36 @@ class LifecycleService:
             return (await db.execute(stmt)).scalar_one()
         await db.refresh(annotation)
         return annotation
+
+    async def apply_reopen_conditions(
+        self,
+        db: AsyncSession,
+        workspace_id: str,
+        session_id: str,
+        text: str,
+    ) -> List[str]:
+        """Consumer for stored reopen_condition.
+
+        A suppression created with reopen_condition="user_mentions_topic"
+        reopens the moment the user mentions the topic again. Subsequent turns
+        are no longer suppressed by it.
+        """
+        lower = text.lower()
+        candidates = (await db.execute(select(Suppression).where(
+            Suppression.honcho_workspace_id == workspace_id,
+            Suppression.honcho_session_id == session_id,
+            Suppression.status == SuppressionStatus.ACTIVE,
+        ))).scalars().all()
+        reopened: list[str] = []
+        for item in candidates:
+            if item.reopen_condition != "user_mentions_topic" or not item.topic_or_entity:
+                continue
+            tokens = [token for token in item.topic_or_entity.lower().split() if len(token) >= 4]
+            if tokens and any(token in lower for token in tokens):
+                item.status = SuppressionStatus.REOPENED
+                item.updated_at = self._naive_utc(datetime.now(timezone.utc))
+                db.add(item)
+                reopened.append(str(item.id))
+        if reopened:
+            await db.commit()
+        return reopened

@@ -1,7 +1,8 @@
 import logging
 from typing import Any, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
+from zoneinfo import ZoneInfo
 
 from src.services.cortex_packet_service import CortexPacketService
 from src.services.daypart import resolve_daypart
@@ -43,6 +44,40 @@ class CortexHandshakeService:
         supplied_gap = chronology.get("gapMinutes")
         time_since_minutes = supplied_gap if isinstance(supplied_gap, int) else None
 
+        # 2b. First-contact / sitting derivation. Derived from the live
+        # last_interaction_time when present; falls back to chronology-only
+        # semantics otherwise. First contact today is an event (arrival), not a
+        # sticky flag: a later re-entry the same day is never first contact.
+        sitting = None
+        first_contact_today = False
+        if last_interaction_time is None:
+            sitting = "first_contact_today"
+            first_contact_today = True
+        else:
+            try:
+                local_tz = ZoneInfo(timezone_str)
+                now_aware = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+                prev_aware = last_interaction_time if last_interaction_time.tzinfo else last_interaction_time.replace(tzinfo=timezone.utc)
+                today = now_aware.astimezone(local_tz).date()
+                prev_local_date = prev_aware.astimezone(local_tz).date()
+                if prev_local_date != today:
+                    sitting = "first_contact_today"
+                    first_contact_today = True
+                else:
+                    gap_minutes = max(
+                        0,
+                        int((now_aware - prev_aware).total_seconds() // 60),
+                    )
+                    sitting = "ongoing_sitting" if gap_minutes < 90 else "new_sitting_same_day"
+                    first_contact_today = False
+            except Exception:
+                sitting = None
+        if chronology.get("temporalSession") == "new" and first_contact_today:
+            pass
+        elif chronology.get("temporalSession") == "same" and not last_interaction_time:
+            sitting = "ongoing_sitting"
+            first_contact_today = False
+
         # 3. Attention Packet Compilation
         packet = await packet_service.compile_attention_packet(
             db=db, workspace_id=workspace_id, session_id=session_id, now=now, timezone_str=timezone_str
@@ -54,6 +89,8 @@ class CortexHandshakeService:
             "orientation": orientation,
             "chronology": chronology or None,
             "daypart": daypart,
+            "sitting": sitting,
+            "first_contact_today": first_contact_today,
             "time_since_last_interaction_minutes": time_since_minutes,
             "live_threads": packet["open_loops"] + packet["active_expectations"],
             "followup_opportunities": packet["followups"],
