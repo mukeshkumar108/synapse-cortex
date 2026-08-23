@@ -13,6 +13,7 @@ from src.services.temporal_grounding import TemporalGrounding
 from src.services.persistence import save_expectation_idempotent
 from src.services.lifecycle_service import LifecycleService
 from src.services.operational_state_service import OperationalStateService
+from src.services.turn_context import TurnContextAssembler
 from src.models.attention_candidate import (
     AttentionCandidate,
     AttentionCandidateStatus,
@@ -32,6 +33,7 @@ expectation_shaper = ExpectationShaper()
 temporal_grounder = TemporalGrounding()
 lifecycle_service = LifecycleService()
 operational_state_service = OperationalStateService()
+turn_context_assembler = TurnContextAssembler()
 
 
 def _naive_utc(value: datetime | None) -> datetime | None:
@@ -102,8 +104,16 @@ async def ingest_turn_event(
             candidates=candidates, backend="trace_replay",
             model=prior_shapes[0].model,
         )
+        turn_context: dict = {}
     else:
-        candidates = turn_extractor.extract_candidates(payload.text, peer_id=payload.peer_id)
+        turn_context = await turn_context_assembler.assemble(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            peer_id=payload.peer_id, now=payload.now,
+            current_message_id=payload.honcho_message_id, timezone_str=payload.timezone,
+        )
+        candidates = turn_extractor.extract_candidates(
+            payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
+        )
         extraction_result = turn_extractor.extraction_result(candidates)
     await operational_state_service.trace_result(
         db, workspace_id=payload.workspace_id, session_id=payload.session_id,
@@ -117,6 +127,10 @@ async def ingest_turn_event(
             "candidates_extracted": 0,
             "extraction_backend": extraction_result.backend,
             "extraction_failure": extraction_result.failure,
+            "context": {
+                "status": turn_context.get("status"),
+                "honcho_status": turn_context.get("honcho_status"),
+            } if turn_context else None,
         }
 
     expectations_created = []
@@ -236,4 +250,8 @@ async def ingest_turn_event(
         "honcho_message_id": payload.honcho_message_id,
         "extraction_backend": extraction_result.backend,
         "operational_mutations": operational_mutations,
+        "context": {
+            "status": turn_context.get("status"),
+            "honcho_status": turn_context.get("honcho_status"),
+        } if turn_context else None,
     }

@@ -112,7 +112,8 @@ def _fold_string(value: str) -> str:
 
 class BaseExtractorProvider:
     """Interface for turn extraction providers (LLM or Rule-based)."""
-    def extract(self, text: str, peer_id: Optional[str] = None) -> List[ExtractionCandidate]:
+    def extract(self, text: str, peer_id: Optional[str] = None,
+                prior_state: Optional[Dict[str, Any]] = None) -> List[ExtractionCandidate]:
         raise NotImplementedError
 
 
@@ -144,7 +145,8 @@ class RuleBasedExtractorProvider(BaseExtractorProvider):
         r"\b(after\s+the\s+[^.,!\?;\n]+|when\s+[^.,!\?;\n]+\s+(gets back|finishes|arrives)|once\s+[^.,!\?;\n]+)\b",
     ]
 
-    def extract(self, text: str, peer_id: Optional[str] = None) -> List[ExtractionCandidate]:
+    def extract(self, text: str, peer_id: Optional[str] = None,
+                prior_state: Optional[Dict[str, Any]] = None) -> List[ExtractionCandidate]:
         candidates: List[ExtractionCandidate] = []
         if not text or not text.strip():
             return candidates
@@ -468,7 +470,8 @@ class LLMExtractorProvider(BaseExtractorProvider):
         assert last_error is not None
         raise last_error
 
-    def extract(self, text: str, peer_id: Optional[str] = None) -> List[ExtractionCandidate]:
+    def extract(self, text: str, peer_id: Optional[str] = None,
+                prior_state: Optional[Dict[str, Any]] = None) -> List[ExtractionCandidate]:
         if not self.api_key:
             self.last_backend = "failed"
             self.last_failure = "credentials_unavailable"
@@ -477,13 +480,21 @@ class LLMExtractorProvider(BaseExtractorProvider):
         try:
             self.last_stage_metrics = {}
             loose_started = time.perf_counter()
-            loose = self._chat_json(f"""You are the loose-noticing stage of a companion's operational watcher.
+            prior_block = ""
+            if prior_state:
+                from src.services.turn_context import context_to_prompt
+                prior_block = context_to_prompt(prior_state)
+            loose_prompt = f"""You are the loose-noticing stage of a companion's operational watcher.
 Notice meaning before categorising. From the latest USER TURN, describe only things that may
 have changed operationally: unresolved obligations, commitments, recurring intentions,
 upcoming events, follow-ups, important current state, cancellations, completions, progress,
 boundaries/suppressions, or active project focus. Static background or aspirations normally
 belong in semantic memory and should not be promoted. Natural phrasing such as 'still need',
 'been meaning to', 'I'd like to', 'managed to', and 'forget that' is meaningful.
+PRIOR STATE is read-only background — existing objectives, loops, routines, suppressions and
+recent evidence. It tells you about continuity only. Do not re-extract prior state as new.
+If the current turn restates or continues something already in PRIOR STATE, treat it as a
+continuation/update of that item, not as a brand-new fact.
 Return JSON {{"observations": [...]}} with at most 8 items. Each item: description (plain
 semantic English, need not be verbatim), evidence_text (verbatim supporting excerpt),
 source_start/source_end when confident, confidence 0..1, actor_peer_id, subject_refs array,
@@ -495,8 +506,9 @@ Treat "I did my walk today" as completion of today's walk, not generic progress.
 explicit recurrence revisions such as changing "every day" to Monday/Wednesday/Friday as a
 replacement of the prior cadence. Treat an outcome report such as "Ashley's event went
 really well" as resolution/outcome of that event or follow-up, not as a newly upcoming event.
-USER TURN: {json.dumps(text)}
-PEER: {json.dumps(peer_id or 'user')}""")
+{prior_block and ('PRIOR STATE:\n' + prior_block + '\n') or ''}USER TURN: {json.dumps(text)}
+PEER: {json.dumps(peer_id or 'user')}"""
+            loose = self._chat_json(loose_prompt)
             self.last_stage_metrics["loose"] = {
                 "latency_ms": round((time.perf_counter() - loose_started) * 1000, 1),
                 "usage": dict(self._last_call_usage),
@@ -725,11 +737,12 @@ class TurnExtractor:
             self.provider = RuleBasedExtractorProvider()
 
     def extract_candidates(
-        self, text: str, peer_id: Optional[str] = None
+        self, text: str, peer_id: Optional[str] = None,
+        prior_state: Optional[Dict[str, Any]] = None,
     ) -> List[ExtractionCandidate]:
         if not text or not text.strip():
             return []
-        return self.provider.extract(text, peer_id=peer_id)
+        return self.provider.extract(text, peer_id=peer_id, prior_state=prior_state)
 
     def extraction_result(self, candidates: List[ExtractionCandidate]) -> ExtractionResult:
         return ExtractionResult(

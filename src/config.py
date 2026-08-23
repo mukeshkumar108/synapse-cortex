@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # Honcho Integration
     HONCHO_BASE_URL: str = "http://localhost:8000"
     HONCHO_API_KEY: str = "mock-api-key"
+    HONCHO_CONTEXT_ENABLED: bool = True
+    HONCHO_TIMEOUT_SECONDS: float = 3.0
+    HONCHO_CONTEXT_BUDGET_SECONDS: float = 4.0
     SYNAPSE_CORTEX_API_TOKEN: str = ""
     
     model_config = SettingsConfigDict(
