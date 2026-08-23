@@ -214,7 +214,7 @@ class TurnContextAssembler:
 
         async def conclusions_block():
             cons = await client.conclusions(workspace_id, observed=peer_id, limit=MAX_CONCLUSIONS)
-            if not cons:
+            if cons is None:
                 return None
             return [
                 {
