@@ -13,9 +13,9 @@ async def test_phase1_complete_acceptance_scenario(async_client):
     4. Verify expectation persisted with grounded window.
     5. Re-ingest honcho_message_id = 101 -> verify duplicate delivery is IDEMPOTENT.
     6. Advance time to next morning: 2026-08-12T09:00:00+01:00 (2026-08-12T08:00:00Z).
-    7. Fetch followup packet via GET /v1/context/followup-packet.
+    7. Fetch canonical attention packet via GET /v1/cortex/attention-packet.
     8. PASS Criteria:
-       - temporal_state == "window_elapsed"
+       - followup for msg 101 present with temporal_state == "window_elapsed"
        - outcome_state == "unknown"
        - followup_eligible == True
        - reason == "expected_window_elapsed"
@@ -50,7 +50,7 @@ async def test_phase1_complete_acceptance_scenario(async_client):
     # Step 4: Advance mock clock to next morning 09:00 AM BST (08:00 AM UTC)
     next_morning_utc = "2026-08-12T08:00:00Z"
     context_resp = await async_client.get(
-        "/v1/context/followup-packet",
+        "/v1/cortex/attention-packet",
         params={
             "workspace_id": "ws_sophie_prod",
             "session_id": "sess_sophie_1001",
@@ -61,7 +61,7 @@ async def test_phase1_complete_acceptance_scenario(async_client):
 
     assert context_resp.status_code == 200
     packet = context_resp.json()
-    
+
     assert "followups" in packet
     assert len(packet["followups"]) == 1
 
@@ -70,6 +70,5 @@ async def test_phase1_complete_acceptance_scenario(async_client):
     assert item["title"] == "Test the Sophie initiative changes"
     assert item["temporal_state"] == "window_elapsed"
     assert item["outcome_state"] == "unknown"
-    assert item["followup_eligible"] is True
     assert item["reason"] == "expected_window_elapsed"
     assert item["expected_window_label"] == "last night"

@@ -74,15 +74,3 @@ async def save_expectation_idempotent(
         await session.commit()
     logger.info("Created new expectation id=%s for message_id=%s", expectation.id, message_id)
     return expectation, True
-
-
-async def get_active_expectations_for_session(
-    session: AsyncSession, workspace_id: str, session_id: str
-) -> list[Expectation]:
-    """Fetch all expectations for a given session."""
-    stmt = select(Expectation).where(
-        Expectation.honcho_workspace_id == workspace_id,
-        Expectation.honcho_session_id == session_id,
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())

@@ -13,7 +13,7 @@ async def test_health_check(async_client):
 
 @pytest.mark.asyncio
 async def test_phase1_ingest_and_context_endpoints(async_client):
-    """Test Phase 1 event ingestion and context packet endpoints."""
+    """Test Phase 1 event ingestion and the canonical context packet endpoint."""
     event_payload = {
         "workspace_id": "ws_123",
         "session_id": "sess_456",
@@ -27,8 +27,9 @@ async def test_phase1_ingest_and_context_endpoints(async_client):
     assert resp.status_code == 202
     assert resp.json()["expectation_created"] is True
 
+    # Canonical context path: /v1/cortex/attention-packet owns continuity.
     context_resp = await async_client.get(
-        "/v1/context/followup-packet",
+        "/v1/cortex/attention-packet",
         params={
             "workspace_id": "ws_123",
             "session_id": "sess_456",
@@ -37,7 +38,7 @@ async def test_phase1_ingest_and_context_endpoints(async_client):
         },
     )
     assert context_resp.status_code == 200
-    followups = context_resp.json()["followups"]
-    assert len(followups) == 1
-    assert followups[0]["honcho_message_id"] == "999"
-    assert followups[0]["temporal_state"] == "window_elapsed"
+    packet = context_resp.json()
+    messages = [f["honcho_message_id"] for f in packet["followups"]]
+    assert "999" in messages
+    assert packet["followups"][messages.index("999")]["temporal_state"] == "window_elapsed"

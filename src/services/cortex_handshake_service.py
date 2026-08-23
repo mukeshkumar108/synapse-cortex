@@ -1,10 +1,10 @@
 import logging
 from typing import Any, Dict, Optional
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from zoneinfo import ZoneInfo
 
 from src.services.cortex_packet_service import CortexPacketService
+from src.services.daypart import resolve_daypart
 
 logger = logging.getLogger(__name__)
 packet_service = CortexPacketService()
@@ -27,22 +27,8 @@ class CortexHandshakeService:
         last_interaction_time: Optional[datetime] = None,
         chronology: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        # 1. Local Daypart Determination
-        try:
-            local_tz = ZoneInfo(timezone_str)
-            local_now = now.astimezone(local_tz) if now.tzinfo else now.replace(tzinfo=timezone.utc).astimezone(local_tz)
-        except Exception:
-            local_now = now
-
-        hour = local_now.hour
-        if 5 <= hour < 12:
-            daypart = "morning"
-        elif 12 <= hour < 17:
-            daypart = "afternoon"
-        elif 17 <= hour < 22:
-            daypart = "evening"
-        else:
-            daypart = "night"
+        # 1. Local Daypart Determination (single canonical source)
+        daypart = resolve_daypart(now, timezone_str)
 
         # 2. Chronology is supplied by the canonical app/PostgreSQL boundary.
         # Cortex never invents a competing gap threshold. Legacy callers that

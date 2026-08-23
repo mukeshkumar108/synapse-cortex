@@ -11,6 +11,8 @@ from src.models.attention_candidate import AttentionCandidate, AttentionCandidat
 from src.models.operational_state import (RecurringIntention, RecurringOccurrence,
     ObjectiveProgress, OperationalStatus)
 from src.services.expectation_engine import derive_expectation_read_model, derive_temporal_state
+from src.services.daypart import resolve_daypart
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -356,18 +358,11 @@ class CortexPacketService:
         packet: Dict[str, Any], *, now: datetime, timezone_str: str
     ) -> Dict[str, Any]:
         """Canonical bounded context shared by reactive and proactive callers."""
+        daypart = resolve_daypart(now, timezone_str)
         try:
-            from zoneinfo import ZoneInfo
-
             local_now = now.astimezone(ZoneInfo(timezone_str))
         except Exception:
             local_now = now
-        hour = local_now.hour
-        daypart = (
-            "morning" if 5 <= hour < 12 else
-            "afternoon" if 12 <= hour < 17 else
-            "evening" if 17 <= hour < 22 else "night"
-        )
 
         continuity: List[Dict[str, Any]] = []
         # Deadlines are highest-value and must be admitted before the five-item cap.

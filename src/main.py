@@ -6,7 +6,7 @@ from starlette.requests import Request
 import hmac
 from src.db import init_db
 from src.config import settings
-from src.routers import health_router, events_router, context_router, debug_router, cortex_router
+from src.routers import health_router, events_router, debug_router, cortex_router
 from src.services.turn_extractor import extractor_config_status
 
 
@@ -42,6 +42,5 @@ async def require_service_token(request: Request, call_next):
 
 app.include_router(health_router)
 app.include_router(events_router)
-app.include_router(context_router)
 app.include_router(cortex_router)
 app.include_router(debug_router)
