@@ -43,7 +43,7 @@ async def test_sleep_tracker_bed_then_wake_short_sleep():
         assert second is not None
         assert second["signal"] == "short_sleep_likely"
         assert second["hours"] < 7
-        read = await tracker.read(db, workspace_id="ws", session_id="s")
+        read = await tracker.read(db, workspace_id="ws", session_id="s", now=wake)
         assert read["signal"] == "short_sleep_likely"
         assert read["confidence"] >= 0.7
 
@@ -56,6 +56,77 @@ async def test_sleep_tracker_ignores_non_sleep_text():
             text="I need to get back into exercise", now=datetime(2026, 8, 22, 12, tzinfo=timezone.utc))
         assert result is None
         assert await tracker.read(db, workspace_id="ws", session_id="s") is None
+
+
+@pytest.mark.asyncio
+async def test_sleep_unrelated_for_tonight_is_not_a_bed_announcement():
+    tracker = SleepSignalTracker()
+    async with async_session_maker() as db:
+        result = await tracker.observe(db, workspace_id="ws", session_id="s", message_id="m1",
+            text="I'm so excited for tonight's game", now=datetime(2026, 8, 22, 12, tzinfo=timezone.utc))
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_evening_bedtime_not_flagged_late_night():
+    tracker = SleepSignalTracker()
+    # 21:00 local (Europe/London) -> bed local hour 21, bedtime window but NOT late.
+    bed_at = datetime(2026, 8, 22, 20, 0, tzinfo=timezone.utc)  # 21:00 London
+    wake_at = datetime(2026, 8, 23, 5, 0, tzinfo=timezone.utc)  # 06:00 London, 9h
+    async with async_session_maker() as db:
+        await tracker.observe(db, workspace_id="ws2", session_id="s2", message_id="m1",
+            text="heading to bed, goodnight", now=bed_at, timezone_str="Europe/London")
+        episode = await tracker.observe(db, workspace_id="ws2", session_id="s2", message_id="m2",
+            text="just woke up", now=wake_at, timezone_str="Europe/London")
+        assert episode is not None
+        assert episode["signal"] not in ("unusually_late_night_likely", "short_sleep_likely")
+
+
+@pytest.mark.asyncio
+async def test_early_morning_bedtime_is_late_night():
+    tracker = SleepSignalTracker()
+    # 02:30 local London (01:30Z), wake 09:30 local (08:30Z) = 7h -> late night, not short.
+    bed_at = datetime(2026, 8, 22, 1, 30, tzinfo=timezone.utc)
+    wake_at = datetime(2026, 8, 22, 8, 30, tzinfo=timezone.utc)
+    async with async_session_maker() as db:
+        await tracker.observe(db, workspace_id="ws3", session_id="s3", message_id="m1",
+            text="heading to bed", now=bed_at, timezone_str="Europe/London")
+        episode = await tracker.observe(db, workspace_id="ws3", session_id="s3", message_id="m2",
+            text="just woke up", now=wake_at, timezone_str="Europe/London")
+        assert episode["signal"] == "unusually_late_night_likely"
+
+
+@pytest.mark.asyncio
+async def test_daytime_nap_is_never_an_overnight_sleep_signal():
+    tracker = SleepSignalTracker()
+    # 14:00 local -> daytime nap window; observed backstage, never promoted.
+    nap_bed = datetime(2026, 8, 22, 13, 0, tzinfo=timezone.utc)  # 14:00 London
+    nap_wake = datetime(2026, 8, 22, 15, 30, tzinfo=timezone.utc)  # 16:30 London
+    async with async_session_maker() as db:
+        await tracker.observe(db, workspace_id="ws4", session_id="s4", message_id="m1",
+            text="heading to bed for a nap", now=nap_bed, timezone_str="Europe/London")
+        episode = await tracker.observe(db, workspace_id="ws4", session_id="s4", message_id="m2",
+            text="woke up", now=nap_wake, timezone_str="Europe/London")
+        assert episode is not None
+        assert "signal" not in episode  # nap: observed backstage only
+        assert episode["hours"] > 0
+
+
+@pytest.mark.asyncio
+async def test_sleep_episode_goes_stale_after_ttl():
+    tracker = SleepSignalTracker()
+    bed = datetime(2026, 8, 20, 22, 0, tzinfo=timezone.utc)
+    wake = datetime(2026, 8, 21, 6, 0, tzinfo=timezone.utc)
+    later = datetime(2026, 8, 22, 12, 0, tzinfo=timezone.utc)  # >20h after wake
+    async with async_session_maker() as db:
+        await tracker.observe(db, workspace_id="ws5", session_id="s5", message_id="m1",
+            text="heading to bed", now=bed, timezone_str="Europe/London")
+        await tracker.observe(db, workspace_id="ws5", session_id="s5", message_id="m2",
+            text="just woke up", now=wake, timezone_str="Europe/London")
+        fresh = await tracker.read(db, workspace_id="ws5", session_id="s5", now=wake)
+        assert fresh is not None and fresh.get("signal") is not None
+        stale = await tracker.read(db, workspace_id="ws5", session_id="s5", now=later)
+        assert stale is None
 
 
 @pytest.mark.asyncio
@@ -202,6 +273,34 @@ async def test_condition_based_reopen_consumes_user_mention():
 
         reopened = await service.apply_reopen_conditions(
             db, workspace_id="ws_re", session_id="s_re", text="Ashley and I talked today"
+        )
+        assert len(reopened) == 1
+        row = (await db.execute(select(Suppression))).scalar_one()
+        assert row.status == SuppressionStatus.REOPENED
+
+
+@pytest.mark.asyncio
+async def test_reopen_matches_whole_tokens_only():
+    # "work" must not reopen via "workshop"/"networking" substring matches.
+    async with async_session_maker() as db:
+        service = LifecycleService()
+        suppression = Suppression(honcho_workspace_id="ws_wb", honcho_session_id="s_wb",
+            honcho_message_id="m1", candidate_key="supp", target_type="topic",
+            topic_or_entity="work", reason="user_explicit_suppression",
+            reopen_condition="user_mentions_topic", status=SuppressionStatus.ACTIVE)
+        db.add(suppression)
+        await db.commit()
+
+        reopened = await service.apply_reopen_conditions(
+            db, workspace_id="ws_wb", session_id="s_wb",
+            text="my networking workshop went great today"
+        )
+        assert reopened == []
+        row = (await db.execute(select(Suppression))).scalar_one()
+        assert row.status == SuppressionStatus.ACTIVE
+
+        reopened = await service.apply_reopen_conditions(
+            db, workspace_id="ws_wb", session_id="s_wb", text="work is going well"
         )
         assert len(reopened) == 1
         row = (await db.execute(select(Suppression))).scalar_one()

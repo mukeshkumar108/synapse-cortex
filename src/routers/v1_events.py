@@ -101,6 +101,7 @@ async def ingest_turn_event(
     await sleep_tracker.observe(
         db, workspace_id=payload.workspace_id, session_id=payload.session_id,
         message_id=payload.honcho_message_id, text=payload.text, now=payload.now,
+        timezone_str=payload.timezone,
     )
     prior_shapes = (await db.execute(select(ExtractionTrace).where(
         ExtractionTrace.honcho_workspace_id == payload.workspace_id,

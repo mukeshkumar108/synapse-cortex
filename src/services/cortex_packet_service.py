@@ -16,6 +16,11 @@ from src.services.expectation_engine import derive_expectation_read_model, deriv
 from src.services.daypart import resolve_daypart
 from src.services.sleep_signal import SleepSignalTracker
 from src.services.relational_health import recurrence_week_health, _week_start
+from src.services.surface_lifecycle import SurfaceRegistry
+
+CURIOSITY_COOLDOWN_SECONDS = 3600
+CURIOSITY_MAX_SURFACES = 3
+CLARIFICATION_MAX_AGE_HOURS = 168  # 7 days
 from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
@@ -368,7 +373,9 @@ class CortexPacketService:
         packet["continuity_context"] = self._compile_continuity_context(
             packet, now=now, timezone_str=timezone_str
         )
-        packet["sleep"] = await self._compile_sleep_signal(db, workspace_id, session_id)
+        packet["sleep"] = await self._compile_sleep_signal(
+            db, workspace_id, session_id, now=now, timezone_str=timezone_str
+        )
         packet["attention"] = self._compile_gap_signals(recurring_items)
         packet["curiosity"] = await self._compile_curiosity(
             db, workspace_id, session_id, recurrences[:8], user_day, now
@@ -405,17 +412,45 @@ class CortexPacketService:
         """Curiosity = useful unknowns, bounded and gated. Sources: pending
         clarifications (an answer is genuinely outstanding), and recurring
         intentions that have existed for a while but have never been observed
-        (e.g. 'what their normal morning actually looks like'). Lacks salience
-        gating for the foreground to decide whether to ask at all.
+        (e.g. 'what their normal morning actually looks like').
+
+        Delivery lifecycle: every admission is marked surfaced in the surface
+        registry, which enforces a per-key cooldown and max-count budget so a
+        candidate can never nag indefinitely. Clarifications that go stale
+        (> CLARIFICATION_MAX_AGE_DAYS) or exhaust their surface budget are
+        dismissed (real state transition), not surfaced forever.
         """
+        registry = SurfaceRegistry()
+        now_native_utc = (
+            now.astimezone(timezone.utc).replace(tzinfo=None) if now.tzinfo else now
+        )
+        message_id = f"packet:{int(now_native_utc.timestamp())}"
+        now_naive = now_native_utc
         items: List[Dict[str, Any]] = []
 
         clarifications = (await db.execute(select(ClarificationCandidate).where(
             ClarificationCandidate.honcho_workspace_id == workspace_id,
             ClarificationCandidate.honcho_session_id == session_id,
             ClarificationCandidate.status == ClarificationStatus.PENDING,
-        ).order_by(ClarificationCandidate.created_at.desc()).limit(2))).scalars().all()
+        ).order_by(ClarificationCandidate.created_at.desc()).limit(4))).scalars().all()
         for clarification in clarifications:
+            key = f"clarification:{clarification.id}"
+            created = clarification.created_at
+            if (now_naive - created).total_seconds() / 3600.0 > CLARIFICATION_MAX_AGE_HOURS:
+                clarification.status = ClarificationStatus.DISMISSED
+                db.add(clarification)
+                await registry.resolve(db, workspace_id=workspace_id, session_id=session_id,
+                    message_id=message_id, key=key, now=now)
+                continue
+            outcome = await registry.mark(db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id, key=key, now=now,
+                cooldown_seconds=CURIOSITY_COOLDOWN_SECONDS, max_count=CURIOSITY_MAX_SURFACES)
+            if outcome == "cooldown":
+                continue
+            if outcome == "maxed":
+                clarification.status = ClarificationStatus.DISMISSED
+                db.add(clarification)
+                continue
             items.append({
                 "type": "clarification",
                 "topic": clarification.description,
@@ -423,14 +458,21 @@ class CortexPacketService:
                 "salience": 0.6,
                 "not_before": now.isoformat(),
             })
+        if clarifications:
+            await db.commit()
 
-        now_naive = now.replace(tzinfo=None) if now.tzinfo else now
         for recurrence in recurrences:
             if recurrence.started_at and (now_naive - recurrence.started_at).days >= 3:
                 count = (await db.execute(select(func.count()).select_from(RecurringOccurrence).where(
                     RecurringOccurrence.recurring_intention_id == recurrence.id,
                 ))).scalar_one()
                 if count == 0:
+                    key = f"unobserved:{recurrence.id}"
+                    outcome = await registry.mark(db, workspace_id=workspace_id, session_id=session_id,
+                        message_id=message_id, key=key, now=now,
+                        cooldown_seconds=CURIOSITY_COOLDOWN_SECONDS, max_count=CURIOSITY_MAX_SURFACES)
+                    if outcome != "allowed":
+                        continue
                     items.append({
                         "type": "unobserved_routine",
                         "topic": recurrence.title,
@@ -442,13 +484,22 @@ class CortexPacketService:
 
     @staticmethod
     async def _compile_sleep_signal(
-        db: AsyncSession, workspace_id: str, session_id: str
+        db: AsyncSession,
+        workspace_id: str,
+        session_id: str,
+        *,
+        now: datetime,
+        timezone_str: str,
     ) -> Dict[str, Any]:
         """Compact decision-ready sleep signal. Only problem signals surface;
         confidence and the observation ledger stay backstage (promotion role).
+        Stale episodes (TTL exceeded) stop surfacing.
         """
         payload = await SleepSignalTracker().read(
-            db, workspace_id=workspace_id, session_id=session_id
+            db,
+            workspace_id=workspace_id,
+            session_id=session_id,
+            now=now,
         )
         signal = (payload or {}).get("signal")
         if signal not in ("short_sleep_likely", "unusually_late_night_likely"):
