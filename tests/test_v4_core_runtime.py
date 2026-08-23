@@ -6,7 +6,10 @@ from src.models.suppression import SuppressionStatus
 
 
 @pytest.mark.asyncio
-async def test_indirect_job_acceptance_resolves_single_role_expectation(async_client):
+async def test_indirect_acceptance_does_not_resolve_unrelated_sole_expectation(async_client):
+    # Regression: an arbitrary success report must not resolve the only open
+    # expectation when there is no deictic tie and no lexical overlap. "will be
+    # starting there Monday" shares no evidence with "whether I got the role".
     base = {
         "workspace_id": "ws_indirect_role",
         "session_id": "sess_indirect_role",
@@ -27,7 +30,7 @@ async def test_indirect_job_acceptance_resolves_single_role_expectation(async_cl
         "text": "Looks like I will be starting there Monday!",
         "now": "2026-08-14T07:50:00Z",
     })
-    assert len(resolved.json()["mutated_expectation_ids"]) == 1
+    assert len(resolved.json()["mutated_expectation_ids"]) == 0
 
     packet = await async_client.get("/v1/cortex/attention-packet", params={
         "workspace_id": base["workspace_id"],
@@ -35,7 +38,11 @@ async def test_indirect_job_acceptance_resolves_single_role_expectation(async_cl
         "now": "2026-08-14T10:00:00Z",
         "timezone": base["timezone"],
     })
-    assert packet.json()["continuity_context"]["continuity"] == []
+    # Expectation is still carried (window elapsed, outcome unknown).
+    assert any(
+        item.get("type") == "expectation_due"
+        for item in packet.json()["continuity_context"]["continuity"]
+    )
 
 
 @pytest.mark.asyncio

@@ -11,6 +11,105 @@ from src.schemas.candidate import ExtractionCandidate, ExtractionResult, LooseOb
 logger = logging.getLogger(__name__)
 
 
+def extractor_config_status() -> Dict[str, Any]:
+    """Report extractor mode so a silently-degraded config is explicit."""
+    provider = os.getenv("SYNAPSE_EXTRACTOR_PROVIDER", "model").lower()
+    effective_provider = "model" if provider in ("llm", "model") else provider
+    model = os.getenv("SYNAPSE_EXTRACTOR_MODEL") or "gpt-4o-mini"
+    key_present = bool(
+        os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("XAI_API_KEY")
+    )
+    url_overridden = bool(os.getenv("SYNAPSE_MODEL_URL"))
+    degraded = False
+    reason = None
+    if effective_provider == "model":
+        if not key_present:
+            degraded = True
+            reason = "model provider selected without API credentials; extraction will yield zero candidates"
+        elif url_overridden:
+            reason = "model provider configured with explicit SYNAPSE_MODEL_URL"
+    return {
+        "configured_provider": provider,
+        "provider": effective_provider,
+        "model": model,
+        "credentials_present": key_present,
+        "url_overridden": url_overridden,
+        "degraded": degraded,
+        "reason": reason,
+    }
+
+
+_VALID_DOMAIN_TAGS = {
+    "work", "relationship", "health", "family", "goal", "decision", "emotional_landmark",
+}
+_VALID_CATEGORY_TAGS = {
+    "win", "accomplishment", "struggle", "hope", "fear", "inside_joke",
+    "comfort_preference", "avoid_topic", "ask_about_later",
+}
+_VALID_EPISTEMIC_PROVENANCE = {
+    "direct_statement", "reported_statement", "attributed_belief", "observation",
+    "inference", "hypothesis", "pattern", "derived_state", "external_source",
+}
+
+
+_WHITESPACE_TRANSLATION = {ord(ch): " " for ch in "\u00a0\u2007\u202f\u2009\u200a"}
+_QUOTE_TRANSLATION = {
+    ord("’"): "'", ord("‘"): "'", ord("`"): "'",
+    ord("“"): '"', ord("”"): '"', ord("„"): '"',
+}
+
+
+def _normalize_match(text: str) -> tuple[str, list[tuple[int, int]]]:
+    """Length/variance-tolerant normalization that preserves original offsets.
+
+    Returns (normalized_text, spans) where spans[i] is the (start, end) character
+    range in the ORIGINAL text covered by normalized character i. Runs of inner
+    whitespace collapse to a single normalized space; quotes/apostrophes and
+    basic unicode spacing fold onto ascii equivalents. Case is folded.
+    """
+    out: list[str] = []
+    spans: list[tuple[int, int]] = []
+    prev_was_space = True
+    for index, char in enumerate(text):
+        c = char.lower()
+        code = ord(c)
+        if code in _QUOTE_TRANSLATION:
+            c = _QUOTE_TRANSLATION[code]
+        elif code in _WHITESPACE_TRANSLATION:
+            c = _WHITESPACE_TRANSLATION[code]
+        if c in (" ", "\t", "\n", "\r"):
+            if prev_was_space:
+                continue
+            prev_was_space = True
+        else:
+            prev_was_space = False
+        out.append(c)
+        spans.append((index, index + 1))
+    return "".join(out), spans
+
+
+def _find_normalized(haystack: str, needle: str) -> tuple[int, int] | None:
+    """Locate needle in haystack allowing inner whitespace variance.
+
+    Returns matched (start, end) offsets into the ORIGINAL haystack, or None.
+    """
+    norm_hay, spans_h = _normalize_match(haystack)
+    norm_needle, spans_n = _normalize_match(needle)
+    if not norm_needle:
+        return None
+    pos = norm_hay.find(norm_needle)
+    if pos < 0:
+        return None
+    start = spans_h[pos][0]
+    end = spans_h[pos + len(norm_needle) - 1][1]
+    return start, end
+
+
+def _fold_string(value: str) -> str:
+    """Fold quotes/apostrophes/unicode spacing + case for stable hashing/keys."""
+    return _normalize_match(value)[0].strip()
+
+
 class BaseExtractorProvider:
     """Interface for turn extraction providers (LLM or Rule-based)."""
     def extract(self, text: str, peer_id: Optional[str] = None) -> List[ExtractionCandidate]:
@@ -405,11 +504,17 @@ PEER: {json.dumps(peer_id or 'user')}""")
             observations = []
             for i, raw in enumerate((loose.get("observations") or [])[:8]):
                 evidence = str(raw.get("evidence_text") or "")
-                if not evidence or evidence.lower() not in text.lower():
+                if not evidence:
                     continue
-                start = text.lower().find(evidence.lower())
-                raw.update(observation_id=f"o_{hashlib.sha1(evidence.lower().encode()).hexdigest()[:10]}",
-                           source_start=start, source_end=start + len(evidence))
+                match = _find_normalized(text, evidence)
+                if match is None:
+                    continue
+                start, end = match
+                folded_evidence = _fold_string(evidence)
+                raw.update(
+                    observation_id=f"o_{hashlib.sha1(folded_evidence.encode()).hexdigest()[:10]}",
+                    source_start=start, source_end=end,
+                )
                 observations.append(LooseObservation(**raw))
             self.last_observations = observations
             if not observations:
@@ -491,6 +596,17 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     }:
                         hint["action_scope"] = "all_surfaces"
                         validation_notes.append("normalized_invalid_suppression_action_scope")
+                for enum_key, allowed in (
+                    ("domain_tag", _VALID_DOMAIN_TAGS),
+                    ("category_tag", _VALID_CATEGORY_TAGS),
+                    ("epistemic_provenance", _VALID_EPISTEMIC_PROVENANCE),
+                ):
+                    value = raw.get(enum_key)
+                    if value is None:
+                        continue
+                    if value not in allowed:
+                        raw[enum_key] = None
+                        validation_notes.append(f"discarded_invalid_{enum_key}")
                 evidence_lower = obs.evidence_text.lower().replace("’", "'")
                 normalized_text = text.replace("’", "'")
                 explicit_daily = bool(re.search(r"\b(?:every day|daily|each day)\b", text, re.IGNORECASE))

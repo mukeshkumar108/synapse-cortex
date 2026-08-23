@@ -180,15 +180,29 @@ class LifecycleService:
             return [scored[0][1]]
 
         # A genuinely deictic outcome is safe only when exactly one unresolved target
-        # exists. Explicit unmatched nouns (for example "tidy" versus "walk") must
-        # never mutate that sole unrelated row.
-        deictic = (
-            not hint.get("target_text")
-            and bool(re.search(r"\b(?:it|that|this|the thing)\b", candidate.observation.lower()))
-        )
-        if len(expectations) == 1 and hint.get("action") != "cancel":
-            return expectations
-        return expectations if deictic and len(expectations) == 1 else []
+        # exists AND the observation itself refers to it ("it", "that", "this").
+        # An explicit target_text that merely restates the observation is
+        # self-referential and does not block deictic resolution; a target_text
+        # naming a distinct noun (e.g. "the report") blocks it. We never fall back
+        # to "resolve the only open expectation" on arbitrary fulfill output: an
+        # unrelated success while one expectation exists must not mark that
+        # expectation resolved.
+        deictic = bool(re.search(r"\b(?:it|that|this|the thing)\b", candidate.observation.lower()))
+        if deictic and len(expectations) == 1 and hint.get("action") != "cancel":
+            target_text = str(hint.get("target_text") or "")
+            if not target_text:
+                return expectations
+            target_tokens = {
+                w for w in re.findall(r"[a-z0-9]+", target_text.lower())
+                if len(w) > 2 and w not in stop
+            }
+            obs_tokens = {
+                w for w in re.findall(r"[a-z0-9]+", candidate.observation.lower())
+                if len(w) > 2 and w not in stop
+            }
+            if target_tokens and target_tokens & obs_tokens:
+                return expectations
+        return []
 
     async def _create_clarification(
         self, db: AsyncSession, workspace_id: str, session_id: str,
@@ -400,6 +414,10 @@ class LifecycleService:
             return existing
 
         claim = candidate.epistemic_claim or {}
+        provenance = candidate.epistemic_provenance
+        if provenance not in {item.value for item in EpistemicProvenance}:
+            logger.warning("Dropping epistemic annotation: invalid provenance=%r", provenance)
+            return None
         annotation = EpistemicAnnotation(
             honcho_workspace_id=workspace_id,
             honcho_session_id=session_id,
@@ -408,7 +426,7 @@ class LifecycleService:
             target_expectation_id=expectation_id,
             perspective_peer_id=claim.get("perspective") or candidate.actor_peer_id or "user",
             target_peer_id=claim.get("target") or candidate.subject_peer_id,
-            provenance_type=EpistemicProvenance(candidate.epistemic_provenance),
+            provenance_type=EpistemicProvenance(provenance),
             claim_summary=claim.get("claim") or (
                 f"source-linked {candidate.epistemic_provenance}"
                 + (f" about {candidate.subject_peer_id}" if candidate.subject_peer_id else "")
@@ -444,6 +462,16 @@ class LifecycleService:
         if existing:
             return existing
 
+        if candidate.domain_tag not in {item.value for item in DomainTag} or (
+            candidate.category_tag is not None
+            and candidate.category_tag not in {item.value for item in CategoryTag}
+        ):
+            logger.warning(
+                "Dropping domain annotation: invalid domain=%r category=%r",
+                candidate.domain_tag,
+                candidate.category_tag,
+            )
+            return None
         annotation = DomainAnnotation(
             honcho_workspace_id=workspace_id,
             honcho_session_id=session_id,

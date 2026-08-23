@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -6,12 +7,18 @@ import hmac
 from src.db import init_db
 from src.config import settings
 from src.routers import health_router, events_router, context_router, debug_router, cortex_router
+from src.services.turn_extractor import extractor_config_status
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize DB tables on startup
     await init_db()
+    status = extractor_config_status()
+    if status["degraded"]:
+        logging.getLogger(__name__).warning(
+            "synapse-cortex starting in degraded extractor state: %s", status["reason"]
+        )
     yield
 
 

@@ -38,6 +38,21 @@ def _overlap(left: str, right: str) -> float:
     return len(a & b) / max(1, min(len(a), len(b)))
 
 
+def _canonical_days(value) -> list:
+    """Order-and-de-dupe independent day-of-week lists for stable comparison."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            return []
+    if not isinstance(value, list):
+        return []
+    try:
+        return sorted({int(day) for day in value})
+    except (TypeError, ValueError):
+        return []
+
+
 class OperationalStateService:
     """Deterministic commit/reconcile/lifecycle layer for model proposals."""
 
@@ -140,9 +155,10 @@ class OperationalStateService:
         title = candidate.canonical_title or candidate.observation
         existing = await self._match_recurrence(db, workspace_id, session_id, candidate)
         new_key = canonical_key(title)
+        days = _canonical_days(candidate.days_of_week)
         if existing:
             changed = (existing.cadence != candidate.cadence or
-                       existing.days_of_week_json != json.dumps(candidate.days_of_week))
+                       _canonical_days(existing.days_of_week_json) != days)
             if not changed:
                 return {"mutation": "recurrence_deduped", "id": str(existing.id)}
             existing.status = OperationalStatus.SUPERSEDED
@@ -154,7 +170,7 @@ class OperationalStateService:
             honcho_workspace_id=workspace_id, honcho_session_id=session_id,
             honcho_message_id=message_id, candidate_key=candidate.candidate_key,
             canonical_key=new_key, title=title, cadence=candidate.cadence,
-            interval_days=candidate.interval_days, days_of_week_json=json.dumps(candidate.days_of_week),
+            interval_days=candidate.interval_days, days_of_week_json=json.dumps(days),
             timezone=timezone_str, preferred_window=candidate.preferred_window,
             target_amount=candidate.target_amount, target_unit=candidate.target_unit,
             source_evidence=candidate.raw_evidence or candidate.observation,
