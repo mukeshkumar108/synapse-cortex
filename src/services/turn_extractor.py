@@ -484,6 +484,9 @@ class LLMExtractorProvider(BaseExtractorProvider):
             if prior_state:
                 from src.services.turn_context import context_to_prompt
                 prior_block = context_to_prompt(prior_state)
+            prior_prefix = (
+                "\nPRIOR STATE:\n" + prior_block + "\n" if prior_block else ""
+            )
             loose_prompt = f"""You are the loose-noticing stage of a companion's operational watcher.
 Notice meaning before categorising. From the latest USER TURN, describe only things that may
 have changed operationally: unresolved obligations, commitments, recurring intentions,
@@ -506,7 +509,7 @@ Treat "I did my walk today" as completion of today's walk, not generic progress.
 explicit recurrence revisions such as changing "every day" to Monday/Wednesday/Friday as a
 replacement of the prior cadence. Treat an outcome report such as "Ashley's event went
 really well" as resolution/outcome of that event or follow-up, not as a newly upcoming event.
-{prior_block and ('PRIOR STATE:\n' + prior_block + '\n') or ''}USER TURN: {json.dumps(text)}
+{prior_prefix}USER TURN: {json.dumps(text)}
 PEER: {json.dumps(peer_id or 'user')}"""
             loose = self._chat_json(loose_prompt)
             self.last_stage_metrics["loose"] = {
