@@ -126,6 +126,21 @@ async def test_message_reads_are_not_cached_across_turns():
 
 
 @pytest.mark.asyncio
+async def test_zero_search_hits_is_not_honcho_failure():
+    # Relevance returned no hits, but the recent window is available: this is
+    # 'ok', not 'unavailable'. Empty relevance must not read as a host failure.
+    fake = FakeHoncho(search_items=[],
+        messages=[{"id": "recent1", "peer_id": "user", "content": "last thing said", "created_at": "x"}])
+    assembler = TurnContextAssembler(honcho=fake)
+    async with async_session_maker() as db:
+        digest = await assembler.assemble(db, workspace_id="w", session_id="s", peer_id="user",
+            now=datetime(2026, 8, 22, 12, tzinfo=timezone.utc), current_text="something unrelated")
+    assert digest["status"] == "ok"
+    assert digest["honcho_status"] == "ok"
+    assert any("last thing said" in (e.get("content") or "") for e in digest["recent_evidence"])
+
+
+@pytest.mark.asyncio
 async def test_assembler_honcho_unavailable_degrades_without_losing_cortex_state():
     failing = FailingHoncho()
     assembler = TurnContextAssembler(honcho=failing)

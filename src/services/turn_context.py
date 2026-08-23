@@ -182,16 +182,26 @@ class TurnContextAssembler:
 
         async def messages_block():
             # Relevance-first: admit Honcho evidence tied to THIS turn when the
-            # instance supports semantic search; fall back to the recent window.
+            # instance supports semantic search; fall back to the recent window
+            # when the search request itself fails. An empty relevance result is
+            # not a failure: the recent window still supplies continuity.
             relevant = None
             if current_text:
                 relevant = await client.search_messages(
                     workspace_id, session_id, query=current_text, limit=MAX_EVIDENCE + 2
                 )
-            msgs = relevant if relevant is not None else await client.recent_messages(
-                workspace_id, session_id, limit=MAX_EVIDENCE + 2
-            )
-            if not msgs:
+            if relevant is not None and not relevant:
+                recent_fallback = await client.recent_messages(
+                    workspace_id, session_id, limit=MAX_EVIDENCE + 2
+                )
+                if recent_fallback is not None:
+                    relevant = recent_fallback
+            msgs = relevant
+            if msgs is None:
+                msgs = await client.recent_messages(
+                    workspace_id, session_id, limit=MAX_EVIDENCE + 2
+                )
+            if msgs is None:
                 return None
             return [
                 {
