@@ -514,7 +514,9 @@ class LifecycleService:
             if item.reopen_condition != "user_mentions_topic" or not item.topic_or_entity:
                 continue
             tokens = [token for token in item.topic_or_entity.lower().split() if len(token) >= 4]
-            if tokens and any(token in lower for token in tokens):
+            if tokens and any(
+                re.search(r"\b" + re.escape(token) + r"\b", lower) for token in tokens
+            ):
                 item.status = SuppressionStatus.REOPENED
                 item.updated_at = self._naive_utc(datetime.now(timezone.utc))
                 db.add(item)

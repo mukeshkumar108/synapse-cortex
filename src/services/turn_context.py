@@ -241,11 +241,14 @@ class TurnContextAssembler:
             messages, summaries_data, conclusions = None, None, None
 
         if available:
+            # Status is per-call, not read from shared client.last_error (the
+            # Honcho client is a module-level singleton; a concurrent turn's
+            # failure state must not decide this turn's digest status). Each
+            # block returns None ONLY on its own request failure.
             honcho_ok = (
                 messages is not None
                 and summaries_data is not None
                 and conclusions is not None
-                and not client.last_error
             )
             if honcho_ok:
                 digest["recent_evidence"] = messages or []
