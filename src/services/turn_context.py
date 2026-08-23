@@ -81,6 +81,7 @@ class TurnContextAssembler:
         peer_id: str,
         now: datetime,
         current_message_id: Optional[str] = None,
+        current_text: Optional[str] = None,
         timezone_str: str = "UTC",
     ) -> Dict[str, Any]:
         digest: Dict[str, Any] = {
@@ -180,7 +181,16 @@ class TurnContextAssembler:
         message_ids_to_skip = {current_message_id} if current_message_id else set()
 
         async def messages_block():
-            msgs = await client.recent_messages(workspace_id, session_id, limit=MAX_EVIDENCE + 2)
+            # Relevance-first: admit Honcho evidence tied to THIS turn when the
+            # instance supports semantic search; fall back to the recent window.
+            relevant = None
+            if current_text:
+                relevant = await client.search_messages(
+                    workspace_id, session_id, query=current_text, limit=MAX_EVIDENCE + 2
+                )
+            msgs = relevant if relevant is not None else await client.recent_messages(
+                workspace_id, session_id, limit=MAX_EVIDENCE + 2
+            )
             if not msgs:
                 return None
             return [

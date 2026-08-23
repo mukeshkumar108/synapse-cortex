@@ -122,6 +122,21 @@ def test_evidence_semantically_different_not_accepted():
     assert _find_normalized("I still need to keep applying", "I need to keep applying") is None
 
 
+def test_paraphrased_model_evidence_remains_a_documented_limitation():
+    # KNOWN REMAINING LIMITATION (not fixed): the evidence gate still requires a
+    # grounded substring. A model paraphrase is dropped rather than loosely
+    # accepted, protecting against semantic drift at the cost of candidate loss.
+    text = "I want to get a walk in every single morning if I can fit it in."
+    paraphrase = "user wants to walk each morning"
+    provider = StubTwoStageProvider([
+        {"observations": [{"description": "Wants a morning walk",
+            "evidence_text": paraphrase, "confidence": .9,
+            "actor_peer_id": "user", "subject_refs": [], "temporal_language": None}]},
+        {"candidates": []},
+    ])
+    assert provider.extract(text, peer_id="user") == []
+
+
 def test_evidence_match_survives_full_loose_stage_curly_vs_straight():
     text = "I'd like to try walking each morning"
     evidence = "I'd like to try walking each morning"

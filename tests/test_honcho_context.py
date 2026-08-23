@@ -12,16 +12,23 @@ from src.services.turn_extractor import LLMExtractorProvider
 
 
 class FakeHoncho:
-    def __init__(self, messages=None, summaries=None, conclusion_items=None):
+    def __init__(self, messages=None, summaries=None, conclusion_items=None,
+                 search_items=None):
         self.messages = messages or []
+        self.search_items = search_items if search_items is not None else (messages or [])
         self.summaries = summaries or {}
         self.conclusion_items = conclusion_items or []
         self.recent_messages_calls = 0
+        self.search_messages_calls = 0
         self.last_error = None
 
     async def recent_messages(self, workspace_id, session_id, limit=6):
         self.recent_messages_calls += 1
         return self.messages[:limit]
+
+    async def search_messages(self, workspace_id, session_id, query, limit=6):
+        self.search_messages_calls += 1
+        return self.search_items[:limit]
 
     async def session_summaries(self, workspace_id, session_id):
         return self.summaries
@@ -32,6 +39,10 @@ class FakeHoncho:
 
 class FailingHoncho(FakeHoncho):
     async def recent_messages(self, workspace_id, session_id, limit=6):
+        self.last_error = "connection refused"
+        return None
+
+    async def search_messages(self, workspace_id, session_id, query, limit=6):
         self.last_error = "connection refused"
         return None
 
@@ -62,6 +73,8 @@ async def test_assembler_builds_bounded_digest_with_cortex_and_honcho_state():
     fake = FakeHoncho(
         messages=[{"id": f"msg{i}", "peer_id": "user", "content": f"past message {i}", "created_at": "x"}
                   for i in range(10)],
+        search_items=[{"id": "relevant1", "peer_id": "user", "content": "user mentioned the walk again", "created_at": "x"},
+                      {"id": "relevant2", "peer_id": "user", "content": "user said mornings are hard", "created_at": "x"}],
         summaries={"short_summary": "User has been focused on morning walks.", "long_summary": None},
         conclusion_items=[{"id": "c1", "content": "User prefers morning exercise", "level": "inductive",
                            "observer_id": "sophie", "observed_id": "user", "created_at": "x"}],
@@ -80,19 +93,36 @@ async def test_assembler_builds_bounded_digest_with_cortex_and_honcho_state():
         await db.commit()
 
         digest = await assembler.assemble(db, workspace_id="ws", session_id="s",
-            peer_id="user", now=datetime(2026, 8, 22, 12, tzinfo=timezone.utc))
+            peer_id="user", now=datetime(2026, 8, 22, 12, tzinfo=timezone.utc),
+            current_text="still doing my walks")
         assert digest["status"] == "ok"
         assert digest["honcho_status"] == "ok"
         assert any(o["title"] == "Apply for jobs" for o in digest["objectives"])
         assert any(l["title"].startswith("Check how") for l in digest["open_loops"])
         assert any(r["title"] == "Morning walk" for r in digest["recurrences"])
-        assert len(digest["recent_evidence"]) == 6  # bounded, not 10
+        # Relevance selection, not recency: recent_evidence is the search set.
+        contents = [e["content"] for e in digest["recent_evidence"]]
+        assert any("walk" in c for c in contents)
+        assert fake.search_messages_calls == 1
         assert digest["session_summary"] is not None
         assert digest["conclusions"][0]["content"].startswith("User prefers")
         prompt = context_to_prompt(digest)
         assert "Apply for jobs" in prompt
         assert "Morning walk" in prompt
         assert "PRIOR STATE" not in prompt  # prompt block label is added by the extractor
+
+
+@pytest.mark.asyncio
+async def test_message_reads_are_not_cached_across_turns():
+    # Rapid multi-turn: immediate conversation window must be fresh per turn.
+    fake = FakeHoncho(messages=[{"id": "m", "peer_id": "user", "content": "x", "created_at": "y"}])
+    assembler = TurnContextAssembler(honcho=fake)
+    async with async_session_maker() as db:
+        await assembler.assemble(db, workspace_id="w", session_id="s", peer_id="user",
+            now=datetime(2026, 8, 22, 12, tzinfo=timezone.utc), current_text="a")
+        await assembler.assemble(db, workspace_id="w", session_id="s", peer_id="user",
+            now=datetime(2026, 8, 22, 12, 1, tzinfo=timezone.utc), current_text="b")
+    assert fake.search_messages_calls == 2
 
 
 @pytest.mark.asyncio

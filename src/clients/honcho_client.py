@@ -90,30 +90,60 @@ class HonchoClient:
     async def recent_messages(
         self, workspace_id: str, session_id: str, limit: int = 6
     ) -> Optional[List[Dict[str, Any]]]:
-        """Most recent messages in a session (reverse chronological)."""
-        key = f"messages:{workspace_id}:{session_id}:{limit}"
+        """Most recent messages in a session (reverse chronological).
 
-        async def fetch():
-            data = await self._request(
-                "POST",
-                f"/workspaces/{workspace_id}/sessions/{session_id}/messages/list",
-                params={"page": 1, "size": limit, "reverse": True},
-                body={},
-            )
-            if not isinstance(data, dict) or not isinstance(data.get("items"), list):
-                return None
-            return [
-                {
-                    "id": item.get("id"),
-                    "content": item.get("content"),
-                    "peer_id": item.get("peer_id"),
-                    "created_at": item.get("created_at"),
-                    "metadata": item.get("metadata") or {},
-                }
-                for item in data["items"][:limit]
-            ]
+        Live conversation window: deliberately NOT TTL-cached so a rapid
+        multi-turn run sees fresh prior evidence on every turn.
+        """
+        data = await self._request(
+            "POST",
+            f"/workspaces/{workspace_id}/sessions/{session_id}/messages/list",
+            params={"page": 1, "size": limit, "reverse": True},
+            body={},
+        )
+        if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+            return None
+        return [
+            {
+                "id": item.get("id"),
+                "content": item.get("content"),
+                "peer_id": item.get("peer_id"),
+                "created_at": item.get("created_at"),
+                "metadata": item.get("metadata") or {},
+            }
+            for item in data["items"][:limit]
+        ]
 
-        return await self._get_json(key, fetch)
+    async def search_messages(
+        self,
+        workspace_id: str,
+        session_id: str,
+        query: str,
+        limit: int = 6,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Semantic message search for the CURRENT turn. Relevance-based rather
+        than recency-based, so the digest admits evidence tied to *this* turn.
+        Live conversation window: not TTL-cached.
+        """
+        if not query or not query.strip():
+            return None
+        data = await self._request(
+            "POST",
+            f"/workspaces/{workspace_id}/sessions/{session_id}/search",
+            body={"query": query[:500], "limit": limit},
+        )
+        if not isinstance(data, list):
+            return None
+        return [
+            {
+                "id": item.get("id"),
+                "content": item.get("content"),
+                "peer_id": item.get("peer_id"),
+                "created_at": item.get("created_at"),
+                "metadata": item.get("metadata") or {},
+            }
+            for item in data[:limit]
+        ]
 
     async def session_summaries(
         self, workspace_id: str, session_id: str

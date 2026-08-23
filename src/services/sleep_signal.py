@@ -94,13 +94,16 @@ class SleepSignalTracker:
                 hours = (wake_at - bed).total_seconds() / 3600.0
                 payload["hours"] = round(hours, 1)
                 explicit_bed = bool(payload.get("bed_announced_at"))
+                payload["confidence"] = CONFIDENCE_GROUNDED if explicit_bed else CONFIDENCE_SOFT
+                # Only problem signals are promoted. A bed announcement plus a
+                # next appearance is too weak to certify a "normal" cycle, so no
+                # benign signal is claimed for the middle range.
                 if hours < SHORT_SLEEP_HOURS:
                     payload["signal"] = "short_sleep_likely"
                 elif bed.hour >= 1:
                     payload["signal"] = "unusually_late_night_likely"
                 else:
-                    payload["signal"] = "normal_cycle_likely"
-                payload["confidence"] = CONFIDENCE_GROUNDED if explicit_bed else CONFIDENCE_SOFT
+                    payload["signal"] = "sleep_windows_observed"
                 changed = True
 
         if not changed:

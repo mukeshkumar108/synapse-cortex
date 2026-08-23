@@ -18,6 +18,19 @@ def _week_start(user_day: date) -> date:
     return user_day - timedelta(days=user_day.weekday())
 
 
+def week_target(recurrence: RecurringIntention) -> int:
+    """Full-week expected occurrence count (daily=7, weekly=len(weekdays))."""
+    if recurrence.cadence == "daily":
+        return 7
+    if recurrence.cadence == "weekly":
+        try:
+            raw = json.loads(recurrence.days_of_week_json or "[]")
+            return len({int(d) for d in raw if isinstance(d, (int, float))})
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
+
 def expected_days(
     recurrence: RecurringIntention,
     week_start: date,
@@ -52,7 +65,9 @@ def recurrence_week_health(
     occurrences: List[RecurringOccurrence],
     user_day: date,
 ) -> dict:
-    """Compact gap signal for a recurrence over the current week."""
+    """Compact gap signal per recurrence. Field names are elapsed-to-date, not a
+    weekly target, so downstream gap intelligence cannot misfire on intent.
+    """
     start = _week_start(user_day)
     completed = sum(
         1
@@ -60,10 +75,12 @@ def recurrence_week_health(
         if start <= o.user_day <= user_day and o.status == OccurrenceStatus.COMPLETED
     )
     expected = expected_days(recurrence, start, user_day)
+    target = week_target(recurrence)
     slipping = expected > 0 and completed < expected
     return {
-        "expected_this_week": expected,
-        "completed_this_week": completed,
+        "week_target": target,
+        "expected_so_far": expected,
+        "completed_so_far": completed,
         "slipping": slipping,
-        "progress_line": f"{completed}/{expected} done this week" if expected else None,
+        "progress_line": f"{completed}/{expected} done so far this week" if expected else None,
     }

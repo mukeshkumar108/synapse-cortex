@@ -118,7 +118,8 @@ async def ingest_turn_event(
         turn_context = await turn_context_assembler.assemble(
             db, workspace_id=payload.workspace_id, session_id=payload.session_id,
             peer_id=payload.peer_id, now=payload.now,
-            current_message_id=payload.honcho_message_id, timezone_str=payload.timezone,
+            current_message_id=payload.honcho_message_id, current_text=payload.text,
+            timezone_str=payload.timezone,
         )
         candidates = turn_extractor.extract_candidates(
             payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,

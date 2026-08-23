@@ -2,12 +2,14 @@ import logging
 from typing import Any, Dict, List
 from datetime import datetime, timedelta, timezone
 from sqlmodel import select
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.expectation import Expectation, OutcomeState, ExpectationType
 from src.models.open_loop import OpenLoop, OpenLoopStatus
 from src.models.suppression import Suppression, SuppressionStatus
-from src.models.attention_candidate import AttentionCandidate, AttentionCandidateKind, AttentionCandidateStatus
+from src.models.attention_candidate import AttentionCandidate, AttentionCandidateStatus
+from src.models.clarification import ClarificationCandidate, ClarificationStatus
 from src.models.operational_state import (RecurringIntention, RecurringOccurrence,
     ObjectiveProgress, OperationalStatus)
 from src.services.expectation_engine import derive_expectation_read_model, derive_temporal_state
@@ -367,70 +369,91 @@ class CortexPacketService:
             packet, now=now, timezone_str=timezone_str
         )
         packet["sleep"] = await self._compile_sleep_signal(db, workspace_id, session_id)
+        packet["attention"] = self._compile_gap_signals(recurring_items)
         packet["curiosity"] = await self._compile_curiosity(
-            db, workspace_id, session_id, recurring_items, user_day, now
+            db, workspace_id, session_id, recurrences[:8], user_day, now
         )
         return packet
+
+    @staticmethod
+    def _compile_gap_signals(recurring_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Recurrence slippage is expectation/gap/attention intelligence, NOT
+        curiosity. It says 'a commitment is slipping'; curiosity says 'there is
+        a useful unknown'. They are surfaced separately."
+        """
+        gaps = [
+            {
+                "type": "routine_gap",
+                "topic": item["title"],
+                "reason": "this routine has been slipping this week",
+                "progress": item.get("progress_line"),
+            }
+            for item in recurring_items
+            if item.get("slipping")
+        ]
+        return gaps[:2]
 
     @staticmethod
     async def _compile_curiosity(
         db: AsyncSession,
         workspace_id: str,
         session_id: str,
-        recurring_items: List[Dict[str, Any]],
+        recurrences: List[RecurringIntention],
         user_day,
         now: datetime,
     ) -> List[Dict[str, Any]]:
-        """Bounded, non-nagging curiosity candidates derived from recurring
-        intentions that are slipping. Self-extinguishes once the routine is
-        observed again (fresh occurrence), and never duplicates an attention
-        item that has already surfaced repeatedly.
+        """Curiosity = useful unknowns, bounded and gated. Sources: pending
+        clarifications (an answer is genuinely outstanding), and recurring
+        intentions that have existed for a while but have never been observed
+        (e.g. 'what their normal morning actually looks like'). Lacks salience
+        gating for the foreground to decide whether to ask at all.
         """
-        slipping = [item for item in recurring_items if item.get("slipping")]
-        if not slipping:
-            return []
-        existing = (await db.execute(select(AttentionCandidate).where(
-            AttentionCandidate.honcho_workspace_id == workspace_id,
-            AttentionCandidate.honcho_session_id == session_id,
-            AttentionCandidate.kind == AttentionCandidateKind.PENDING_QUESTION,
-            AttentionCandidate.status == AttentionCandidateStatus.ACTIVE,
-        ))).scalars().all()
-        already_asked_enough = []
-        for candidate in existing:
-            if candidate.content and candidate.surfaced_count >= 3:
-                already_asked_enough.append(candidate.content.lower())
+        items: List[Dict[str, Any]] = []
 
-        output: List[Dict[str, Any]] = []
-        for item in slipping[:4]:
-            topic = (item.get("title") or "").strip()
-            if not topic or len(topic) < 3:
-                continue
-            if any(topic.lower() in note for note in already_asked_enough):
-                continue
-            output.append({
-                "key": f"curiosity_{item['id']}",
-                "topic": topic,
-                "reason": "this routine has been slipping this week",
-                "progress": item.get("progress_line"),
-                "salience": 0.55,
+        clarifications = (await db.execute(select(ClarificationCandidate).where(
+            ClarificationCandidate.honcho_workspace_id == workspace_id,
+            ClarificationCandidate.honcho_session_id == session_id,
+            ClarificationCandidate.status == ClarificationStatus.PENDING,
+        ).order_by(ClarificationCandidate.created_at.desc()).limit(2))).scalars().all()
+        for clarification in clarifications:
+            items.append({
+                "type": "clarification",
+                "topic": clarification.description,
+                "reason": "an answer is still outstanding",
+                "salience": 0.6,
                 "not_before": now.isoformat(),
             })
-        return output[:2]
+
+        now_naive = now.replace(tzinfo=None) if now.tzinfo else now
+        for recurrence in recurrences:
+            if recurrence.started_at and (now_naive - recurrence.started_at).days >= 3:
+                count = (await db.execute(select(func.count()).select_from(RecurringOccurrence).where(
+                    RecurringOccurrence.recurring_intention_id == recurrence.id,
+                ))).scalar_one()
+                if count == 0:
+                    items.append({
+                        "type": "unobserved_routine",
+                        "topic": recurrence.title,
+                        "reason": "you don't yet know what their usual times look like for this",
+                        "salience": 0.55,
+                        "not_before": now.isoformat(),
+                    })
+        return items[:2]
 
     @staticmethod
     async def _compile_sleep_signal(
         db: AsyncSession, workspace_id: str, session_id: str
     ) -> Dict[str, Any]:
-        """Compact decision-ready sleep signal. Backstage detail stays in the row."""
+        """Compact decision-ready sleep signal. Only problem signals surface;
+        confidence and the observation ledger stay backstage (promotion role).
+        """
         payload = await SleepSignalTracker().read(
             db, workspace_id=workspace_id, session_id=session_id
         )
-        if not payload or not payload.get("signal"):
+        signal = (payload or {}).get("signal")
+        if signal not in ("short_sleep_likely", "unusually_late_night_likely"):
             return {"signal": None}
-        return {
-            "signal": payload["signal"],
-            "confidence": payload.get("confidence"),
-        }
+        return {"signal": signal}
 
     @staticmethod
     def _compile_continuity_context(

@@ -44,39 +44,37 @@ class CortexHandshakeService:
         supplied_gap = chronology.get("gapMinutes")
         time_since_minutes = supplied_gap if isinstance(supplied_gap, int) else None
 
-        # 2b. First-contact / sitting derivation. Derived from the live
-        # last_interaction_time when present; falls back to chronology-only
-        # semantics otherwise. First contact today is an event (arrival), not a
-        # sticky flag: a later re-entry the same day is never first contact.
+        # 2b. Sitting ownership. The app/PostgreSQL TemporalSession (temporalSession
+        # same/new + firstContactUserDay) is the single canonical owner of session
+        # boundaries. Cortex consumes it verbatim and never independently
+        # classifies new-vs-ongoing from last_interaction_time; when chronology
+        # is absent, `sitting` is explicitly unknown rather than guessed.
+        # first_contact_today is a Cortex-owned fact derived from the last known
+        # interaction when the app has not already supplied firstContactUserDay.
         sitting = None
         first_contact_today = False
-        if last_interaction_time is None:
-            sitting = "first_contact_today"
-            first_contact_today = True
+        chrono_session = chronology.get("temporalSession")
+        if chrono_session == "same":
+            sitting = "ongoing_sitting"
+        elif chrono_session == "new":
+            if chronology.get("firstContactUserDay"):
+                sitting = "first_contact_today"
+                first_contact_today = True
+            else:
+                sitting = "new_sitting_same_day"
         else:
+            sitting = None  # boundary ownership stays with app chronology
             try:
                 local_tz = ZoneInfo(timezone_str)
                 now_aware = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
-                prev_aware = last_interaction_time if last_interaction_time.tzinfo else last_interaction_time.replace(tzinfo=timezone.utc)
-                today = now_aware.astimezone(local_tz).date()
-                prev_local_date = prev_aware.astimezone(local_tz).date()
-                if prev_local_date != today:
-                    sitting = "first_contact_today"
+                if last_interaction_time is None:
                     first_contact_today = True
                 else:
-                    gap_minutes = max(
-                        0,
-                        int((now_aware - prev_aware).total_seconds() // 60),
-                    )
-                    sitting = "ongoing_sitting" if gap_minutes < 90 else "new_sitting_same_day"
-                    first_contact_today = False
+                    prev_aware = last_interaction_time if last_interaction_time.tzinfo else last_interaction_time.replace(tzinfo=timezone.utc)
+                    if prev_aware.astimezone(local_tz).date() != now_aware.astimezone(local_tz).date():
+                        first_contact_today = True
             except Exception:
-                sitting = None
-        if chronology.get("temporalSession") == "new" and first_contact_today:
-            pass
-        elif chronology.get("temporalSession") == "same" and not last_interaction_time:
-            sitting = "ongoing_sitting"
-            first_contact_today = False
+                first_contact_today = False
 
         # 3. Attention Packet Compilation
         packet = await packet_service.compile_attention_packet(
