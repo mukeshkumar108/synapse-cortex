@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, or_
 from sqlmodel import select
 
 from src.models.expectation import Expectation, OutcomeState
@@ -86,9 +87,9 @@ class OperationalStateService:
         if kind == "semantic_only":
             return {"rejected": "semantic_memory_only"}
         if kind == "recurring_intention":
-            return await self._upsert_recurrence(db, workspace_id, session_id, message_id, candidate, now, timezone_str)
+            return await self._upsert_recurrence(db, workspace_id, session_id, message_id, peer_id, candidate, now, timezone_str)
         if kind in ("completion", "cancellation"):
-            recurrence = await self._match_recurrence(db, workspace_id, session_id, candidate)
+            recurrence = await self._match_recurrence(db, workspace_id, session_id, peer_id, candidate)
             if recurrence:
                 if kind == "cancellation":
                     recurrence.status = OperationalStatus.CANCELLED
@@ -106,7 +107,7 @@ class OperationalStateService:
                 db.add(occurrence)
                 await db.commit()
                 return {"mutation": "occurrence_completed", "id": str(occurrence.id)}
-            loop = await self._match_open_loop(db, workspace_id, session_id, candidate)
+            loop = await self._match_open_loop(db, workspace_id, session_id, peer_id, candidate)
             if loop:
                 loop.status = OpenLoopStatus.RESOLVED if kind == "completion" else OpenLoopStatus.ABANDONED
                 loop.resolution_evidence = candidate.raw_evidence or candidate.observation
@@ -114,14 +115,18 @@ class OperationalStateService:
                 db.add(loop); await db.commit()
                 return {"mutation": "open_loop_resolved", "id": str(loop.id)}
         if kind == "progress":
-            return await self._record_progress(db, workspace_id, session_id, message_id, candidate, now, timezone_str)
+            return await self._record_progress(db, workspace_id, session_id, message_id, peer_id, candidate, now, timezone_str)
         return {"mutation": "delegated_existing_lifecycle"}
 
     async def match_expectation(self, db: AsyncSession, *, workspace_id: str,
-                                session_id: str, candidate: ExtractionCandidate) -> Optional[Expectation]:
+                                session_id: str, candidate: ExtractionCandidate,
+                                peer_id: Optional[str] = None) -> Optional[Expectation]:
         rows = (await db.execute(select(Expectation).where(
             Expectation.honcho_workspace_id == workspace_id,
-            Expectation.honcho_session_id == session_id,
+            or_(
+                Expectation.owner_peer_id == peer_id,
+                and_(Expectation.owner_peer_id.is_(None), Expectation.honcho_session_id == session_id),
+            ) if peer_id else Expectation.honcho_session_id == session_id,
             Expectation.outcome_state == OutcomeState.UNKNOWN,
             Expectation.superseded_by_id.is_(None),
         ))).scalars().all()
@@ -129,31 +134,37 @@ class OperationalStateService:
         matches = sorted(rows, key=lambda item: _overlap(target, item.title), reverse=True)
         return matches[0] if matches and _overlap(target, matches[0].title) >= .34 else None
 
-    async def _match_open_loop(self, db, workspace_id, session_id, candidate):
+    async def _match_open_loop(self, db, workspace_id, session_id, peer_id, candidate):
         loops = (await db.execute(select(OpenLoop).where(
             OpenLoop.honcho_workspace_id == workspace_id,
-            OpenLoop.honcho_session_id == session_id,
+            or_(
+                OpenLoop.owner_peer_id == peer_id,
+                and_(OpenLoop.owner_peer_id.is_(None), OpenLoop.honcho_session_id == session_id),
+            ),
             OpenLoop.status == OpenLoopStatus.OPEN,
         ))).scalars().all()
         target = candidate.target_key or candidate.canonical_title or candidate.observation
         matches = sorted(loops, key=lambda item: _overlap(target, f"{item.title} {item.summary}"), reverse=True)
         return matches[0] if matches and _overlap(target, f"{matches[0].title} {matches[0].summary}") >= .34 else None
 
-    async def _match_recurrence(self, db: AsyncSession, workspace_id: str, session_id: str, candidate: ExtractionCandidate) -> Optional[RecurringIntention]:
+    async def _match_recurrence(self, db: AsyncSession, workspace_id: str, session_id: str, peer_id: str, candidate: ExtractionCandidate) -> Optional[RecurringIntention]:
         active = (await db.execute(select(RecurringIntention).where(
             RecurringIntention.honcho_workspace_id == workspace_id,
-            RecurringIntention.honcho_session_id == session_id,
+            or_(
+                RecurringIntention.owner_peer_id == peer_id,
+                and_(RecurringIntention.owner_peer_id.is_(None), RecurringIntention.honcho_session_id == session_id),
+            ),
             RecurringIntention.status == OperationalStatus.ACTIVE,
         ))).scalars().all()
         target = candidate.target_key or candidate.canonical_title or candidate.observation
         matches = sorted(active, key=lambda item: _overlap(target, item.title), reverse=True)
         return matches[0] if matches and _overlap(target, matches[0].title) >= 0.34 else None
 
-    async def _upsert_recurrence(self, db, workspace_id, session_id, message_id, candidate, now, timezone_str):
+    async def _upsert_recurrence(self, db, workspace_id, session_id, message_id, peer_id, candidate, now, timezone_str):
         if not candidate.cadence or candidate.confidence < 0.65:
             return {"rejected": "invalid_or_low_confidence_recurrence"}
         title = candidate.canonical_title or candidate.observation
-        existing = await self._match_recurrence(db, workspace_id, session_id, candidate)
+        existing = await self._match_recurrence(db, workspace_id, session_id, peer_id, candidate)
         new_key = canonical_key(title)
         days = _canonical_days(candidate.days_of_week)
         if existing:
@@ -169,6 +180,7 @@ class OperationalStateService:
         row = RecurringIntention(
             honcho_workspace_id=workspace_id, honcho_session_id=session_id,
             honcho_message_id=message_id, candidate_key=candidate.candidate_key,
+            owner_peer_id=peer_id,
             canonical_key=new_key, title=title, cadence=candidate.cadence,
             interval_days=candidate.interval_days, days_of_week_json=json.dumps(days),
             timezone=timezone_str, preferred_window=candidate.preferred_window,
@@ -195,7 +207,7 @@ class OperationalStateService:
             honcho_workspace_id=recurrence.honcho_workspace_id, user_day=user_day)
         db.add(row); await db.commit(); await db.refresh(row); return row
 
-    async def _record_progress(self, db, workspace_id, session_id, message_id, candidate, now, timezone_str):
+    async def _record_progress(self, db, workspace_id, session_id, message_id, peer_id, candidate, now, timezone_str):
         existing = (await db.execute(select(ObjectiveProgress).where(
             ObjectiveProgress.honcho_workspace_id == workspace_id,
             ObjectiveProgress.honcho_message_id == message_id,
@@ -203,12 +215,14 @@ class OperationalStateService:
         ))).scalar_one_or_none()
         if existing: return {"mutation": "progress_deduped", "id": str(existing.id)}
         parent = await self.match_expectation(
-            db, workspace_id=workspace_id, session_id=session_id, candidate=candidate
+            db, workspace_id=workspace_id, session_id=session_id, candidate=candidate,
+            peer_id=peer_id,
         )
         try: user_day = (now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now).astimezone(ZoneInfo(timezone_str)).date()
         except Exception: user_day = _utc(now).date()
         row = ObjectiveProgress(honcho_workspace_id=workspace_id, honcho_session_id=session_id,
             honcho_message_id=message_id, candidate_key=candidate.candidate_key,
+            owner_peer_id=peer_id,
             expectation_id=parent.id if parent else None, title=candidate.canonical_title or candidate.observation,
             amount=candidate.progress_amount, unit=candidate.progress_unit, user_day=user_day,
             evidence=candidate.raw_evidence or candidate.observation)

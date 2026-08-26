@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List
 from datetime import datetime, timedelta, timezone
 from sqlmodel import select
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.expectation import Expectation, OutcomeState, ExpectationType
@@ -40,7 +40,18 @@ class CortexPacketService:
         session_id: str,
         now: datetime,
         timezone_str: str = "UTC",
+        owner_peer_id: str | None = None,
     ) -> Dict[str, Any]:
+        def owner_scope(model):
+            if not owner_peer_id:
+                return model.honcho_session_id == session_id
+            return or_(
+                model.owner_peer_id == owner_peer_id,
+                and_(
+                    model.owner_peer_id.is_(None),
+                    model.honcho_session_id == session_id,
+                ),
+            )
         # 1. Fetch active Suppressions
         stmt_supp = select(Suppression).where(
             Suppression.honcho_workspace_id == workspace_id,
@@ -71,7 +82,7 @@ class CortexPacketService:
         # 2. Fetch Expectations
         stmt_exp = select(Expectation).where(
             Expectation.honcho_workspace_id == workspace_id,
-            Expectation.honcho_session_id == session_id,
+            owner_scope(Expectation),
             Expectation.superseded_by_id.is_(None),
         ).order_by(Expectation.created_at.desc())
         res_exp = await db.execute(stmt_exp)
@@ -171,7 +182,7 @@ class CortexPacketService:
         # 3. Fetch Open Loops
         stmt_loop = select(OpenLoop).where(
             OpenLoop.honcho_workspace_id == workspace_id,
-            OpenLoop.honcho_session_id == session_id,
+            owner_scope(OpenLoop),
             OpenLoop.status == OpenLoopStatus.OPEN,
         )
         res_loop = await db.execute(stmt_loop)
@@ -299,7 +310,7 @@ class CortexPacketService:
             user_day = now_utc.date()
         recurrences = (await db.execute(select(RecurringIntention).where(
             RecurringIntention.honcho_workspace_id == workspace_id,
-            RecurringIntention.honcho_session_id == session_id,
+            owner_scope(RecurringIntention),
             RecurringIntention.status == OperationalStatus.ACTIVE,
         ).order_by(RecurringIntention.updated_at.desc()))).scalars().all()
         week_start = _week_start(user_day)
@@ -331,7 +342,7 @@ class CortexPacketService:
             })
         progress_rows = (await db.execute(select(ObjectiveProgress).where(
             ObjectiveProgress.honcho_workspace_id == workspace_id,
-            ObjectiveProgress.honcho_session_id == session_id,
+            owner_scope(ObjectiveProgress),
         ).order_by(ObjectiveProgress.created_at.desc()).limit(3))).scalars().all()
 
         packet = {

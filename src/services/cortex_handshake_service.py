@@ -27,6 +27,7 @@ class CortexHandshakeService:
         timezone_str: str = "Europe/London",
         last_interaction_time: Optional[datetime] = None,
         chronology: Optional[Dict[str, Any]] = None,
+        owner_peer_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         # 1. Local Daypart Determination (single canonical source)
         daypart = resolve_daypart(now, timezone_str)
@@ -78,7 +79,8 @@ class CortexHandshakeService:
 
         # 3. Attention Packet Compilation
         packet = await packet_service.compile_attention_packet(
-            db=db, workspace_id=workspace_id, session_id=session_id, now=now, timezone_str=timezone_str
+            db=db, workspace_id=workspace_id, session_id=session_id, now=now,
+            timezone_str=timezone_str, owner_peer_id=owner_peer_id,
         )
 
         return {

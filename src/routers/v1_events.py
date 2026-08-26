@@ -189,7 +189,7 @@ async def ingest_turn_event(
         if cand.operational_kind == "durable_objective":
             existing_objective = await operational_state_service.match_expectation(
                 db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-                candidate=cand,
+                candidate=cand, peer_id=payload.peer_id,
             )
         shaped_data = None if (is_replacement_event or special_lifecycle or existing_objective) else expectation_shaper.shape_expectation(cand, payload.peer_id)
         expectation_record_id = existing_objective.id if existing_objective else None
@@ -202,6 +202,7 @@ async def ingest_turn_event(
                 "honcho_workspace_id": payload.workspace_id,
                 "honcho_session_id": payload.session_id,
                 "honcho_message_id": payload.honcho_message_id,
+                "owner_peer_id": payload.peer_id,
                 "candidate_key": f"{shaped_data['candidate_key']}@{cand.extractor_version}",
                 "extractor_version": cand.extractor_version,
                 "source_start": shaped_data["source_start"],
@@ -228,6 +229,7 @@ async def ingest_turn_event(
             workspace_id=payload.workspace_id,
             session_id=payload.session_id,
             message_id=payload.honcho_message_id,
+            owner_peer_id=payload.peer_id,
             candidate=cand,
             expectation_id=expectation_record_id,
             now=payload.now,

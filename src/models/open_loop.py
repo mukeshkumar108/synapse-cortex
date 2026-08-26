@@ -34,6 +34,7 @@ class OpenLoop(SQLModel, table=True):
     honcho_workspace_id: str = Field(index=True, nullable=False)
     honcho_session_id: str = Field(index=True, nullable=False)
     honcho_message_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
     candidate_key: str = Field(default="primary", nullable=False)
     expectation_id: Optional[UUID] = Field(default=None, index=True)
     

@@ -22,6 +22,7 @@ router_service = CortexRouterService()
 class HandshakeRequest(BaseModel):
     workspace_id: str
     session_id: str
+    peer_id: Optional[str] = None
     now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     timezone: str = "Europe/London"
     last_interaction_time: Optional[datetime] = None
@@ -49,6 +50,7 @@ async def get_cortex_handshake(
         timezone_str=req.timezone,
         last_interaction_time=req.last_interaction_time,
         chronology=req.chronology,
+        owner_peer_id=req.peer_id,
     )
 
 
@@ -64,6 +66,7 @@ async def route_cortex_query(req: RouteRequest):
 async def get_cortex_attention_packet(
     workspace_id: str = Query(...),
     session_id: str = Query(...),
+    peer_id: Optional[str] = Query(None),
     now: Optional[datetime] = Query(None),
     timezone_str: str = Query("UTC", alias="timezone"),
     db: AsyncSession = Depends(get_async_session),
@@ -78,4 +81,5 @@ async def get_cortex_attention_packet(
         session_id=session_id,
         now=eval_now,
         timezone_str=timezone_str,
+        owner_peer_id=peer_id,
     )
