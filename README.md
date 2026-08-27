@@ -36,6 +36,11 @@ The canonical full-system handoff is maintained in
   or the user-visible response.
 - Honcho is semantic evidence; Cortex is lifecycle state. Neither is a second
   canonical chat store.
+- Explicit getting-to-know-you `sessionMode` is app-owned per-chat authority;
+  Sophie's seeded belief spine is runtime-owned persona data. Neither belongs
+  in Cortex. Narrative-scene extraction and probabilistic user-pattern
+  hypotheses remain deferred until their own extraction and restraint contracts
+  exist; do not approximate them as continuity objects.
 
 Do not add foreground prompt directives or duplicate app chronology here. New
 scheduled onboarding/product cadence requires its own explicit authority
