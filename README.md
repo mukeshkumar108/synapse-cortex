@@ -52,6 +52,23 @@ Set `SYNAPSE_EXTRACTOR_PROVIDER=model` plus either `OPENAI_API_KEY` or
 does not silently fall back to rules. Set the provider to `rules` only for explicit
 legacy/smoke-test operation.
 
+## Source-linked canonical objects (`POST /v1/events/object`)
+
+Canonical task/reminder state lives in the app's Postgres and Google Calendar
+objects live in Google; Cortex derives lifecycle/attention state only, via a
+deterministic projection contract (no model calls): `source.system`
+(`app_task` | `google_calendar`) + `source.object_id` + integer
+`source.version`, scoped per `owner_peer_id`. Same-version re-delivery is an
+idempotent no-op; a version bump supersedes prior state (reschedule);
+`completed`/`cancelled` resolve lifecycle and invalidate stale attention.
+Calendar completion creates a bounded post-event follow-up callback window as
+source-linked attention (kind `callback`). Reminder windows are explicit
+user-facing windows carried on the object; the packet never infers reminder
+timing from a fixed approaching-deadline rule. The attention packet gains
+`commitments` (reminder_due/overdue/upcoming) and `events`
+(imminent/ongoing/upcoming), and `continuity_context` carries `task_due`,
+`event_upcoming` and `event_followup` items ahead of generic follow-ups.
+
 ## Quickstart
 
 ```bash
