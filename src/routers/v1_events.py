@@ -17,6 +17,8 @@ from src.services.object_lifecycle_service import ObjectLifecycleService
 from src.services.operational_state_service import OperationalStateService
 from src.services.turn_context import TurnContextAssembler
 from src.services.sleep_signal import SleepSignalTracker
+from src.services.turn_reconciliation import suppress_materialized_duplicates
+from src.services.commitment_candidate_service import CommitmentCandidateService
 from src.models.attention_candidate import (
     AttentionCandidate,
     AttentionCandidateStatus,
@@ -39,6 +41,7 @@ operational_state_service = OperationalStateService()
 turn_context_assembler = TurnContextAssembler()
 sleep_tracker = SleepSignalTracker()
 object_lifecycle_service = ObjectLifecycleService()
+commitment_candidate_service = CommitmentCandidateService()
 
 
 def _naive_utc(value: datetime | None) -> datetime | None:
@@ -150,12 +153,20 @@ async def ingest_turn_event(
         db, workspace_id=payload.workspace_id, session_id=payload.session_id,
         message_id=payload.honcho_message_id, result=extraction_result,
     )
+    # Fast→slow reconciliation: deterministic suppression of conversation-derived
+    # candidates that would duplicate canonical actions already committed from
+    # this exact turn by the real-time interpreter. Applied after tracing (so
+    # replay re-applies identically) and before any lifecycle mutation.
+    candidates, suppressed = suppress_materialized_duplicates(
+        candidates, payload.materialized_actions
+    )
     if not candidates:
         logger.info("No state candidates extracted from turn msg_id=%s", payload.honcho_message_id)
         return {
             "status": "accepted",
             "expectation_created": False,
             "candidates_extracted": 0,
+            "candidates_suppressed_by_reconciliation": len(suppressed),
             "extraction_backend": extraction_result.backend,
             "extraction_failure": extraction_result.failure,
             "context": {
@@ -169,6 +180,22 @@ async def ingest_turn_event(
     operational_mutations = []
 
     for cand in candidates:
+        # Commitment candidates are derived, fallible proposals: they persist
+        # only into the bounded candidate store and never enter the hard lanes.
+        if cand.operational_kind == "commitment_candidate":
+            candidate_row = await commitment_candidate_service.upsert_from_candidate(
+                db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                owner_peer_id=payload.peer_id, message_id=payload.honcho_message_id,
+                candidate=cand, now=payload.now,
+            )
+            operational_mutations.append({
+                "mutation": "commitment_candidate_upserted",
+                "candidate_key": candidate_row.candidate_key if candidate_row else None,
+                "authority": candidate_row.authority.value if candidate_row else None,
+                "canonical_key": candidate_row.canonical_key if candidate_row else None,
+            })
+            continue
+
         operational_result = await operational_state_service.apply(
             db, workspace_id=payload.workspace_id, session_id=payload.session_id,
             message_id=payload.honcho_message_id, peer_id=payload.peer_id,
@@ -276,6 +303,7 @@ async def ingest_turn_event(
     return {
         "status": "accepted",
         "candidates_extracted": len(candidates),
+        "candidates_suppressed_by_reconciliation": len(suppressed),
         "expectation_created": len(expectations_created) > 0,
         "expectations_created_count": len(expectations_created),
         "expectation_ids": [str(eid) for eid in expectations_created],

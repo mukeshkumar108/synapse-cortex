@@ -51,6 +51,24 @@ class ReminderWindow(BaseModel):
         return value
 
 
+class ObjectOrigin(BaseModel):
+    """Provenance of a real-time (fast-path) materialization: which user
+    message produced this canonical action, so the background watcher can
+    canonicalize (supersede) its own conversation-derived duplicate."""
+
+    message_id: str = Field(min_length=1, max_length=256)
+    evidence_span: Optional[str] = Field(default=None, max_length=2000)
+
+
+class AbsorbRef(BaseModel):
+    """A derived Cortex lifecycle object this canonical object absorbs.
+    Promotion semantics: the expectation/open-loop is superseded or re-pointed
+    so exactly one live representation remains."""
+
+    kind: Literal["expectation", "open_loop"]
+    id: str = Field(min_length=1, max_length=64)
+
+
 class ObjectStateIngest(BaseModel):
     workspace_id: str = Field(min_length=1, max_length=128)
     session_id: str = Field(min_length=1, max_length=128)
@@ -71,6 +89,10 @@ class ObjectStateIngest(BaseModel):
     reminder_windows: list[ReminderWindow] = Field(default_factory=list, max_length=3)
     # Bounded post-event follow-up window in hours (calendar events only).
     followup_window_hours: Optional[int] = Field(default=None, ge=1, le=72)
+    # Real-time provenance: the originating user message (canonicalization).
+    origin: Optional[ObjectOrigin] = None
+    # Promotion: derived Cortex objects absorbed into this canonical object.
+    absorbs: list[AbsorbRef] = Field(default_factory=list, max_length=8)
 
     @field_validator("now", "due_at", "event_start", "event_end")
     @classmethod

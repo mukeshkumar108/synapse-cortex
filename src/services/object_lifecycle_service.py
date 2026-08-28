@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -29,6 +30,7 @@ from src.models.attention_candidate import (
     utc_now as attention_utc_now,
 )
 from src.models.expectation import Expectation, ExpectationType, OutcomeState
+from src.models.open_loop import OpenLoop, OpenLoopStatus
 from src.schemas.object_state import ObjectStateIngest
 
 logger = logging.getLogger(__name__)
@@ -138,6 +140,16 @@ class ObjectLifecycleService:
                     source_system=payload.source.system,
                     source_object_id=payload.source.object_id,
                 )
+        # Slow→fast reconciliation: canonicalize (supersede) the watcher's own
+        # conversation-derived duplicates from the originating message, and
+        # absorb any explicitly promoted derived objects. Exactly one live
+        # representation survives.
+        canonicalized = await self._canonicalize_origin_duplicates(
+            db, payload, owner_peer_id, expectation
+        )
+        absorbed = await self._absorb_derived_objects(
+            db, payload, owner_peer_id, expectation
+        )
         await db.commit()
         await db.refresh(expectation)
         return {
@@ -145,7 +157,128 @@ class ObjectLifecycleService:
             "action_taken": "superseded" if current is not None else "created",
             "expectation_id": str(expectation.id),
             "superseded_id": str(current.id) if current is not None else None,
+            "canonicalized_expectation_ids": canonicalized,
+            "absorbed_ids": absorbed,
         }
+
+    async def _canonicalize_origin_duplicates(
+        self,
+        db: AsyncSession,
+        payload: ObjectStateIngest,
+        owner_peer_id: str,
+        expectation: Expectation,
+    ) -> list[str]:
+        """Supersede conversation-derived expectations born from the same user
+        message as this real-time canonical action (slow→fast reconciliation,
+        deterministic: same message + equivalent lane + still unresolved)."""
+        if payload.origin is None:
+            return []
+        equivalent_types = (
+            (ExpectationType.USER_COMMITMENT, ExpectationType.USER_INTENTION,
+             ExpectationType.FOLLOWUP_INVITATION)
+            if payload.source.kind == "task"
+            else (ExpectationType.PLANNED_EVENT,)
+        )
+        rows = (
+            await db.execute(
+                select(Expectation).where(
+                    Expectation.honcho_workspace_id == payload.workspace_id,
+                    Expectation.owner_peer_id == owner_peer_id,
+                    Expectation.honcho_message_id == payload.origin.message_id,
+                    Expectation.source_system.is_(None),
+                    Expectation.superseded_by_id.is_(None),
+                    Expectation.outcome_state == OutcomeState.UNKNOWN,
+                    Expectation.expectation_type.in_(equivalent_types),
+                    Expectation.id != expectation.id,
+                )
+            )
+        ).scalars().all()
+        for row in rows:
+            row.outcome_state = OutcomeState.SUPERSEDED
+            row.superseded_by_id = expectation.id
+            row.resolution_evidence = (
+                f"canonicalized_by:{payload.source.system}:{payload.source.object_id}"
+            )
+            row.updated_at = _now_naive()
+            db.add(row)
+        if rows:
+            # Re-point open loops hanging off canonicalized expectations so
+            # their resolution continues to flow through the canonical object.
+            loops = (
+                await db.execute(
+                    select(OpenLoop).where(
+                        OpenLoop.expectation_id.in_([row.id for row in rows]),
+                        OpenLoop.status == OpenLoopStatus.OPEN,
+                    )
+                )
+            ).scalars().all()
+            for loop in loops:
+                loop.expectation_id = expectation.id
+                loop.updated_at = _now_naive()
+                db.add(loop)
+        return [str(row.id) for row in rows]
+
+    async def _absorb_derived_objects(
+        self,
+        db: AsyncSession,
+        payload: ObjectStateIngest,
+        owner_peer_id: str,
+        expectation: Expectation,
+    ) -> list[str]:
+        """Promotion: derived Cortex objects (watcher expectations / open
+        loops) absorbed into the canonical object. Absorbed expectations are
+        superseded with a promotion link; open loops are re-pointed to the
+        canonical object's lifecycle shadow so their resolution continues to
+        flow through existing logic."""
+        absorbed: list[str] = []
+        for ref in payload.absorbs:
+            try:
+                ref_uuid = uuid.UUID(ref.id)
+            except (TypeError, ValueError):
+                continue
+            if ref.kind == "expectation":
+                row = (
+                    await db.execute(
+                        select(Expectation).where(
+                            Expectation.id == ref_uuid,
+                            Expectation.honcho_workspace_id == payload.workspace_id,
+                            Expectation.owner_peer_id == owner_peer_id,
+                            Expectation.superseded_by_id.is_(None),
+                        )
+                    )
+                ).scalar_one_or_none()
+                if row is None or row.id == expectation.id:
+                    continue
+                row.outcome_state = OutcomeState.SUPERSEDED
+                row.superseded_by_id = expectation.id
+                row.resolution_evidence = (
+                    f"promoted_to_task:{payload.source.system}:{payload.source.object_id}"
+                )
+                row.updated_at = _now_naive()
+                db.add(row)
+                absorbed.append(ref.id)
+            elif ref.kind == "open_loop":
+                loop = (
+                    await db.execute(
+                        select(OpenLoop).where(
+                            OpenLoop.id == ref_uuid,
+                            OpenLoop.honcho_workspace_id == payload.workspace_id,
+                            OpenLoop.owner_peer_id == owner_peer_id,
+                            OpenLoop.status == OpenLoopStatus.OPEN,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if loop is None:
+                    continue
+                if loop.expectation_id is not None:
+                    loop.expectation_id = expectation.id
+                else:
+                    loop.status = OpenLoopStatus.RESOLVED
+                    loop.summary = f"{loop.summary} [promoted_to_task:{payload.source.object_id}]"
+                loop.updated_at = _now_naive()
+                db.add(loop)
+                absorbed.append(ref.id)
+        return absorbed
 
     def _expectation_fields(
         self, payload: ObjectStateIngest, owner_peer_id: str

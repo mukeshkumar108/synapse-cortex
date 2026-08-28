@@ -18,6 +18,8 @@ from src.services.daypart import resolve_daypart
 from src.services.sleep_signal import SleepSignalTracker
 from src.services.relational_health import recurrence_week_health, _week_start
 from src.services.surface_lifecycle import SurfaceRegistry
+from src.services.commitment_candidate_service import CommitmentCandidateService
+from src.models.commitment_candidate import CommitmentCandidateAuthority
 
 CURIOSITY_COOLDOWN_SECONDS = 3600
 CURIOSITY_MAX_SURFACES = 3
@@ -30,6 +32,7 @@ REMINDER_SURFACE_MAX = 1
 from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
+commitment_candidate_service = CommitmentCandidateService()
 
 
 class CortexPacketService:
@@ -429,6 +432,9 @@ class CortexPacketService:
             db, workspace_id, session_id, source_expectations, now=now
         )
         packet["events"] = self._compile_events(source_expectations, now=now)
+        packet["commitment_candidates"] = await self._compile_commitment_candidates(
+            db, workspace_id, owner_peer_id or "", now=now
+        )
         packet["continuity_context"] = self._compile_continuity_context(
             packet, now=now, timezone_str=timezone_str
         )
@@ -614,6 +620,37 @@ class CortexPacketService:
         priority = {"imminent": 0, "ongoing": 1, "upcoming": 2, "past": 3}
         items.sort(key=lambda item: (priority.get(item["state"], 9), item["start"]))
         return items[:6]
+
+    @staticmethod
+    async def _compile_commitment_candidates(
+        db: AsyncSession,
+        workspace_id: str,
+        owner_peer_id: str,
+        *,
+        now: datetime,
+    ) -> List[Dict[str, Any]]:
+        """Bounded 'Sophie noticed' surface: derived commitment candidates that
+        are concrete enough to bother the user about. Ask-authority only; act
+        candidates are materialized by the app, not surfaced. Vague
+        background thoughts stay invisible."""
+        if not owner_peer_id:
+            return []
+        rows = await commitment_candidate_service.list_pending(
+            db, workspace_id=workspace_id, owner_peer_id=owner_peer_id,
+            authority=CommitmentCandidateAuthority.ASK, limit=6,
+        )
+        return [
+            {
+                "candidate_key": row.candidate_key,
+                "title": row.title,
+                "evidence_verbatim": row.evidence_verbatim,
+                "evidence_class": row.evidence_class,
+                "source_message_id": row.source_message_id,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in rows[:3]
+            if row.evidence_class != "vague_self_talk"
+        ]
 
     @staticmethod
     def _compile_gap_signals(recurring_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -833,6 +870,28 @@ class CortexPacketService:
                 "source_object_id": item.get("source_object_id"),
                 "why_relevant_now": "This event finished recently; a bounded follow-up window is open.",
                 "evidence_refs": item.get("evidence_refs") or [],
+            })
+        # Derived commitment candidates ('Sophie noticed') sit below every
+        # canonical fact: they are hypotheses, and context is never a forced
+        # question directive — the runtime decides whether to ask.
+        for item in packet.get("commitment_candidates", [])[:2]:
+            if len(continuity) >= 5:
+                break
+            if any(
+                str(existing.get("topic", "")).lower()
+                == str(item.get("title", "")).lower()
+                for existing in continuity
+            ):
+                continue
+            continuity.append({
+                "type": "commitment_candidate",
+                "topic": item.get("title") or "Possible commitment",
+                "status": "unconfirmed",
+                "candidate_key": item.get("candidate_key"),
+                "evidence": item.get("evidence_verbatim"),
+                "why_relevant_now": "Sophie noticed a possible commitment; it is unconfirmed.",
+                "evidence_refs": [item.get("source_message_id")]
+                if item.get("source_message_id") else [],
             })
         for item in packet.get("followups", [])[:3]:
             temporal_state = item.get("temporal_state") or "unknown"

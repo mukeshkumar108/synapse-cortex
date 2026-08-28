@@ -616,7 +616,7 @@ PEER: {json.dumps(peer_id or 'user')}"""
             shaped = self._chat_json(f"""You are the lane-shaping stage. Map untrusted loose observations into
 bounded operational proposals. Return JSON {{"candidates": [...]}}. Valid operational_kind:
 expectation, durable_objective, recurring_intention, progress, completion, cancellation,
-suppression, open_loop, event, semantic_only. Recurrence must include cadence daily/weekly/
+suppression, open_loop, event, commitment_candidate, semantic_only. Recurrence must include cadence daily/weekly/
 interval; optional days_of_week uses Monday=0. Use recurring_intention ONLY when the user
 explicitly states an established cadence or clear scheduled commitment (for example "every
 day", "weekly", or named weekdays). Never invent a cadence for an ongoing objective, a
@@ -646,11 +646,20 @@ unless the turn contains a concrete operational transition beyond "I'm working o
 I want to create Y". If the user says a possible routine is not established, preserve that
 uncertainty: use durable_objective/expectation at reduced confidence or semantic_only, never
 an established recurring_intention.
+commitment_candidate is ONLY for implicit commitment hypotheses too soft for a concrete
+expectation: self-talk such as "I should really renew my passport" or "I probably need to
+deal with the insurance at some point", and Sophie-proposed commitments the user accepted
+in this turn (Sophie suggests X, user says "add that" or "true"). Include evidence_class
+(implicit_self_commitment, sophie_proposed_user_accepted, sophie_proposed_soft_acceptance,
+vague_self_talk) and authority: "act" ONLY for a concrete, singular, actionable commitment
+with a clear object shape; "ask" for vague or ambiguous ones. Explicit commands ("remind me
+to X"), explicit resolutions ("I did X"), explicit cancellations, and explicit reschedules
+are NEVER commitment_candidate — they use their proper lanes.
 Each candidate must include loose_observation_id, observation, raw_evidence, confidence,
 canonical_title, actor_peer_id, subject_peer_id, temporal_phrase, expectation_type_hint,
-cadence, interval_days, days_of_week, preferred_window, target_amount, target_unit,
-progress_amount, progress_unit, expiry_phrase, open_loop_hint, suppression_hint,
-resolution_hint. Use null/[] when absent. At most one proposal per observation.
+evidence_class, authority, cadence, interval_days, days_of_week, preferred_window,
+target_amount, target_unit, progress_amount, progress_unit, expiry_phrase, open_loop_hint,
+suppression_hint, resolution_hint. Use null/[] when absent. At most one proposal per observation.
 OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}""")
             self.last_stage_metrics["shape"] = {
                 "latency_ms": round((time.perf_counter() - shape_started) * 1000, 1),
@@ -804,6 +813,41 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     extractor_version="model-loose-shape-v1",
                     validation_notes=validation_notes,
                 )
+                if kind == "commitment_candidate":
+                    # Deterministic candidate hygiene: a fallible proposal must
+                    # never carry hard-lane payloads, must classify its
+                    # evidence, and must not survive unsafe flags.
+                    if raw.get("resolution_hint") is not None:
+                        raw["resolution_hint"] = None
+                        validation_notes.append("discarded_resolution_hint_from_commitment_candidate")
+                    if raw.get("suppression_hint") is not None:
+                        raw["suppression_hint"] = None
+                        validation_notes.append("discarded_suppression_hint_from_commitment_candidate")
+                    evidence_class = raw.get("evidence_class")
+                    if evidence_class not in (
+                        "explicit_command", "explicit_acceptance", "explicit_resolution",
+                        "explicit_modification", "implicit_self_commitment",
+                        "sophie_proposed_user_accepted", "sophie_proposed_soft_acceptance",
+                        "vague_self_talk",
+                    ):
+                        raw["evidence_class"] = "implicit_self_commitment"
+                        validation_notes.append("defaulted_invalid_evidence_class")
+                    if raw.get("authority") not in ("act", "ask"):
+                        raw["authority"] = "ask"
+                        validation_notes.append("defaulted_invalid_authority")
+                    if raw.get("evidence_class") == "vague_self_talk":
+                        raw["authority"] = "ask"
+                        validation_notes.append("forced_ask_for_vague_self_talk")
+                    if any((
+                        raw.get("is_negated"), raw.get("is_hypothetical"), raw.get("is_quoted"),
+                        raw.get("is_sarcastic"), raw.get("is_reported_speech"),
+                        obs.confidence < 0.35,
+                    )):
+                        raw["operational_kind"] = "semantic_only"
+                        raw["evidence_class"] = None
+                        raw["authority"] = None
+                        kind = "semantic_only"
+                        validation_notes.append("demoted_unsafe_commitment_candidate")
                 candidates.append(ExtractionCandidate(**raw))
             self.last_backend = "model"
             self.last_failure = None

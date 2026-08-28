@@ -61,8 +61,17 @@ class ExtractionCandidate(BaseModel):
     operational_kind: Optional[Literal[
         "expectation", "durable_objective", "recurring_intention", "progress",
         "completion", "cancellation", "suppression", "open_loop", "event",
-        "semantic_only",
+        "semantic_only", "commitment_candidate",
     ]] = None
+    # Commitment-candidate vocabulary (Phase 2). Evidence class is a semantic
+    # category, not a numeric confidence; authority decides who may act.
+    evidence_class: Optional[Literal[
+        "explicit_command", "explicit_acceptance", "explicit_resolution",
+        "explicit_modification", "implicit_self_commitment",
+        "sophie_proposed_user_accepted", "sophie_proposed_soft_acceptance",
+        "vague_self_talk",
+    ]] = None
+    authority: Optional[Literal["act", "ask"]] = None
     canonical_title: Optional[str] = None
     target_key: Optional[str] = None
     cadence: Optional[Literal["daily", "weekly", "interval"]] = None

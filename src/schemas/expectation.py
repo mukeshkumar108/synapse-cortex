@@ -1,8 +1,15 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 from src.models.expectation import ExpectationType, OutcomeState
+
+
+class MaterializedAction(BaseModel):
+    action: Literal["created", "updated", "completed", "cancelled"]
+    source_system: Literal["app_task", "google_calendar"]
+    object_id: str = Field(min_length=1, max_length=256)
+    evidence_span: Optional[str] = Field(default=None, max_length=2000)
 
 
 class TurnEventIngest(BaseModel):
@@ -14,6 +21,19 @@ class TurnEventIngest(BaseModel):
     text: str = Field(..., description="Raw turn text")
     now: datetime = Field(..., description="Turn timestamp")
     timezone: str = Field(default="UTC", description="User timezone string e.g. Europe/London")
+    # Fast→slow reconciliation: canonical actions the app already committed
+    # synchronously from this exact turn (real-time interpreter). The watcher
+    # deterministically suppresses conversation-derived candidates that would
+    # duplicate them, so a canonical object is never shadowed by a second
+    # derived representation of the same action.
+    materialized_actions: list[MaterializedAction] = Field(default_factory=list, max_length=3)
+
+
+class MaterializedAction(BaseModel):
+    action: Literal["created", "updated", "completed", "cancelled"]
+    source_system: Literal["app_task", "google_calendar"]
+    object_id: str = Field(min_length=1, max_length=256)
+    evidence_span: Optional[str] = Field(default=None, max_length=2000)
 
 
 class ExpectationResponse(BaseModel):

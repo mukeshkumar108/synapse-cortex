@@ -1,11 +1,13 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db import get_async_session
+from src.models.commitment_candidate import CommitmentCandidateStatus
+from src.services.commitment_candidate_service import CommitmentCandidateService
 from src.services.cortex_handshake_service import CortexHandshakeService
 from src.services.cortex_packet_service import CortexPacketService
 from src.services.cortex_router_service import CortexRouterService
@@ -17,6 +19,7 @@ router = APIRouter(prefix="/v1/cortex", tags=["cortex"])
 handshake_service = CortexHandshakeService()
 packet_service = CortexPacketService()
 router_service = CortexRouterService()
+candidate_service = CommitmentCandidateService()
 
 
 class HandshakeRequest(BaseModel):
@@ -83,3 +86,64 @@ async def get_cortex_attention_packet(
         timezone_str=timezone_str,
         owner_peer_id=peer_id,
     )
+
+
+@router.get("/commitment-candidates")
+async def list_commitment_candidates(
+    workspace_id: str = Query(...),
+    owner_peer_id: str = Query(...),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Bounded listing of derived commitment candidates (Sophie noticed)."""
+    rows = await candidate_service.list_pending(
+        db, workspace_id=workspace_id, owner_peer_id=owner_peer_id, limit=limit
+    )
+    return {
+        "candidates": [
+            {
+                "candidate_key": row.candidate_key,
+                "canonical_key": row.canonical_key,
+                "title": row.title,
+                "notes": row.notes,
+                "evidence_verbatim": row.evidence_verbatim,
+                "evidence_class": row.evidence_class,
+                "authority": row.authority.value,
+                "source_message_id": row.source_message_id,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in rows
+        ]
+    }
+
+
+class CandidateMarkRequest(BaseModel):
+    workspace_id: str
+    owner_peer_id: str
+    candidate_key: str
+    status: Literal["materialized", "dismissed"]
+    source_object_id: Optional[str] = None
+
+
+@router.post("/commitment-candidates/mark")
+async def mark_commitment_candidate(
+    req: CandidateMarkRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Durable candidate state transition: materialized (promoted to a
+    canonical Task) or dismissed (never re-proposed for the same commitment)."""
+    row = await candidate_service.mark(
+        db,
+        workspace_id=req.workspace_id,
+        owner_peer_id=req.owner_peer_id,
+        candidate_key=req.candidate_key,
+        status=CommitmentCandidateStatus(req.status),
+        source_object_id=req.source_object_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="candidate_not_found")
+    return {
+        "status": "ok",
+        "candidate_key": row.candidate_key,
+        "candidate_status": row.status.value,
+    }
