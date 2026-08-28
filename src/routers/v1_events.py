@@ -7,11 +7,13 @@ from sqlalchemy.dialects.postgresql import insert
 
 from src.db import get_async_session
 from src.schemas.expectation import TurnEventIngest
+from src.schemas.object_state import ObjectStateIngest
 from src.services.turn_extractor import TurnExtractor
 from src.services.expectation_shaper import ExpectationShaper
 from src.services.temporal_grounding import TemporalGrounding
 from src.services.persistence import save_expectation_idempotent
 from src.services.lifecycle_service import LifecycleService
+from src.services.object_lifecycle_service import ObjectLifecycleService
 from src.services.operational_state_service import OperationalStateService
 from src.services.turn_context import TurnContextAssembler
 from src.services.sleep_signal import SleepSignalTracker
@@ -36,6 +38,7 @@ lifecycle_service = LifecycleService()
 operational_state_service = OperationalStateService()
 turn_context_assembler = TurnContextAssembler()
 sleep_tracker = SleepSignalTracker()
+object_lifecycle_service = ObjectLifecycleService()
 
 
 def _naive_utc(value: datetime | None) -> datetime | None:
@@ -82,6 +85,23 @@ async def ingest_attention_candidates(
             created += 1
     await db.commit()
     return {"status": "accepted", "candidates_created": created}
+
+
+@router.post("/object", status_code=status.HTTP_202_ACCEPTED)
+async def ingest_object_state(
+    payload: ObjectStateIngest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Deterministic projection of canonical external objects (app-owned
+    tasks, Google Calendar events) into Cortex lifecycle state.
+
+    Canonical objects live outside Cortex; this endpoint never embeds provider
+    objects and never runs extraction. Same-version re-delivery is an idempotent
+    no-op; a bumped version supersedes prior state; completion/cancellation
+    resolve lifecycle and invalidate stale attention.
+    """
+    result = await object_lifecycle_service.apply_object_state(db, payload)
+    return result
 
 
 @router.post("/turn", status_code=status.HTTP_202_ACCEPTED)

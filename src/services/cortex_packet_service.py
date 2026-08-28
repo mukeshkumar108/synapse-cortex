@@ -1,4 +1,5 @@
 import logging
+import json
 from typing import Any, Dict, List
 from datetime import datetime, timedelta, timezone
 from sqlmodel import select
@@ -21,6 +22,11 @@ from src.services.surface_lifecycle import SurfaceRegistry
 CURIOSITY_COOLDOWN_SECONDS = 3600
 CURIOSITY_MAX_SURFACES = 3
 CLARIFICATION_MAX_AGE_HOURS = 168  # 7 days
+# Source-linked objects (app tasks, Google Calendar events) surface from
+# explicit reminder windows, never from a fixed approaching-deadline rule.
+TASK_EVENT_HORIZON_HOURS = 48
+EVENT_IMMINENT_MINUTES = 60
+REMINDER_SURFACE_MAX = 1
 from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
@@ -94,12 +100,13 @@ class CortexPacketService:
         waiting_on = []
         active_expectations = []
         recent_resolutions = []
+        source_expectations = []
         suppressed_expectation_ids: set[str] = set()
         suppressed_message_ids: set[str] = set()
 
         for exp in expectations:
             read_model = derive_expectation_read_model(exp, now)
-            
+
             # Check suppression match
             exp_text = f"{exp.title} {exp.summary}".lower()
             is_suppressed = any(
@@ -119,6 +126,24 @@ class CortexPacketService:
             if is_suppressed:
                 suppressed_expectation_ids.add(str(exp.id))
                 suppressed_message_ids.add(exp.honcho_message_id)
+                continue
+
+            # Source-linked objects (app tasks, calendar events) carry their
+            # own canonical state; only their resolutions flow through the
+            # generic sections. Live state is compiled in dedicated sections.
+            if exp.source_system:
+                if exp.outcome_state in (OutcomeState.FULFILLED, OutcomeState.CANCELLED):
+                    if exp.updated_at >= now_utc - timedelta(hours=72):
+                        recent_resolutions.append({
+                            "id": str(exp.id),
+                            "title": exp.title,
+                            "outcome_state": exp.outcome_state.value,
+                            "evidence": exp.resolution_evidence,
+                        })
+                    continue
+                if exp.outcome_state == OutcomeState.SUPERSEDED:
+                    continue
+                source_expectations.append(exp)
                 continue
 
             if exp.outcome_state in (OutcomeState.FULFILLED, OutcomeState.CANCELLED, OutcomeState.SUPERSEDED):
@@ -236,10 +261,21 @@ class CortexPacketService:
                 })
 
         # 4. Fetch grounded Sophie-side attention. Candidates are permission to
-        # carry something, never an instruction to say it now.
+        # carry something, never an instruction to say it now. Source-linked
+        # attention (e.g. bounded post-event follow-up opportunities) is
+        # owner-scoped and remains visible across that owner's chats.
+        attention_session_scope = AttentionCandidate.honcho_session_id == session_id
+        if owner_peer_id:
+            attention_session_scope = or_(
+                attention_session_scope,
+                and_(
+                    AttentionCandidate.owner_peer_id.is_not(None),
+                    AttentionCandidate.owner_peer_id == owner_peer_id,
+                ),
+            )
         stmt_attention = select(AttentionCandidate).where(
             AttentionCandidate.honcho_workspace_id == workspace_id,
-            AttentionCandidate.honcho_session_id == session_id,
+            attention_session_scope,
             AttentionCandidate.status == AttentionCandidateStatus.ACTIVE,
         )
         res_attention = await db.execute(stmt_attention)
@@ -273,6 +309,14 @@ class CortexPacketService:
                     ) if ref
                 ],
                 "surfaced_count": item.surfaced_count,
+                **(
+                    {
+                        "source_system": item.source_system,
+                        "source_object_id": item.source_object_id,
+                    }
+                    if item.source_system
+                    else {}
+                ),
             }
             for item in active_attention[:5]
         ]
@@ -381,6 +425,10 @@ class CortexPacketService:
                 item["honcho_message_id"] for item in open_loops_list[:5]
             }),
         }
+        packet["commitments"] = await self._compile_commitments(
+            db, workspace_id, session_id, source_expectations, now=now
+        )
+        packet["events"] = self._compile_events(source_expectations, now=now)
         packet["continuity_context"] = self._compile_continuity_context(
             packet, now=now, timezone_str=timezone_str
         )
@@ -392,6 +440,180 @@ class CortexPacketService:
             db, workspace_id, session_id, recurrences[:8], user_day, now
         )
         return packet
+
+    @staticmethod
+    @staticmethod
+    def _parse_reminder_windows(exp: Expectation) -> List[Dict[str, Any]]:
+        if not exp.reminder_windows_json:
+            return []
+        try:
+            windows = json.loads(exp.reminder_windows_json)
+        except (TypeError, ValueError):
+            return []
+        if not isinstance(windows, list):
+            return []
+        return [window for window in windows if isinstance(window, dict)]
+
+    @staticmethod
+    async def _compile_commitments(
+        db: AsyncSession,
+        workspace_id: str,
+        session_id: str,
+        source_expectations: List[Expectation],
+        *,
+        now: datetime,
+    ) -> List[Dict[str, Any]]:
+        """App-owned task commitments, evaluated against explicit reminder
+        windows and the canonical due date. States:
+        reminder_due > overdue > upcoming. Reminder surfacing is bounded by
+        the surface registry (one surfacing per reminder window per session).
+        """
+        now_utc = now.astimezone(timezone.utc).replace(tzinfo=None) if now.tzinfo else now
+        registry = SurfaceRegistry()
+        message_id = f"packet:{int(now_utc.timestamp())}"
+        items: List[Dict[str, Any]] = []
+        for exp in source_expectations:
+            if exp.source_system != "app_task":
+                continue
+            windows = CortexPacketService._parse_reminder_windows(exp)
+            active_window = None
+            next_window = None
+            for window in windows:
+                try:
+                    start = datetime.fromisoformat(window["start"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                end = (
+                    datetime.fromisoformat(window["end"])
+                    if window.get("end")
+                    else None
+                )
+                if start <= now_utc and (end is None or end >= now_utc):
+                    active_window = {**window, "start": start, "end": end}
+                elif start > now_utc and (
+                    next_window is None or start < next_window["start"]
+                ):
+                    next_window = {**window, "start": start, "end": end}
+            due_at = exp.hard_deadline_at
+            overdue = bool(due_at and now_utc > due_at)
+            # Overdue outranks an open reminder window: past the due date the
+            # honest state is 'overdue', not 'reminder_due'.
+            if overdue:
+                state = "overdue"
+            elif active_window is not None:
+                state = "reminder_due"
+            else:
+                state = "upcoming"
+            reminder_surfaced = False
+            if active_window is not None:
+                window_key = f"task_reminder:{exp.source_object_id}:{active_window['start'].isoformat()}"
+                window_end = active_window.get("end")
+                cooldown = (
+                    max(60, int((window_end - active_window["start"]).total_seconds()))
+                    if window_end
+                    else 86_400
+                )
+                outcome = await registry.mark(
+                    db,
+                    workspace_id=workspace_id,
+                    session_id=session_id,
+                    message_id=message_id,
+                    key=window_key,
+                    now=now,
+                    cooldown_seconds=cooldown,
+                    max_count=REMINDER_SURFACE_MAX,
+                )
+                # 'allowed' = first surfacing of this window; 'cooldown'/'maxed'
+                # keep the task visible without re-nagging the reminder line.
+                reminder_surfaced = outcome != "allowed"
+            items.append({
+                "id": str(exp.id),
+                "source_system": exp.source_system,
+                "source_object_id": exp.source_object_id,
+                "source_version": exp.source_version,
+                "title": exp.title,
+                "due_at": due_at.isoformat() if due_at else None,
+                "state": state,
+                "active_reminder": (
+                    {
+                        "start": active_window["start"].isoformat(),
+                        "end": active_window["end"].isoformat() if active_window.get("end") else None,
+                        "label": active_window.get("label"),
+                    }
+                    if active_window
+                    else None
+                ),
+                "next_reminder": (
+                    {
+                        "start": next_window["start"].isoformat(),
+                        "end": next_window["end"].isoformat() if next_window.get("end") else None,
+                        "label": next_window.get("label"),
+                    }
+                    if next_window
+                    else None
+                ),
+                "reminder_surfaced": reminder_surfaced,
+                "created_at": exp.created_at.isoformat(),
+            })
+        priority = {"reminder_due": 0, "overdue": 1, "upcoming": 2}
+        items.sort(
+            key=lambda item: (
+                priority.get(item["state"], 9),
+                item.get("due_at") or "9999",
+            )
+        )
+        return items[:6]
+
+    @staticmethod
+    def _compile_events(
+        source_expectations: List[Expectation], *, now: datetime
+    ) -> List[Dict[str, Any]]:
+        """Google Calendar events referenced by identity. States:
+        imminent > ongoing > upcoming. Past events are not listed; bounded
+        post-event follow-up flows through source-linked callback attention.
+        """
+        now_utc = now.astimezone(timezone.utc).replace(tzinfo=None) if now.tzinfo else now
+        items: List[Dict[str, Any]] = []
+        horizon = timedelta(hours=TASK_EVENT_HORIZON_HOURS)
+        for exp in source_expectations:
+            if exp.source_system != "google_calendar":
+                continue
+            start = exp.expected_window_start
+            end = exp.expected_window_end
+            if start is None:
+                continue
+            if start > now_utc + horizon:
+                continue
+            if end is not None and end < now_utc - timedelta(hours=24):
+                continue
+            if start <= now_utc and (end is None or end >= now_utc):
+                state = "ongoing"
+            elif start > now_utc and (start - now_utc) <= timedelta(
+                minutes=EVENT_IMMINENT_MINUTES
+            ):
+                state = "imminent"
+            elif start > now_utc:
+                state = "upcoming"
+            else:
+                state = "past"
+            items.append({
+                "id": str(exp.id),
+                "source_system": exp.source_system,
+                "source_object_id": exp.source_object_id,
+                "source_version": exp.source_version,
+                "title": exp.title,
+                "start": start.isoformat(),
+                "end": end.isoformat() if end else None,
+                "starts_in_minutes": (
+                    int((start - now_utc).total_seconds() // 60)
+                    if start > now_utc
+                    else 0
+                ),
+                "state": state,
+            })
+        priority = {"imminent": 0, "ongoing": 1, "upcoming": 2, "past": 3}
+        items.sort(key=lambda item: (priority.get(item["state"], 9), item["start"]))
+        return items[:6]
 
     @staticmethod
     def _compile_gap_signals(recurring_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -543,6 +765,74 @@ class CortexPacketService:
                 "why_relevant_now": "The recorded deadline makes this relevant now.",
                 "evidence_refs": [item.get("honcho_message_id")]
                 if item.get("honcho_message_id") else [],
+            })
+        # Source-linked task/event attention: explicit reminder windows, due
+        # dates and event timing outrank generic follow-up inference.
+        for item in packet.get("commitments", [])[:3]:
+            state = item.get("state")
+            if state not in ("overdue", "reminder_due"):
+                continue
+            if state == "reminder_due" and item.get("reminder_surfaced"):
+                continue
+            if any(
+                str(existing.get("topic", "")).lower()
+                == str(item.get("title", "")).lower()
+                for existing in continuity
+            ):
+                continue
+            if state == "reminder_due":
+                why = "An explicit reminder window for this commitment is open now."
+            else:
+                why = "This commitment is past its due date and still open."
+            continuity.append({
+                "type": "task_due",
+                "topic": item.get("title") or "Open commitment",
+                "status": state,
+                "source_system": item.get("source_system"),
+                "source_object_id": item.get("source_object_id"),
+                "why_relevant_now": why,
+                "evidence_refs": [],
+            })
+        for item in packet.get("events", [])[:2]:
+            if item.get("state") not in ("imminent", "ongoing"):
+                continue
+            if any(
+                str(existing.get("topic", "")).lower()
+                == str(item.get("title", "")).lower()
+                for existing in continuity
+            ):
+                continue
+            why = (
+                "This event is happening now."
+                if item.get("state") == "ongoing"
+                else "This event starts within the hour."
+            )
+            continuity.append({
+                "type": "event_upcoming",
+                "topic": item.get("title") or "Calendar event",
+                "status": item.get("state"),
+                "source_system": item.get("source_system"),
+                "source_object_id": item.get("source_object_id"),
+                "why_relevant_now": why,
+                "evidence_refs": [],
+            })
+        for item in packet.get("sophie_attention", [])[:5]:
+            if item.get("source_system") != "google_calendar":
+                continue
+            if any(
+                str(existing.get("topic", "")).lower()
+                == str(item.get("content", "")).lower()
+                for existing in continuity
+            ):
+                continue
+            continuity.append({
+                "type": "event_followup",
+                "topic": item.get("content") or "Recent event",
+                "status": "callback_window_open",
+                "source_system": item.get("source_system"),
+                "source_object_id": item.get("source_object_id"),
+                "why_relevant_now": "This event finished recently; a bounded follow-up window is open.",
+                "evidence_refs": item.get("evidence_refs") or [],
             })
         for item in packet.get("followups", [])[:3]:
             temporal_state = item.get("temporal_state") or "unknown"

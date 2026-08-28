@@ -73,10 +73,18 @@ class Expectation(SQLModel, table=True):
     # Conservative Temporal Grounding
     raw_temporal_phrase: Optional[str] = Field(default=None)
     anchor_timezone: str = Field(default="UTC", nullable=False)
-    
+
     expected_window_start: Optional[datetime] = Field(default=None, index=True)
     expected_window_end: Optional[datetime] = Field(default=None, index=True)
     hard_deadline_at: Optional[datetime] = Field(default=None, index=True)
+
+    # Stable source-link contract: canonical user/app/provider objects
+    # (e.g. app-owned tasks, Google Calendar events) referenced by identity
+    # and version, never embedded as duplicate provider objects.
+    source_system: Optional[str] = Field(default=None, index=True)
+    source_object_id: Optional[str] = Field(default=None, index=True)
+    source_version: Optional[int] = Field(default=None)
+    reminder_windows_json: Optional[str] = Field(default=None)
     
     # Explicit Outcome State
     outcome_state: OutcomeState = Field(

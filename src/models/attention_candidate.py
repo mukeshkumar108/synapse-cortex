@@ -41,9 +41,14 @@ class AttentionCandidate(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     honcho_workspace_id: str = Field(index=True, nullable=False)
     honcho_session_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
     source_message_id: str = Field(index=True, nullable=False)
     source_assistant_message_id: Optional[str] = Field(default=None, index=True)
     candidate_key: str = Field(nullable=False)
+    # Stable source-link contract for deterministically derived attention
+    # (e.g. bounded post-event follow-up opportunities from Google Calendar).
+    source_system: Optional[str] = Field(default=None, index=True)
+    source_object_id: Optional[str] = Field(default=None, index=True)
     kind: AttentionCandidateKind = Field(
         sa_column=Column(SAEnum(AttentionCandidateKind, native_enum=False), nullable=False, index=True)
     )
