@@ -34,7 +34,12 @@ def upgrade():
         "expectations",
         ["honcho_workspace_id", "source_system", "source_object_id", "owner_peer_id"],
         unique=True,
-        postgresql_where=sa.text("source_system IS NOT NULL"),
+        postgresql_where=sa.text(
+            "source_system IS NOT NULL AND superseded_by_id IS NULL"
+        ),
+        sqlite_where=sa.text(
+            "source_system IS NOT NULL AND superseded_by_id IS NULL"
+        ),
     )
 
     op.add_column(

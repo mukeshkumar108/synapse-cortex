@@ -117,20 +117,23 @@ class ObjectLifecycleService:
 
         fields = self._expectation_fields(payload, owner_peer_id)
 
+        expectation = Expectation(**fields)
+
         if current is not None:
             current.outcome_state = OutcomeState.SUPERSEDED
+            # Release the partial unique active-source slot in the same flush
+            # that inserts its replacement. Setting this before flush is
+            # required by both PostgreSQL and SQLite partial unique indexes.
+            current.superseded_by_id = expectation.id
             current.resolution_evidence = (
                 f"source_object_updated:{payload.source.system}:"
                 f"{payload.source.object_id}:v{current.source_version}->v{payload.source.version}"
             )
             db.add(current)
 
-        expectation = Expectation(**fields)
         db.add(expectation)
         await db.flush()
         if current is not None:
-            current.superseded_by_id = expectation.id
-            db.add(current)
             # A rescheduled/changed calendar event invalidates stale follow-up
             # attention derived from its previous timing.
             if payload.source.system == "google_calendar":

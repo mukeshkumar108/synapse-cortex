@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
 from sqlmodel import Field, SQLModel
-from sqlalchemy import Column, Enum as SAEnum, UniqueConstraint
+from sqlalchemy import Column, Enum as SAEnum, Index, UniqueConstraint, text
 
 
 def utc_now() -> datetime:
@@ -41,6 +41,20 @@ class Expectation(SQLModel, table=True):
         UniqueConstraint(
             "honcho_workspace_id", "honcho_message_id", "candidate_key",
             name="uq_expectation_workspace_message_candidate"
+        ),
+        Index(
+            "uq_expectation_workspace_source_object",
+            "honcho_workspace_id",
+            "source_system",
+            "source_object_id",
+            "owner_peer_id",
+            unique=True,
+            postgresql_where=text(
+                "source_system IS NOT NULL AND superseded_by_id IS NULL"
+            ),
+            sqlite_where=text(
+                "source_system IS NOT NULL AND superseded_by_id IS NULL"
+            ),
         ),
     )
 
