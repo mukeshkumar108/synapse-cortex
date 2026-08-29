@@ -41,7 +41,9 @@ services:
       HONCHO_TIMEOUT_SECONDS: ${HONCHO_TIMEOUT_SECONDS:-3}
       HONCHO_CONTEXT_BUDGET_SECONDS: ${HONCHO_CONTEXT_BUDGET_SECONDS:-4}
       PYTHONPATH: /app
-      DATABASE_URL: postgresql+asyncpg://synapse_cortex:${SYNAPSE_CORTEX_DB_PASSWORD}@postgres:5432/synapse_cortex
+      # Hosted persistent store override (e.g. Neon). Falls back to the
+      # local compose Postgres when unset.
+      DATABASE_URL: ${SYNAPSE_CORTEX_DATABASE_URL:-postgresql+asyncpg://synapse_cortex:${SYNAPSE_CORTEX_DB_PASSWORD}@postgres:5432/synapse_cortex}
       SYNAPSE_CORTEX_API_TOKEN: ${SYNAPSE_CORTEX_API_TOKEN}
     expose: ["8010"]
     networks: [internal, proxy]
