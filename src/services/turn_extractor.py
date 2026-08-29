@@ -646,20 +646,29 @@ unless the turn contains a concrete operational transition beyond "I'm working o
 I want to create Y". If the user says a possible routine is not established, preserve that
 uncertainty: use durable_objective/expectation at reduced confidence or semantic_only, never
 an established recurring_intention.
-commitment_candidate is ONLY for implicit commitment hypotheses too soft for a concrete
-expectation: self-talk such as "I should really renew my passport" or "I probably need to
-deal with the insurance at some point", and Sophie-proposed commitments the user accepted
-in this turn (Sophie suggests X, user says "add that" or "true"). Include evidence_class
+commitment_candidate is a parallel TASK projection, not an exclusive semantic lane. One
+observation may emit its primary continuity proposal (expectation, durable_objective,
+recurring_intention, or open_loop) AND one commitment_candidate for each distinct,
+discrete, completable action genuinely supported by the evidence. Do not project emotions,
+relationships, events, habits/routines, vague aspirations, or a whole multi-step objective
+as one task. If an objective implies several actions but the evidence does not identify
+them, emit no invented tasks; decomposition belongs to a later chief-of-staff pass.
+Also use commitment_candidate for implicit commitment hypotheses such as "I should really
+renew my passport" or "I probably need to deal with the insurance at some point", and
+Sophie-proposed commitments the user accepted in this turn. Include evidence_class
 (implicit_self_commitment, sophie_proposed_user_accepted, sophie_proposed_soft_acceptance,
 vague_self_talk) and authority: "act" ONLY for a concrete, singular, actionable commitment
-with a clear object shape; "ask" for vague or ambiguous ones. Explicit commands ("remind me
+with a clear object shape; "ask" for vague or ambiguous ones. A concrete user-authored
+commitment may have authority "act" as a proposal, but this stage never mutates a canonical
+Task. Explicit commands ("remind me
 to X"), explicit resolutions ("I did X"), explicit cancellations, and explicit reschedules
 are NEVER commitment_candidate — they use their proper lanes.
 Each candidate must include loose_observation_id, observation, raw_evidence, confidence,
 canonical_title, actor_peer_id, subject_peer_id, temporal_phrase, expectation_type_hint,
 evidence_class, authority, cadence, interval_days, days_of_week, preferred_window,
 target_amount, target_unit, progress_amount, progress_unit, expiry_phrase, open_loop_hint,
-suppression_hint, resolution_hint. Use null/[] when absent. At most one proposal per observation.
+suppression_hint, resolution_hint. Use null/[] when absent. At most four proposals per
+observation and twelve candidates for the turn; never duplicate a semantic lane or task title.
 OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}""")
             self.last_stage_metrics["shape"] = {
                 "latency_ms": round((time.perf_counter() - shape_started) * 1000, 1),
@@ -667,7 +676,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
             }
             candidates = []
             by_id = {o.observation_id: o for o in observations}
-            for raw in (shaped.get("candidates") or [])[:8]:
+            for raw in (shaped.get("candidates") or [])[:12]:
                 obs = by_id.get(raw.get("loose_observation_id"))
                 if not obs:
                     continue
@@ -803,8 +812,15 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     raw["operational_kind"] = "semantic_only"
                     kind = "semantic_only"
                     validation_notes.append("demoted_project_purpose_without_operational_transition")
-                # Stable across model wording changes on retry; one proposal per loose observation.
-                key_material = f"{obs.observation_id}:{kind}"
+                # Stable across retries. Parallel task projections include
+                # their canonical action identity so one observation can
+                # safely produce several completable actions.
+                title_identity = ""
+                if kind == "commitment_candidate":
+                    title_identity = ":" + _fold_string(
+                        str(raw.get("canonical_title") or raw.get("observation") or "")
+                    )
+                key_material = f"{obs.observation_id}:{kind}{title_identity}"
                 raw.update(
                     candidate_key=f"c_{hashlib.sha1(key_material.lower().encode()).hexdigest()[:12]}",
                     source_start=obs.source_start, source_end=obs.source_end,

@@ -11,6 +11,7 @@ from src.services.commitment_candidate_service import CommitmentCandidateService
 from src.services.cortex_handshake_service import CortexHandshakeService
 from src.services.cortex_packet_service import CortexPacketService
 from src.services.cortex_router_service import CortexRouterService
+from src.schemas.candidate import ExtractionCandidate
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,64 @@ class CandidateMarkRequest(BaseModel):
     candidate_key: str
     status: Literal["materialized", "dismissed"]
     source_object_id: Optional[str] = None
+
+
+class CandidateProposal(BaseModel):
+    key: str = Field(min_length=1, max_length=160)
+    title: str = Field(min_length=1, max_length=280)
+    notes: Optional[str] = Field(default=None, max_length=2000)
+    evidence_verbatim: str = Field(min_length=1, max_length=2000)
+    evidence_class: Literal[
+        "implicit_self_commitment", "sophie_proposed_user_accepted",
+        "sophie_proposed_soft_acceptance", "vague_self_talk",
+    ] = "implicit_self_commitment"
+    authority: Literal["act", "ask"] = "ask"
+    temporal_phrase: Optional[str] = Field(default=None, max_length=160)
+
+
+class CandidateProposalRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    owner_peer_id: str
+    source_message_id: str
+    candidates: list[CandidateProposal] = Field(max_length=12)
+
+
+@router.post("/commitment-candidates/propose")
+async def propose_commitment_candidates(
+    req: CandidateProposalRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Trusted chief-of-staff/editorial proposals. This endpoint only creates
+    derived candidates; it never mutates a canonical Task."""
+    accepted = []
+    for item in req.candidates:
+        candidate = ExtractionCandidate(
+            candidate_key=item.key,
+            observation=item.notes or item.title,
+            raw_evidence=item.evidence_verbatim,
+            canonical_title=item.title,
+            operational_kind="commitment_candidate",
+            evidence_class=item.evidence_class,
+            authority=item.authority,
+            temporal_phrase=item.temporal_phrase,
+            actor_peer_id=req.owner_peer_id,
+            subject_peer_id=req.owner_peer_id,
+            confidence=1.0,
+            extractor_version="chief-of-staff-v1",
+        )
+        row = await candidate_service.upsert_from_candidate(
+            db,
+            workspace_id=req.workspace_id,
+            session_id=req.session_id,
+            owner_peer_id=req.owner_peer_id,
+            message_id=req.source_message_id,
+            candidate=candidate,
+            now=datetime.now(timezone.utc),
+        )
+        if row is not None:
+            accepted.append(row.candidate_key)
+    return {"status": "accepted", "candidate_keys": accepted}
 
 
 @router.post("/commitment-candidates/mark")
