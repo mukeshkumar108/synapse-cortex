@@ -246,3 +246,81 @@ async def test_working_set_endpoint_and_jit_evidence_roundtrip(async_client):
         params={"workspace_id": "ws-e2e", "ref": "not-a-real-ref"},
     )
     assert miss.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_historical_replay_polluted_state_produces_sane_current_turn():
+    """CP7 replay: seed known polluted history, repair it, then compile the
+    real packet + working set for a neutral social turn and verify stale
+    pollution does not reach the foreground and the packet stays bounded."""
+    from src.db import async_session_maker
+    from src.models.expectation import Expectation, ExpectationType, OutcomeState
+    from src.models.operational_state import (
+        RecurringIntention, OperationalStatus,
+    )
+    from src.services.cortex_packet_service import CortexPacketService
+    from src.services.historical_repair import HistoricalRepairService
+
+    ws, sess = "ws-replay", "sess-replay"
+    async with async_session_maker() as session:
+        session.add_all([
+            Expectation(
+                honcho_workspace_id=ws, honcho_session_id=sess,
+                honcho_message_id="m-shower", subject_peer_id="user-1",
+                expectation_type=ExpectationType.USER_INTENTION,
+                title="Take a shower now", summary="take a shower now",
+                raw_temporal_phrase="now",
+                expected_window_start=NOW - timedelta(hours=40),
+                expected_window_end=NOW - timedelta(hours=39),
+            ),
+            Expectation(
+                honcho_workspace_id=ws, honcho_session_id=sess,
+                honcho_message_id="m-walk", subject_peer_id="user-1",
+                expectation_type=ExpectationType.USER_INTENTION,
+                title="Morning walk", summary="going for a walk this morning",
+                raw_temporal_phrase="this morning",
+                expected_window_start=NOW - timedelta(hours=3),
+                expected_window_end=NOW - timedelta(hours=1),
+            ),
+            RecurringIntention(
+                honcho_workspace_id=ws, honcho_session_id=sess,
+                honcho_message_id="m-audio", title="Fix audio transcription bug",
+                cadence="daily", status=OperationalStatus.ACTIVE,
+                candidate_key="c-audio", canonical_key="fix-audio-transcription-bug",
+                source_evidence="I need to fix the audio transcription bug",
+            ),
+        ])
+        await session.commit()
+        # Repair pass runs first (as it would in a real maintenance window).
+        await HistoricalRepairService().classify_and_repair(
+            session, workspace_id=ws, now=NOW, apply=True,
+        )
+
+        packet = await CortexPacketService().compile_attention_packet(
+            session, workspace_id=ws, session_id=sess, now=NOW,
+            timezone_str="Europe/London", owner_peer_id="user-1",
+        )
+
+    # The stale shower expectation must not be foreground now/today.
+    brief = packet["intelligence_brief"]
+    foreground_ids = {
+        item.get("id")
+        for horizon in ("now", "today", "tomorrow")
+        for item in brief["horizons"][horizon]
+    }
+    shower = next(i for i in brief["horizons"]["review_needed"] + brief["horizons"]["unresolved"]
+                  if i.get("title") == "Take a shower now")
+    assert shower["id"] not in foreground_ids
+
+    # Morning walk: elapsed with unknown outcome -> unresolved, not failure.
+    unresolved_titles = {i.get("title") for i in brief["horizons"]["unresolved"]}
+    assert "Morning walk" in unresolved_titles
+
+    # Neutral social turn: compact packet, no todo list, no stale callbacks.
+    working_set = WorkingSetService().compile_working_set(
+        packet, turn_text="I'm bored, talk to me",
+    )
+    assert working_set["metrics"]["within_budget"] is True
+    warm = working_set["levels"]["warm"]
+    assert not any("shower" in i["what"].lower() for i in warm)
+    assert not any("audio transcription" in i["what"].lower() for i in warm)
