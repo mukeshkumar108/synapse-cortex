@@ -14,11 +14,239 @@ from src.models.domain_annotation import DomainAnnotation
 from src.models.clarification import ClarificationCandidate
 from src.models.operational_state import (ExtractionTrace, RecurringIntention,
     RecurringOccurrence, ObjectiveProgress)
+from src.models.attention_candidate import AttentionCandidate
+from src.models.commitment_candidate import CommitmentCandidate
 from src.services.expectation_engine import derive_expectation_read_model
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/debug", tags=["debug"])
+
+
+@router.get("/owner-state")
+async def get_owner_state(
+    workspace_id: str = Query(...),
+    owner_peer_id: str = Query(..., min_length=1),
+    limit: int = Query(100, ge=1, le=250),
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Owner-scoped continuity inspection for authenticated app tooling.
+
+    The service-token boundary authenticates the app; this endpoint then
+    requires the app's stable owner peer id and never falls back to a
+    workspace-wide or session-wide read. It is intentionally a read model,
+    not a mutation surface.
+    """
+    now = datetime.now(timezone.utc)
+
+    expectations = (await db.execute(
+        select(Expectation).where(
+            Expectation.honcho_workspace_id == workspace_id,
+            Expectation.owner_peer_id == owner_peer_id,
+        ).order_by(Expectation.created_at.desc()).limit(limit)
+    )).scalars().all()
+    open_loops = (await db.execute(
+        select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == workspace_id,
+            OpenLoop.owner_peer_id == owner_peer_id,
+        ).order_by(OpenLoop.created_at.desc()).limit(limit)
+    )).scalars().all()
+    recurrences = (await db.execute(
+        select(RecurringIntention).where(
+            RecurringIntention.honcho_workspace_id == workspace_id,
+            RecurringIntention.owner_peer_id == owner_peer_id,
+        ).order_by(RecurringIntention.updated_at.desc()).limit(limit)
+    )).scalars().all()
+    recurrence_ids = [item.id for item in recurrences]
+    occurrences = []
+    if recurrence_ids:
+        occurrences = (await db.execute(
+            select(RecurringOccurrence).where(
+                RecurringOccurrence.recurring_intention_id.in_(recurrence_ids)
+            ).order_by(RecurringOccurrence.user_day.desc()).limit(limit)
+        )).scalars().all()
+    progress = (await db.execute(
+        select(ObjectiveProgress).where(
+            ObjectiveProgress.honcho_workspace_id == workspace_id,
+            ObjectiveProgress.owner_peer_id == owner_peer_id,
+        ).order_by(ObjectiveProgress.created_at.desc()).limit(limit)
+    )).scalars().all()
+    attention = (await db.execute(
+        select(AttentionCandidate).where(
+            AttentionCandidate.honcho_workspace_id == workspace_id,
+            AttentionCandidate.owner_peer_id == owner_peer_id,
+        ).order_by(AttentionCandidate.created_at.desc()).limit(limit)
+    )).scalars().all()
+    commitments = (await db.execute(
+        select(CommitmentCandidate).where(
+            CommitmentCandidate.honcho_workspace_id == workspace_id,
+            CommitmentCandidate.owner_peer_id == owner_peer_id,
+        ).order_by(CommitmentCandidate.created_at.desc()).limit(limit)
+    )).scalars().all()
+
+    return {
+        "generated_at": now.isoformat(),
+        "counts": {
+            "expectations": len(expectations),
+            "open_loops": len(open_loops),
+            "recurring_intentions": len(recurrences),
+            "recurring_occurrences": len(occurrences),
+            "objective_progress": len(progress),
+            "attention_candidates": len(attention),
+            "commitment_candidates": len(commitments),
+        },
+        "expectations": [
+            {
+                "id": str(item.id),
+                "session_id": item.honcho_session_id,
+                "source_message_id": item.honcho_message_id,
+                "candidate_key": item.candidate_key,
+                "title": item.title,
+                "summary": item.summary,
+                "expectation_type": item.expectation_type.value,
+                "confidence": item.extraction_confidence,
+                "raw_temporal_phrase": item.raw_temporal_phrase,
+                "expected_window_start": item.expected_window_start.isoformat()
+                if item.expected_window_start else None,
+                "expected_window_end": item.expected_window_end.isoformat()
+                if item.expected_window_end else None,
+                "hard_deadline_at": item.hard_deadline_at.isoformat()
+                if item.hard_deadline_at else None,
+                "temporal_state": derive_expectation_read_model(item, now)["temporal_state"],
+                "outcome_state": item.outcome_state.value,
+                "followup_eligible": derive_expectation_read_model(item, now)["followup_eligible"],
+                "superseded_by_id": str(item.superseded_by_id)
+                if item.superseded_by_id else None,
+                "resolution_evidence": item.resolution_evidence,
+                "source_system": item.source_system,
+                "source_object_id": item.source_object_id,
+                "source_version": item.source_version,
+                "created_at": item.created_at.isoformat(),
+                "updated_at": item.updated_at.isoformat(),
+            }
+            for item in expectations
+        ],
+        "open_loops": [
+            {
+                "id": str(item.id),
+                "session_id": item.honcho_session_id,
+                "source_message_id": item.honcho_message_id,
+                "candidate_key": item.candidate_key,
+                "expectation_id": str(item.expectation_id)
+                if item.expectation_id else None,
+                "title": item.title,
+                "summary": item.summary,
+                "status": item.status.value,
+                "resolution_evidence": item.resolution_evidence,
+                "expires_at": item.expires_at.isoformat()
+                if item.expires_at else None,
+                "created_at": item.created_at.isoformat(),
+                "updated_at": item.updated_at.isoformat(),
+            }
+            for item in open_loops
+        ],
+        "recurring_intentions": [
+            {
+                "id": str(item.id),
+                "session_id": item.honcho_session_id,
+                "source_message_id": item.honcho_message_id,
+                "candidate_key": item.candidate_key,
+                "canonical_key": item.canonical_key,
+                "title": item.title,
+                "cadence": item.cadence,
+                "interval_days": item.interval_days,
+                "days_of_week_json": item.days_of_week_json,
+                "timezone": item.timezone,
+                "preferred_window": item.preferred_window,
+                "target_amount": item.target_amount,
+                "target_unit": item.target_unit,
+                "status": item.status.value,
+                "source_evidence": item.source_evidence,
+                "confidence": item.confidence,
+                "superseded_by_id": str(item.superseded_by_id)
+                if item.superseded_by_id else None,
+                "created_at": item.created_at.isoformat(),
+                "updated_at": item.updated_at.isoformat(),
+            }
+            for item in recurrences
+        ],
+        "recurring_occurrences": [
+            {
+                "id": str(item.id),
+                "recurring_intention_id": str(item.recurring_intention_id),
+                "user_day": item.user_day.isoformat(),
+                "status": item.status.value,
+                "progress_amount": item.progress_amount,
+                "progress_unit": item.progress_unit,
+                "source_message_id": item.source_message_id,
+                "evidence": item.evidence,
+                "created_at": item.created_at.isoformat(),
+                "updated_at": item.updated_at.isoformat(),
+            }
+            for item in occurrences
+        ],
+        "objective_progress": [
+            {
+                "id": str(item.id),
+                "source_message_id": item.honcho_message_id,
+                "expectation_id": str(item.expectation_id)
+                if item.expectation_id else None,
+                "title": item.title,
+                "amount": item.amount,
+                "unit": item.unit,
+                "user_day": item.user_day.isoformat(),
+                "evidence": item.evidence,
+                "created_at": item.created_at.isoformat(),
+            }
+            for item in progress
+        ],
+        "attention_candidates": [
+            {
+                "id": str(item.id),
+                "session_id": item.honcho_session_id,
+                "source_message_id": item.source_message_id,
+                "source_assistant_message_id": item.source_assistant_message_id,
+                "candidate_key": item.candidate_key,
+                "kind": item.kind.value,
+                "content": item.content,
+                "salience": item.salience,
+                "confidence": item.confidence,
+                "status": item.status.value,
+                "not_before": item.not_before.isoformat()
+                if item.not_before else None,
+                "expires_at": item.expires_at.isoformat()
+                if item.expires_at else None,
+                "surfaced_count": item.surfaced_count,
+                "last_surfaced_at": item.last_surfaced_at.isoformat()
+                if item.last_surfaced_at else None,
+                "source_system": item.source_system,
+                "source_object_id": item.source_object_id,
+                "created_at": item.created_at.isoformat(),
+                "updated_at": item.updated_at.isoformat(),
+            }
+            for item in attention
+        ],
+        "commitment_candidates": [
+            {
+                "id": str(item.id),
+                "session_id": item.honcho_session_id,
+                "source_message_id": item.source_message_id,
+                "candidate_key": item.candidate_key,
+                "canonical_key": item.canonical_key,
+                "title": item.title,
+                "notes": item.notes,
+                "evidence_verbatim": item.evidence_verbatim,
+                "evidence_class": item.evidence_class,
+                "authority": item.authority.value,
+                "status": item.status.value,
+                "materialized_source_object_id": item.materialized_source_object_id,
+                "raw_temporal_phrase": item.raw_temporal_phrase,
+                "created_at": item.created_at.isoformat(),
+                "updated_at": item.updated_at.isoformat(),
+            }
+            for item in commitments
+        ],
+    }
 
 
 @router.get("/decisions")
