@@ -1,5 +1,10 @@
 import os
-os.environ.setdefault("SYNAPSE_EXTRACTOR_PROVIDER", "rules")
+import os
+os.environ["SYNAPSE_EXTRACTOR_PROVIDER"] = "rules"
+# Tests must NEVER touch a configured store (Neon/production). pydantic
+# settings give real env vars precedence over .env, so forcing this here
+# guarantees a throwaway database regardless of the developer environment.
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:////tmp/synapse_test.db"
 
 import pytest
 from httpx import AsyncClient, ASGITransport

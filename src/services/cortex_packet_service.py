@@ -29,6 +29,10 @@ CLARIFICATION_MAX_AGE_HOURS = 168  # 7 days
 TASK_EVENT_HORIZON_HOURS = 48
 EVENT_IMMINENT_MINUTES = 60
 REMINDER_SURFACE_MAX = 1
+# Ordinary conversational expectations are useful shortly after their window,
+# not forever. Historical rows remain inspectable; this only bounds foreground
+# and proactive eligibility.
+ELAPSED_EXPECTATION_FOREGROUND_HOURS = 36
 from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
@@ -102,6 +106,7 @@ class CortexPacketService:
         hard_deadlines = []
         waiting_on = []
         active_expectations = []
+        elapsed_expectations = []
         recent_resolutions = []
         source_expectations = []
         suppressed_expectation_ids: set[str] = set()
@@ -198,14 +203,23 @@ class CortexPacketService:
                 })
 
             if exp.raw_temporal_phrase or exp.hard_deadline_at:
-                active_expectations.append({
+                item_dict = {
                     "id": str(exp.id),
                     "honcho_message_id": exp.honcho_message_id,
                     "title": exp.title,
                     "summary": exp.summary,
                     "expectation_type": exp.expectation_type.value,
                     "temporal_state": read_model["temporal_state"],
-                })
+                    "outcome_state": read_model["outcome_state"],
+                    "reason": read_model["reason"],
+                    "expected_window_label": read_model["expected_window_label"],
+                }
+                if read_model["temporal_state"] in (
+                    "window_elapsed", "deadline_passed"
+                ):
+                    elapsed_expectations.append(item_dict)
+                else:
+                    active_expectations.append(item_dict)
 
         # 3. Fetch Open Loops
         stmt_loop = select(OpenLoop).where(
@@ -331,6 +345,15 @@ class CortexPacketService:
             "window_open": 3,
             "not_due": 4,
         }
+        # Stale/elapsed items must not crowd current and future state out of
+        # the capped foreground lists. Elapsed unknowns are reported through
+        # `window_elapsed_unknown` and the brief's unresolved/review horizons;
+        # followups and active_expectations carry only live temporal state.
+        followups = [
+            item for item in followups
+            if item.get("temporal_state")
+            not in ("window_elapsed", "deadline_passed")
+        ]
         followups.sort(
             key=lambda item: (
                 temporal_priority.get(item.get("temporal_state", ""), 9),
@@ -344,6 +367,12 @@ class CortexPacketService:
             )
         )
         active_expectations.sort(
+            key=lambda item: (
+                temporal_priority.get(item.get("temporal_state", ""), 9),
+                item.get("title", ""),
+            )
+        )
+        elapsed_expectations.sort(
             key=lambda item: (
                 temporal_priority.get(item.get("temporal_state", ""), 9),
                 item.get("title", ""),
@@ -396,11 +425,12 @@ class CortexPacketService:
             "workspace_id": workspace_id,
             "session_id": session_id,
             "timestamp": now.isoformat(),
-            "followups": followups[:3],
-            "open_loops": open_loops_list[:3],
-            "active_expectations": active_expectations[:4],
-            "window_elapsed_unknown": window_elapsed_unknown[:2],
-            "hard_deadlines": hard_deadlines[:2],
+            "followups": followups[:8],
+            "open_loops": open_loops_list[:5],
+            "active_expectations": active_expectations[:12],
+            "elapsed_expectations": elapsed_expectations[:12],
+            "window_elapsed_unknown": window_elapsed_unknown[:6],
+            "hard_deadlines": hard_deadlines[:4],
             "waiting_on": waiting_on[:3],
             "recent_resolutions": recent_resolutions[:3],
             "suppressed_targets": [
@@ -435,6 +465,10 @@ class CortexPacketService:
         packet["commitment_candidates"] = await self._compile_commitment_candidates(
             db, workspace_id, owner_peer_id or "", now=now
         )
+        packet["intelligence_brief"] = self._compile_intelligence_brief(
+            packet, expectations=expectations, now=now,
+            timezone_str=timezone_str,
+        )
         packet["continuity_context"] = self._compile_continuity_context(
             packet, now=now, timezone_str=timezone_str
         )
@@ -446,6 +480,159 @@ class CortexPacketService:
             db, workspace_id, session_id, recurrences[:8], user_day, now
         )
         return packet
+
+    @staticmethod
+    def _compile_intelligence_brief(
+        packet: Dict[str, Any], *, expectations: List[Expectation],
+        now: datetime, timezone_str: str,
+    ) -> Dict[str, Any]:
+        """Typed, deterministic chief-of-staff read model.
+
+        This is an editorial input, never an instruction to speak or mutate a
+        Task. It separates temporal relevance from durable storage so stale
+        unknown outcomes remain auditable without occupying every turn.
+        """
+        try:
+            local_now = now.astimezone(ZoneInfo(timezone_str))
+        except Exception:
+            local_now = now
+        now_utc = (
+            now.astimezone(timezone.utc).replace(tzinfo=None)
+            if now.tzinfo else now
+        )
+        daypart = resolve_daypart(now, timezone_str)
+        horizons: Dict[str, List[Dict[str, Any]]] = {
+            "now": [], "today": [], "tomorrow": [], "later": [],
+            "unresolved": [], "review_needed": [],
+        }
+        expectation_by_id = {str(item.id): item for item in expectations}
+
+        def add(bucket: str, item: Dict[str, Any]) -> None:
+            if len(horizons[bucket]) < 12:
+                horizons[bucket].append(item)
+
+        for item in packet.get("active_expectations", []) + packet.get(
+            "elapsed_expectations", []
+        ):
+            exp = expectation_by_id.get(str(item.get("id")))
+            if exp is None:
+                continue
+            state = str(item.get("temporal_state") or "unknown")
+            start = exp.expected_window_start or exp.hard_deadline_at
+            end = exp.expected_window_end or exp.hard_deadline_at
+            target = start or end
+            base = {
+                "kind": "expectation",
+                "id": str(exp.id),
+                "title": exp.title,
+                "expectation_type": exp.expectation_type.value,
+                "temporal_state": state,
+                "outcome_state": exp.outcome_state.value,
+                "confidence": exp.extraction_confidence,
+                "expected_start": start.isoformat() if start else None,
+                "expected_end": end.isoformat() if end else None,
+                "evidence_refs": [exp.honcho_message_id],
+            }
+            if state in ("window_open", "deadline_approaching"):
+                add("now", {**base, "suggested_move": "consider"})
+            elif state in ("window_elapsed", "deadline_passed"):
+                elapsed_from = end or start or exp.updated_at
+                if elapsed_from.tzinfo is not None:
+                    elapsed_from = elapsed_from.astimezone(timezone.utc).replace(
+                        tzinfo=None
+                    )
+                age = now_utc - elapsed_from
+                if state == "deadline_passed" or age <= timedelta(
+                    hours=ELAPSED_EXPECTATION_FOREGROUND_HOURS
+                ):
+                    add("unresolved", {
+                        **base,
+                        "suggested_move": "ask_outcome_if_natural",
+                        "uncertainty": "Outcome is unknown; do not claim failure.",
+                    })
+                else:
+                    add("review_needed", {
+                        **base,
+                        "suggested_move": "backstage_review",
+                        "uncertainty": "Stale unknown outcome; keep out of ordinary foreground context.",
+                    })
+            elif target:
+                try:
+                    target_local = target.replace(tzinfo=timezone.utc).astimezone(
+                        ZoneInfo(timezone_str)
+                    ) if target.tzinfo is None else target.astimezone(ZoneInfo(timezone_str))
+                    delta_days = (target_local.date() - local_now.date()).days
+                except Exception:
+                    delta_days = 2
+                add("today" if delta_days == 0 else "tomorrow" if delta_days == 1 else "later", base)
+
+        for item in packet.get("commitments", []):
+            state = str(item.get("state") or "open")
+            base = {"kind": "task", **item}
+            if state in ("overdue", "reminder_due"):
+                add("now", base)
+            else:
+                due_at = item.get("due_at")
+                try:
+                    due = datetime.fromisoformat(str(due_at))
+                    due_local = due.replace(tzinfo=timezone.utc).astimezone(
+                        ZoneInfo(timezone_str)
+                    ) if due.tzinfo is None else due.astimezone(ZoneInfo(timezone_str))
+                    delta_days = (due_local.date() - local_now.date()).days
+                except Exception:
+                    delta_days = 2
+                add("today" if delta_days == 0 else "tomorrow" if delta_days == 1 else "later", base)
+
+        for item in packet.get("events", []):
+            state = str(item.get("state") or "upcoming")
+            if state in ("imminent", "ongoing"):
+                bucket = "now"
+            else:
+                try:
+                    start = datetime.fromisoformat(str(item.get("start_at")))
+                    start_local = start.replace(tzinfo=timezone.utc).astimezone(
+                        ZoneInfo(timezone_str)
+                    ) if start.tzinfo is None else start.astimezone(ZoneInfo(timezone_str))
+                    delta_days = (start_local.date() - local_now.date()).days
+                except Exception:
+                    delta_days = 2
+                bucket = "today" if delta_days == 0 else "tomorrow" if delta_days == 1 else "later"
+            add(bucket, {"kind": "event", **item})
+
+        for item in packet.get("recurring_intentions", []):
+            if item.get("occurrence_status") != "pending":
+                continue
+            preferred = str(item.get("preferred_window") or "").lower()
+            window_matches = not preferred or daypart in preferred
+            base = {
+                "kind": "recurring_intention", **item,
+                "uncertainty": "Pending means no completion evidence, not proof it was missed.",
+            }
+            if window_matches:
+                add("now", {**base, "suggested_move": "consider"})
+            elif preferred and daypart in ("afternoon", "evening") and "morning" in preferred:
+                add("unresolved", {**base, "suggested_move": "ask_outcome_if_natural"})
+            else:
+                add("today", base)
+
+        return {
+            "version": "continuity-brief-v1",
+            "generated_at": now.isoformat(),
+            "user_day": local_now.date().isoformat(),
+            "daypart": daypart,
+            "horizons": horizons,
+            "task_candidates": packet.get("commitment_candidates", [])[:8],
+            "open_threads": packet.get("open_loops", [])[:8],
+            # Non-source Sophie attention remains backstage. It may inform an
+            # active user-led conversation but cannot independently trigger
+            # proactive outreach or a daily brief.
+            "backstage_attention": packet.get("sophie_attention", [])[:8],
+            "constraints": {
+                "unknown_is_not_failed": True,
+                "brief_is_permission_not_instruction": True,
+                "canonical_tasks_require_authority": True,
+            },
+        }
 
     @staticmethod
     @staticmethod
@@ -788,6 +975,17 @@ class CortexPacketService:
             local_now = now
 
         continuity: List[Dict[str, Any]] = []
+        brief = packet.get("intelligence_brief") or {}
+        has_brief = bool(brief)
+        horizons = brief.get("horizons") or {}
+        brief_now_ids = {
+            str(item.get("id")) for item in horizons.get("now", [])
+            if item.get("id")
+        }
+        brief_unresolved_ids = {
+            str(item.get("id")) for item in horizons.get("unresolved", [])
+            if item.get("id")
+        }
         # Deadlines are highest-value and must be admitted before the five-item cap.
         for item in packet.get("hard_deadlines", [])[:2]:
             temporal_state = item.get("temporal_state") or "unknown"
@@ -894,6 +1092,8 @@ class CortexPacketService:
                 if item.get("source_message_id") else [],
             })
         for item in packet.get("followups", [])[:3]:
+            if has_brief and str(item.get("id")) not in brief_unresolved_ids:
+                continue
             temporal_state = item.get("temporal_state") or "unknown"
             topic = item.get("title") or item.get("summary") or "Earlier plan"
             if any(
@@ -910,7 +1110,11 @@ class CortexPacketService:
                 if item.get("honcho_message_id") else [],
             })
         for item in packet.get("recurring_intentions", [])[:2]:
-            if item.get("occurrence_status") != "pending" or len(continuity) >= 5:
+            if (
+                item.get("occurrence_status") != "pending"
+                or (has_brief and str(item.get("id")) not in brief_now_ids)
+                or len(continuity) >= 5
+            ):
                 continue
             continuity.append({
                 "type": "recurring_intention",
@@ -921,6 +1125,8 @@ class CortexPacketService:
             })
         seen_topics = {str(item.get("topic", "")).lower() for item in continuity}
         for item in packet.get("active_expectations", [])[:4]:
+            if has_brief and str(item.get("id")) not in brief_now_ids:
+                continue
             topic = item.get("title") or item.get("summary") or "Earlier plan"
             if str(topic).lower() in seen_topics:
                 continue
@@ -969,6 +1175,17 @@ class CortexPacketService:
                 "local_time": local_now.isoformat(),
                 "timezone": timezone_str,
                 "daypart": daypart,
+            },
+            "brief": {
+                "version": brief.get("version"),
+                "user_day": brief.get("user_day"),
+                "daypart": brief.get("daypart"),
+                "horizons": {
+                    key: (horizons.get(key) or [])[:5]
+                    for key in ("now", "today", "tomorrow", "unresolved")
+                },
+                "task_candidates": (brief.get("task_candidates") or [])[:3],
+                "constraints": brief.get("constraints") or {},
             },
             "continuity": continuity[:5],
             "open_threads": open_threads,

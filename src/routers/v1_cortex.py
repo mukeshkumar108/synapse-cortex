@@ -11,6 +11,12 @@ from src.services.commitment_candidate_service import CommitmentCandidateService
 from src.services.cortex_handshake_service import CortexHandshakeService
 from src.services.cortex_packet_service import CortexPacketService
 from src.services.cortex_router_service import CortexRouterService
+from src.services.working_set_service import WorkingSetService
+from src.schemas.candidate import ExtractionCandidate
+from src.models.expectation import Expectation
+from src.models.open_loop import OpenLoop
+from src.models.operational_state import RecurringIntention
+from sqlmodel import select
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +26,143 @@ handshake_service = CortexHandshakeService()
 packet_service = CortexPacketService()
 router_service = CortexRouterService()
 candidate_service = CommitmentCandidateService()
+working_set_service = WorkingSetService()
+
+
+class WorkingSetRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    peer_id: Optional[str] = None
+    now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timezone: str = "Europe/London"
+    turn_text: str = Field(default="", max_length=4000)
+    current_message_id: Optional[str] = None
+    posture: Optional[str] = None
+    conversational_operation: Optional[str] = None
+    director_hints: Optional[Dict[str, Any]] = None
+
+
+@router.post("/working-set")
+async def get_cortex_working_set(
+    req: WorkingSetRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Bounded per-turn working set (L0 HOT / L1 WARM / L2 COLD refs).
+
+    Consumes the same attention packet / intelligence brief used by the
+    proactive path and Inspector; it never builds a second interpretation."""
+    packet = await packet_service.compile_attention_packet(
+        db=db,
+        workspace_id=req.workspace_id,
+        session_id=req.session_id,
+        now=req.now,
+        timezone_str=req.timezone,
+        owner_peer_id=req.peer_id,
+    )
+    return working_set_service.compile_working_set(
+        packet,
+        turn_text=req.turn_text,
+        current_message_id=req.current_message_id,
+        posture=req.posture,
+        conversational_operation=req.conversational_operation,
+        director_hints=req.director_hints,
+    )
+
+
+@router.get("/evidence")
+async def get_cortex_evidence(
+    workspace_id: str = Query(...),
+    ref: str = Query(...),
+    ref_type: Optional[str] = Query(None),
+    peer_id: Optional[str] = Query(None),
+    session_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_async_session),
+):
+    """JIT retrieval: resolve a compact working-set reference into its deeper
+    stored detail. Bounded, provenance-preserving; raw Honcho message bodies
+    stay in Honcho and are resolved by the runtime that owns that client."""
+    try:
+        row_uuid = __import__("uuid").UUID(ref)
+    except ValueError:
+        row_uuid = None
+
+    def scoped(model):
+        # Mirror packet owner_scope: owner rows are workspace/owner-visible;
+        # NULL-owner rows are session-scoped legacy state.
+        cond = [model.honcho_workspace_id == workspace_id]
+        if peer_id and hasattr(model, "owner_peer_id"):
+            from sqlalchemy import or_, and_
+            session_cond = (
+                model.honcho_session_id == session_id if session_id else None
+            )
+            cond.append(or_(
+                model.owner_peer_id == peer_id,
+                and_(model.owner_peer_id.is_(None), session_cond)
+                if session_cond is not None else model.owner_peer_id.is_(None),
+            ))
+        return cond
+
+    found = None
+    if row_uuid is not None:
+        row = (await db.execute(
+            select(Expectation).where(Expectation.id == row_uuid,
+                                      *scoped(Expectation))
+        )).scalar_one_or_none()
+        if row:
+            found = {
+                "type": "expectation", "id": str(row.id),
+                "title": row.title, "summary": row.summary,
+                "outcome_state": row.outcome_state.value,
+                "expectation_type": row.expectation_type.value,
+                "raw_temporal_phrase": row.raw_temporal_phrase,
+                "evidence": row.resolution_evidence,
+                "honcho_message_id": row.honcho_message_id,
+            }
+        if found is None:
+            row = (await db.execute(
+                select(OpenLoop).where(OpenLoop.id == row_uuid,
+                                       *scoped(OpenLoop))
+            )).scalar_one_or_none()
+            if row:
+                found = {
+                    "type": "open_loop", "id": str(row.id),
+                    "title": getattr(row, "title", None),
+                    "summary": getattr(row, "summary", None),
+                    "status": str(getattr(row, "status", "")),
+                    "honcho_message_id": getattr(row, "honcho_message_id", None),
+                }
+        if found is None:
+            row = (await db.execute(
+                select(RecurringIntention).where(
+                    RecurringIntention.id == row_uuid,
+                    *scoped(RecurringIntention))
+            )).scalar_one_or_none()
+            if row:
+                found = {
+                    "type": "recurring_intention", "id": str(row.id),
+                    "title": row.title, "cadence": row.cadence,
+                    "preferred_window": row.preferred_window,
+                    "honcho_message_id": row.honcho_message_id,
+                }
+    if found is None and not ref.startswith("message-"):
+        from src.models.commitment_candidate import CommitmentCandidate
+        row = (await db.execute(
+            select(CommitmentCandidate).where(
+                CommitmentCandidate.honcho_workspace_id == workspace_id,
+                CommitmentCandidate.candidate_key == ref,
+            )
+        )).scalar_one_or_none()
+        if row is not None:
+            found = {
+                "type": "commitment_candidate", "id": row.candidate_key,
+                "title": row.title, "notes": row.notes,
+                "raw_evidence": row.evidence_verbatim,
+                "evidence_class": row.evidence_class,
+                "status": str(row.status),
+            }
+    if found is None:
+        raise HTTPException(status_code=404, detail="reference not resolvable")
+    return found
 
 
 class HandshakeRequest(BaseModel):
@@ -123,6 +266,64 @@ class CandidateMarkRequest(BaseModel):
     candidate_key: str
     status: Literal["materialized", "dismissed"]
     source_object_id: Optional[str] = None
+
+
+class CandidateProposal(BaseModel):
+    key: str = Field(min_length=1, max_length=160)
+    title: str = Field(min_length=1, max_length=280)
+    notes: Optional[str] = Field(default=None, max_length=2000)
+    evidence_verbatim: str = Field(min_length=1, max_length=2000)
+    evidence_class: Literal[
+        "implicit_self_commitment", "sophie_proposed_user_accepted",
+        "sophie_proposed_soft_acceptance", "vague_self_talk",
+    ] = "implicit_self_commitment"
+    authority: Literal["act", "ask"] = "ask"
+    temporal_phrase: Optional[str] = Field(default=None, max_length=160)
+
+
+class CandidateProposalRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    owner_peer_id: str
+    source_message_id: str
+    candidates: list[CandidateProposal] = Field(max_length=12)
+
+
+@router.post("/commitment-candidates/propose")
+async def propose_commitment_candidates(
+    req: CandidateProposalRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Trusted chief-of-staff/editorial proposals. This endpoint only creates
+    derived candidates; it never mutates a canonical Task."""
+    accepted = []
+    for item in req.candidates:
+        candidate = ExtractionCandidate(
+            candidate_key=item.key,
+            observation=item.notes or item.title,
+            raw_evidence=item.evidence_verbatim,
+            canonical_title=item.title,
+            operational_kind="commitment_candidate",
+            evidence_class=item.evidence_class,
+            authority=item.authority,
+            temporal_phrase=item.temporal_phrase,
+            actor_peer_id=req.owner_peer_id,
+            subject_peer_id=req.owner_peer_id,
+            confidence=1.0,
+            extractor_version="chief-of-staff-v1",
+        )
+        row = await candidate_service.upsert_from_candidate(
+            db,
+            workspace_id=req.workspace_id,
+            session_id=req.session_id,
+            owner_peer_id=req.owner_peer_id,
+            message_id=req.source_message_id,
+            candidate=candidate,
+            now=datetime.now(timezone.utc),
+        )
+        if row is not None:
+            accepted.append(row.candidate_key)
+    return {"status": "accepted", "candidate_keys": accepted}
 
 
 @router.post("/commitment-candidates/mark")
