@@ -63,9 +63,13 @@ async def test_phase1_complete_acceptance_scenario(async_client):
     packet = context_resp.json()
 
     assert "followups" in packet
-    assert len(packet["followups"]) == 1
+    # Elapsed unknown expectations are kept out of foreground followups so
+    # stale state cannot crowd current state; they stay inspectable in the
+    # elapsed section.
+    assert len(packet["followups"]) == 0
+    assert len(packet["elapsed_expectations"]) == 1
 
-    item = packet["followups"][0]
+    item = packet["elapsed_expectations"][0]
     assert item["honcho_message_id"] == "101"
     assert item["title"] == "Test the Sophie initiative changes"
     assert item["temporal_state"] == "window_elapsed"

@@ -1,7 +1,7 @@
 import logging
 import json
 import re
-from typing import Optional, List, Tuple
+from typing import Any, Optional, List, Tuple
 from uuid import UUID
 from datetime import datetime, timezone
 from sqlmodel import select
@@ -132,6 +132,74 @@ class LifecycleService:
             loop.status = OpenLoopStatus.SUPERSEDED
             loop.resolution_evidence = evidence
             db.add(loop)
+
+    # Strong completion markers. Used only as a deterministic post-pass to
+    # convert progress/completion-shaped turns into genuine fulfillments of a
+    # matched open expectation; never to invent state.
+    COMPLETION_MARKERS = (
+        " done", "finished", "completed", "completed all", "fixed",
+        "pushed it", "pushed it live", "shipped", "submitted", "went well",
+        "managed to", "got it working", "all 14", "made it",
+    )
+
+    async def resolve_explicit_completions(
+        self,
+        db: AsyncSession,
+        *,
+        workspace_id: str,
+        session_id: str,
+        message_id: str,
+        candidate: Any,
+        now: datetime,
+    ) -> List[UUID]:
+        """Deterministic completion pass for progress/completion-shaped
+        candidates.
+
+        The lane shaper routes accomplishments ('migration checklist done!')
+        to `progress`, which has its own objective handling and therefore
+        skips generic outcome mutations. Without this pass the completed plan
+        stays UNKNOWN forever. Here we fulfill an open expectation only when
+        the candidate text contains a strong completion marker and exactly one
+        open expectation matches; ambiguity stays unresolved on purpose."""
+        if candidate.operational_kind not in ("progress", "completion"):
+            return []
+        text = (
+            f"{candidate.canonical_title or ''} {candidate.observation}".lower()
+        )
+        if not any(marker in text for marker in self.COMPLETION_MARKERS):
+            return []
+        stmt = select(Expectation).where(
+            Expectation.honcho_workspace_id == workspace_id,
+            Expectation.honcho_session_id == session_id,
+            Expectation.outcome_state == OutcomeState.UNKNOWN,
+        )
+        res = await db.execute(stmt)
+        active = list(res.scalars().all())
+        synthetic = candidate.model_copy(update={
+            "resolution_hint": {
+                "action": "fulfill",
+                "target_text": candidate.canonical_title or candidate.title,
+                "evidence": candidate.observation,
+            }
+        })
+        targets = self._resolve_targets(active, synthetic)
+        if len(targets) != 1:
+            return []
+        exp = targets[0]
+        evidence = (
+            f"honcho_message:{message_id}#candidate:{candidate.candidate_key}"
+        )
+        exp.outcome_state = OutcomeState.FULFILLED
+        exp.resolution_evidence = evidence
+        exp.updated_at = self._naive_utc(now)
+        db.add(exp)
+        await self._resolve_open_loop_for_expectation(db, exp.id, evidence)
+        await db.commit()
+        logger.info(
+            "Explicit completion fulfilled expectation id=%s from %s",
+            exp.id, candidate.operational_kind,
+        )
+        return [exp.id]
 
     def _resolve_targets(
         self, expectations: List[Expectation], candidate: ExtractionCandidate

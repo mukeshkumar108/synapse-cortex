@@ -39,6 +39,18 @@ async def test_phase1_ingest_and_context_endpoints(async_client):
     )
     assert context_resp.status_code == 200
     packet = context_resp.json()
+    # Elapsed unknown expectations are deliberately kept out of foreground
+    # followups (stale state must not crowd current state); they remain
+    # inspectable through the elapsed sections.
     messages = [f["honcho_message_id"] for f in packet["followups"]]
-    assert "999" in messages
-    assert packet["followups"][messages.index("999")]["temporal_state"] == "window_elapsed"
+    assert "999" not in messages
+    elapsed_ids = [
+        e["honcho_message_id"] for e in packet["elapsed_expectations"]
+    ]
+    assert "999" in elapsed_ids
+    assert (
+        packet["elapsed_expectations"][
+            elapsed_ids.index("999")
+        ]["temporal_state"]
+        == "window_elapsed"
+    )

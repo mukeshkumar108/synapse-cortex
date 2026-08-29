@@ -324,3 +324,46 @@ async def test_historical_replay_polluted_state_produces_sane_current_turn():
     warm = working_set["levels"]["warm"]
     assert not any("shower" in i["what"].lower() for i in warm)
     assert not any("audio transcription" in i["what"].lower() for i in warm)
+
+
+@pytest.mark.asyncio
+async def test_explicit_completion_fulfills_open_expectation():
+    """Regression: progress/completion lanes must resolve the open plan they
+    complete. 'migration checklist done!' must FULFILL 'do the migration
+    checklist', not leave it UNKNOWN forever."""
+    from src.db import async_session_maker
+    from src.models.expectation import Expectation, ExpectationType, OutcomeState
+    from src.schemas.candidate import ExtractionCandidate
+    from src.services.lifecycle_service import LifecycleService
+
+    ws, sess = "ws-complete", "sess-complete"
+    async with async_session_maker() as session:
+        exp = Expectation(
+            honcho_workspace_id=ws, honcho_session_id=sess,
+            honcho_message_id="m-plan", subject_peer_id="user-1",
+            expectation_type=ExpectationType.USER_INTENTION,
+            title="Do the migration checklist",
+            summary="User plans to do the migration checklist first thing",
+            raw_temporal_phrase="first thing",
+        )
+        session.add(exp)
+        await session.commit()
+        exp_id = exp.id
+
+        cand = ExtractionCandidate(
+            candidate_key="c_done", observation="User completed the migration checklist",
+            raw_evidence="migration checklist done! all 14 items",
+            canonical_title="Completed the migration checklist",
+            operational_kind="progress",
+            actor_peer_id="user-1", subject_peer_id="user-1",
+            confidence=0.9, extractor_version="test",
+        )
+        mutated = await LifecycleService().resolve_explicit_completions(
+            session, workspace_id=ws, session_id=sess,
+            message_id="m-done", candidate=cand,
+            now=NOW,
+        )
+        assert mutated == [exp_id]
+        await session.refresh(exp)
+        assert exp.outcome_state == OutcomeState.FULFILLED
+        assert "m-done" in (exp.resolution_evidence or "")

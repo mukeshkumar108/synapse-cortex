@@ -214,6 +214,18 @@ async def ingest_turn_event(
             candidate=cand,
             now=payload.now,
         )
+        if special_lifecycle:
+            # Progress/completion lanes skip generic outcome mutations (they
+            # have their own objective handling) but explicit completions
+            # must still resolve the open expectation they complete.
+            mutated = await lifecycle_service.resolve_explicit_completions(
+                db=db,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                message_id=payload.honcho_message_id,
+                candidate=cand,
+                now=payload.now,
+            )
         mutated_ids.extend(mutated)
 
         # B. Suppressions

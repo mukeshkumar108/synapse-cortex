@@ -106,6 +106,7 @@ class CortexPacketService:
         hard_deadlines = []
         waiting_on = []
         active_expectations = []
+        elapsed_expectations = []
         recent_resolutions = []
         source_expectations = []
         suppressed_expectation_ids: set[str] = set()
@@ -202,14 +203,23 @@ class CortexPacketService:
                 })
 
             if exp.raw_temporal_phrase or exp.hard_deadline_at:
-                active_expectations.append({
+                item_dict = {
                     "id": str(exp.id),
                     "honcho_message_id": exp.honcho_message_id,
                     "title": exp.title,
                     "summary": exp.summary,
                     "expectation_type": exp.expectation_type.value,
                     "temporal_state": read_model["temporal_state"],
-                })
+                    "outcome_state": read_model["outcome_state"],
+                    "reason": read_model["reason"],
+                    "expected_window_label": read_model["expected_window_label"],
+                }
+                if read_model["temporal_state"] in (
+                    "window_elapsed", "deadline_passed"
+                ):
+                    elapsed_expectations.append(item_dict)
+                else:
+                    active_expectations.append(item_dict)
 
         # 3. Fetch Open Loops
         stmt_loop = select(OpenLoop).where(
@@ -335,6 +345,15 @@ class CortexPacketService:
             "window_open": 3,
             "not_due": 4,
         }
+        # Stale/elapsed items must not crowd current and future state out of
+        # the capped foreground lists. Elapsed unknowns are reported through
+        # `window_elapsed_unknown` and the brief's unresolved/review horizons;
+        # followups and active_expectations carry only live temporal state.
+        followups = [
+            item for item in followups
+            if item.get("temporal_state")
+            not in ("window_elapsed", "deadline_passed")
+        ]
         followups.sort(
             key=lambda item: (
                 temporal_priority.get(item.get("temporal_state", ""), 9),
@@ -348,6 +367,12 @@ class CortexPacketService:
             )
         )
         active_expectations.sort(
+            key=lambda item: (
+                temporal_priority.get(item.get("temporal_state", ""), 9),
+                item.get("title", ""),
+            )
+        )
+        elapsed_expectations.sort(
             key=lambda item: (
                 temporal_priority.get(item.get("temporal_state", ""), 9),
                 item.get("title", ""),
@@ -400,11 +425,12 @@ class CortexPacketService:
             "workspace_id": workspace_id,
             "session_id": session_id,
             "timestamp": now.isoformat(),
-            "followups": followups[:3],
-            "open_loops": open_loops_list[:3],
-            "active_expectations": active_expectations[:4],
-            "window_elapsed_unknown": window_elapsed_unknown[:2],
-            "hard_deadlines": hard_deadlines[:2],
+            "followups": followups[:8],
+            "open_loops": open_loops_list[:5],
+            "active_expectations": active_expectations[:12],
+            "elapsed_expectations": elapsed_expectations[:12],
+            "window_elapsed_unknown": window_elapsed_unknown[:6],
+            "hard_deadlines": hard_deadlines[:4],
             "waiting_on": waiting_on[:3],
             "recent_resolutions": recent_resolutions[:3],
             "suppressed_targets": [
@@ -485,7 +511,9 @@ class CortexPacketService:
             if len(horizons[bucket]) < 12:
                 horizons[bucket].append(item)
 
-        for item in packet.get("active_expectations", []):
+        for item in packet.get("active_expectations", []) + packet.get(
+            "elapsed_expectations", []
+        ):
             exp = expectation_by_id.get(str(item.get("id")))
             if exp is None:
                 continue

@@ -570,6 +570,18 @@ upcoming events, follow-ups, important current state, cancellations, completions
 boundaries/suppressions, or active project focus. Static background or aspirations normally
 belong in semantic memory and should not be promoted. Natural phrasing such as 'still need',
 'been meaning to', 'I'd like to', 'managed to', and 'forget that' is meaningful.
+HARD EXCLUSION - life narration is never operational: sensory or observational narration
+("I saw a beautiful moon", "I observed horses and deer"), bodily state ("tummy ache",
+"sneezing", "feeling groggy"), environment/weather ("it's raining", "it's cold"),
+routine activity reports ("went for a walk", "sat down at the cafe", "took a shower",
+"ordered a coffee"), and sleep-pattern remarks are semantic_only unless the user states an
+obligation, plan or commitment. When in doubt between narration and obligation, choose
+semantic_only. An intention the user merely notices ("I should tidy more") is semantic_only;
+a concrete dated plan ("taking the laptop to the cafe tomorrow") is an expectation.
+HARD EXCLUSION - one-off work is never a recurrence: "I need to fix X", "I'm debugging X",
+"keep on top of X" describe a current objective/expectation. recurring_intention requires
+the user to state an established repeating practice with cadence evidence ("every morning",
+"every day", "on weekdays"), not merely repetition of a task across days.
 PRIOR STATE is read-only background — existing objectives, loops, routines, suppressions and
 recent evidence. It tells you about continuity only. Do not re-extract prior state as new.
 If the current turn restates or continues something already in PRIOR STATE, treat it as a
@@ -758,6 +770,26 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     raw["confidence"] = min(float(raw.get("confidence") or 0), 0.75)
                     kind = "durable_objective"
                     validation_notes.append("demoted_unestablished_recurrence_to_objective")
+                elif kind == "recurring_intention" and not (
+                    raw.get("cadence") or raw.get("interval_days")
+                    or raw.get("days_of_week")
+                    or re.search(
+                        r"\b(every|daily|weekly|each (?:day|morning|evening|week)|"
+                        r"mondays|tuesdays|wednesdays|thursdays|fridays|"
+                        r"saturdays|sundays|on (?:weekdays|weekends))\b",
+                        evidence_lower,
+                    )
+                ):
+                    # Deterministic guard: no cadence evidence anywhere in the
+                    # evidence text means a one-off objective, however the
+                    # model shaped it.
+                    raw["operational_kind"] = "durable_objective"
+                    raw["cadence"] = None
+                    raw["interval_days"] = None
+                    raw["days_of_week"] = []
+                    raw["confidence"] = min(float(raw.get("confidence") or 0), 0.7)
+                    kind = "durable_objective"
+                    validation_notes.append("demoted_recurrence_without_cadence_evidence")
                 if kind == "suppression" and re.search(
                     r"\bdon't want (?:it|the .+?) to (?:feel|look|sound|be)\b", evidence_lower
                 ):
