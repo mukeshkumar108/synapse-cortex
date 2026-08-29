@@ -47,10 +47,20 @@ _TASK_INTENT_TOKENS = {
 
 
 def _tokens(text: str) -> set:
-    return {
-        token for token in re.findall(r"[a-z0-9']+", (text or "").lower())
+    # Drop apostrophes first so "mum's" and "mums" tokenize identically.
+    cleaned = (text or "").lower().replace("'", "")
+    raw = {
+        token for token in re.findall(r"[a-z0-9]+", cleaned)
         if len(token) >= 3 and token not in _STOPWORDS
     }
+    folded = set()
+    for token in raw:
+        folded.add(token)
+        # Light plural fold so "mums" matches "mum", "checklists" matches
+        # "checklist". Same fold on both sides keeps overlap symmetric.
+        if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+            folded.add(token[:-1])
+    return folded
 
 
 def _item_text(item: Dict[str, Any]) -> str:
