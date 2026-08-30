@@ -281,6 +281,12 @@ async def ingest_turn_event(
             if created:
                 expectations_created.append(exp_model.id)
                 expectation_record_id = exp_model.id
+                # Belief reconciliation: the new expectation is the current
+                # belief about its plan; stale sibling UNKNOWN rows describing
+                # the same plan are superseded onto it (preserved as evidence).
+                await lifecycle_service.reconcile_new_expectation(
+                    db, expectation=exp_model, now=payload.now,
+                )
 
         # D. Open Loops
         await lifecycle_service.create_open_loop_if_needed(

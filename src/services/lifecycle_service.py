@@ -33,6 +33,30 @@ class LifecycleService:
     - Epistemic & Domain annotation persistence
     """
 
+    # Counterfactual/hypothetical language: text shaped like a completed event
+    # but actually describing what WOULD have happened. Must never become
+    # fulfillment evidence.
+    COUNTERFACTUAL_MARKERS = (
+        "would have", "would've", "had to do", "would have had to",
+        "was meant to", "were meant to", "if he'd", "if she'd", "if i'd",
+        "if we'd", "nearly", "could have", "almost went", "the plan was to",
+        "was supposed to", "were supposed to", "otherwise i",
+    )
+    # Explicit negative outcome: the expected thing did NOT occur. Strong
+    # evidence — maps to NOT_FULFILLED, never to FULFILLED/UNKNOWN.
+    NEGATIVE_OUTCOME_MARKERS = (
+        "didn't go", "did not go", "didnt go", "gave it a miss",
+        "give it a miss", "won't be going", "wont be going", "not going",
+        "didn't happen", "did not happen", "didnt happen", "called it off",
+        "can't get there", "cant get there", "no way of getting there",
+        "have to give it a miss", "didn't make it", "did not make it",
+    )
+
+    @staticmethod
+    def _has_marker(text: str, markers) -> bool:
+        lowered = (text or "").lower()
+        return any(marker in lowered for marker in markers)
+
     async def handle_outcome_mutations(
         self,
         db: AsyncSession,
@@ -67,11 +91,32 @@ class LifecycleService:
             return []
 
         exp = targets[0]
+        evidence_text = " ".join(filter(None, [
+            candidate.observation, candidate.canonical_title,
+            str(candidate.resolution_hint.get("evidence") or ""),
+        ]))
         if action == "cancel":
             exp.outcome_state = OutcomeState.CANCELLED
         elif action == "fulfill":
-            exp.outcome_state = OutcomeState.FULFILLED
-            await self._resolve_open_loop_for_expectation(db, exp.id, evidence)
+            if self._has_marker(evidence_text, self.NEGATIVE_OUTCOME_MARKERS):
+                # "I was meant to go but I didn't" — explicit negative outcome,
+                # never fulfillment.
+                exp.outcome_state = OutcomeState.NOT_FULFILLED
+            elif self._has_marker(evidence_text, self.COUNTERFACTUAL_MARKERS):
+                # Counterfactual/hypothetical text ("would have had to...")
+                # is context, not completion evidence. Leave the belief
+                # UNKNOWN and let reconciliation decide.
+                logger.info(
+                    "Blocked counterfactual fulfillment for expectation id=%s",
+                    exp.id,
+                )
+                return []
+            else:
+                exp.outcome_state = OutcomeState.FULFILLED
+            if exp.outcome_state != OutcomeState.UNKNOWN:
+                await self._resolve_open_loop_for_expectation(db, exp.id, evidence)
+        elif action == "did_not_occur":
+            exp.outcome_state = OutcomeState.NOT_FULFILLED
         elif action in ("correct", "reschedule"):
             replacement = await self._create_replacement(
                 db, exp, message_id, candidate, now
@@ -90,8 +135,160 @@ class LifecycleService:
 
         if modified_ids:
             await db.commit()
+            # Belief reconciliation: a terminal outcome about one real-world
+            # plan must collapse sibling representations of the same plan,
+            # so cancelled/fulfilled plans cannot stay foreground UNKNOWN.
+            await self._reconcile_siblings(
+                db,
+                workspace_id=workspace_id,
+                resolved=exp,
+                now=now,
+            )
 
         return modified_ids
+
+    async def _reconcile_siblings(
+        self,
+        db: AsyncSession,
+        *,
+        workspace_id: str,
+        resolved: Expectation,
+        now: datetime,
+    ) -> List[UUID]:
+        """Belief reconciliation.
+
+        New evidence about one real-world plan must update THE belief about
+        that plan, not merely append another belief. After a terminal outcome
+        (fulfilled / not_fulfilled / cancelled) is applied, any sibling
+        UNKNOWN expectations that describe the same plan are superseded onto
+        the resolved row, so they can no longer compete for attention.
+
+        Sibling identity: same owner, same subject_peer_id (e.g. "mother",
+        "Oxford") OR >=2 shared significant title tokens. Historical evidence
+        is preserved: rows are superseded, never deleted."""
+        if resolved.outcome_state not in (
+            OutcomeState.FULFILLED,
+            OutcomeState.NOT_FULFILLED,
+            OutcomeState.CANCELLED,
+        ):
+            return []
+        stmt = select(Expectation).where(
+            Expectation.honcho_workspace_id == workspace_id,
+            Expectation.outcome_state == OutcomeState.UNKNOWN,
+            Expectation.superseded_by_id.is_(None),
+            Expectation.id != resolved.id,
+        )
+        rows = (await db.execute(stmt)).scalars().all()
+
+        resolved_tokens = self._significant_tokens(resolved.title)
+        siblings: List[Expectation] = []
+        for row in rows:
+            if row.owner_peer_id and resolved.owner_peer_id and (
+                row.owner_peer_id != resolved.owner_peer_id
+            ):
+                continue
+            # subject_peer_id only identifies a real third party when it
+            # differs from the owner; self-commitments share the owner id and
+            # must rely on title identity instead.
+            same_subject = (
+                resolved.subject_peer_id
+                and row.subject_peer_id
+                and row.subject_peer_id == resolved.subject_peer_id
+                and resolved.owner_peer_id
+                and resolved.subject_peer_id != resolved.owner_peer_id
+            )
+            shared = self._significant_tokens(row.title) & resolved_tokens
+            if same_subject or len(shared) >= 2:
+                siblings.append(row)
+            if len(siblings) >= 6:
+                break
+
+        evidence = resolved.resolution_evidence or "sibling-reconciliation"
+        modified: List[UUID] = []
+        for sibling in siblings:
+            sibling.outcome_state = OutcomeState.SUPERSEDED
+            sibling.superseded_by_id = resolved.id
+            sibling.resolution_evidence = evidence
+            sibling.updated_at = self._naive_utc(now)
+            db.add(sibling)
+            await self._supersede_open_loops(db, sibling.id, evidence)
+            modified.append(sibling.id)
+        if modified:
+            await db.commit()
+            logger.info(
+                "Reconciled %d sibling expectations onto resolved id=%s",
+                len(modified), resolved.id,
+            )
+        return modified
+
+    async def reconcile_new_expectation(
+        self,
+        db: AsyncSession,
+        *,
+        expectation: Expectation,
+        now: datetime,
+    ) -> List[UUID]:
+        """A newly created expectation is the CURRENT belief about its plan.
+        Prior UNKNOWN expectations for the same owner describing the same plan
+        are superseded onto it, so old 'tomorrow' rows cannot outlive newer
+        evidence."""
+        stmt = select(Expectation).where(
+            Expectation.honcho_workspace_id == expectation.honcho_workspace_id,
+            Expectation.outcome_state == OutcomeState.UNKNOWN,
+            Expectation.superseded_by_id.is_(None),
+            Expectation.id != expectation.id,
+        )
+        rows = (await db.execute(stmt)).scalars().all()
+        new_tokens = self._significant_tokens(expectation.title)
+        modified: List[UUID] = []
+        for row in rows:
+            if row.owner_peer_id and expectation.owner_peer_id and (
+                row.owner_peer_id != expectation.owner_peer_id
+            ):
+                continue
+            same_subject = (
+                expectation.subject_peer_id
+                and row.subject_peer_id
+                and row.subject_peer_id == expectation.subject_peer_id
+                and expectation.owner_peer_id
+                and expectation.subject_peer_id != expectation.owner_peer_id
+            )
+            shared = self._significant_tokens(row.title) & new_tokens
+            if not (same_subject or len(shared) >= 2):
+                continue
+            row.outcome_state = OutcomeState.SUPERSEDED
+            row.superseded_by_id = expectation.id
+            row.updated_at = self._naive_utc(now)
+            db.add(row)
+            modified.append(row.id)
+            if len(modified) >= 6:
+                break
+        if modified:
+            await db.commit()
+            logger.info(
+                "New expectation id=%s superseded %d stale siblings",
+                expectation.id, len(modified),
+            )
+        return modified
+
+    @staticmethod
+    def _significant_tokens(title: str) -> set:
+        stop = {
+            "the", "and", "for", "with", "their", "have", "has", "had", "not",
+            "user", "intends", "intend", "plans", "plan", "planning", "went",
+            "going", "goes", "will", "was", "were", "that", "this", "from",
+            "about", "into", "their", "them", "they", "his", "her", "its",
+        }
+        words = set()
+        for token in re.findall(r"[a-z0-9']+", (title or "").lower()):
+            if len(token) < 3 or token in stop:
+                continue
+            words.add(token)
+            if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+                words.add(token[:-1])
+            if len(token) > 5 and token.endswith("ing"):
+                words.add(token[:-3])
+        return words
 
     async def _create_replacement(self, db, old, message_id, candidate, now):
         hint = candidate.resolution_hint or {}
@@ -166,7 +363,17 @@ class LifecycleService:
         text = (
             f"{candidate.canonical_title or ''} {candidate.observation}".lower()
         )
-        if not any(marker in text for marker in self.COMPLETION_MARKERS):
+        negative = self._has_marker(text, self.NEGATIVE_OUTCOME_MARKERS)
+        counterfactual = self._has_marker(text, self.COUNTERFACTUAL_MARKERS)
+        has_completion = any(
+            marker in text for marker in self.COMPLETION_MARKERS
+        )
+        if counterfactual and not negative:
+            # Counterfactual/hypothetical framing ("I would have had to...")
+            # must never become completion or negative-outcome evidence by
+            # itself: it is context about a plan that may or may not exist.
+            return []
+        if not negative and not has_completion:
             return []
         stmt = select(Expectation).where(
             Expectation.honcho_workspace_id == workspace_id,
@@ -177,8 +384,8 @@ class LifecycleService:
         active = list(res.scalars().all())
         synthetic = candidate.model_copy(update={
             "resolution_hint": {
-                "action": "fulfill",
-                "target_text": candidate.canonical_title or candidate.title,
+                "action": "did_not_occur" if negative else "fulfill",
+                "target_text": candidate.canonical_title or candidate.observation,
                 "evidence": candidate.observation,
             }
         })
@@ -189,15 +396,18 @@ class LifecycleService:
         evidence = (
             f"honcho_message:{message_id}#candidate:{candidate.candidate_key}"
         )
-        exp.outcome_state = OutcomeState.FULFILLED
+        if negative:
+            exp.outcome_state = OutcomeState.NOT_FULFILLED
+        else:
+            exp.outcome_state = OutcomeState.FULFILLED
         exp.resolution_evidence = evidence
         exp.updated_at = self._naive_utc(now)
         db.add(exp)
         await self._resolve_open_loop_for_expectation(db, exp.id, evidence)
         await db.commit()
         logger.info(
-            "Explicit completion fulfilled expectation id=%s from %s",
-            exp.id, candidate.operational_kind,
+            "Explicit completion resolved expectation id=%s to %s from %s",
+            exp.id, exp.outcome_state.value, candidate.operational_kind,
         )
         return [exp.id]
 
