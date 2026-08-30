@@ -213,6 +213,7 @@ class CortexPacketService:
                     "outcome_state": read_model["outcome_state"],
                     "reason": read_model["reason"],
                     "expected_window_label": read_model["expected_window_label"],
+                    "age_hours": round((now_utc - exp.created_at).total_seconds() / 3600, 1),
                 }
                 if read_model["temporal_state"] in (
                     "window_elapsed", "deadline_passed"

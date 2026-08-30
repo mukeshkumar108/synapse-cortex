@@ -75,8 +75,22 @@ def compile_handover(
         label = str(item.get("expected_window_label") or "").strip()
         return f" (window: {label})" if label and label.lower() not in ("none", "unknown") else ""
 
+    # Freshness: a near-term plan extracted days ago whose window still says
+    # "in about 5 mins" is stale narration, not current reality. Anything
+    # older than 30h leaves `now` (it remains reachable via JIT/working set).
+    MAX_NOW_AGE_HOURS = 30.0
+
+    def _is_stale(item: Dict[str, Any]) -> bool:
+        try:
+            age = float(item.get("age_hours"))
+        except (TypeError, ValueError):
+            return False
+        return age > MAX_NOW_AGE_HOURS
+
     for entry in sorted(now_items, key=lambda e: profile.priority(e["kind"])):
         item = entry["item"]
+        if _is_stale(item):
+            continue
         line = _line(item, "title", "what", "summary")
         if not line or line.lower() in seen_titles:
             continue
@@ -97,7 +111,13 @@ def compile_handover(
             continue
         state = str(item.get("outcome_state") or "").strip().lower()
         evidence = str(item.get("evidence") or "").strip()
-        if evidence.lower().startswith("deterministic"):
+        if (
+            evidence.lower().startswith("deterministic")
+            or "honcho_message:" in evidence
+            or "#candidate:" in evidence
+            or "candidate_key" in evidence.lower()
+        ):
+            # Internal provenance reference, not human-readable cause.
             evidence = ""
         suffix = f" — {evidence[:110]}" if evidence else (f" [{state}]" if state else "")
         changed_lines.append(line[:120] + suffix)
