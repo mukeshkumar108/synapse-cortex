@@ -36,7 +36,22 @@ canonical Task. Inferred actions flow: Cortex derives a fallible
 New: `services/action_projection.py` — a persisted recurrence whose semantic
 type ∈ {recurring_action, recurring_ritual, adherence_action, measurable_goal}
 projects into the bounded candidate store (key `recproj:<canonical>`,
-provenance note, confidence cap 0.85). `observed_pattern` never projects.
+provenance note, confidence cap 0.85). `observed_pattern` never projects. No automatic decomposition: a broad goal
+never spawns invented subtasks; the candidate carries one actionable title,
+the user decides.
+
+Boundary examples (why each lands where):
+
+| Utterance | Becomes | Why |
+|---|---|---|
+| "Remind me to call the visa office tomorrow" | canonical Task (fast path) | explicit command, dated |
+| "I want to walk every morning" | recurring actionable instance | recurring_action + cadence; projects to candidate, Task on acceptance |
+| "I want to do morning and evening prayers every day" | recurring ritual instance | recurring_ritual; same path, ritual type preserved underneath |
+| "My goal is at least 10k steps per day" | measurable_goal (+ candidate) | target floor; genuinely actionable daily |
+| "We talk everyday obviously" | expectation/semantic only | observed_pattern; never a Task |
+| "I should probably look at the visa sometime" | Sophie Noticed candidate at most | vague self-talk; ASK authority, no hard lane |
+| "I need to fix the audio bug" | expectation / durable_objective only | one-off objective; no cadence, so no recurrence |
+| "I saw a beautiful moon" | nothing (semantic_only) | narration is never operational |
 
 ## WS7 — product policy profile
 
