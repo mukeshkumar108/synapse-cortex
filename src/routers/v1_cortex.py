@@ -69,6 +69,30 @@ async def get_cortex_working_set(
     )
 
 
+@router.post("/handover")
+async def get_session_handover(
+    req: WorkingSetRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Tiny product-edited session handover (~200-400 tokens).
+
+    One compact foreground object compiled from the same attention packet as
+    the working set: what matters for THIS product/person now, what changed,
+    what is unresolved, what to avoid. Replaceable derived projection, not
+    canonical state; JIT detail stays available via /evidence."""
+    from src.services.handover_service import compile_handover
+
+    packet = await packet_service.compile_attention_packet(
+        db=db,
+        workspace_id=req.workspace_id,
+        session_id=req.session_id,
+        now=req.now,
+        timezone_str=req.timezone,
+        owner_peer_id=req.peer_id,
+    )
+    return compile_handover(packet, product=(req.director_hints or {}).get("product"), now=req.now)
+
+
 @router.get("/evidence")
 async def get_cortex_evidence(
     workspace_id: str = Query(...),

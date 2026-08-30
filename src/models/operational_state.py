@@ -27,6 +27,18 @@ class OccurrenceStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
+class RecurrenceSemanticType(str, Enum):
+    """What a recurrence fundamentally IS, preserved even when later projected
+    into a common actionable Tasks surface. Model may propose; deterministic
+    code validates and owns durable state."""
+
+    RECURRING_ACTION = "recurring_action"      # "I want to walk every morning"
+    RECURRING_RITUAL = "recurring_ritual"      # "morning and evening prayers every day"
+    ADHERENCE_ACTION = "adherence_action"      # take medication / physio exercises
+    MEASURABLE_GOAL = "measurable_goal"        # "at least 10k steps per day" (floor, not checkbox)
+    OBSERVED_PATTERN = "observed_pattern"      # "we talk everyday obviously" / "I try to walk most mornings"
+
+
 class RecurringIntention(SQLModel, table=True):
     __tablename__ = "recurring_intentions"
     __table_args__ = (
@@ -44,6 +56,7 @@ class RecurringIntention(SQLModel, table=True):
     active_slot: Optional[str] = Field(default="active", index=True)
     title: str = Field(nullable=False)
     cadence: str = Field(nullable=False)
+    semantic_type: Optional[str] = Field(default=None, index=True)
     interval_days: Optional[int] = None
     days_of_week_json: str = Field(default="[]", nullable=False)
     timezone: str = Field(default="UTC", nullable=False)

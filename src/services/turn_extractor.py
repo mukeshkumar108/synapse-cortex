@@ -432,6 +432,110 @@ class RuleBasedExtractorProvider(BaseExtractorProvider):
         return None
 
 
+class RecurrenceSemantics:
+    """Deterministic recurrence semantics (Workstream 1).
+
+    Model interpretation may propose; this guard owns durable cadence truth.
+    Distinguishes: recurring action, recurring ritual, adherence action,
+    durable measurable goal, ordinary repeated behaviour (observed pattern),
+    and one-off objectives incorrectly shaped as recurrences.
+    """
+
+    # Cadence evidence that describes frequency of a PROBLEM, not of the
+    # user's practice ("the bug has been happening every single day").
+    _PROBLEM_FREQUENCY = re.compile(
+        r"\b(?:been|keeps?|it'?s)\s+happening\b"
+        r"|\bkeeps? happening\b|\bevery single time\b|\bkeeps? (?:occurring|coming back|breaking|failing|crashing|erroring)\b",
+        re.IGNORECASE,
+    )
+    # Mutual/observed joint behaviour ("we talk everyday obviously") — an
+    # observed pattern, not a commitment the user is making for the future.
+    _MUTUAL_PATTERN = re.compile(
+        r"\bwe (?:talk|speak|chat|see each other|meet|catch up)\b", re.IGNORECASE
+    )
+    # Hedged self-description ("I try to walk most mornings") — possibly a
+    # habit, never automatically a commitment.
+    _HEDGED = re.compile(
+        r"\b(?:i(?:'m| am)?\s+try(?:ing)? to|most (?:mornings|evenings|days|weeks)|"
+        r"usually|tend to|more often than not)\b",
+        re.IGNORECASE,
+    )
+    _RITUAL = re.compile(
+        r"\b(?:prayer|prayers|pray|meditat(?:e|ion)|gratitude|devotional|"
+        r"scripture|japa|puja|mass|rosary|shabbat|sabbath)\b",
+        re.IGNORECASE,
+    )
+    _ADHERENCE = re.compile(
+        r"\b(?:medication|meds|tablet|tablets|pill|pills|dose|insulin|"
+        r"physio(?:therapy)?|inhaler|supplement|vitamin)s?\b",
+        re.IGNORECASE,
+    )
+
+    _VALID = {
+        "recurring_action", "recurring_ritual", "adherence_action",
+        "measurable_goal", "observed_pattern",
+    }
+
+    @classmethod
+    def apply(cls, raw: Dict[str, Any], kind: str, normalized_text: str,
+              evidence_lower: str) -> List[str]:
+        """Validate/assign recurrence semantics in-place on `raw`. Returns
+        validation notes. `kind` is the (possibly already demoted) operational
+        kind; the guard may further demote or annotate."""
+        notes: List[str] = []
+        if kind != "recurring_intention":
+            return notes
+
+        cadence_evidence = str(
+            raw.get("cadence_evidence_text") or evidence_lower or ""
+        ).lower()
+
+        # 1. Problem-frequency cadence is not a user practice: "it's been
+        #    happening every single day" describes the bug, not a routine.
+        #    One-off objective + (maybe) a reminder request.
+        if cls._PROBLEM_FREQUENCY.search(cadence_evidence):
+            raw["operational_kind"] = "durable_objective"
+            raw["cadence"] = None
+            raw["interval_days"] = None
+            raw["days_of_week"] = []
+            raw["recurrence_semantic_type"] = None
+            raw["confidence"] = min(float(raw.get("confidence") or 0), 0.7)
+            notes.append("demoted_problem_frequency_recurrence_to_objective")
+            return notes
+
+        proposed = raw.get("recurrence_semantic_type")
+        if proposed not in cls._VALID:
+            if proposed is not None:
+                notes.append("discarded_invalid_recurrence_semantic_type")
+            proposed = None
+
+        # 2. Deterministic classification from evidence shape.
+        if cls._MUTUAL_PATTERN.search(cadence_evidence) or cls._MUTUAL_PATTERN.search(evidence_lower):
+            semantic = "observed_pattern"
+            notes.append("classified_mutual_observed_pattern")
+        elif cls._HEDGED.search(evidence_lower):
+            # "I try to walk most mornings" — possibly a habit, not a commitment.
+            semantic = "observed_pattern"
+            raw["confidence"] = min(float(raw.get("confidence") or 0), 0.75)
+            notes.append("classified_hedged_cadence_as_observed_pattern")
+        elif proposed:
+            semantic = proposed
+        elif raw.get("target_amount") is not None and raw.get("target_unit"):
+            semantic = "measurable_goal"
+            notes.append("classified_target_bearing_recurrence_as_measurable_goal")
+        elif cls._ADHERENCE.search(evidence_lower) or cls._ADHERENCE.search(normalized_text):
+            semantic = "adherence_action"
+            notes.append("classified_adherence_recurrence")
+        elif cls._RITUAL.search(evidence_lower) or cls._RITUAL.search(normalized_text):
+            semantic = "recurring_ritual"
+            notes.append("classified_ritual_recurrence")
+        else:
+            semantic = "recurring_action"
+
+        raw["recurrence_semantic_type"] = semantic
+        return notes
+
+
 class LLMExtractorProvider(BaseExtractorProvider):
     """Two-stage model-led watcher: loose noticing, then schema shaping."""
 
@@ -637,6 +741,15 @@ says is not yet a routine. "I still need to apply for jobs" is a durable_objecti
 recurrence. "Check in later" is a one-off open_loop. Progress must not imply parent
 completion; a progress turn may also restate a durable parent objective, but never convert
 that parent into an invented recurrence.
+RECURRENCE SEMANTICS: when you emit a recurring_intention, also set recurrence_semantic_type to
+exactly one of recurring_action ("I want to walk every morning"), recurring_ritual (daily
+devotional/meditative practice, e.g. "morning and evening prayers every day"), adherence_action
+(medication/physio/supplement routines), measurable_goal ("my goal is at least 10k steps per day"
+— a target floor, not a checkbox), or observed_pattern (ordinary repeated behaviour the user
+describes, e.g. "we talk everyday obviously" or "I try to walk most mornings" — NOT a commitment).
+Always set cadence_evidence_text to the verbatim span that constitutes the cadence evidence.
+If the stated frequency describes how often a PROBLEM happens ("it's been happening every single
+day") that is NOT cadence evidence for a recurrence — emit a durable_objective instead.
 Use progress only for a concrete accomplishment or measurable advancement that already
 happened (for example sent/submitted/completed/built a count or portion). "I'm fixing X
 right now" is current focus/objective, not a progress event. A desire that a product should
@@ -790,6 +903,11 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     raw["confidence"] = min(float(raw.get("confidence") or 0), 0.7)
                     kind = "durable_objective"
                     validation_notes.append("demoted_recurrence_without_cadence_evidence")
+                validation_notes.extend(
+                    RecurrenceSemantics.apply(raw, kind, normalized_text, evidence_lower)
+                )
+                if kind == "recurring_intention" and raw.get("operational_kind") != kind:
+                    kind = raw["operational_kind"]
                 if kind == "suppression" and re.search(
                     r"\bdon't want (?:it|the .+?) to (?:feel|look|sound|be)\b", evidence_lower
                 ):

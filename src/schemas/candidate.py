@@ -75,6 +75,14 @@ class ExtractionCandidate(BaseModel):
     canonical_title: Optional[str] = None
     target_key: Optional[str] = None
     cadence: Optional[Literal["daily", "weekly", "interval"]] = None
+    recurrence_semantic_type: Optional[Literal[
+        "recurring_action", "recurring_ritual", "adherence_action",
+        "measurable_goal", "observed_pattern",
+    ]] = None
+    cadence_evidence_text: Optional[str] = Field(
+        default=None,
+        description="Verbatim span from the turn that constitutes the cadence evidence; deterministic code validates it",
+    )
     interval_days: Optional[int] = Field(default=None, ge=1, le=31)
     days_of_week: List[int] = Field(default_factory=list)
     preferred_window: Optional[str] = None

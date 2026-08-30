@@ -16,6 +16,7 @@ from src.models.operational_state import (
     RecurringIntention, RecurringOccurrence,
 )
 from src.schemas.candidate import ExtractionCandidate, ExtractionResult
+from src.services.action_projection import project_recurrence_to_candidate
 from src.services.temporal_grounding import TemporalGrounding
 
 
@@ -182,6 +183,7 @@ class OperationalStateService:
             honcho_message_id=message_id, candidate_key=candidate.candidate_key,
             owner_peer_id=peer_id,
             canonical_key=new_key, title=title, cadence=candidate.cadence,
+            semantic_type=candidate.recurrence_semantic_type,
             interval_days=candidate.interval_days, days_of_week_json=json.dumps(days),
             timezone=timezone_str, preferred_window=candidate.preferred_window,
             target_amount=candidate.target_amount, target_unit=candidate.target_unit,
@@ -193,7 +195,15 @@ class OperationalStateService:
         if existing:
             existing.superseded_by_id = row.id; db.add(existing); await db.commit()
         await self._occurrence(db, row, now, timezone_str)
-        return {"mutation": "recurrence_created" if not existing else "recurrence_superseded", "id": str(row.id)}
+        projection = await project_recurrence_to_candidate(
+            db, workspace_id=workspace_id, session_id=session_id,
+            message_id=message_id, peer_id=peer_id,
+            recurrence=row, candidate=candidate, now=now,
+        )
+        result = {"mutation": "recurrence_created" if not existing else "recurrence_superseded", "id": str(row.id)}
+        if projection:
+            result["action_projection"] = projection
+        return result
 
     async def _occurrence(self, db, recurrence, now, timezone_str):
         try: user_day = (now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now).astimezone(ZoneInfo(timezone_str)).date()
