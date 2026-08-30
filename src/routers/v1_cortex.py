@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any, Dict, Literal, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -51,6 +52,7 @@ async def get_cortex_working_set(
 
     Consumes the same attention packet / intelligence brief used by the
     proactive path and Inspector; it never builds a second interpretation."""
+    started = time.perf_counter()
     packet = await packet_service.compile_attention_packet(
         db=db,
         workspace_id=req.workspace_id,
@@ -59,7 +61,7 @@ async def get_cortex_working_set(
         timezone_str=req.timezone,
         owner_peer_id=req.peer_id,
     )
-    return working_set_service.compile_working_set(
+    working_set = working_set_service.compile_working_set(
         packet,
         turn_text=req.turn_text,
         current_message_id=req.current_message_id,
@@ -67,6 +69,10 @@ async def get_cortex_working_set(
         conversational_operation=req.conversational_operation,
         director_hints=req.director_hints,
     )
+    # WS10: per-hop evidence — Cortex-side cost of this foreground fetch,
+    # so the runtime/app can attribute waterfall time correctly.
+    working_set["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
+    return working_set
 
 
 @router.post("/handover")
@@ -82,6 +88,7 @@ async def get_session_handover(
     canonical state; JIT detail stays available via /evidence."""
     from src.services.handover_service import compile_handover
 
+    started = time.perf_counter()
     packet = await packet_service.compile_attention_packet(
         db=db,
         workspace_id=req.workspace_id,
@@ -90,7 +97,9 @@ async def get_session_handover(
         timezone_str=req.timezone,
         owner_peer_id=req.peer_id,
     )
-    return compile_handover(packet, product=(req.director_hints or {}).get("product"), now=req.now)
+    result = compile_handover(packet, product=(req.director_hints or {}).get("product"), now=req.now)
+    result["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
+    return result
 
 
 @router.get("/evidence")
