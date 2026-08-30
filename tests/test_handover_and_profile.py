@@ -25,7 +25,7 @@ def _packet() -> dict:
 
 def test_handover_is_tiny_and_editorial():
     h = compile_handover(_packet(), product="sophie")
-    assert h["version"] == "handover-v2"
+    assert h["version"] == "handover-v3"
     assert h["product"] == "sophie"
     assert h["now"][0] == "Visa form due Friday"  # deadline outranks task
     assert "Mum visit did not happen because transport failed" in h["changed"][0]
@@ -84,7 +84,39 @@ def test_handover_trims_to_budget_when_flooded():
     assert h["metrics"]["within_budget"]
 
 
-def test_observed_pattern_recurrence_is_context_never_actionable_now():
+def test_current_window_projects_pending_objectives_with_window_pressure():
+    packet = _packet()
+    packet["recurring_intentions"] = [{
+        "id": "r1", "title": "daily step goal", "semantic_type": "measurable_goal",
+        "occurrence_status": "pending", "preferred_window": "morning",
+        "target_amount": 10000, "target_unit": "steps",
+    }]
+    packet["intelligence_brief"]["daypart"] = "evening"
+    h = compile_handover(packet, product="sophie")
+    cw = h["current_window"]
+    assert cw["objectives"][0]["what"] == "daily step goal"
+    assert cw["objectives"][0]["state"] == "unconfirmed_today"
+    assert "objective still alive" in cw["objectives"][0]["window_pressure"]
+
+
+def test_observed_patterns_never_become_current_window_objectives():
+    packet = _packet()
+    packet["recurring_intentions"] = [{
+        "id": "r2", "title": "daily talk with Ashley",
+        "semantic_type": "observed_pattern", "occurrence_status": "pending",
+    }]
+    h = compile_handover(packet, product="sophie")
+    assert h["current_window"]["objectives"] == []
+
+
+def test_sophie_intentions_surface_in_current_window():
+    packet = _packet()
+    packet["intelligence_brief"]["backstage_attention"] = [
+        {"id": "b1", "content": "Ask how the meeting prep went"}
+    ]
+    h = compile_handover(packet, product="sophie")
+    assert "Ask how the meeting prep went" in h["current_window"]["sophie_intentions"]
+
     packet = _packet()
     packet["intelligence_brief"]["horizons"]["now"] = [{
         "kind": "recurring_intention", "id": "r-ashley",

@@ -169,24 +169,68 @@ def compile_handover(
         if len(avoid_lines) >= limits["avoid"]:
             break
 
-    # --- ATTENTION: grounded things Sophie may still carry ---
-    attention_lines: List[str] = []
-    for item in (brief.get("backstage_attention") or [])[: limits["attention"]]:
-        line = _line(item, "content", "title", "what")
+    # --- CURRENT WINDOW: deterministic daypart/objective projection.
+    # Code owns time, status and window pressure; the model owns judgment.
+    # Window failure is NOT objective failure: a pending daily objective at
+    # night is still alive, with pressure, needing an adaptive strategy. ---
+    daypart = str(brief.get("daypart") or "").lower()
+    local_time_label = " ".join(
+        part for part in (str(brief.get("user_day") or ""), daypart) if part
+    ) or "unknown"
+    current_window: Dict[str, Any] = {
+        "local_time": local_time_label,
+        "objectives": [],
+        "sophie_intentions": [],
+    }
+    for item in (packet.get("recurring_intentions") or []):
+        if item.get("occurrence_status") != "pending":
+            continue
+        stype = str(item.get("semantic_type") or "recurring_action")
+        if stype == "observed_pattern":
+            continue  # context only, never operational pressure
+        entry: Dict[str, Any] = {
+            "what": str(item.get("title") or "")[:80],
+            "semantic_type": stype,
+            "state": "unconfirmed_today",
+        }
+        preferred = str(item.get("preferred_window") or "").strip()
+        if preferred and daypart and preferred.lower() not in ("any", "none") \
+                and preferred.lower() not in daypart.lower():
+            entry["window_pressure"] = (
+                f"preferred window '{preferred}' has passed; objective still alive - "
+                "plan failed, objective persists; consider an adapted strategy"
+            )
+        elif daypart in ("evening", "night"):
+            entry["window_pressure"] = (
+                "day is ending; objective still alive - consider shortened or "
+                "alternative strategy rather than dropping it"
+            )
+        target = item.get("target_amount")
+        if target is not None and item.get("target_unit"):
+            entry["target"] = f"{target} {item['target_unit']}"
+        current_window["objectives"].append(entry)
+        if len(current_window["objectives"]) >= 3:
+            break
+    # Sophie-owned intentions reuse the grounded attention-candidate surface
+    # (background cognition creates follow-ups/questions there).
+    for item in (brief.get("backstage_attention") or []):
+        line = _line(item, "content", "title", "what", cap=110)
         if line:
-            attention_lines.append(line)
+            current_window["sophie_intentions"].append(line)
+        if len(current_window["sophie_intentions"]) >= 2:
+            break
 
     handover: Dict[str, Any] = {
-        "version": "handover-v2",
+        "version": "handover-v3",
         "product": profile.name,
         "generated_at": (now or datetime.now(timezone.utc)).isoformat(),
         "now": now_lines,
         "patterns": pattern_lines,
+        "current_window": current_window,
         "changed": changed_lines,
         "uncertain": uncertain_lines,
         "no_longer_active": no_longer_lines,
         "avoid": avoid_lines,
-        "attention": attention_lines,
         "constraints": {
             "unknown_is_not_failed": True,
             "absence_of_evidence_is_not_missed_obligation": True,
@@ -194,15 +238,19 @@ def compile_handover(
         },
     }
 
-    # Character budget: trim lowest-priority sections first (attention,
-    # no_longer_active, uncertain, changed) so `now` always survives intact.
+    # Character budget: trim lowest-priority sections first
+    # (no_longer_active, uncertain, changed) so `now` + current_window
+    # always survive intact.
     import json as _json
     total = len(_json.dumps(handover))
     budget = profile.handover_char_budget
-    for section in ("attention", "no_longer_active", "uncertain", "changed", "avoid"):
+    for section in ("no_longer_active", "uncertain", "changed", "avoid"):
         while total > budget and handover[section]:
             handover[section].pop()
             total = len(_json.dumps(handover))
+    while total > budget and len(handover["current_window"]["sophie_intentions"]) > 1:
+        handover["current_window"]["sophie_intentions"].pop()
+        total = len(_json.dumps(handover))
     handover["metrics"] = {
         "chars": total,
         "estimated_tokens": int(total / 4),
