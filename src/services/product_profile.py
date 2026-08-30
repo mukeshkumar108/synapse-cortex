@@ -22,7 +22,7 @@ class ProductProfile:
     kind_priority: Dict[str, int]
     # Max lines per section in the tiny handover.
     handover_limits: Dict[str, int] = field(default_factory=lambda: {
-        "now": 4, "changed": 3, "unresolved": 3, "attention": 2, "avoid": 2,
+        "now": 4, "patterns": 2, "changed": 3, "unresolved": 3, "attention": 2, "avoid": 2,
     })
     # Characters the whole handover should stay under (~400 tokens ≈ 1600 chars).
     handover_char_budget: int = 1600

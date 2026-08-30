@@ -411,6 +411,7 @@ class CortexPacketService:
             recurring_items.append({
                 "id": str(recurrence.id), "title": recurrence.title,
                 "cadence": recurrence.cadence, "preferred_window": recurrence.preferred_window,
+                "semantic_type": recurrence.semantic_type,
                 "target_amount": recurrence.target_amount, "target_unit": recurrence.target_unit,
                 "user_day": user_day.isoformat(),
                 "occurrence_status": occurrence.status.value if occurrence else "pending",

@@ -84,5 +84,36 @@ def test_handover_trims_to_budget_when_flooded():
     assert h["metrics"]["within_budget"]
 
 
+def test_observed_pattern_recurrence_is_context_never_actionable_now():
+    packet = _packet()
+    packet["intelligence_brief"]["horizons"]["now"] = [{
+        "kind": "recurring_intention", "id": "r-ashley",
+        "title": "daily talk with Ashley", "semantic_type": "observed_pattern",
+        "occurrence_status": "pending",
+    }]
+    packet["recurring_intentions"] = [{
+        "id": "r-ashley", "title": "daily talk with Ashley",
+        "semantic_type": "observed_pattern", "occurrence_status": "pending",
+    }]
+    h = compile_handover(packet, product="sophie")
+    assert not any("Ashley" in line for line in h["now"])
+    assert any("observed pattern" in line and "Ashley" in line for line in h["patterns"])
+
+
+def test_no_longer_active_dedupes_against_uncertain():
+    packet = _packet()
+    item = {"id": "x1", "title": "Shower commitment"}
+    packet["window_elapsed_unknown"] = [item]
+    packet["intelligence_brief"]["horizons"]["review_needed"] = [item]
+    h = compile_handover(packet, product="sophie")
+    assert len(h["no_longer_active"]) == 0
+    assert len(h["uncertain"]) == 1
+
+
+def test_action_projection_excludes_observed_patterns():
+    from src.services.action_projection import ACTIONABLE_SEMANTIC_TYPES
+    assert "observed_pattern" not in ACTIONABLE_SEMANTIC_TYPES
+
+
 def test_handover_is_json_serializable():
     json.dumps(compile_handover(_packet()))

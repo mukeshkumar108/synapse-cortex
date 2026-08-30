@@ -54,6 +54,7 @@ def compile_handover(
 
     # --- NOW: foreground-worthy canonical/recent items, priority-ordered ---
     now_items: List[Dict[str, Any]] = []
+    pattern_lines: List[str] = []
     for item in packet.get("hard_deadlines", []):
         now_items.append({"kind": "deadline", "item": item})
     for item in packet.get("active_expectations", []):
@@ -66,7 +67,18 @@ def compile_handover(
         for item in horizons.get(horizon, []):
             if str(item.get("id")) in stale_ids:
                 continue
-            now_items.append({"kind": str(item.get("kind") or "state"), "item": item})
+            kind = str(item.get("kind") or "state")
+            if kind == "recurring_intention" and str(
+                item.get("semantic_type") or ""
+            ) == "observed_pattern":
+                # Observed patterns are context, never actionable attention:
+                # they were deliberately excluded from Task projection and
+                # must not be operationalized as commitments here either.
+                line = _line(item, "title", "what", "summary")
+                if line and line.lower() not in {p.lower() for p in pattern_lines}:
+                    pattern_lines.append(f"{line} (observed pattern — context, not a commitment)")
+                continue
+            now_items.append({"kind": kind, "item": item})
 
     seen_titles: set = set()
     now_lines: List[str] = []
@@ -127,17 +139,22 @@ def compile_handover(
     # --- UNCERTAIN: elapsed windows without outcome evidence. Absence of
     # evidence is NOT a missed obligation and NOT a failure. ---
     uncertain_lines: List[str] = []
+    uncertain_titles: set = set()
     for item in (packet.get("window_elapsed_unknown") or [])[: limits["unresolved"]]:
         line = _line(item, "title", "summary")
         if line:
             uncertain_lines.append(f"no outcome evidence yet: {line}")
+            for key in ("title", "summary"):
+                value = str(item.get(key) or "").strip().lower()
+                if value:
+                    uncertain_titles.add(value)
 
     # --- NO LONGER ACTIVE: superseded/resolved fragments that must not be
-    # reconstructed as current reality ---
+    # reconstructed as current reality (deduped against uncertain) ---
     no_longer_lines: List[str] = []
     for item in (horizons.get("review_needed") or [])[: limits["changed"]]:
         line = _line(item, "title", "what", "summary")
-        if line:
+        if line and line.lower() not in uncertain_titles:
             no_longer_lines.append(line)
 
     # --- AVOID: active suppressions (do not callback / do not frame).
@@ -164,6 +181,7 @@ def compile_handover(
         "product": profile.name,
         "generated_at": (now or datetime.now(timezone.utc)).isoformat(),
         "now": now_lines,
+        "patterns": pattern_lines,
         "changed": changed_lines,
         "uncertain": uncertain_lines,
         "no_longer_active": no_longer_lines,
