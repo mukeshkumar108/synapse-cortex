@@ -193,6 +193,7 @@ async def model_rank(candidates: List[Dict[str, Any]], *, daypart: str, adapter:
                 "properties": {"items": {"type": "array", "items": {
                     "type": "object",
                     "properties": {
+                        "cid": {"type": "string"},
                         "what": {"type": "string"}, "semantic_type": {"type": "string"},
                         "owner": {"type": "string"}, "importance": {"type": "number"},
                         "urgency": {"type": "number"}, "pressure": {"type": "number"},

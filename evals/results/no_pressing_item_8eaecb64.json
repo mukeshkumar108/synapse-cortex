@@ -1,0 +1,39 @@
+{
+ "spec": {
+  "name": "no_pressing_item",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T08:30:00Z",
+    "text": "lol"
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T08:31:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": false
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T08:30:00Z",
+   "op": "turn",
+   "error": "HTTP 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx/1.29.3</center>\r\n</body>\r\n</html>\r\n"
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T08:31:00Z",
+   "op": "initiative",
+   "error": "HTTP 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx/1.29.3</center>\r\n</body>\r\n</html>\r\n"
+  }
+ ],
+ "failures": [],
+ "workspace": "harness_no_pressing_item_8eaecb64"
+}

@@ -1,0 +1,80 @@
+{
+ "spec": {
+  "name": "reminder_semantic_range",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T10:00:00Z",
+    "text": "remind me tomorrow morning at 9am to call mum"
+   },
+   {
+    "op": "reminders",
+    "now": "2026-09-01T10:05:00Z",
+    "expect": [
+     {
+      "type": "reminders_due",
+      "exact": 0
+     }
+    ]
+   },
+   {
+    "op": "reminders",
+    "now": "2026-09-02T09:05:00Z",
+    "expect": [
+     {
+      "type": "reminders_due",
+      "min": 1
+     }
+    ]
+   },
+   {
+    "op": "reminders",
+    "now": "2026-09-02T09:06:00Z",
+    "expect": [
+     {
+      "type": "reminders_due",
+      "exact": 0
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T10:00:00Z",
+   "op": "turn",
+   "error": "HTTP 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx/1.29.3</center>\r\n</body>\r\n</html>\r\n"
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T10:05:00Z",
+   "op": "reminders",
+   "error": "HTTP 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx/1.29.3</center>\r\n</body>\r\n</html>\r\n"
+  },
+  {
+   "turn": 3,
+   "now": "2026-09-02T09:05:00Z",
+   "op": "reminders",
+   "error": "HTTP 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx/1.29.3</center>\r\n</body>\r\n</html>\r\n"
+  },
+  {
+   "turn": 4,
+   "now": "2026-09-02T09:06:00Z",
+   "op": "reminders",
+   "error": "HTTP 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx/1.29.3</center>\r\n</body>\r\n</html>\r\n"
+  }
+ ],
+ "failures": [
+  {
+   "turn": 3,
+   "expect": {
+    "type": "reminders_due",
+    "min": 1
+   },
+   "detail": "reminders due 0 < 1"
+  }
+ ],
+ "workspace": "harness_reminder_semantic_range_58379c76"
+}
