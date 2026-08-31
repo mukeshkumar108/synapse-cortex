@@ -64,6 +64,7 @@ async def evaluate_initiative(
     def ledger(decision: str, item_key: Optional[str] = None, reason: str = "") -> Dict[str, Any]:
         db.add(ProactiveLog(honcho_workspace_id=workspace_id, owner_peer_id=owner_peer_id,
                             at=now, item_key=item_key, reason=reason[:200], decision=decision))
+        db.commit()  # ledger must persist within this request or cadence/budget guards are blind
         return {"should_appear": decision == "appeared", "reason": reason,
                 "item": None, "local_hour": local_hour}
 

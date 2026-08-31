@@ -1,0 +1,148 @@
+{
+ "spec": {
+  "name": "brain_dump_multi_item",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T14:00:00Z",
+    "text": "ok brain dump: I need to chase the client payment tomorrow, send the invoices by Friday, and I've got that vendor call Thursday afternoon. also need to sort the school stuff for the kids at some point this week"
+   },
+   {
+    "op": "handover",
+    "now": "2026-09-01T14:05:00Z",
+    "expect": [
+     {
+      "type": "no_error"
+     }
+    ]
+   },
+   {
+    "op": "turn",
+    "now": "2026-09-01T16:00:00Z",
+    "text": "invoice thing is done, sent them all"
+   },
+   {
+    "op": "handover",
+    "now": "2026-09-01T16:05:00Z",
+    "expect": [
+     {
+      "type": "no_error"
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T14:00:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "candidates_extracted": 4,
+    "candidates_suppressed_by_reconciliation": 0,
+    "expectation_created": true,
+    "expectations_created_count": 1,
+    "expectation_ids": [
+     "8d258975-b023-4181-9e3b-30ec4a1c2fff"
+    ],
+    "mutated_expectation_ids": [],
+    "honcho_message_id": "msg_d8949a98_1",
+    "extraction_backend": "model",
+    "operational_mutations": [
+     {
+      "mutation": "delegated_existing_lifecycle"
+     },
+     {
+      "mutation": "delegated_existing_lifecycle"
+     },
+     {
+      "mutation": "delegated_existing_lifecycle"
+     },
+     {
+      "mutation": "delegated_existing_lifecycle"
+     }
+    ],
+    "context": {
+     "status": "degraded",
+     "honcho_status": "unavailable"
+    }
+   }
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T14:05:00Z",
+   "op": "handover",
+   "agenda": [
+    {
+     "what": "User has a vendor call scheduled for Thursday afternoon",
+     "owner": "user",
+     "status": "unresolved",
+     "pressure": "low",
+     "next_move": "confirm status or offer prep help"
+    }
+   ],
+   "patterns": [],
+   "metrics": {
+    "chars": 495,
+    "estimated_tokens": 123,
+    "within_budget": true,
+    "compiled_by": "fallback",
+    "cortex_ms": 1679.6
+   }
+  },
+  {
+   "turn": 3,
+   "now": "2026-09-01T16:00:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "candidates_extracted": 1,
+    "candidates_suppressed_by_reconciliation": 0,
+    "expectation_created": false,
+    "expectations_created_count": 0,
+    "expectation_ids": [],
+    "mutated_expectation_ids": [
+     "8d258975-b023-4181-9e3b-30ec4a1c2fff"
+    ],
+    "honcho_message_id": "msg_d8949a98_3",
+    "extraction_backend": "model",
+    "operational_mutations": [
+     {
+      "mutation": "open_loop_resolved",
+      "id": "6de280b6-e575-4dcb-aeca-0c02824c95a8"
+     }
+    ],
+    "context": {
+     "status": "degraded",
+     "honcho_status": "unavailable"
+    }
+   }
+  },
+  {
+   "turn": 4,
+   "now": "2026-09-01T16:05:00Z",
+   "op": "handover",
+   "agenda": [
+    {
+     "what": "User has a vendor call scheduled for Thursday afternoon",
+     "owner": "user",
+     "status": "resolved",
+     "pressure": "low",
+     "next_move": "acknowledge or follow up on aftermath"
+    }
+   ],
+   "patterns": [],
+   "metrics": {
+    "chars": 495,
+    "estimated_tokens": 123,
+    "within_budget": true,
+    "compiled_by": "fallback",
+    "cortex_ms": 1707.5
+   }
+  }
+ ],
+ "failures": [],
+ "workspace": "harness_brain_dump_multi_item_d8949a98"
+}
