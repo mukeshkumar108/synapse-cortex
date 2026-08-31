@@ -25,8 +25,13 @@ class AgendaRankerAdapter:
             headers["Authorization"] = f"Bearer {api_key}"
         payload = {
             "model": model_id,
-            "messages": [{"role": "system", "content": system},
-                         {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": (
+                    f"{prompt}\n\nRespond with ONLY a JSON object of the shape:\n"
+                    f"{json.dumps(json_schema)}"
+                )},
+            ],
             "max_tokens": max_tokens,
             "temperature": temperature,
             "response_format": {"type": "json_object"},
