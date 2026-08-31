@@ -114,6 +114,17 @@ class CortexPacketService:
 
         for exp in expectations:
             read_model = derive_expectation_read_model(exp, now)
+            # Stale open-ended plans: an UNKNOWN expectation whose window
+            # opened >36h ago is days-old narration, not current reality.
+            # Open-ended windows never "elapse" on their own, so without this
+            # they leak into 'now' and greetings forever (the coffee-shop bug).
+            _stale_open = (
+                exp.outcome_state == OutcomeState.UNKNOWN
+                and read_model["temporal_state"] == "window_open"
+                and (now_utc - (exp.expected_window_start or exp.created_at)).total_seconds() > 36 * 3600
+            )
+            if _stale_open:
+                read_model = {**read_model, "temporal_state": "window_elapsed"}
 
             # Check suppression match
             exp_text = f"{exp.title} {exp.summary}".lower()
@@ -183,6 +194,7 @@ class CortexPacketService:
                     "title": exp.title,
                     "summary": exp.summary,
                     "raw_temporal_phrase": exp.raw_temporal_phrase,
+                    "age_hours": round((now_utc - (exp.expected_window_start or exp.created_at)).total_seconds() / 3600, 1),
                 })
 
             if exp.hard_deadline_at:

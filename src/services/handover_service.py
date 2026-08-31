@@ -140,7 +140,15 @@ def compile_handover(
     # evidence is NOT a missed obligation and NOT a failure. ---
     uncertain_lines: List[str] = []
     uncertain_titles: set = set()
-    for item in (packet.get("window_elapsed_unknown") or [])[: limits["unresolved"]]:
+    for item in (packet.get("window_elapsed_unknown") or []):
+        # Days-old unknowns are noise here; review_needed carries them.
+        try:
+            if float(item.get("age_hours") or 0) > 48.0:
+                continue
+        except (TypeError, ValueError):
+            pass
+        if len(uncertain_lines) >= limits["unresolved"]:
+            break
         line = _line(item, "title", "summary")
         if line:
             uncertain_lines.append(f"no outcome evidence yet: {line}")
