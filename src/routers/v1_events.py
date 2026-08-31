@@ -286,7 +286,7 @@ async def ingest_turn_event(
                 "extraction_confidence": shaped_data["confidence"],
                 # Semantic reminder proposal from the interpreter (validated
                 # downstream against a grounded window); never raw-text regex.
-                "reminder_requested": bool(cand.reminder_request),
+                "reminder_requested": cand.reminder_request,  # None = model omitted: deterministic default applies at persistence
             }
             exp_model, created = await save_expectation_idempotent(db, expectation_record)
             if created:
