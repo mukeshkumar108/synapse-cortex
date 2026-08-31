@@ -1,0 +1,149 @@
+{
+ "spec": {
+  "name": "unrelated_reentry_with_outstanding_morning_objective",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T08:00:00Z",
+    "text": "morning. my goal is still at least 10k steps a day, I want to keep that going"
+   },
+   {
+    "op": "handover",
+    "now": "2026-09-01T08:05:00Z",
+    "expect": [
+     {
+      "type": "agenda_contains",
+      "what": "10,000 steps",
+      "min_pressure": "medium"
+     },
+     {
+      "type": "no_error"
+     }
+    ]
+   },
+   {
+    "op": "turn",
+    "now": "2026-09-01T11:30:00Z",
+    "text": "hey random thing - what do you think about the new doctor who cast?"
+   },
+   {
+    "op": "handover",
+    "now": "2026-09-01T11:35:00Z",
+    "expect": [
+     {
+      "type": "agenda_contains",
+      "what": "10,000 steps",
+      "min_pressure": "medium"
+     }
+    ]
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T11:35:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": false
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T08:00:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "candidates_extracted": 2,
+    "candidates_suppressed_by_reconciliation": 0,
+    "expectation_created": true,
+    "expectations_created_count": 2,
+    "expectation_ids": [
+     "5038d94d-5c37-404b-8a7a-20c513d8a724",
+     "76bd7e50-bd52-41d6-85cf-60a8d15508b7"
+    ],
+    "mutated_expectation_ids": [],
+    "honcho_message_id": "msg_2840cdde_1",
+    "extraction_backend": "model",
+    "operational_mutations": [
+     {
+      "mutation": "delegated_existing_lifecycle"
+     },
+     {
+      "mutation": "delegated_existing_lifecycle"
+     }
+    ],
+    "context": {
+     "status": "ok",
+     "honcho_status": "ok"
+    }
+   }
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T08:05:00Z",
+   "op": "handover",
+   "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+  },
+  {
+   "turn": 3,
+   "now": "2026-09-01T11:30:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "expectation_created": false,
+    "candidates_extracted": 0,
+    "candidates_suppressed_by_reconciliation": 0,
+    "extraction_backend": "model",
+    "extraction_failure": null,
+    "context": {
+     "status": "ok",
+     "honcho_status": "ok"
+    }
+   }
+  },
+  {
+   "turn": 4,
+   "now": "2026-09-01T11:35:00Z",
+   "op": "handover",
+   "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+  },
+  {
+   "turn": 5,
+   "now": "2026-09-01T11:35:00Z",
+   "op": "initiative",
+   "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+  }
+ ],
+ "failures": [
+  {
+   "turn": 2,
+   "expect": {
+    "type": "agenda_contains",
+    "what": "10,000 steps",
+    "min_pressure": "medium"
+   },
+   "detail": "agenda lacks '10,000 steps'"
+  },
+  {
+   "turn": 2,
+   "expect": {
+    "type": "no_error"
+   },
+   "detail": "HTTP 404: {\"detail\":\"Not Found\"}"
+  },
+  {
+   "turn": 4,
+   "expect": {
+    "type": "agenda_contains",
+    "what": "10,000 steps",
+    "min_pressure": "medium"
+   },
+   "detail": "agenda lacks '10,000 steps'"
+  }
+ ],
+ "workspace": "harness_unrelated_reentry_with_outstanding_morning_objective_2840cdde"
+}

@@ -162,6 +162,20 @@ class TemporalGrounding:
                 None,
             )
 
+        # "tomorrow morning at 9" / "tomorrow at 9am" - daypart + explicit clock time
+        daypart_time_match = re.search(
+            r"\b(tomorrow|today)\s+(?:morning\s+)?at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", phrase)
+        if daypart_time_match:
+            day_word, hour_s, minute_s, ampm = daypart_time_match.groups()
+            hour = int(hour_s) % 12 + (12 if ampm == "pm" else 0)
+            minute = int(minute_s) if minute_s else 0
+            target_date = local_today + (timedelta(days=1) if day_word == "tomorrow" else timedelta(0))
+            start_local = datetime.combine(target_date, time(hour, minute), tzinfo=tz)
+            end_local = datetime.combine(target_date, time(min(hour + 3, 23), 59), tzinfo=tz)
+            return (start_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None),
+                    end_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None),
+                    end_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None))
+
         if phrase == "tomorrow morning":
             tomorrow_date = local_today + timedelta(days=1)
             start_local = datetime.combine(tomorrow_date, time(6, 0, 0), tzinfo=tz)
