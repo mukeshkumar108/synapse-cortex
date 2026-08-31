@@ -2,17 +2,50 @@
   "name": "unrelated_reentry_with_outstanding_morning_objective",
   "timezone": "Europe/London",
   "steps": [
-    {"op": "turn", "now": "2026-09-01T08:00:00Z", "text": "morning. my goal is still at least 10k steps a day, I want to keep that going"},
-    {"op": "handover", "now": "2026-09-01T08:05:00Z", "expect": [
-      {"type": "agenda_contains", "what": "step goal", "min_pressure": "medium"},
-      {"type": "no_error"}
-    ]},
-    {"op": "turn", "now": "2026-09-01T11:30:00Z", "text": "hey random thing - what do you think about the new doctor who cast?"},
-    {"op": "handover", "now": "2026-09-01T11:35:00Z", "expect": [
-      {"type": "agenda_contains", "what": "step goal", "min_pressure": "medium"}
-    ]},
-    {"op": "initiative", "now": "2026-09-01T11:35:00Z", "expect": [
-      {"type": "initiative", "should_appear": false}
-    ]}
+    {
+      "op": "turn",
+      "now": "2026-09-01T08:00:00Z",
+      "text": "morning. my goal is still at least 10k steps a day, I want to keep that going"
+    },
+    {
+      "op": "handover",
+      "now": "2026-09-01T08:05:00Z",
+      "expect": [
+        {
+          "type": "agenda_contains",
+          "what": "10,000 steps",
+          "min_pressure": "medium"
+        },
+        {
+          "type": "no_error"
+        }
+      ]
+    },
+    {
+      "op": "turn",
+      "now": "2026-09-01T11:30:00Z",
+      "text": "hey random thing - what do you think about the new doctor who cast?"
+    },
+    {
+      "op": "handover",
+      "now": "2026-09-01T11:35:00Z",
+      "expect": [
+        {
+          "type": "agenda_contains",
+          "what": "10,000 steps",
+          "min_pressure": "medium"
+        }
+      ]
+    },
+    {
+      "op": "initiative",
+      "now": "2026-09-01T11:35:00Z",
+      "expect": [
+        {
+          "type": "initiative",
+          "should_appear": false
+        }
+      ]
+    }
   ]
 }

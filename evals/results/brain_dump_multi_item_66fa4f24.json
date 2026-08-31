@@ -1,0 +1,110 @@
+{
+ "spec": {
+  "name": "brain_dump_multi_item",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T14:00:00Z",
+    "text": "ok brain dump: I need to chase the client payment tomorrow, send the invoices by Friday, and I've got that vendor call Thursday afternoon. also need to sort the school stuff for the kids at some point this week"
+   },
+   {
+    "op": "handover",
+    "now": "2026-09-01T14:05:00Z",
+    "expect": [
+     {
+      "type": "no_error"
+     }
+    ]
+   },
+   {
+    "op": "turn",
+    "now": "2026-09-01T16:00:00Z",
+    "text": "invoice thing is done, sent them all"
+   },
+   {
+    "op": "handover",
+    "now": "2026-09-01T16:05:00Z",
+    "expect": [
+     {
+      "type": "no_error"
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T14:00:00Z",
+   "op": "turn",
+   "error": "HTTP 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx/1.29.3</center>\r\n</body>\r\n</html>\r\n"
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T14:05:00Z",
+   "op": "handover",
+   "agenda": [],
+   "patterns": [],
+   "metrics": {
+    "chars": 318,
+    "estimated_tokens": 79,
+    "within_budget": true,
+    "compiled_by": "fallback",
+    "cortex_ms": 3353.8
+   }
+  },
+  {
+   "turn": 3,
+   "now": "2026-09-01T16:00:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "candidates_extracted": 1,
+    "candidates_suppressed_by_reconciliation": 0,
+    "expectation_created": false,
+    "expectations_created_count": 0,
+    "expectation_ids": [],
+    "mutated_expectation_ids": [
+     "66c33130-6c9b-4a50-ba09-fe66a1742268"
+    ],
+    "honcho_message_id": "msg_66fa4f24_3",
+    "extraction_backend": "model",
+    "operational_mutations": [
+     {
+      "mutation": "open_loop_resolved",
+      "id": "6d10488e-c91f-4328-81cc-f03756a0de7e"
+     }
+    ],
+    "context": {
+     "status": "degraded",
+     "honcho_status": "unavailable"
+    }
+   }
+  },
+  {
+   "turn": 4,
+   "now": "2026-09-01T16:05:00Z",
+   "op": "handover",
+   "agenda": [
+    {
+     "what": "Has vendor call scheduled for Thursday afternoon",
+     "owner": "user",
+     "status": "resolved",
+     "pressure": "low",
+     "next_move": "acknowledge or follow up on aftermath"
+    }
+   ],
+   "patterns": [],
+   "metrics": {
+    "chars": 488,
+    "estimated_tokens": 122,
+    "within_budget": true,
+    "compiled_by": "fallback",
+    "cortex_ms": 1809.0
+   }
+  }
+ ],
+ "failures": [],
+ "workspace": "harness_brain_dump_multi_item_66fa4f24"
+}

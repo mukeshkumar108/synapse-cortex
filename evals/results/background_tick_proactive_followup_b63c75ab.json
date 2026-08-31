@@ -1,0 +1,153 @@
+{
+ "spec": {
+  "name": "background_tick_proactive_followup",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T08:00:00Z",
+    "text": "my goal is at least 10k steps a day, going to try to keep it up"
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T14:30:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": true
+     }
+    ]
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T14:31:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": false
+     }
+    ]
+   },
+   {
+    "op": "turn",
+    "now": "2026-09-01T14:32:00Z",
+    "text": "already did it, 10.5k"
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T18:00:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": false
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T08:00:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "candidates_extracted": 1,
+    "candidates_suppressed_by_reconciliation": 0,
+    "expectation_created": false,
+    "expectations_created_count": 0,
+    "expectation_ids": [],
+    "mutated_expectation_ids": [],
+    "honcho_message_id": "msg_b63c75ab_1",
+    "extraction_backend": "model",
+    "operational_mutations": [
+     {
+      "mutation": "recurrence_created",
+      "id": "cf83ddee-1aa7-4054-9d85-f7caf3bca71f",
+      "action_projection": {
+       "candidate_id": "2e2d2f92-f363-47f4-ab0e-f5153040835e",
+       "canonical_key": "04d30c6c0246d10350bc869220157975a5aac555",
+       "semantic_type": "measurable_goal",
+       "authority": "ask",
+       "note": "Projected from recurring_intention cf83ddee-1aa7-4054-9d85-f7caf3bca71f (semantic_type=measurable_goal, cadence=daily)"
+      }
+     }
+    ],
+    "context": {
+     "status": "degraded",
+     "honcho_status": "unavailable"
+    }
+   }
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T14:30:00Z",
+   "op": "initiative",
+   "initiative": {
+    "should_appear": false,
+    "reason": "no agenda item carries enough pressure right now",
+    "item": null,
+    "local_hour": 15
+   }
+  },
+  {
+   "turn": 3,
+   "now": "2026-09-01T14:31:00Z",
+   "op": "initiative",
+   "initiative": {
+    "should_appear": false,
+    "reason": "no agenda item carries enough pressure right now",
+    "item": null,
+    "local_hour": 15
+   }
+  },
+  {
+   "turn": 4,
+   "now": "2026-09-01T14:32:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "candidates_extracted": 1,
+    "candidates_suppressed_by_reconciliation": 0,
+    "expectation_created": false,
+    "expectations_created_count": 0,
+    "expectation_ids": [],
+    "mutated_expectation_ids": [],
+    "honcho_message_id": "msg_b63c75ab_4",
+    "extraction_backend": "model",
+    "operational_mutations": [
+     {
+      "mutation": "occurrence_completed",
+      "id": "f0e499ba-a258-45fe-aa93-e70d978d8675"
+     }
+    ],
+    "context": {
+     "status": "degraded",
+     "honcho_status": "unavailable"
+    }
+   }
+  },
+  {
+   "turn": 5,
+   "now": "2026-09-01T18:00:00Z",
+   "op": "initiative",
+   "initiative": {
+    "should_appear": false,
+    "reason": "no agenda item carries enough pressure right now",
+    "item": null,
+    "local_hour": 19
+   }
+  }
+ ],
+ "failures": [
+  {
+   "turn": 2,
+   "expect": {
+    "type": "initiative",
+    "should_appear": true
+   },
+   "detail": "initiative should_appear=False reason=no agenda item carries enough pressure right now"
+  }
+ ],
+ "workspace": "harness_background_tick_proactive_followup_b63c75ab"
+}
