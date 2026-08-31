@@ -164,7 +164,8 @@ class TemporalGrounding:
 
         # "tomorrow morning at 9" / "tomorrow at 9am" - daypart + explicit clock time
         daypart_time_match = re.search(
-            r"\b(tomorrow|today)\s+(?:morning\s+)?at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", phrase)
+            r"\b(tomorrow|today)\s+(?:morning\s+)?at\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?\b",
+            phrase, re.IGNORECASE)
         if daypart_time_match:
             day_word, hour_s, minute_s, ampm = daypart_time_match.groups()
             hour = int(hour_s) % 12 + (12 if ampm == "pm" else 0)
