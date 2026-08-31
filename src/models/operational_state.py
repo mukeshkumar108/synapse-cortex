@@ -115,6 +115,58 @@ class ObjectiveProgress(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
+class AgendaItem(SQLModel, table=True):
+    """Sophie's live agenda: ONE ranked, mixed-semantic, replaceable derived
+    artifact of what currently deserves attention. Compiled deterministically
+    from Cortex candidates, ranked by a cheap async model (with a deterministic
+    scored fallback). Not a task list; not memory. Salience AND death:
+    items rise, decay, resolve, defer or disappear by horizon."""
+
+    __tablename__ = "agenda_items"
+    __table_args__ = (
+        UniqueConstraint("honcho_workspace_id", "owner_peer_id", "item_key", "compiled_at", name="uq_agenda_item_compiled"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    item_key: str = Field(nullable=False)
+    compiled_at: datetime = Field(default_factory=utc_now, nullable=False)
+    horizon: str = Field(default="now", index=True)  # day / 6h / 2h / now
+    rank: int = Field(default=0, nullable=False)
+    what: str = Field(nullable=False)
+    semantic_type: str = Field(default="objective", index=True)
+    owner: str = Field(default="user")  # user / sophie / shared
+    importance: float = Field(default=0.5)
+    urgency: float = Field(default=0.5)
+    pressure: float = Field(default=0.0)  # follow-up pressure (was ask_now)
+    status: str = Field(default="unresolved")
+    why: str = Field(default="")
+    next_move: str = Field(default="")
+    occurrence_id: Optional[UUID] = Field(default=None)
+    expires_at: Optional[datetime] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class AgendaSnapshot(SQLModel, table=True):
+    """The compiled agenda artifact the foreground reads synchronously.
+    Replaceable derived state: safe to delete and recompile at any time."""
+
+    __tablename__ = "agenda_snapshots"
+    __table_args__ = (
+        UniqueConstraint("honcho_workspace_id", "owner_peer_id", "horizon", name="uq_agenda_snapshot_owner_horizon"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    horizon: str = Field(default="day", index=True)
+    items_json: str = Field(nullable=False)
+    compiled_by: str = Field(default="fallback")  # model / fallback
+    compiled_at: datetime = Field(default_factory=utc_now, nullable=False)
+    expires_at: datetime = Field(index=True, nullable=False)
+
+
 class ExtractionTrace(SQLModel, table=True):
     __tablename__ = "extraction_traces"
     __table_args__ = (UniqueConstraint("honcho_workspace_id", "honcho_message_id", "stage", "item_key", name="uq_extraction_trace_stage_item"),)

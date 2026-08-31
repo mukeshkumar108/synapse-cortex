@@ -1,7 +1,11 @@
-"""Workstream 7/8: product profile + tiny session handover."""
+"""Handover v4 + agenda: ONE ranked live attention artifact.
+Sections are retired; the agenda is the center of behavioral attention."""
 
 import json
 
+from src.services.agenda_service import (
+    extract_candidates, fallback_rank,
+)
 from src.services.handover_service import compile_handover
 from src.services.product_profile import get_profile
 
@@ -9,143 +13,118 @@ from src.services.product_profile import get_profile
 def _packet() -> dict:
     return {
         "hard_deadlines": [{"id": "d1", "title": "Visa form due Friday", "temporal_state": "deadline_approaching"}],
-        "active_expectations": [{"id": "e1", "title": "Call the visa office"}],
+        "active_expectations": [{"id": "e1", "title": "Call the visa office", "temporal_state": "window_open"}],
         "recent_resolutions": [{"id": "r1", "title": "Mum visit did not happen because transport failed"}],
         "suppressed_targets": [{"id": "s1", "topic_or_entity": "staying at Mum's"}],
+        "recurring_intentions": [],
+        "window_elapsed_unknown": [],
         "intelligence_brief": {
-            "horizons": {
-                "now": [{"kind": "task", "id": "t1", "title": "Sort my visa"}],
-                "today": [{"kind": "state", "id": "t2", "title": "Oxford family trip cancelled"}],
-                "unresolved": [{"kind": "unresolved", "id": "u1", "title": "Did I end up going?"}],
-            },
-            "backstage_attention": [{"id": "b1", "content": "Ashley's birthday next week"}],
+            "daypart": "evening",
+            "horizons": {"now": [], "today": [], "unresolved": [], "review_needed": []},
+            "backstage_attention": [{"id": "b1", "content": "Ask how the meeting prep went"}],
         },
     }
 
 
-def test_handover_is_tiny_and_editorial():
-    h = compile_handover(_packet(), product="sophie")
-    assert h["version"] == "handover-v3"
-    assert h["product"] == "sophie"
-    assert h["now"][0] == "Visa form due Friday"  # deadline outranks task
-    assert "Mum visit did not happen because transport failed" in h["changed"][0]
-    assert h["avoid"] == ["staying at Mum's"]
-    assert h["metrics"]["estimated_tokens"] <= 400
-    assert h["metrics"]["within_budget"]
+def _agenda():
+    return extract_candidates(_packet(), now=__import__("datetime").datetime(2026, 8, 31, 18, 15), timezone_str="Europe/London")
 
 
-def test_stale_window_elapsed_items_never_pose_as_now():
-    packet = _packet()
-    packet["window_elapsed_unknown"] = [
-        {"id": "e1", "title": "Plans to take a bus to Bedford after visiting mum's"}
-    ]
-    h = compile_handover(packet, product="sophie")
-    assert not any("bus to Bedford" in line for line in h["now"])
-    assert any("no outcome evidence yet" in line and "bus to Bedford" in line
-               for line in h["uncertain"])
-
-
-def test_changed_carries_evidence_grounded_cause():
-    packet = _packet()
-    packet["recent_resolutions"] = [{
-        "id": "r1", "title": "Oxford family trip", "outcome_state": "CANCELLED",
-        "evidence": "transport fell through, no car available",
-    }]
-    h = compile_handover(packet, product="sophie")
-    assert "transport fell through" in h["changed"][0]
-
-
-def test_avoid_filters_opaque_entity_ids():
-    packet = _packet()
-    packet["suppressed_targets"] = [
-        {"id": "s1", "topic_or_entity": "user_5377a025-b876-4d1f-bd62-59352da44146"},
-        {"id": "s2", "topic_or_entity": "mother's pressure to stay longer"},
-    ]
-    h = compile_handover(packet, product="sophie")
-    assert h["avoid"] == ["mother's pressure to stay longer"]
-
-
-def test_product_profiles_change_what_matters():
-    p = get_profile("productivity")
-    s = get_profile("sophie")
-    assert p.priority("deadline") < s.priority("deadline") or True
-    # health product weights adherence tasks first
-    h = get_profile("health")
-    assert h.priority("task") < s.priority("task")
-
-
-def test_handover_trims_to_budget_when_flooded():
-    packet = _packet()
-    packet["active_expectations"] = [
-        {"id": f"e{i}", "title": f"Thing number {i} to do"} for i in range(60)
-    ]
-    h = compile_handover(packet, product="sophie")
-    assert len(h["now"]) <= 4
-    assert h["metrics"]["within_budget"]
-
-
-def test_current_window_projects_pending_objectives_with_window_pressure():
+def test_candidates_extract_objectives_deadlines_and_intentions():
     packet = _packet()
     packet["recurring_intentions"] = [{
         "id": "r1", "title": "daily step goal", "semantic_type": "measurable_goal",
-        "occurrence_status": "pending", "preferred_window": "morning",
+        "occurrence_status": "pending", "occurrence_id": "occ-1", "ask_count": 0,
         "target_amount": 10000, "target_unit": "steps",
     }]
-    packet["intelligence_brief"]["daypart"] = "evening"
-    h = compile_handover(packet, product="sophie")
-    cw = h["current_window"]
-    assert cw["objectives"][0]["what"] == "daily step goal"
-    assert cw["objectives"][0]["state"] == "unconfirmed_today"
-    assert "objective still alive" in cw["objectives"][0]["window_pressure"]
+    c = extract_candidates(packet, now=__import__("datetime").datetime(2026, 8, 31, 18, 15), timezone_str="Europe/London")
+    kinds = {x["item_key"].split(":")[0] for x in c}
+    assert {"obj", "exp", "si"} <= kinds
+    obj = next(x for x in c if x["item_key"] == "obj:r1")
+    assert obj["urgency"] >= 0.6  # evening + unconfirmed
+    assert obj["occurrence_id"] == "occ-1"
 
 
-def test_observed_patterns_never_become_current_window_objectives():
+def test_observed_patterns_and_stale_items_never_become_candidates():
     packet = _packet()
     packet["recurring_intentions"] = [{
         "id": "r2", "title": "daily talk with Ashley",
         "semantic_type": "observed_pattern", "occurrence_status": "pending",
     }]
-    h = compile_handover(packet, product="sophie")
-    assert h["current_window"]["objectives"] == []
-
-
-def test_sophie_intentions_surface_in_current_window():
-    packet = _packet()
-    packet["intelligence_brief"]["backstage_attention"] = [
-        {"id": "b1", "content": "Ask how the meeting prep went"}
-    ]
-    h = compile_handover(packet, product="sophie")
-    assert "Ask how the meeting prep went" in h["current_window"]["sophie_intentions"]
-
-    packet = _packet()
-    packet["intelligence_brief"]["horizons"]["now"] = [{
-        "kind": "recurring_intention", "id": "r-ashley",
-        "title": "daily talk with Ashley", "semantic_type": "observed_pattern",
-        "occurrence_status": "pending",
+    packet["active_expectations"] = [{
+        "id": "e1", "title": "coffee shop visit days ago",
+        "temporal_state": "window_open", "age_hours": 96,
     }]
+    c = extract_candidates(packet, now=__import__("datetime").datetime(2026, 8, 31, 18, 15), timezone_str="Europe/London")
+    assert not any("Ashley" in x["what"] for x in c)
+    assert not any("coffee shop" in x["what"] for x in c)
+
+
+def test_fallback_rank_orders_by_salience_and_caps_items():
+    packet = _packet()
+    packet["recurring_intentions"] = [
+        {"id": f"r{i}", "title": f"objective {i}", "semantic_type": "recurring_action",
+         "occurrence_status": "pending", "ask_count": 0} for i in range(10)
+    ]
+    c = extract_candidates(packet, now=__import__("datetime").datetime(2026, 8, 31, 18, 15), timezone_str="Europe/London")
+    top = fallback_rank(c, daypart="evening")
+    assert 0 < len(top) <= 4
+    assert top == sorted(top, key=lambda x: -x["score"])
+
+
+def test_handover_v4_renders_agenda_as_center():
+    agenda = [
+        {"what": "daily step goal", "owner": "user", "status": "unresolved", "pressure": 0.7,
+         "next_move": "ask status; adapt strategy if window closed", "occurrence_id": "occ-1"},
+        {"what": "Ask how the meeting prep went", "owner": "sophie", "status": "unresolved",
+         "pressure": 0.4, "next_move": "raise at a natural opening"},
+    ]
+    h = compile_handover(_packet(), product="sophie", agenda=agenda)
+    assert h["version"] == "handover-v4"
+    assert h["agenda"][0]["what"] == "daily step goal"
+    assert h["agenda"][0]["pressure"] == "high"
+    assert h["agenda"][1]["pressure"] == "medium"
+    assert h["scene"]["time_of_day"] == "evening"
+    assert h["metrics"]["estimated_tokens"] <= 400
+    assert h["metrics"]["within_budget"]
+
+
+def test_handover_avoids_suppressed_and_ids():
+    packet = _packet()
+    packet["suppressed_targets"] = [
+        {"id": "s1", "topic_or_entity": "user_5377a025-b876-4d1f-bd62-59352da44146"},
+        {"id": "s2", "topic_or_entity": "mother's pressure to stay longer"},
+    ]
+    h = compile_handover(packet, product="sophie", agenda=[])
+    assert h["avoid"] == ["mother's pressure to stay longer"]
+
+
+def test_handover_patterns_are_context_only():
+    packet = _packet()
     packet["recurring_intentions"] = [{
-        "id": "r-ashley", "title": "daily talk with Ashley",
+        "id": "r2", "title": "daily talk with Ashley",
         "semantic_type": "observed_pattern", "occurrence_status": "pending",
     }]
-    h = compile_handover(packet, product="sophie")
-    assert not any("Ashley" in line for line in h["now"])
-    assert any("observed pattern" in line and "Ashley" in line for line in h["patterns"])
+    h = compile_handover(packet, product="sophie", agenda=[])
+    assert any("observed pattern" in l for l in h["patterns"])
+    assert not any("Ashley" in a["what"] for a in h["agenda"])
 
 
-def test_no_longer_active_dedupes_against_uncertain():
+def test_handover_budget_trims_agenda_last():
     packet = _packet()
-    item = {"id": "x1", "title": "Shower commitment"}
-    packet["window_elapsed_unknown"] = [item]
-    packet["intelligence_brief"]["horizons"]["review_needed"] = [item]
-    h = compile_handover(packet, product="sophie")
-    assert len(h["no_longer_active"]) == 0
-    assert len(h["uncertain"]) == 1
-
-
-def test_action_projection_excludes_observed_patterns():
-    from src.services.action_projection import ACTIONABLE_SEMANTIC_TYPES
-    assert "observed_pattern" not in ACTIONABLE_SEMANTIC_TYPES
+    packet["suppressed_targets"] = [
+        {"id": f"s{i}", "topic_or_entity": f"topic number {i} that is suppressed"} for i in range(10)
+    ]
+    agenda = [{"what": f"item {i}", "owner": "user", "status": "unresolved", "pressure": 0.5} for i in range(6)]
+    h = compile_handover(packet, product="sophie", agenda=agenda)
+    assert h["metrics"]["within_budget"]
+    assert h["agenda"], "agenda survives trimming"
 
 
 def test_handover_is_json_serializable():
-    json.dumps(compile_handover(_packet()))
+    json.dumps(compile_handover(_packet(), product="sophie", agenda=[]))
+
+
+def test_product_profiles_change_handover_limits():
+    assert get_profile("sophie").handover_limits["agenda"] >= 2
+    assert get_profile("health").priority("task") < get_profile("sophie").priority("task")

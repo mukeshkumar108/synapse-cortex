@@ -98,17 +98,33 @@ async def get_session_handover(
         timezone_str=req.timezone,
         owner_peer_id=req.peer_id,
     )
-    result = compile_handover(packet, product=(req.director_hints or {}).get("product"), now=req.now)
-    # Deterministic follow-up accounting: surfacing an ask_now objective in
-    # the handover records the ask opportunity against today's occurrence so
-    # the duty cannot repeat endlessly nor silently vanish (code owns it).
+    # THE LIVE AGENDA: one ranked mixed-semantic artifact compiled from the
+    # packet (deterministic facts + cheap async model ranking + deterministic
+    # fallback). Read-or-compile: fresh snapshots return instantly; the model
+    # refresh never blocks the foreground.
+    from src.services.agenda_service import compile_agenda
+    from src.runtime_model import get_agenda_adapter
+
+    agenda_result = await compile_agenda(
+        db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
+        packet=packet, now=req.now, timezone_str=req.timezone,
+        adapter=get_agenda_adapter(),
+    )
+    result = compile_handover(
+        packet, product=(req.director_hints or {}).get("product"), now=req.now,
+        agenda=agenda_result.get("items"), compiled_by=agenda_result.get("compiled_by", "fallback"),
+    )
+    # Ask ledger: surfacing a high-pressure user-owned objective records the
+    # ask opportunity against today's occurrence (deterministic accounting).
     try:
-        for obj in (result.get("current_window") or {}).get("objectives") or []:
-            occ_id = obj.get("ask_now") and obj.get("occurrence_id")
+        for item in result.get("agenda", []):
+            if item.get("pressure") != "high":
+                continue
+            occ_id = item.get("occurrence_id")
             if occ_id:
                 await db.execute(text(
                     "update recurring_occurrences set asked_at = :now, "
-                    "ask_count = ask_count + 1 where id = :id"
+                    "ask_count = ask_count + 1 where id = :id and asked_at is null"
                 ), {"now": (req.now or datetime.now(timezone.utc)).replace(tzinfo=None), "id": occ_id})
         await db.commit()
     except Exception:
