@@ -109,7 +109,7 @@ async def get_session_handover(
                 await db.execute(text(
                     "update recurring_occurrences set asked_at = :now, "
                     "ask_count = ask_count + 1 where id = :id"
-                ), {"now": req.now, "id": occ_id})
+                ), {"now": (req.now or datetime.now(timezone.utc)).replace(tzinfo=None), "id": occ_id})
         await db.commit()
     except Exception:
         await db.rollback()
