@@ -1,0 +1,111 @@
+{
+ "spec": {
+  "name": "reminder_semantic_range",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T10:00:00Z",
+    "text": "remind me tomorrow morning at 9am to call mum"
+   },
+   {
+    "op": "reminders",
+    "now": "2026-09-01T10:05:00Z",
+    "expect": [
+     {
+      "type": "reminders_due",
+      "exact": 0
+     }
+    ]
+   },
+   {
+    "op": "reminders",
+    "now": "2026-09-02T09:05:00Z",
+    "expect": [
+     {
+      "type": "reminders_due",
+      "min": 1
+     }
+    ]
+   },
+   {
+    "op": "reminders",
+    "now": "2026-09-02T09:06:00Z",
+    "expect": [
+     {
+      "type": "reminders_due",
+      "exact": 0
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T10:00:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "candidates_extracted": 1,
+    "candidates_suppressed_by_reconciliation": 0,
+    "expectation_created": false,
+    "expectations_created_count": 0,
+    "expectation_ids": [],
+    "mutated_expectation_ids": [],
+    "honcho_message_id": "msg_d09e50fa_1",
+    "extraction_backend": "model",
+    "operational_mutations": [
+     {
+      "mutation": "delegated_existing_lifecycle"
+     }
+    ],
+    "context": {
+     "status": "degraded",
+     "honcho_status": "unavailable"
+    }
+   }
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T10:05:00Z",
+   "op": "reminders",
+   "reminders": {
+    "due": [],
+    "count": 0,
+    "now": "2026-09-01T10:05:00+00:00"
+   }
+  },
+  {
+   "turn": 3,
+   "now": "2026-09-02T09:05:00Z",
+   "op": "reminders",
+   "reminders": {
+    "due": [],
+    "count": 0,
+    "now": "2026-09-02T09:05:00+00:00"
+   }
+  },
+  {
+   "turn": 4,
+   "now": "2026-09-02T09:06:00Z",
+   "op": "reminders",
+   "reminders": {
+    "due": [],
+    "count": 0,
+    "now": "2026-09-02T09:06:00+00:00"
+   }
+  }
+ ],
+ "failures": [
+  {
+   "turn": 3,
+   "expect": {
+    "type": "reminders_due",
+    "min": 1
+   },
+   "detail": "reminders due 0 < 1"
+  }
+ ],
+ "workspace": "harness_reminder_semantic_range_d09e50fa"
+}

@@ -20,7 +20,7 @@ TOKEN = ""
 RESULTS_DIR = Path(__file__).parent / "results"
 
 
-def _post(path: str, payload: dict, timeout: float = 60):
+def _post(path: str, payload: dict, timeout: float = 150):
     req = urllib.request.Request(
         f"{BASE}{path}", data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {TOKEN}"})
@@ -125,11 +125,13 @@ def main() -> None:
     if "--base" in args:
         BASE = args[args.index("--base") + 1]
         args = [a for a in args if a != "--base" and a != BASE]
+    import os
+    TOKEN = os.environ.get("SYNAPSE_CORTEX_API_TOKEN") or TOKEN
     for env_file in (Path(__file__).parent.parent / ".env",):
         if env_file.exists():
             for line in env_file.read_text().splitlines():
                 if line.startswith("SYNAPSE_CORTEX_API_TOKEN="):
-                    TOKEN = line.split("=", 1)[1].strip()
+                    TOKEN = line.split("=", 1)[1].strip().strip("\"'")
     scenarios = [Path(a) for a in args] or sorted((Path(__file__).parent / "scenarios").glob("*.json"))
     results = [run_scenario(p) for p in scenarios]
     print(json.dumps(results, indent=1))

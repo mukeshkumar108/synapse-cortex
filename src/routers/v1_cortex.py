@@ -14,6 +14,7 @@ from src.services.cortex_handshake_service import CortexHandshakeService
 from src.services.cortex_packet_service import CortexPacketService
 from src.services.cortex_router_service import CortexRouterService
 from src.services.working_set_service import WorkingSetService
+from src.runtime_model import get_agenda_adapter
 from src.schemas.candidate import ExtractionCandidate
 from src.models.expectation import Expectation
 from src.models.open_loop import OpenLoop
@@ -103,7 +104,6 @@ async def get_session_handover(
     # fallback). Read-or-compile: fresh snapshots return instantly; the model
     # refresh never blocks the foreground.
     from src.services.agenda_service import compile_agenda
-    from src.runtime_model import get_agenda_adapter
 
     agenda_result = await compile_agenda(
         db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,

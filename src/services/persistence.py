@@ -1,4 +1,6 @@
+import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from sqlmodel import select
 from sqlalchemy.exc import IntegrityError
@@ -39,6 +41,24 @@ async def save_expectation_idempotent(
     if existing:
         logger.info("Idempotent hit for honcho_message_id=%s", message_id)
         return existing, False
+
+    # Conversational reminder synthesis: explicit "remind me ..." intent with a
+    # grounded window becomes an executable reminder window at persistence time
+    # (previously only source-linked app objects got windows, so conversational
+    # reminders were stored but could never fire).
+    if not expectation_data.get("reminder_windows_json"):
+        blob = f"{expectation_data.get('title', '')} {expectation_data.get('summary', '')}".lower()
+        window_start = expectation_data.get("expected_window_start")
+        if "remind" in blob and window_start is not None:
+            start = window_start if window_start.tzinfo is None else window_start.astimezone(timezone.utc).replace(tzinfo=None)
+            window_end = expectation_data.get("expected_window_end") or window_start
+            end = window_end if window_end.tzinfo is None else window_end.astimezone(timezone.utc).replace(tzinfo=None)
+            if end <= start:
+                end = start + timedelta(hours=12)
+            expectation_data["reminder_windows_json"] = json.dumps([{
+                "start": start.isoformat(), "end": end.isoformat(),
+                "label": expectation_data.get("raw_temporal_phrase") or "reminder",
+            }])
 
     expectation = Expectation(**expectation_data)
     session.add(expectation)

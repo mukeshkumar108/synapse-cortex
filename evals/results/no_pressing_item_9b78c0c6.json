@@ -1,0 +1,39 @@
+{
+ "spec": {
+  "name": "no_pressing_item",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T08:30:00Z",
+    "text": "lol"
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T08:31:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": false
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T08:30:00Z",
+   "op": "turn",
+   "error": "HTTP 401: {\"detail\":\"Unauthorized\"}"
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T08:31:00Z",
+   "op": "initiative",
+   "error": "HTTP 401: {\"detail\":\"Unauthorized\"}"
+  }
+ ],
+ "failures": [],
+ "workspace": "harness_no_pressing_item_9b78c0c6"
+}
