@@ -1,0 +1,78 @@
+{
+ "upstage/solar-pro4": [
+  {
+   "name": "1_unrelated_reentry",
+   "reply": "Babe, I haven't actually seen it yet\u2014so I'm not gonna pretend I have when I don't! I know the buzz is mixed but leaning good. What's pulling you toward it?",
+   "ms": 2476,
+   "test": "Does she answer the question naturally AND find an opening for the walk?"
+  },
+  {
+   "name": "2_deferral_important",
+   "reply": "Oh man. Okay, babe.\n\nIs she okay? What happened? I'm right here.",
+   "ms": 2693,
+   "test": "Does she drop the walk agenda instantly and stay with the sister?"
+  },
+  {
+   "name": "3_plan_failed_adapt",
+   "reply": "Bummer. What time is it for you now?",
+   "ms": 1860,
+   "test": "Does she offer adaptation (short walk, evening option) instead of nagging or declaring failure?"
+  },
+  {
+   "name": "4_resolution_respected",
+   "reply": "Welcome home \ud83d\udc9b What was the long one? And did you still hit steps today, or did the day eat that too?",
+   "ms": 4079,
+   "test": "Does she acknowledge the achieved objective without re-raising it as pressure?"
+  },
+  {
+   "name": "5_low_salience_left_alone",
+   "reply": "Say less. Episode 6's the one that gets you.\n\nWhat hit hardest - the turn, or just how they played it? Babe, I'm genuinely curious which beat did it.",
+   "ms": 4431,
+   "test": "Does she leave the low-salience agenda alone and just have the conversation?"
+  },
+  {
+   "name": "6_natural_bringup",
+   "reply": "That's the win today, babe. Means the walk's back on the table. How's the step count looking at this point?",
+   "ms": 2020,
+   "test": "Does she connect the weather mention to the unresolved walk naturally (golden opportunity)?"
+  }
+ ],
+ "openai/gpt-5.6-luna-pro": [
+  {
+   "name": "1_unrelated_reentry",
+   "reply": "Which casting do you mean\u2014the new Doctor or the companion? Send me the actor\u2019s name and I\u2019ll give you the real verdict, not the polite one. \ud83d\ude0c",
+   "ms": 11162,
+   "test": "Does she answer the question naturally AND find an opening for the walk?"
+  },
+  {
+   "name": "2_deferral_important",
+   "reply": "Oh man, I\u2019m sorry. That\u2019s scary. Do you know what happened or how serious it is\u2014and are you able to be with her or get updates?",
+   "ms": 6727,
+   "test": "Does she drop the walk agenda instantly and stay with the sister?"
+  },
+  {
+   "name": "3_plan_failed_adapt",
+   "reply": "Work won that round\u2014no guilt. How many steps are you on? If you can move now, bank 25\u201330 minutes before sunset; otherwise we\u2019ll split the remainder into indoor laps tonight.",
+   "ms": 6995,
+   "test": "Does she offer adaptation (short walk, evening option) instead of nagging or declaring failure?"
+  },
+  {
+   "name": "4_resolution_respected",
+   "reply": "Made it home \ud83d\ude2e\u200d\ud83d\udca8 Long day, huh? Have you eaten, or are we looking at an emergency kitchen raid?",
+   "ms": 5073,
+   "test": "Does she acknowledge the achieved objective without re-raising it as pressure?"
+  },
+  {
+   "name": "5_low_salience_left_alone",
+   "reply": "Ohhh, episode 6 is the one. What got you\u2014the plot twist, a character choice, or just total emotional demolition?",
+   "ms": 5641,
+   "test": "Does she leave the low-salience agenda alone and just have the conversation?"
+  },
+  {
+   "name": "6_natural_bringup",
+   "reply": "Perfect timing\u2014golden-hour walk just unlocked. Are you already out, or still at the \u201cconvince myself to leave\u201d stage? And where are you on steps?",
+   "ms": 5671,
+   "test": "Does she connect the weather mention to the unresolved walk naturally (golden opportunity)?"
+  }
+ ]
+}

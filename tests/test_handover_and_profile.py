@@ -72,30 +72,13 @@ def test_fallback_rank_orders_by_salience_and_caps_items():
     assert top == sorted(top, key=lambda x: -x["score"])
 
 
-def test_handover_v4_renders_agenda_as_center():
-    agenda = [
-        {"what": "daily step goal", "owner": "user", "status": "unresolved", "pressure": 0.7,
-         "next_move": "ask status; adapt strategy if window closed", "occurrence_id": "occ-1"},
-        {"what": "Ask how the meeting prep went", "owner": "sophie", "status": "unresolved",
-         "pressure": 0.4, "next_move": "raise at a natural opening"},
-    ]
-    h = compile_handover(_packet(), product="sophie", agenda=agenda)
-    assert h["version"] == "handover-v4"
-    assert h["agenda"][0]["what"] == "daily step goal"
-    assert h["agenda"][0]["pressure"] == "high"
-    assert h["agenda"][1]["pressure"] == "medium"
-    assert h["scene"]["time_of_day"] == "evening"
-    assert h["metrics"]["estimated_tokens"] <= 400
-    assert h["metrics"]["within_budget"]
-
-
 def test_handover_avoids_suppressed_and_ids():
     packet = _packet()
     packet["suppressed_targets"] = [
         {"id": "s1", "topic_or_entity": "user_5377a025-b876-4d1f-bd62-59352da44146"},
         {"id": "s2", "topic_or_entity": "mother's pressure to stay longer"},
     ]
-    h = compile_handover(packet, product="sophie", agenda=[])
+    h = compile_handover(packet, product="sophie", admission={})
     assert h["avoid"] == ["mother's pressure to stay longer"]
 
 
@@ -105,9 +88,9 @@ def test_handover_patterns_are_context_only():
         "id": "r2", "title": "daily talk with Ashley",
         "semantic_type": "observed_pattern", "occurrence_status": "pending",
     }]
-    h = compile_handover(packet, product="sophie", agenda=[])
+    h = compile_handover(packet, product="sophie", admission={})
     assert any("observed pattern" in l for l in h["patterns"])
-    assert not any("Ashley" in a["what"] for a in h["agenda"])
+    assert not any("Ashley" in o["what"] for o in h.get("owed", []))
 
 
 def test_handover_budget_trims_agenda_last():
@@ -115,16 +98,17 @@ def test_handover_budget_trims_agenda_last():
     packet["suppressed_targets"] = [
         {"id": f"s{i}", "topic_or_entity": f"topic number {i} that is suppressed"} for i in range(10)
     ]
-    agenda = [{"what": f"item {i}", "owner": "user", "status": "unresolved", "pressure": 0.5} for i in range(6)]
-    h = compile_handover(packet, product="sophie", agenda=agenda)
+    admission = {"owed": [{"what": f"item {i}", "followup_state": "outstanding", "pressure": 0.7} for i in range(6)],
+                 "optional": [], "scene": {}}
+    h = compile_handover(packet, product="sophie", admission=admission)
     assert h["metrics"]["within_budget"]
-    assert h["agenda"], "agenda survives trimming"
+    assert h["owed"], "owed survives trimming"
 
 
 def test_handover_is_json_serializable():
-    json.dumps(compile_handover(_packet(), product="sophie", agenda=[]))
+    json.dumps(compile_handover(_packet(), product="sophie", admission={}))
 
 
 def test_product_profiles_change_handover_limits():
-    assert get_profile("sophie").handover_limits["agenda"] >= 2
+    assert get_profile("sophie").handover_limits["agenda"] >= 2  # agenda cap reused for owed
     assert get_profile("health").priority("task") < get_profile("sophie").priority("task")

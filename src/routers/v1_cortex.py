@@ -111,9 +111,19 @@ async def get_session_handover(
         adapter=get_agenda_adapter(),
         force=bool((req.director_hints or {}).get("force_agenda")),
     )
+    # FOREGROUND ADMISSION CONTROL: the backend decides what deserves
+    # foreground bandwidth. Owed/contractual items are admitted with
+    # follow-through ledger state; optional items are held back as capacity.
+    from src.services.followthrough_service import compute_admission
+    admission = await compute_admission(
+        db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
+        agenda_items=agenda_result.get("items") or [],
+        packet=packet, now=req.now, timezone_str=req.timezone,
+    )
     result = compile_handover(
         packet, product=(req.director_hints or {}).get("product"), now=req.now,
-        agenda=agenda_result.get("items"), compiled_by=agenda_result.get("compiled_by", "fallback"),
+        agenda=agenda_result.get("items"), admission=admission,
+        compiled_by=agenda_result.get("compiled_by", "fallback"),
     )
     # Ask ledger: surfacing a high-pressure user-owned objective records the
     # ask opportunity against today's occurrence (deterministic accounting).

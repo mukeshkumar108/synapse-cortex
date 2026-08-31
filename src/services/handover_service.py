@@ -39,6 +39,7 @@ def compile_handover(
     product: Optional[str] = None,
     now: Optional[datetime] = None,
     agenda: Optional[List[Dict[str, Any]]] = None,
+    admission: Optional[Dict[str, Any]] = None,
     compiled_by: str = "fallback",
 ) -> Dict[str, Any]:
     """Handover v4: ONE live agenda is the center of behavioral attention.
@@ -49,9 +50,18 @@ def compile_handover(
     brief = packet.get("intelligence_brief") or {}
     daypart = str(brief.get("daypart") or "").lower()
 
-    # --- AGENDA: the ranked live attention artifact ---
-    agenda_items: List[Dict[str, Any]] = []
-    for item in (agenda or [])[: profile.handover_limits.get("agenda", 4)]:
+    # --- OWED (admitted) + SCENE: foreground admission control output ---
+    admission = admission or {}
+    owed_items: List[Dict[str, Any]] = []
+    for item in (admission.get("owed") or [])[: profile.handover_limits.get("agenda", 3)]:
+        owed_items.append({
+            "what": str(item.get("what") or "")[:90],
+            "followup_state": item.get("followup_state", "outstanding"),
+            "next_move": str(item.get("next_move") or "")[:110],
+        })
+    scene_block = admission.get("scene") or {}
+    agenda_items_unused: List[Dict[str, Any]] = []
+    for item in (agenda or [])[:0]:
         what = str(item.get("what") or "").strip()
         if not what:
             continue
@@ -88,8 +98,12 @@ def compile_handover(
         "version": "handover-v4",
         "product": profile.name,
         "generated_at": (now or datetime.now(timezone.utc)).isoformat(),
-        "scene": {"time_of_day": daypart or "unknown"},
-        "agenda": agenda_items,
+        "scene": {
+            "time_of_day": daypart or "unknown",
+            **{k: v for k, v in scene_block.items() if v not in (None, "")},
+        },
+        "owed": owed_items,
+        "optional_count": len(admission.get("optional") or []),
         "patterns": pattern_lines,
         "avoid": avoid_lines,
         "constraints": {
@@ -105,8 +119,8 @@ def compile_handover(
     while total > budget and handover["patterns"]:
         handover["patterns"].pop()
         total = len(_json.dumps(handover))
-    while total > budget and len(handover["agenda"]) > 1:
-        handover["agenda"].pop()
+    while total > budget and len(handover["owed"]) > 1:
+        handover["owed"].pop()
         total = len(_json.dumps(handover))
     handover["metrics"] = {
         "chars": total,
