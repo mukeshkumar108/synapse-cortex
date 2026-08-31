@@ -255,7 +255,7 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
         AgendaSnapshot.honcho_workspace_id == workspace_id,
         AgendaSnapshot.owner_peer_id == owner_peer_id,
         AgendaSnapshot.horizon == horizon,
-    ))).scalars().first()
+    ).with_for_update())).scalars().first()
     if snap is not None and snap.expires_at > now and not force:
         try:
             return {"items": json.loads(snap.items_json), "compiled_by": snap.compiled_by,
@@ -270,8 +270,8 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
     compiled_by = "fallback"
 
     # Persist the fallback snapshot immediately so the foreground never waits.
-    if snap is not None:
-        await db.delete(snap)
+    # Row-locked above: concurrent handover requests serialize here, so the
+    # delete+insert can never violate the owner/horizon unique constraint.
     db.add(AgendaSnapshot(honcho_workspace_id=workspace_id, owner_peer_id=owner_peer_id,
                           horizon=horizon, items_json=json.dumps(items),
                           compiled_by=compiled_by, compiled_at=now,
@@ -300,13 +300,18 @@ async def _background_model_refresh(workspace_id: str, owner_peer_id: Optional[s
                 AgendaSnapshot.honcho_workspace_id == workspace_id,
                 AgendaSnapshot.owner_peer_id == owner_peer_id,
                 AgendaSnapshot.horizon == "day",
-            ))).scalars().first()
-            if snap is not None:
+            ).with_for_update())).scalars().first()
+            if snap is None:
+                db.add(AgendaSnapshot(honcho_workspace_id=workspace_id, owner_peer_id=owner_peer_id,
+                                      horizon="day", items_json=json.dumps(ranked),
+                                      compiled_by="model", compiled_at=now,
+                                      expires_at=now + timedelta(hours=_AGENDA_TTL_HOURS)))
+            else:
                 snap.items_json = json.dumps(ranked)
                 snap.compiled_by = "model"
                 snap.compiled_at = now
                 snap.expires_at = now + timedelta(hours=_AGENDA_TTL_HOURS)
                 db.add(snap)
-                await db.commit()
+            await db.commit()
     except Exception:
         logger.exception("[agenda] background model refresh failed")
