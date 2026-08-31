@@ -109,6 +109,7 @@ async def get_session_handover(
         db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
         packet=packet, now=req.now, timezone_str=req.timezone,
         adapter=get_agenda_adapter(),
+        force=bool((req.director_hints or {}).get("force_agenda")),
     )
     result = compile_handover(
         packet, product=(req.director_hints or {}).get("product"), now=req.now,
