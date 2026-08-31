@@ -697,7 +697,9 @@ temporal_language. When one turn reports concrete progress/accomplishment AND sa
 goal remains unresolved (for example "sent three applications but still need to keep
 applying"), emit two observations: the progress event and the continuing objective. Do not
 collapse them. Do not assign operational types. Do not invent context.
-Treat "I did my walk today" as completion of today's walk, not generic progress. Notice
+Treat "I did my walk today" as completion of today's walk, not generic progress. Anaphoric completion reports ("already did it", "done, 11k", "that's handled") refer to the
+ most salient active objective in the conversation context - emit completion with target_key
+ from that objective rather than semantic_only. Notice
 explicit recurrence revisions such as changing "every day" to Monday/Wednesday/Friday as a
 replacement of the prior cadence. Treat an outcome report such as "Ashley's event went
 really well" as resolution/outcome of that event or follow-up, not as a newly upcoming event.

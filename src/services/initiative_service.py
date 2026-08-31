@@ -74,6 +74,15 @@ async def evaluate_initiative(
         if high[0].get("severity") != "acute":
             return ledger("withheld:quiet_hours", item_key=high[0].get("what", "")[:80],
                           reason=f"local hour {local_hour} is inside quiet hours")
+    # User-recently-active: if the user messaged within the last 30 minutes,
+    # the REACTIVE path owns the agenda (trajectory arbitration); proactive
+    # appearing mid-conversation is double-dipping.
+    from src.models.operational_state import ExtractionTrace
+    last_turn = (await db.execute(select(ExtractionTrace.created_at).where(
+        ExtractionTrace.honcho_workspace_id == workspace_id,
+    ).order_by(ExtractionTrace.created_at.desc()).limit(1))).scalar()
+    if last_turn and (now - last_turn).total_seconds() < 30 * 60:
+        return ledger("withheld:user_recently_active", reason="user messaged recently; reactive path owns agenda")
     since = now - timedelta(hours=float(policy["min_gap_hours"]))
     recent = (await db.execute(select(ProactiveLog).where(
         ProactiveLog.honcho_workspace_id == workspace_id,

@@ -1,0 +1,55 @@
+{
+ "spec": {
+  "name": "no_pressing_item",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T08:30:00Z",
+    "text": "lol"
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T08:31:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": false
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T08:30:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "expectation_created": false,
+    "candidates_extracted": 0,
+    "candidates_suppressed_by_reconciliation": 0,
+    "extraction_backend": "model",
+    "extraction_failure": null,
+    "context": {
+     "status": "degraded",
+     "honcho_status": "unavailable"
+    }
+   }
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T08:31:00Z",
+   "op": "initiative",
+   "initiative": {
+    "should_appear": false,
+    "reason": "no agenda item carries enough pressure right now",
+    "item": null,
+    "local_hour": 9
+   }
+  }
+ ],
+ "failures": [],
+ "workspace": "harness_no_pressing_item_31e35dd8"
+}

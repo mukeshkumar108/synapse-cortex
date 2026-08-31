@@ -1,0 +1,114 @@
+{
+ "spec": {
+  "name": "brain_dump_multi_item",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T14:00:00Z",
+    "text": "ok brain dump: I need to chase the client payment tomorrow, send the invoices by Friday, and I've got that vendor call Thursday afternoon. also need to sort the school stuff for the kids at some point this week"
+   },
+   {
+    "op": "handover",
+    "now": "2026-09-01T14:05:00Z",
+    "expect": [
+     {
+      "type": "no_error"
+     }
+    ]
+   },
+   {
+    "op": "turn",
+    "now": "2026-09-01T16:00:00Z",
+    "text": "invoice thing is done, sent them all"
+   },
+   {
+    "op": "handover",
+    "now": "2026-09-01T16:05:00Z",
+    "expect": [
+     {
+      "type": "no_error"
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T14:00:00Z",
+   "op": "turn",
+   "error": "HTTP 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx/1.29.3</center>\r\n</body>\r\n</html>\r\n"
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T14:05:00Z",
+   "op": "handover",
+   "agenda": [],
+   "patterns": [],
+   "metrics": {
+    "chars": 318,
+    "estimated_tokens": 79,
+    "within_budget": true,
+    "compiled_by": "fallback",
+    "cortex_ms": 3376.4
+   }
+  },
+  {
+   "turn": 3,
+   "now": "2026-09-01T16:00:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "candidates_extracted": 1,
+    "candidates_suppressed_by_reconciliation": 0,
+    "expectation_created": false,
+    "expectations_created_count": 0,
+    "expectation_ids": [],
+    "mutated_expectation_ids": [],
+    "honcho_message_id": "msg_c403cd11_3",
+    "extraction_backend": "model",
+    "operational_mutations": [
+     {
+      "mutation": "delegated_existing_lifecycle"
+     }
+    ],
+    "context": {
+     "status": "degraded",
+     "honcho_status": "unavailable"
+    }
+   }
+  },
+  {
+   "turn": 4,
+   "now": "2026-09-01T16:05:00Z",
+   "op": "handover",
+   "agenda": [
+    {
+     "what": "Has a vendor call on Thursday afternoon",
+     "owner": "user",
+     "status": "unresolved",
+     "pressure": "low",
+     "next_move": "confirm status or offer prep help"
+    },
+    {
+     "what": "Needs to send the invoices by",
+     "owner": "user",
+     "status": "unresolved",
+     "pressure": "low",
+     "next_move": "confirm status or offer prep help"
+    }
+   ],
+   "patterns": [],
+   "metrics": {
+    "chars": 630,
+    "estimated_tokens": 157,
+    "within_budget": true,
+    "compiled_by": "fallback",
+    "cortex_ms": 1564.6
+   }
+  }
+ ],
+ "failures": [],
+ "workspace": "harness_brain_dump_multi_item_c403cd11"
+}
