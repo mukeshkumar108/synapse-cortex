@@ -802,7 +802,9 @@ Each candidate must include loose_observation_id, observation, raw_evidence, con
 canonical_title, actor_peer_id, subject_peer_id, temporal_phrase, expectation_type_hint,
 evidence_class, authority, cadence, interval_days, days_of_week, preferred_window,
 target_amount, target_unit, progress_amount, progress_unit, expiry_phrase, open_loop_hint,
-suppression_hint, resolution_hint. Use null/[] when absent. At most four proposals per
+suppression_hint, resolution_hint, reminder_request. Use null/[] when absent. reminder_request
+is REQUIRED on every candidate: true only when the user asks to be reminded to do something
+(any language, any phrasing), otherwise false. At most four proposals per
 observation and twelve candidates for the turn; never duplicate a semantic lane or task title.
 OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}""")
             self.last_stage_metrics["shape"] = {

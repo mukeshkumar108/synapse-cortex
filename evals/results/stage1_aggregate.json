@@ -1,0 +1,93 @@
+{
+ "deepseek/deepseek-v4-flash": {
+  "dims": {
+   "comprehension_steering": 0,
+   "conversational_intelligence": 0,
+   "epistemic_discipline": 0,
+   "packet_utilisation": 0,
+   "naturalness": 0,
+   "latency_cost": 0
+  },
+  "weighted": 0.0,
+  "avg_ms": 4515,
+  "tokens": 8746
+ },
+ "openai/gpt-5.6-luna-pro": {
+  "dims": {
+   "comprehension_steering": 0,
+   "conversational_intelligence": 0,
+   "epistemic_discipline": 0,
+   "packet_utilisation": 0,
+   "naturalness": 0,
+   "latency_cost": 0
+  },
+  "weighted": 0.0,
+  "avg_ms": 7378,
+  "tokens": 56216
+ },
+ "minimax/minimax-m3": {
+  "dims": {
+   "comprehension_steering": 0,
+   "conversational_intelligence": 0,
+   "epistemic_discipline": 0,
+   "packet_utilisation": 0,
+   "naturalness": 0,
+   "latency_cost": 0
+  },
+  "weighted": 0.0,
+  "avg_ms": 3014,
+  "tokens": 10435
+ },
+ "upstage/solar-pro4": {
+  "dims": {
+   "comprehension_steering": 0,
+   "conversational_intelligence": 0,
+   "epistemic_discipline": 0,
+   "packet_utilisation": 0,
+   "naturalness": 0,
+   "latency_cost": 0
+  },
+  "weighted": 0.0,
+  "avg_ms": 5313,
+  "tokens": 8321
+ },
+ "meta/muse-spark-1.2-contributor": {
+  "dims": {
+   "comprehension_steering": 0,
+   "conversational_intelligence": 0,
+   "epistemic_discipline": 0,
+   "packet_utilisation": 0,
+   "naturalness": 0,
+   "latency_cost": 0
+  },
+  "weighted": 0.0,
+  "avg_ms": 5732,
+  "tokens": 10603
+ },
+ "z-ai/glm-5.3-flash": {
+  "dims": {
+   "comprehension_steering": 0,
+   "conversational_intelligence": 0,
+   "epistemic_discipline": 0,
+   "packet_utilisation": 0,
+   "naturalness": 0,
+   "latency_cost": 0
+  },
+  "weighted": 0.0,
+  "avg_ms": 30702,
+  "tokens": 10433
+ },
+ "nvidia/nemotron-3.5-lightning": {
+  "dims": {
+   "comprehension_steering": 0,
+   "conversational_intelligence": 0,
+   "epistemic_discipline": 0,
+   "packet_utilisation": 0,
+   "naturalness": 0,
+   "latency_cost": 0
+  },
+  "weighted": 0.0,
+  "avg_ms": 2111,
+  "tokens": 10707
+ }
+}
