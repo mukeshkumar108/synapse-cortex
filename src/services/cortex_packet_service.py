@@ -417,6 +417,24 @@ class CortexPacketService:
                 RecurringOccurrence.recurring_intention_id == recurrence.id,
                 RecurringOccurrence.user_day == user_day,
             ))).scalar_one_or_none()
+            if occurrence is None and recurrence.status == OperationalStatus.ACTIVE and recurrence.semantic_type != "observed_pattern":
+                # Deterministic daily occurrence: every active actionable
+                # recurrence owes today a row. Concurrent handover requests can
+                # race here; the loser re-reads instead of failing.
+                occurrence = RecurringOccurrence(
+                    recurring_intention_id=recurrence.id,
+                    honcho_workspace_id=recurrence.honcho_workspace_id,
+                    user_day=user_day,
+                )
+                db.add(occurrence)
+                try:
+                    await db.flush()
+                except Exception:
+                    await db.rollback()
+                    occurrence = (await db.execute(select(RecurringOccurrence).where(
+                        RecurringOccurrence.recurring_intention_id == recurrence.id,
+                        RecurringOccurrence.user_day == user_day,
+                    ))).scalars().first()
             health = recurrence_week_health(
                 recurrence, occurrences_by_intention.get(str(recurrence.id), []), user_day
             )
