@@ -177,7 +177,7 @@ async def model_rank(candidates: List[Dict[str, Any]], *, daypart: str, adapter:
         "everything; a mild emotional matter may deserve one beat; objectives with closing windows "
         "rise; recently surfaced items lose urgency; nothing important means an empty agenda is the "
         "correct answer. For each item return: what, semantic_type, owner, importance 0-1, urgency 0-1, "
-        "pressure 0-1 (follow-up pressure), status, why (grounded, short), next_move (conversational "
+        "pressure 0-1 (follow-up pressure), status, why (under 12 words), next_move (under 12 words, conversational "
         "direction, not a script), horizon (now/2h/6h/day). Never invent candidates."
     )
     try:
@@ -197,7 +197,7 @@ async def model_rank(candidates: List[Dict[str, Any]], *, daypart: str, adapter:
                     "required": ["what", "next_move"],
                 }}},
                 "required": ["items"], "additionalProperties": False},
-            model_id=_AGENDA_MODEL, max_tokens=900, temperature=0.2, strict=True,
+            model_id=_AGENDA_MODEL, max_tokens=int(os.getenv("AGENDA_RANKER_MAX_TOKENS", "2000")), temperature=0.2, strict=True,
         )
     except Exception as exc:
         logger.warning("[agenda] ranker failed, using deterministic fallback: %s", exc)
