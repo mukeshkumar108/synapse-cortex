@@ -1,0 +1,10 @@
+{
+  "name": "no_pressing_item",
+  "timezone": "Europe/London",
+  "steps": [
+    {"op": "turn", "now": "2026-09-01T08:30:00Z", "text": "lol"},
+    {"op": "initiative", "now": "2026-09-01T08:31:00Z", "expect": [
+      {"type": "initiative", "should_appear": false}
+    ]}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "brain_dump_multi_item",
+  "timezone": "Europe/London",
+  "steps": [
+    {"op": "turn", "now": "2026-09-01T14:00:00Z", "text": "ok brain dump: I need to chase the client payment tomorrow, send the invoices by Friday, and I've got that vendor call Thursday afternoon. also need to sort the school stuff for the kids at some point this week"},
+    {"op": "handover", "now": "2026-09-01T14:05:00Z", "expect": [
+      {"type": "no_error"}
+    ]},
+    {"op": "turn", "now": "2026-09-01T16:00:00Z", "text": "invoice thing is done, sent them all"},
+    {"op": "handover", "now": "2026-09-01T16:05:00Z", "expect": [
+      {"type": "no_error"}
+    ]}
+  ]
+}

@@ -134,6 +134,46 @@ async def get_session_handover(
     return result
 
 
+@router.post("/initiative/tick")
+async def initiative_tick(req: WorkingSetRequest, db: AsyncSession = Depends(get_async_session)):
+    """PRODUCTION INITIATIVE ENGINE: should Sophie appear unprompted right now?
+
+    Deterministic policy over the live agenda (pressure threshold, quiet
+    hours, cadence gap, daily spam budget, ledger). Driven by the app's
+    scheduler/cron and by the scenario harness. 'Nothing worth pushing' is a
+    first-class outcome."""
+    from src.services.initiative_service import evaluate_initiative
+    from src.services.handover_service import compile_handover
+    from src.services.agenda_service import compile_agenda
+
+    packet = await packet_service.compile_attention_packet(
+        db=db, workspace_id=req.workspace_id, session_id=req.session_id,
+        now=req.now, timezone_str=req.timezone, owner_peer_id=req.peer_id,
+    )
+    agenda_result = await compile_agenda(
+        db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
+        packet=packet, now=req.now, timezone_str=req.timezone,
+        adapter=get_agenda_adapter(),
+    )
+    decision = await evaluate_initiative(
+        db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id or "",
+        agenda=agenda_result.get("items") or [], now=req.now, timezone_str=req.timezone,
+    )
+    return decision
+
+
+@router.post("/reminders/due")
+async def reminders_due(req: WorkingSetRequest, db: AsyncSession = Depends(get_async_session)):
+    """PRODUCTION REMINDER EXECUTOR: fire due reminder windows exactly once,
+    mark them fired deterministically, and return the due items for delivery.
+    Delivery (notification/proactive Sophie message) belongs to the caller."""
+    from src.services.reminder_executor import due_reminders
+    items = await due_reminders(
+        db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id or "", now=req.now,
+    )
+    return {"due": items, "count": len(items), "now": req.now.isoformat()}
+
+
 @router.get("/evidence")
 async def get_cortex_evidence(
     workspace_id: str = Query(...),

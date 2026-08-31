@@ -1,0 +1,16 @@
+{
+  "name": "reminder_semantic_range",
+  "timezone": "Europe/London",
+  "steps": [
+    {"op": "turn", "now": "2026-09-01T10:00:00Z", "text": "remind me tomorrow morning at 9am to call mum"},
+    {"op": "reminders", "now": "2026-09-01T10:05:00Z", "expect": [
+      {"type": "reminders_due", "exact": 0}
+    ]},
+    {"op": "reminders", "now": "2026-09-02T09:05:00Z", "expect": [
+      {"type": "reminders_due", "min": 1}
+    ]},
+    {"op": "reminders", "now": "2026-09-02T09:06:00Z", "expect": [
+      {"type": "reminders_due", "exact": 0}
+    ]}
+  ]
+}

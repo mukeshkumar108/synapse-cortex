@@ -84,9 +84,11 @@ def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: s
         preferred = str(item.get("preferred_window") or "").strip().lower()
         window_passed = bool(preferred and daypart and preferred not in ("any", "none") and preferred not in daypart)
         if window_passed or daypart in ("evening", "night"):
-            urgency, pressure = 0.75, 0.7
+            urgency, pressure = 0.8, 0.75
         elif daypart == "afternoon":
-            urgency, pressure = 0.55, 0.45
+            urgency, pressure = 0.65, 0.55
+        else:  # morning: the day is young but the objective is already live
+            urgency, pressure = 0.6, 0.55
         urgency += min(0.15, 0.03 * float(item.get("ask_count") or 0))
         target = item.get("target_amount")
         what = str(item.get("title") or "")[:80]

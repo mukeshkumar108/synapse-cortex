@@ -167,6 +167,23 @@ class AgendaSnapshot(SQLModel, table=True):
     expires_at: datetime = Field(index=True, nullable=False)
 
 
+class ProactiveLog(SQLModel, table=True):
+    """Initiative engine ledger: every proactive delivery decision (sent or
+    withheld) is recorded so the spam budget, quiet hours and cadence rules
+    are deterministic product behavior, not model vibes."""
+
+    __tablename__ = "proactive_log"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: str = Field(index=True, nullable=False)
+    at: datetime = Field(default_factory=utc_now, nullable=False)
+    item_key: Optional[str] = Field(default=None)
+    reason: str = Field(default="")
+    decision: str = Field(default="appeared")  # appeared / withheld:<reason>
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
 class ExtractionTrace(SQLModel, table=True):
     __tablename__ = "extraction_traces"
     __table_args__ = (UniqueConstraint("honcho_workspace_id", "honcho_message_id", "stage", "item_key", name="uq_extraction_trace_stage_item"),)

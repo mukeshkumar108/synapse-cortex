@@ -1,0 +1,17 @@
+{
+  "name": "background_tick_proactive_followup",
+  "timezone": "Europe/London",
+  "steps": [
+    {"op": "turn", "now": "2026-09-01T08:00:00Z", "text": "my goal is at least 10k steps a day, going to try to keep it up"},
+    {"op": "initiative", "now": "2026-09-01T14:30:00Z", "expect": [
+      {"type": "initiative", "should_appear": true}
+    ]},
+    {"op": "initiative", "now": "2026-09-01T14:31:00Z", "expect": [
+      {"type": "initiative", "should_appear": false}
+    ]},
+    {"op": "turn", "now": "2026-09-01T14:32:00Z", "text": "already did it, 10.5k"},
+    {"op": "initiative", "now": "2026-09-01T18:00:00Z", "expect": [
+      {"type": "initiative", "should_appear": false}
+    ]}
+  ]
+}
