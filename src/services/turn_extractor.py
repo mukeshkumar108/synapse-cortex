@@ -754,12 +754,14 @@ If the stated frequency describes how often a PROBLEM happens ("it's been happen
 day") that is NOT cadence evidence for a recurrence — emit a durable_objective instead.
 Use progress only for a concrete accomplishment or measurable advancement that already
 happened (for example sent/submitted/completed/built a count or portion).
- REMINDERS: "Remind me to X" / "don't let me forget to X" with a stated time or trigger
- ("tomorrow at 9am", "before I go to bed") is a user_commitment EXPECTATION with temporal_phrase
- set to that time - it becomes a scheduled reminder, not an open_loop. When NO time or trigger is
- stated, emit the expectation anyway with a clarification_hint asking ONLY for the missing timing
- ("When should I remind you?"). "I need to remember that <fact>" (Ashley likes that restaurant) is
- semantic memory, NOT a reminder - use semantic_only. "I'm fixing X
+ REMINDER REQUESTS (semantic, language-independent): when the user asks to be reminded about
+ something - direct ("remind me to call mum"), indirect ("don't let me forget the bins"),
+ hedged ("remind me later yeah"), or in any language ("recuérdame llamar a mamá") - emit a
+ user_commitment EXPECTATION with reminder_request=true, temporal_phrase set to any stated time
+ or trigger, and reminder_request=false for everything else. "I need to remember that <fact>"
+ (a preference or fact about someone) is semantic memory, NOT a reminder. If no time or trigger
+ is stated, still emit the expectation with reminder_request=true and a clarification_hint asking
+ only for the missing timing. Never route reminder requests into open_loop. "I'm fixing X
 right now" is current focus/objective, not a progress event. A desire that a product should
 not feel/look/sound a certain way is product semantics, not a companion suppression.
 "Leave her alone while the event is happening" is an outbound_contact suppression scoped

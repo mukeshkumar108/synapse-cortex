@@ -79,6 +79,10 @@ class ExtractionCandidate(BaseModel):
         "recurring_action", "recurring_ritual", "adherence_action",
         "measurable_goal", "observed_pattern",
     ]] = None
+    reminder_request: Optional[bool] = Field(
+        default=None,
+        description="Semantic proposal: the user asks to be reminded about this (any language/phrasing). Deterministic code validates a grounded window before committing.",
+    )
     cadence_evidence_text: Optional[str] = Field(
         default=None,
         description="Verbatim span from the turn that constitutes the cadence evidence; deterministic code validates it",

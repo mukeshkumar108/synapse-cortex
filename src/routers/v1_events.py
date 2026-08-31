@@ -284,11 +284,9 @@ async def ingest_turn_event(
                 "expected_window_end": win_end,
                 "hard_deadline_at": hard_deadline,
                 "extraction_confidence": shaped_data["confidence"],
-                # Explicit reminder intent lives in the raw turn text, not the
-                # shaped title; persistence uses it to synthesize an executable
-                # reminder window when the window is temporally grounded.
-                "reminder_requested": bool(__import__("re").search(
-                    r"remind me|don'?t let me forget|need to remember to", payload.text, __import__("re").I)),
+                # Semantic reminder proposal from the interpreter (validated
+                # downstream against a grounded window); never raw-text regex.
+                "reminder_requested": bool(cand.reminder_request),
             }
             exp_model, created = await save_expectation_idempotent(db, expectation_record)
             if created:

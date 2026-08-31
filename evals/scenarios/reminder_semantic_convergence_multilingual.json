@@ -1,0 +1,15 @@
+{
+  "name": "reminder_semantic_convergence_multilingual",
+  "description": "Same semantic intent (reminder with grounded time) across languages and phrasings. Every variant must converge on: expectation created + reminder window grounded at tomorrow 09:00 local.",
+  "timezone": "Europe/London",
+  "steps": [
+    {"op": "turn", "now": "2026-09-03T10:00:00Z", "text": "recuérdame llamar a mamá mañana a las 9"},
+    {"op": "reminders", "now": "2026-09-04T09:05:00Z", "expect": [{"type": "reminders_due", "min": 1}]},
+    {"op": "turn", "now": "2026-09-04T10:00:00Z", "text": "um dont let me forget yeah, ring the vet about buster, tomorrow like 11am"},
+    {"op": "reminders", "now": "2026-09-05T11:05:00Z", "expect": [{"type": "reminders_due", "min": 1}]},
+    {"op": "turn", "now": "2026-09-05T12:00:00Z", "text": "can you ping me tomorrow around 4 to book the dentist"},
+    {"op": "reminders", "now": "2026-09-06T16:05:00Z", "expect": [{"type": "reminders_due", "min": 1}]},
+    {"op": "turn", "now": "2026-09-06T12:00:00Z", "text": "I need to remember that Ashley likes that restaurant"},
+    {"op": "reminders", "now": "2026-09-06T12:05:00Z", "expect": [{"type": "reminders_due", "exact": 0}]}
+  ]
+}
