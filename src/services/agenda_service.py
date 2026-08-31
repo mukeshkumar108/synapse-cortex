@@ -270,13 +270,35 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
     compiled_by = "fallback"
 
     # Persist the fallback snapshot immediately so the foreground never waits.
-    # Row-locked above: concurrent handover requests serialize here, so the
-    # delete+insert can never violate the owner/horizon unique constraint.
-    db.add(AgendaSnapshot(honcho_workspace_id=workspace_id, owner_peer_id=owner_peer_id,
-                          horizon=horizon, items_json=json.dumps(items),
-                          compiled_by=compiled_by, compiled_at=now,
-                          expires_at=now + timedelta(hours=_AGENDA_TTL_HOURS)))
-    await db.commit()
+    # Concurrent handover requests converge: on the rare unique violation the
+    # losing request re-reads and updates the winning row instead of failing.
+    try:
+        if snap is not None:
+            snap.items_json = json.dumps(items)
+            snap.compiled_by = compiled_by
+            snap.compiled_at = now
+            snap.expires_at = now + timedelta(hours=_AGENDA_TTL_HOURS)
+            db.add(snap)
+        else:
+            db.add(AgendaSnapshot(honcho_workspace_id=workspace_id, owner_peer_id=owner_peer_id,
+                                  horizon=horizon, items_json=json.dumps(items),
+                                  compiled_by=compiled_by, compiled_at=now,
+                                  expires_at=now + timedelta(hours=_AGENDA_TTL_HOURS)))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        loser = (await db.execute(select(AgendaSnapshot).where(
+            AgendaSnapshot.honcho_workspace_id == workspace_id,
+            AgendaSnapshot.owner_peer_id == owner_peer_id,
+            AgendaSnapshot.horizon == horizon,
+        ))).scalars().first()
+        if loser is not None:
+            loser.items_json = json.dumps(items)
+            loser.compiled_by = compiled_by
+            loser.compiled_at = now
+            loser.expires_at = now + timedelta(hours=_AGENDA_TTL_HOURS)
+            db.add(loser)
+            await db.commit()
 
     # Model-ranked refresh in the background: better judgment, zero latency cost.
     if adapter is not None:
