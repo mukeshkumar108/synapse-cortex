@@ -4,6 +4,7 @@ from typing import Any, Dict, Literal, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db import get_async_session
@@ -98,6 +99,20 @@ async def get_session_handover(
         owner_peer_id=req.peer_id,
     )
     result = compile_handover(packet, product=(req.director_hints or {}).get("product"), now=req.now)
+    # Deterministic follow-up accounting: surfacing an ask_now objective in
+    # the handover records the ask opportunity against today's occurrence so
+    # the duty cannot repeat endlessly nor silently vanish (code owns it).
+    try:
+        for obj in (result.get("current_window") or {}).get("objectives") or []:
+            occ_id = obj.get("ask_now") and obj.get("occurrence_id")
+            if occ_id:
+                await db.execute(text(
+                    "update recurring_occurrences set asked_at = :now, "
+                    "ask_count = ask_count + 1 where id = :id"
+                ), {"now": req.now, "id": occ_id})
+        await db.commit()
+    except Exception:
+        await db.rollback()
     result["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
     return result
 

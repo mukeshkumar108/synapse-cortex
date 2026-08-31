@@ -202,8 +202,11 @@ def compile_handover(
             "state": "unconfirmed_today",
         }
         preferred = str(item.get("preferred_window") or "").strip()
-        if preferred and daypart and preferred.lower() not in ("any", "none") \
-                and preferred.lower() not in daypart.lower():
+        window_passed = bool(
+            preferred and daypart and preferred.lower() not in ("any", "none")
+            and preferred.lower() not in daypart.lower()
+        )
+        if window_passed:
             entry["window_pressure"] = (
                 f"preferred window '{preferred}' has passed; objective still alive - "
                 "plan failed, objective persists; consider an adapted strategy"
@@ -216,6 +219,13 @@ def compile_handover(
         target = item.get("target_amount")
         if target is not None and item.get("target_unit"):
             entry["target"] = f"{target} {item['target_unit']}"
+        # Deterministic follow-up duty (accountability partner contract):
+        # an unconfirmed actionable objective with window pressure, not yet
+        # asked about today (max 2 asks/day), SHOULD be asked about this
+        # turn. Code owns whether; the model owns phrasing and timing.
+        if (window_passed or daypart in ("evening", "night")) and int(item.get("ask_count") or 0) < 2:
+            entry["ask_now"] = True
+            entry["occurrence_id"] = item.get("occurrence_id")
         current_window["objectives"].append(entry)
         if len(current_window["objectives"]) >= 3:
             break

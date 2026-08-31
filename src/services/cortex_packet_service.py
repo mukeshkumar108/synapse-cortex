@@ -427,6 +427,8 @@ class CortexPacketService:
                 "target_amount": recurrence.target_amount, "target_unit": recurrence.target_unit,
                 "user_day": user_day.isoformat(),
                 "occurrence_status": occurrence.status.value if occurrence else "pending",
+                "occurrence_id": str(occurrence.id) if occurrence else None,
+                "ask_count": occurrence.ask_count if occurrence else 0,
                 "evidence_ref": recurrence.honcho_message_id,
                 **health,
             })
