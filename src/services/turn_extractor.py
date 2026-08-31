@@ -1026,6 +1026,15 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                         raw["authority"] = None
                         kind = "semantic_only"
                         validation_notes.append("demoted_unsafe_commitment_candidate")
+                # TEMPORAL CONTRACT (schema-level): a reminder request must
+                # carry a temporal_phrase OR become an explicit timing
+                # clarification. Never a silently unschedulable expectation.
+                if raw.get("reminder_request") and not raw.get("temporal_phrase") and not raw.get("clarification_hint"):
+                    raw["clarification_hint"] = {
+                        "missing": "time_or_trigger",
+                        "question": "When should I remind you?",
+                    }
+                    validation_notes.append("reminder_contract_needs_temporal_clarification")
                 candidates.append(ExtractionCandidate(**raw))
             self.last_backend = "model"
             self.last_failure = None
