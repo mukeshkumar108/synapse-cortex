@@ -49,7 +49,10 @@ async def save_expectation_idempotent(
     if not expectation_data.get("reminder_windows_json"):
         blob = f"{expectation_data.get('title', '')} {expectation_data.get('summary', '')}".lower()
         window_start = expectation_data.get("expected_window_start")
-        if expectation_data.get("reminder_requested") and window_start is not None:
+        reminder_flag = expectation_data.get("reminder_requested")
+        if reminder_flag is None and expectation_data.get("expectation_type") == "user_commitment" and window_start is not None:
+            reminder_flag = True  # omitted -> grounded commitment gets a follow-up window by default
+        if reminder_flag and window_start is not None:
             start = window_start if window_start.tzinfo is None else window_start.astimezone(timezone.utc).replace(tzinfo=None)
             window_end = expectation_data.get("expected_window_end") or window_start
             end = window_end if window_end.tzinfo is None else window_end.astimezone(timezone.utc).replace(tzinfo=None)
