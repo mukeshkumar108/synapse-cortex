@@ -167,6 +167,24 @@ class AgendaSnapshot(SQLModel, table=True):
     expires_at: datetime = Field(index=True, nullable=False)
 
 
+class TurnStamp(SQLModel, table=True):
+    """One row per ingested user turn, stamped with the turn's OWN timestamp
+    (the injected clock) rather than wall-clock. Gives the initiative engine
+    an injectable-clock-safe 'when did the user last speak' signal."""
+
+    __tablename__ = "turn_stamps"
+    __table_args__ = (
+        UniqueConstraint("honcho_workspace_id", "honcho_message_id", name="uq_turn_stamp_message"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    honcho_message_id: str = Field(nullable=False)
+    turn_at: datetime = Field(index=True, nullable=False)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
 class ProactiveLog(SQLModel, table=True):
     """Initiative engine ledger: every proactive delivery decision (sent or
     withheld) is recorded so the spam budget, quiet hours and cadence rules

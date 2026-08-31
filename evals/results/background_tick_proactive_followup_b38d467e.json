@@ -1,0 +1,156 @@
+{
+ "spec": {
+  "name": "background_tick_proactive_followup",
+  "timezone": "Europe/London",
+  "steps": [
+   {
+    "op": "turn",
+    "now": "2026-09-01T08:00:00Z",
+    "text": "my goal is at least 10k steps a day, going to try to keep it up"
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T14:30:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": true
+     }
+    ]
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T14:31:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": false
+     }
+    ]
+   },
+   {
+    "op": "turn",
+    "now": "2026-09-01T14:32:00Z",
+    "text": "already did it, 10.5k"
+   },
+   {
+    "op": "initiative",
+    "now": "2026-09-01T18:00:00Z",
+    "expect": [
+     {
+      "type": "initiative",
+      "should_appear": false
+     }
+    ]
+   }
+  ]
+ },
+ "captures": [
+  {
+   "turn": 1,
+   "now": "2026-09-01T08:00:00Z",
+   "op": "turn",
+   "error": "HTTP 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx/1.29.3</center>\r\n</body>\r\n</html>\r\n"
+  },
+  {
+   "turn": 2,
+   "now": "2026-09-01T14:30:00Z",
+   "op": "initiative",
+   "initiative": {
+    "should_appear": true,
+    "reason": "high-pressure agenda item due for follow-up",
+    "item": {
+     "item_key": "obj:f608d6c6-5b0c-4296-9757-099620bc4641",
+     "what": "Walk at least 10,000 steps daily (10000 steps)",
+     "semantic_type": "measurable_goal",
+     "urgency": 0.68,
+     "pressure": 0.65,
+     "occurrence_id": "1f2ab4bc-8b7a-488e-91e5-47542c505487",
+     "why": "daily objective unconfirmed today (0 ask(s) so far)",
+     "next_move": "check in naturally",
+     "horizon": "day",
+     "importance": 0.75,
+     "status": "unresolved",
+     "owner": "user",
+     "score": 0.772,
+     "rank": 0
+    },
+    "local_hour": 15
+   }
+  },
+  {
+   "turn": 3,
+   "now": "2026-09-01T14:31:00Z",
+   "op": "initiative",
+   "initiative": {
+    "should_appear": true,
+    "reason": "high-pressure agenda item due for follow-up",
+    "item": {
+     "item_key": "obj:f608d6c6-5b0c-4296-9757-099620bc4641",
+     "what": "Walk at least 10,000 steps daily (10000 steps)",
+     "semantic_type": "measurable_goal",
+     "urgency": 0.68,
+     "pressure": 0.65,
+     "occurrence_id": "1f2ab4bc-8b7a-488e-91e5-47542c505487",
+     "why": "daily objective unconfirmed today (0 ask(s) so far)",
+     "next_move": "check in naturally",
+     "horizon": "day",
+     "importance": 0.75,
+     "status": "unresolved",
+     "owner": "user",
+     "score": 0.772,
+     "rank": 0
+    },
+    "local_hour": 15
+   }
+  },
+  {
+   "turn": 4,
+   "now": "2026-09-01T14:32:00Z",
+   "op": "turn",
+   "response": {
+    "status": "accepted",
+    "candidates_extracted": 1,
+    "candidates_suppressed_by_reconciliation": 0,
+    "expectation_created": false,
+    "expectations_created_count": 0,
+    "expectation_ids": [],
+    "mutated_expectation_ids": [],
+    "honcho_message_id": "msg_b38d467e_4",
+    "extraction_backend": "model",
+    "operational_mutations": [
+     {
+      "mutation": "occurrence_completed",
+      "id": "1f2ab4bc-8b7a-488e-91e5-47542c505487"
+     }
+    ],
+    "context": {
+     "status": "degraded",
+     "honcho_status": "unavailable"
+    }
+   }
+  },
+  {
+   "turn": 5,
+   "now": "2026-09-01T18:00:00Z",
+   "op": "initiative",
+   "initiative": {
+    "should_appear": false,
+    "reason": "no agenda item carries enough pressure right now",
+    "item": null,
+    "local_hour": 19
+   }
+  }
+ ],
+ "failures": [
+  {
+   "turn": 3,
+   "expect": {
+    "type": "initiative",
+    "should_appear": false
+   },
+   "detail": "initiative should_appear=True reason=high-pressure agenda item due for follow-up"
+  }
+ ],
+ "workspace": "harness_background_tick_proactive_followup_b38d467e"
+}

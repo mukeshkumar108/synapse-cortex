@@ -171,7 +171,9 @@ async def model_rank(candidates: List[Dict[str, Any]], *, daypart: str, adapter:
     Returns None on any failure (caller falls back)."""
     if not candidates:
         return []
-    compact = [{k: c.get(k) for k in ("what", "semantic_type", "owner", "importance", "urgency", "pressure", "status", "why", "next_move")} for c in candidates]
+    for i, c in enumerate(candidates):
+        c["cid"] = f"c{i}"
+    compact = [{k: c.get(k) for k in ("cid", "what", "semantic_type", "owner", "importance", "urgency", "pressure", "status", "why", "next_move")} for c in candidates]
     system = (
         "You compile a companion's LIVE AGENDA: the 3-4 things that most deserve her attention "
         "right now, from competing candidates of mixed kinds (goals, plans, emotional matters, "
@@ -180,7 +182,7 @@ async def model_rank(candidates: List[Dict[str, Any]], *, daypart: str, adapter:
         "rise; recently surfaced items lose urgency; nothing important means an empty agenda is the "
         "correct answer. For each item return: what, semantic_type, owner, importance 0-1, urgency 0-1, "
         "pressure 0-1 (follow-up pressure), status, why (under 12 words), next_move (under 12 words, conversational "
-        "direction, not a script), horizon (now/2h/6h/day). Never invent candidates."
+        "direction, not a script), horizon (now/2h/6h/day). Copy 'what' VERBATIM from the candidate - never reword. Echo 'cid' exactly. Never invent candidates."
     )
     try:
         raw = await adapter.generate_structured(
@@ -207,12 +209,23 @@ async def model_rank(candidates: List[Dict[str, Any]], *, daypart: str, adapter:
     items = raw.get("items") if isinstance(raw, dict) else None
     if not isinstance(items, list):
         return None
+    # The model SELECTS and ORDERS; deterministic code owns item text,
+    # status and pressure. Merge model fields (why/next_move/horizon) onto
+    # the matching candidate by echoed cid (or verbatim-what fallback).
+    by_cid = {c.get("cid"): c for c in candidates}
+    by_what = {c.get("what", "").lower(): c for c in candidates}
     clean: List[Dict[str, Any]] = []
     for item in items[:_MAX_ITEMS]:
-        if not isinstance(item, dict) or not str(item.get("what") or "").strip():
+        if not isinstance(item, dict):
             continue
-        item["rank"] = len(clean)
-        clean.append(item)
+        src = by_cid.get(item.get("cid")) or by_what.get(str(item.get("what") or "").lower())
+        if src is None:
+            continue
+        merged = {**src, "rank": len(clean)}
+        for field in ("why", "next_move", "horizon"):
+            if str(item.get(field) or "").strip():
+                merged[field] = str(item[field])[:200]
+        clean.append(merged)
     return clean or None
 
 

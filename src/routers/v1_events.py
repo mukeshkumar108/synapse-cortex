@@ -11,6 +11,8 @@ from src.schemas.object_state import ObjectStateIngest
 from src.services.turn_extractor import TurnExtractor
 from src.services.expectation_shaper import ExpectationShaper
 from src.services.temporal_grounding import TemporalGrounding
+from src.models.operational_state import TurnStamp
+
 from src.services.persistence import save_expectation_idempotent
 from src.services.lifecycle_service import LifecycleService
 from src.services.object_lifecycle_service import ObjectLifecycleService
@@ -116,6 +118,12 @@ async def ingest_turn_event(
     Ingests shadow turn event from Sophie/Honcho.
     Executes V4 multi-pass extraction -> shaping -> temporal grounding -> lifecycle mutations -> idempotent persistence.
     """
+    # Turn stamp: the turn's own timestamp (injectable clock), consumed by
+    # the initiative engine's user-recently-active guard.
+    db.add(TurnStamp(honcho_workspace_id=payload.workspace_id,
+                     owner_peer_id=payload.peer_id,
+                     honcho_message_id=payload.honcho_message_id,
+                     turn_at=_naive_utc(payload.now)))
     # 1. Multi-pass Turn Extraction
     await operational_state_service.sweep(db, workspace_id=payload.workspace_id, now=payload.now)
     await lifecycle_service.apply_reopen_conditions(
