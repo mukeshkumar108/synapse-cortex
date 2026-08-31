@@ -52,6 +52,23 @@ async def save_expectation_idempotent(
         reminder_flag = expectation_data.get("reminder_requested")
         if reminder_flag is None and expectation_data.get("expectation_type") == "user_commitment" and window_start is not None:
             reminder_flag = True  # omitted -> grounded commitment gets a follow-up window by default
+        # Second-chance grounding: the creation path sometimes fails to bind
+        # the window even when a temporal phrase exists (production divergence).
+        # The commit boundary owns the final validation: re-ground once here.
+        if reminder_flag and window_start is None:
+            phrase = expectation_data.get("raw_temporal_phrase")
+            if phrase:
+                from src.services.temporal_grounding import TemporalGrounding
+                try:
+                    anchor_tz = expectation_data.get("anchor_timezone") or "UTC"
+                    re_start, re_end, _ = TemporalGrounding().ground_expression(
+                        raw_phrase=phrase, now=datetime.now(timezone.utc), timezone_str=anchor_tz)
+                    if re_start:
+                        expectation_data["expected_window_start"] = re_start
+                        expectation_data["expected_window_end"] = re_end
+                        window_start = re_start
+                except Exception:
+                    pass
         if reminder_flag and window_start is not None:
             start = window_start if window_start.tzinfo is None else window_start.astimezone(timezone.utc).replace(tzinfo=None)
             window_end = expectation_data.get("expected_window_end") or window_start

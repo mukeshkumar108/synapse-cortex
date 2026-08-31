@@ -1,93 +1,93 @@
 {
  "deepseek/deepseek-v4-flash": {
   "dims": {
-   "comprehension_steering": 0,
-   "conversational_intelligence": 0,
-   "epistemic_discipline": 0,
-   "packet_utilisation": 0,
-   "naturalness": 0,
-   "latency_cost": 0
+   "comprehension_steering": 4.5,
+   "conversational_intelligence": 4.0,
+   "epistemic_discipline": 5.0,
+   "packet_utilisation": 4.5,
+   "naturalness": 4.5,
+   "latency_cost": 0.0
   },
-  "weighted": 0.0,
-  "avg_ms": 4515,
-  "tokens": 8746
+  "weighted": 4.25,
+  "avg_ms": 10564,
+  "tokens": 8680
  },
  "openai/gpt-5.6-luna-pro": {
   "dims": {
-   "comprehension_steering": 0,
-   "conversational_intelligence": 0,
-   "epistemic_discipline": 0,
-   "packet_utilisation": 0,
-   "naturalness": 0,
-   "latency_cost": 0
+   "comprehension_steering": 9.0,
+   "conversational_intelligence": 8.0,
+   "epistemic_discipline": 10.0,
+   "packet_utilisation": 9.75,
+   "naturalness": 9.5,
+   "latency_cost": 0.0
   },
-  "weighted": 0.0,
-  "avg_ms": 7378,
-  "tokens": 56216
+  "weighted": 8.6,
+  "avg_ms": 7375,
+  "tokens": 56341
  },
  "minimax/minimax-m3": {
   "dims": {
-   "comprehension_steering": 0,
-   "conversational_intelligence": 0,
-   "epistemic_discipline": 0,
-   "packet_utilisation": 0,
-   "naturalness": 0,
-   "latency_cost": 0
+   "comprehension_steering": 6.6,
+   "conversational_intelligence": 5.4,
+   "epistemic_discipline": 7.6,
+   "packet_utilisation": 6.6,
+   "naturalness": 7.4,
+   "latency_cost": 0.0
   },
-  "weighted": 0.0,
-  "avg_ms": 3014,
-  "tokens": 10435
+  "weighted": 6.21,
+  "avg_ms": 3230,
+  "tokens": 10387
  },
  "upstage/solar-pro4": {
   "dims": {
-   "comprehension_steering": 0,
-   "conversational_intelligence": 0,
-   "epistemic_discipline": 0,
-   "packet_utilisation": 0,
-   "naturalness": 0,
-   "latency_cost": 0
+   "comprehension_steering": 8.75,
+   "conversational_intelligence": 7.75,
+   "epistemic_discipline": 10.0,
+   "packet_utilisation": 9.0,
+   "naturalness": 9.5,
+   "latency_cost": 0.0
   },
-  "weighted": 0.0,
-  "avg_ms": 5313,
-  "tokens": 8321
+  "weighted": 8.38,
+  "avg_ms": 4737,
+  "tokens": 8324
  },
  "meta/muse-spark-1.2-contributor": {
   "dims": {
-   "comprehension_steering": 0,
-   "conversational_intelligence": 0,
-   "epistemic_discipline": 0,
-   "packet_utilisation": 0,
-   "naturalness": 0,
-   "latency_cost": 0
+   "comprehension_steering": 2.56,
+   "conversational_intelligence": 2.22,
+   "epistemic_discipline": 2.89,
+   "packet_utilisation": 2.44,
+   "naturalness": 2.44,
+   "latency_cost": 0.0
   },
-  "weighted": 0.0,
-  "avg_ms": 5732,
+  "weighted": 2.4,
+  "avg_ms": 3551,
   "tokens": 10603
  },
  "z-ai/glm-5.3-flash": {
   "dims": {
-   "comprehension_steering": 0,
-   "conversational_intelligence": 0,
-   "epistemic_discipline": 0,
-   "packet_utilisation": 0,
-   "naturalness": 0,
-   "latency_cost": 0
+   "comprehension_steering": 0.0,
+   "conversational_intelligence": 0.0,
+   "epistemic_discipline": 0.0,
+   "packet_utilisation": 0.0,
+   "naturalness": 0.0,
+   "latency_cost": 0.0
   },
   "weighted": 0.0,
-  "avg_ms": 30702,
-  "tokens": 10433
+  "avg_ms": 19275,
+  "tokens": 10575
  },
  "nvidia/nemotron-3.5-lightning": {
   "dims": {
-   "comprehension_steering": 0,
-   "conversational_intelligence": 0,
-   "epistemic_discipline": 0,
-   "packet_utilisation": 0,
-   "naturalness": 0,
-   "latency_cost": 0
+   "comprehension_steering": 4.67,
+   "conversational_intelligence": 4.0,
+   "epistemic_discipline": 5.67,
+   "packet_utilisation": 5.0,
+   "naturalness": 5.33,
+   "latency_cost": 0.0
   },
-  "weighted": 0.0,
-  "avg_ms": 2111,
-  "tokens": 10707
+  "weighted": 4.54,
+  "avg_ms": 1817,
+  "tokens": 10681
  }
 }
