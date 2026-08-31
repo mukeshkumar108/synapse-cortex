@@ -413,10 +413,25 @@ class CortexPacketService:
             occurrences_by_intention.setdefault(str(occurrence.recurring_intention_id), []).append(occurrence)
         recurring_items = []
         for recurrence in recurrences[:8]:
+            if recurrence.semantic_type == "observed_pattern":
+                # Observed patterns get no daily occurrence accounting: they
+                # are context, never an actionable daily duty.
+                continue
             occurrence = (await db.execute(select(RecurringOccurrence).where(
                 RecurringOccurrence.recurring_intention_id == recurrence.id,
                 RecurringOccurrence.user_day == user_day,
             ))).scalar_one_or_none()
+            if occurrence is None and recurrence.status == OperationalStatus.ACTIVE:
+                # Deterministic daily occurrence: every active actionable
+                # recurrence owes today a row, or follow-up accounting (and
+                # the ask ledger) has nothing to attach to.
+                occurrence = RecurringOccurrence(
+                    recurring_intention_id=recurrence.id,
+                    honcho_workspace_id=recurrence.honcho_workspace_id,
+                    user_day=user_day,
+                )
+                db.add(occurrence)
+                await db.flush()
             health = recurrence_week_health(
                 recurrence, occurrences_by_intention.get(str(recurrence.id), []), user_day
             )

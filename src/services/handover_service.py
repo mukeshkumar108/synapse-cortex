@@ -220,10 +220,14 @@ def compile_handover(
         if target is not None and item.get("target_unit"):
             entry["target"] = f"{target} {item['target_unit']}"
         # Deterministic follow-up duty (accountability partner contract):
-        # an unconfirmed actionable objective with window pressure, not yet
-        # asked about today (max 2 asks/day), SHOULD be asked about this
-        # turn. Code owns whether; the model owns phrasing and timing.
-        if (window_passed or daypart in ("evening", "night")) and int(item.get("ask_count") or 0) < 2:
+        # an unconfirmed actionable objective gets asked about from the
+        # afternoon onward (or earlier if its preferred window already
+        # passed), at most 2 asks/day. Code owns whether; the model owns
+        # phrasing and timing.
+        if (
+            (window_passed or daypart in ("afternoon", "evening", "night"))
+            and int(item.get("ask_count") or 0) < 2
+        ):
             entry["ask_now"] = True
             entry["occurrence_id"] = item.get("occurrence_id")
         current_window["objectives"].append(entry)
