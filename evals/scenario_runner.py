@@ -12,7 +12,7 @@ Usage:
 """
 from __future__ import annotations
 
-import json, sys, time, uuid, urllib.request, urllib.error
+import json, os, sys, time, uuid, urllib.request, urllib.error
 from pathlib import Path
 
 BASE = "http://127.0.0.1:8002"
@@ -28,6 +28,36 @@ def _post(path: str, payload: dict, timeout: float = 150):
         return json.loads(r.read())
 
 
+HONCHO_BASE = os.environ.get("HONCHO_BASE_URL", "http://honcho-api:8000")
+HONCHO_TOKEN = os.environ.get("HONCHO_API_KEY", "")
+
+
+def _honcho_seed(ws: str, session: str, peer: str, turns: list) -> int:
+    """Write unseeded turns into Honcho (emulates the app's synchronous
+    per-turn memory writes). Deterministic message ids; returns seeded count."""
+    if not turns or not HONCHO_TOKEN:
+        return 0
+    import urllib.request as _u
+
+    def _req(path: str, method: str = "PUT", body: dict | None = None):
+        data = json.dumps(body or {}).encode()
+        req = _u.Request(f"{HONCHO_BASE}{path}", data=data, method=method,
+                         headers={"Content-Type": "application/json",
+                                  "Authorization": f"Bearer {HONCHO_TOKEN}"})
+        with _u.urlopen(req, timeout=30) as r:
+            return r.status
+
+    _req(f"/v3/workspaces/{ws}")
+    _req(f"/v3/workspaces/{ws}/peers/{peer}")
+    _req(f"/v3/workspaces/{ws}/sessions/{session}")
+    for idx, text in turns:
+        _req(f"/v3/workspaces/{ws}/sessions/{session}/messages", "POST", {
+            "messages": [{"role": "user", "content": text, "metadata": {
+                "source": "scenario_runner", "app_role": "user",
+                "app_message_id": f"msg_{ws}_{idx}"}}]})
+    return len(turns)
+
+
 def run_scenario(path: Path) -> dict:
     spec = json.loads(path.read_text())
     run_id = uuid.uuid4().hex[:8]
@@ -37,12 +67,14 @@ def run_scenario(path: Path) -> dict:
     tz = spec.get("timezone", "Europe/London")
     captures, failures = [], []
     t_idx = 0
+    turns_so_far: list = []  # (idx, text) — seeded into Honcho on sweep
     for step in spec["steps"]:
         t_idx += 1
         now = step["now"]
         capture = {"turn": t_idx, "now": now, "op": step["op"]}
         try:
             if step["op"] == "turn":
+                turns_so_far.append((t_idx, step["text"]))
                 capture["response"] = _post("/v1/events/turn", {
                     "workspace_id": ws, "session_id": session,
                     "honcho_message_id": f"msg_{run_id}_{t_idx}", "peer_id": peer,
@@ -63,6 +95,10 @@ def run_scenario(path: Path) -> dict:
                     "now": now, "timezone": tz,
                 })
             elif step["op"] == "sweep":
+                # Emulate the app's per-turn Honcho writes (production writes
+                # every turn to Honcho synchronously; the harness must too or
+                # the sweeper has nothing to read). Then trigger Lane 2.
+                _honcho_seed(ws, session, peer, turns_so_far)
                 capture["sweep"] = _post("/v1/cortex/sweeper/run", {
                     "workspace_id": ws, "session_id": session, "peer_id": peer,
                     "now": now, "timezone": tz,
