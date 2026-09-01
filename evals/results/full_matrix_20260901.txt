@@ -1,0 +1,109 @@
+[
+ {
+  "name": "background_tick_proactive_followup",
+  "status": "PASS",
+  "failures": [],
+  "artifact": "/app/evals3/results/background_tick_proactive_followup_3afa47ff.json"
+ },
+ {
+  "name": "brain_dump_multi_item",
+  "status": "PASS",
+  "failures": [],
+  "artifact": "/app/evals3/results/brain_dump_multi_item_76f2d9a3.json"
+ },
+ {
+  "name": "no_pressing_item",
+  "status": "PASS",
+  "failures": [],
+  "artifact": "/app/evals3/results/no_pressing_item_aaa86263.json"
+ },
+ {
+  "name": "reminder_semantic_convergence_multilingual",
+  "status": "FAIL (3)",
+  "failures": [
+   {
+    "turn": 2,
+    "expect": {
+     "type": "reminders_due",
+     "min": 1
+    },
+    "detail": "reminders due 0 < 1"
+   },
+   {
+    "turn": 4,
+    "expect": {
+     "type": "reminders_due",
+     "min": 1
+    },
+    "detail": "reminders due 0 < 1"
+   },
+   {
+    "turn": 6,
+    "expect": {
+     "type": "reminders_due",
+     "min": 1
+    },
+    "detail": "reminders due 0 < 1"
+   }
+  ],
+  "artifact": "/app/evals3/results/reminder_semantic_convergence_multilingual_c296f77e.json"
+ },
+ {
+  "name": "reminder_semantic_range",
+  "status": "PASS",
+  "failures": [],
+  "artifact": "/app/evals3/results/reminder_semantic_range_fbbeb5d0.json"
+ },
+ {
+  "name": "sanity_doctor_who_interruption",
+  "status": "PASS",
+  "failures": [],
+  "artifact": "/app/evals3/results/sanity_doctor_who_interruption_12fa3032.json"
+ },
+ {
+  "name": "sanity_hospital_no_nag",
+  "status": "PASS",
+  "failures": [],
+  "artifact": "/app/evals3/results/sanity_hospital_no_nag_1f928551.json"
+ },
+ {
+  "name": "sanity_no_contract_chatter",
+  "status": "PASS",
+  "failures": [],
+  "artifact": "/app/evals3/results/sanity_no_contract_chatter_de8ccccc.json"
+ },
+ {
+  "name": "unrelated_reentry_with_outstanding_morning_objective",
+  "status": "FAIL (2)",
+  "failures": [
+   {
+    "turn": 3,
+    "expect": {
+     "type": "agenda_contains",
+     "what": "10,000 steps",
+     "min_pressure": "medium"
+    },
+    "detail": "agenda lacks '10,000 steps'"
+   },
+   {
+    "turn": 5,
+    "expect": {
+     "type": "agenda_contains",
+     "what": "10,000 steps",
+     "min_pressure": "medium"
+    },
+    "detail": "agenda lacks '10,000 steps'"
+   }
+  ],
+  "artifact": "/app/evals3/results/unrelated_reentry_with_outstanding_morning_objective_cbfea601.json"
+ }
+]
+
+MATRIX: 7/9 PASS
+  FAIL reminder_semantic_convergence_multilingual
+    T2: {'type': 'reminders_due', 'min': 1} -> reminders due 0 < 1
+    T4: {'type': 'reminders_due', 'min': 1} -> reminders due 0 < 1
+    T6: {'type': 'reminders_due', 'min': 1} -> reminders due 0 < 1
+  FAIL unrelated_reentry_with_outstanding_morning_objective
+    T3: {'type': 'agenda_contains', 'what': '10,000 steps', 'min_pressure': 'medium'} -> agenda lacks '10,000 steps'
+    T5: {'type': 'agenda_contains', 'what': '10,000 steps', 'min_pressure': 'medium'} -> agenda lacks '10,000 steps'
