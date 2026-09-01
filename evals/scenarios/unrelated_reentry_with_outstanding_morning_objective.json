@@ -8,6 +8,10 @@
       "text": "morning. my goal is still at least 10k steps a day, I want to keep that going"
     },
     {
+      "op": "sweep",
+      "now": "2026-09-01T08:02:00Z"
+    },
+    {
       "op": "handover",
       "now": "2026-09-01T08:05:00Z",
       "expect": [

@@ -165,6 +165,39 @@ class HonchoClient:
 
         return await self._get_json(key, fetch)
 
+    async def peer_search(
+        self,
+        workspace_id: str,
+        peer_id: str,
+        query: str,
+        limit: int = 6,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Peer-wide semantic search across ALL sessions (Lane 2 sweeper evidence).
+
+        Unlike search_messages (current session), this reaches the accumulated
+        doc store for the peer, including assistant turns. Bounded, fail-open.
+        """
+        if not query or not query.strip():
+            return None
+        data = await self._request(
+            "POST",
+            f"/workspaces/{workspace_id}/peers/{peer_id}/search",
+            body={"query": query[:500], "limit": limit},
+        )
+        if not isinstance(data, list):
+            return None
+        return [
+            {
+                "id": item.get("id"),
+                "content": item.get("content"),
+                "peer_id": item.get("peer_id"),
+                "session_id": item.get("session_id"),
+                "created_at": item.get("created_at"),
+                "metadata": item.get("metadata") or {},
+            }
+            for item in data[:limit]
+        ]
+
     async def conclusions(
         self, workspace_id: str, observed: Optional[str] = None, limit: int = 3
     ) -> Optional[List[Dict[str, Any]]]:

@@ -3,6 +3,7 @@
   "timezone": "Europe/London",
   "steps": [
     {"op": "turn", "now": "2026-09-01T08:00:00Z", "text": "my goal is at least 10k steps a day, going to try to keep it up"},
+    {"op": "sweep", "now": "2026-09-01T08:05:00Z"},
     {"op": "initiative", "now": "2026-09-01T14:30:00Z", "expect": [
       {"type": "initiative", "should_appear": true}
     ]},

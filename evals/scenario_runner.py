@@ -62,6 +62,11 @@ def run_scenario(path: Path) -> dict:
                     "workspace_id": ws, "session_id": session, "peer_id": peer,
                     "now": now, "timezone": tz,
                 })
+            elif step["op"] == "sweep":
+                capture["sweep"] = _post("/v1/cortex/sweeper/run", {
+                    "workspace_id": ws, "session_id": session, "peer_id": peer,
+                    "now": now, "timezone": tz,
+                }, timeout=180)
             elif step["op"] == "reminders":
                 capture["reminders"] = _post("/v1/cortex/reminders/due", {
                     "workspace_id": ws, "session_id": session, "peer_id": peer,
