@@ -57,6 +57,7 @@ def compile_handover(
         owed_items.append({
             "what": str(item.get("what") or "")[:90],
             "occurrence_id": item.get("occurrence_id"),
+            "pressure": item.get("pressure"),
             "followup_state": item.get("followup_state", "outstanding"),
             "next_move": str(item.get("next_move") or "")[:110],
         })
