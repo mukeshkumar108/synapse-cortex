@@ -1,0 +1,338 @@
+{
+  "generated_at": "2026-09-01T12:15:31.302908+00:00",
+  "model": "deepseek/deepseek-v4-flash",
+  "results": [
+    {
+      "id": "real-20260823-015558-reminder",
+      "provenance": "2026-08-23T01:55:58Z honcho message",
+      "current_kinds": [
+        null
+      ],
+      "current_detail": [
+        {
+          "kind": null,
+          "title": "Go for a walk tomorrow",
+          "temporal_phrase": "tomorrow",
+          "reminder_request": true,
+          "evidence_class": null
+        }
+      ],
+      "current_failure": null,
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "create",
+      "expected_match": false,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260828-193046-dated-event",
+      "provenance": "2026-08-28T19:30:46Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "create",
+      "expected_match": false,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260829-231930-cancel",
+      "provenance": "2026-08-29T23:19:30Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "cancel",
+      "expected_match": false,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260830-000251-correct",
+      "provenance": "2026-08-30T00:02:51Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "cancel",
+      "expected_match": false,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260829-231824-correction",
+      "provenance": "2026-08-29T23:18:24Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "cancel",
+      "expected_match": false,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260824-155314-progress",
+      "provenance": "2026-08-24T15:53:14Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "create",
+      "expected_match": false,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260823-014740-narration",
+      "provenance": "2026-08-23T01:47:40Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "none",
+      "expected_match": true,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260823-015306-feedback",
+      "provenance": null,
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "none",
+      "expected_match": true,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260823-184139-pattern",
+      "provenance": "2026-08-23T18:41:39Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "none",
+      "expected_match": true,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260828-024541-sleep",
+      "provenance": "2026-08-28T02:45:41Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "none",
+      "expected_match": true,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260828-193910-venting",
+      "provenance": "2026-08-28T19:39:10Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "none",
+      "expected_match": true,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260829-103011-preferences",
+      "provenance": "2026-08-29T10:30:11Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "none",
+      "expected_match": true,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260831-010038-bed",
+      "provenance": "2026-08-31T01:00:38Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "none",
+      "expected_match": true,
+      "agreement_class": "MATCH"
+    },
+    {
+      "id": "real-20260831-113945-vague-commitment",
+      "provenance": "2026-08-31T11:39:45Z honcho message",
+      "current_kinds": [],
+      "current_detail": [],
+      "current_failure": "ModelCallError: All extraction models exhausted",
+      "narrow": {
+        "decision": "none",
+        "kind": null,
+        "title": null,
+        "target_key": null,
+        "canonical_title": null,
+        "temporal_phrase": null,
+        "valid": false,
+        "confidence": 0.0,
+        "validation_notes": [
+          "model_call_failed: ModelCallError: All extraction models exhausted"
+        ]
+      },
+      "expected_narrow": "none",
+      "expected_match": true,
+      "agreement_class": "MATCH"
+    }
+  ]
+}
