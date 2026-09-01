@@ -104,28 +104,47 @@ HANDOVER v5 (<=151 tokens verified)
 10. background model ranking must echo candidate ids — "what" rewording broke
     agenda assertions; verbatim merge contract fixed it.
 
-## 6. OPEN ITEMS (priority order)
-1. SEMANTIC CONSOLIDATION (Codex's FAIL): "10k steps" and "daytime walk" are two
-   separate recurrences; resolving one leaves the other outstanding. This is Lane
-   2's first job: consolidate semantically-related obligations (one outcome, two
-   strategies). Mechanism: sweeper proposes merge/linkage; deterministic code owns it.
-2. Reminder window persistence: second-chance grounding + default rule deployed
-   but production rows still show start=None in latest verification — needs one
-   instrumented trace at the persistence site (flag may still be omitted by
-   extractor model, or USER_INTENTION default gate edge).
-3. Lane 1 slimming: reconcile-against-objects prompt (narrow) replacing open-ended
-   per-turn ontology discovery.
-4. Lane 2 sweeper build (Honcho retrieval fix first).
-5. Greeting/re-entry path consuming the same owed/scene handover (not yet wired).
-6. Streaming foreground call (latency: deepseek was 14-32s non-streaming; luna ~7s).
-7. Deferred sanity fixtures: Doctor Who interruption, hospital interruption,
-   no-contract conversation (deferred in Codex's run).
+## 6. OPEN ITEMS (priority order — corrected 2026-09-01 post-Codex)
+NOTE: Codex verified the reminder/object-projection path end-to-end in production
+(exactly-once firing). Do NOT reopen reminder persistence unless a fresh case on
+the settled stack reproduces it. The 10k/daytime-walk "split" was a synthetic
+fixture artifact (production has ONE 10k recurrence) — keep as a fixture test
+case, not a consolidation requirement.
+1. Fix/understand Honcho retrieval: doc store is rich (10k history, autumn
+   constraint, routines) but peer.chat returns "no information" for all unprimed
+   questions on the production peer. Verify chat surface (session context?),
+   conclusions, search. Hard prerequisite for Lane 2.
+2. Define the NARROW real-time Cortex contract: real-time handles only
+   operational action NOW — create explicit reminder/event/commitment; or
+   update/complete/cancel/reschedule/progress an existing one. Remove open-ended
+   "anything interesting here?" ontology discovery from the per-turn pass.
+3. Prototype the Honcho-backed sweeper: object-shaped semantic questions (goal?
+   habit? open loop? blocker? commitment BY USER? commitment BY SOPHIE?
+   constraint? pattern? expected event?) with evidence/provenance, run async
+   (session end / every few days / on accumulation).
+4. Feed sweeper candidates into EXISTING Cortex shaping/lifecycle/admission
+   machinery — no second state system.
+5. Run the fixture matrix incl. semantic-consolidation test case (10k vs daytime
+   walk as fixture, not production assumption) and the three deferred sanity
+   fixtures (Doctor Who / hospital / no-contract).
+6. Greeting/re-entry path consuming the same owed/scene handover (not yet wired).
+7. Streaming foreground call (after model decision is final; luna ~7s vs deepseek
+   14-32s non-streaming).
 8. Runtime full suite stall isolation (11 tests, then hang — env issue).
 9. Retire lexical intent fallbacks: expectation_shaper keyword gates,
    RecurrenceSemantics ritual/adherence lexicons, apply_reopen_conditions regex,
    cortex_router query regexes. Regex stays only for machine syntax/validation.
 10. Trajectory governor (logged, NOT built): background analysis of user
     trajectory + Sophie support trajectory + repeated divergence + levers.
+
+## 6b. THE THREE-SPEED MODEL (architecture to carry forward)
+1. WHAT IS OWED NOW? — admission gate + owed/scene handover (BUILT)
+2. DID THIS MESSAGE CREATE/CHANGE SOMETHING OPERATIONAL? — real-time Cortex,
+   narrow contract (TO DEFINE precisely, then slim)
+3. WHAT RICHER UNDERSTANDING HAS ACCUMULATED? — periodic Honcho-backed sweep
+   (TO BUILD, prerequisite: item 1)
+Background decides significance; real-time steering decides relevance to this
+moment; Luna decides expression. HOLD in steering never deletes ledger state.
 
 ## 7. KEY FILES
 - Cortex: src/services/{agenda_service,followthrough_service,initiative_service,
