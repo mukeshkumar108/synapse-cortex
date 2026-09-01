@@ -99,10 +99,21 @@ def run_scenario(path: Path) -> dict:
                 # every turn to Honcho synchronously; the harness must too or
                 # the sweeper has nothing to read). Then trigger Lane 2.
                 _honcho_seed(ws, session, peer, turns_so_far)
-                capture["sweep"] = _post("/v1/cortex/sweeper/run", {
-                    "workspace_id": ws, "session_id": session, "peer_id": peer,
-                    "now": now, "timezone": tz,
-                }, timeout=180)
+                # Deriver embeds asynchronously; retry until evidence is
+                # searchable (bounded) — mirrors real trigger/catch-up timing.
+                sweep_result = None
+                for _ in range(8):
+                    try:
+                        sweep_result = _post("/v1/cortex/sweeper/run", {
+                            "workspace_id": ws, "session_id": session, "peer_id": peer,
+                            "now": now, "timezone": tz,
+                        }, timeout=180)
+                        if sweep_result.get("evidence_packets"):
+                            break
+                    except Exception as e:
+                        sweep_result = {"error": str(e)[:200]}
+                    time.sleep(15)
+                capture["sweep"] = sweep_result
             elif step["op"] == "reminders":
                 capture["reminders"] = _post("/v1/cortex/reminders/due", {
                     "workspace_id": ws, "session_id": session, "peer_id": peer,
