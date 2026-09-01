@@ -26,34 +26,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/cortex", tags=["cortex"])
 
 
-@router.post("/sweeper/run")
-async def run_sweeper(
-    req: WorkingSetRequest,
-    db: AsyncSession = Depends(get_async_session),
-):
-    """LANE 2 — Honcho-backed discovery sweeper.
-
-    Async, trigger-driven (session settled / turn accumulation / promise
-    detected / periodic catch-up). Asks object-shaped semantic questions over
-    accumulated Honcho history and promotes evidence-backed durable findings
-    through the same deterministic persistence as the real-time lane.
-    Idempotent per evidence message. Fail-open: errors are reported, never
-    thrown into the caller's turn path.
-    """
-    from src.services.sweeper_service import SweeperService
-
-    sweeper = SweeperService()
-    try:
-        result = await sweeper.run(
-            db, workspace_id=req.workspace_id, peer_id=req.peer_id,
-            session_id=req.session_id, now=req.now,
-        )
-        return result
-    except Exception as err:
-        logger.exception("Sweeper run failed")
-        return {"status": "error", "detail": str(err)[:300]}
-
-
 handshake_service = CortexHandshakeService()
 packet_service = CortexPacketService()
 router_service = CortexRouterService()
@@ -544,3 +516,31 @@ async def mark_commitment_candidate(
         "candidate_key": row.candidate_key,
         "candidate_status": row.status.value,
     }
+
+
+@router.post("/sweeper/run")
+async def run_sweeper(
+    req: WorkingSetRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """LANE 2 — Honcho-backed discovery sweeper.
+
+    Async, trigger-driven (session settled / turn accumulation / promise
+    detected / periodic catch-up). Asks object-shaped semantic questions over
+    accumulated Honcho history and promotes evidence-backed durable findings
+    through the same deterministic persistence as the real-time lane.
+    Idempotent per evidence message. Fail-open: errors are reported, never
+    thrown into the caller's turn path.
+    """
+    from src.services.sweeper_service import SweeperService
+
+    sweeper = SweeperService()
+    try:
+        result = await sweeper.run(
+            db, workspace_id=req.workspace_id, peer_id=req.peer_id,
+            session_id=req.session_id, now=req.now,
+        )
+        return result
+    except Exception as err:
+        logger.exception("Sweeper run failed")
+        return {"status": "error", "detail": str(err)[:300]}
