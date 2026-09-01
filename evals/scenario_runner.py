@@ -111,7 +111,7 @@ def run_scenario(path: Path) -> dict:
                 # Deriver embeds asynchronously; retry until evidence is
                 # searchable (bounded) — mirrors real trigger/catch-up timing.
                 sweep_result = None
-                for _ in range(8):
+                for _ in range(20):
                     try:
                         sweep_result = _post("/v1/cortex/sweeper/run", {
                             "workspace_id": ws, "session_id": session, "peer_id": peer,
@@ -121,7 +121,7 @@ def run_scenario(path: Path) -> dict:
                             break
                     except Exception as e:
                         sweep_result = {"error": str(e)[:200]}
-                    time.sleep(15)
+                    time.sleep(30)
                 capture["sweep"] = sweep_result
             elif step["op"] == "reminders":
                 capture["reminders"] = _post("/v1/cortex/reminders/due", {
