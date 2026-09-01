@@ -20,10 +20,10 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Column
+from sqlalchemy import Column, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
-from sqlalchemy import SAEnum
+from sqlalchemy import Enum as SAEnum
 
 import enum
 
