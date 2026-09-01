@@ -82,6 +82,8 @@ async def evaluate_initiative(
     from src.models.operational_state import TurnStamp
     last_turn = (await db.execute(select(TurnStamp.turn_at).where(
         TurnStamp.honcho_workspace_id == workspace_id,
+        TurnStamp.owner_peer_id == owner_peer_id,
+        TurnStamp.turn_at <= now,
     ).order_by(TurnStamp.turn_at.desc()).limit(1))).scalar()
     if last_turn and (now - last_turn).total_seconds() < 30 * 60:
         return await ledger("withheld:user_recently_active", reason="user messaged recently; reactive path owns agenda")
