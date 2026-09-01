@@ -1,0 +1,1372 @@
+{
+  "generated_at": "2026-09-01T12:47:45.656411+00:00",
+  "summaries": [
+    {
+      "model": "deepseek/deepseek-v4-flash",
+      "n": 14,
+      "schema_gate": 1.0,
+      "error_rate": 0.0,
+      "operation_acc": 0.857,
+      "none_precision": 1.0,
+      "target_acc": 1.0,
+      "latency_p50": 4.45,
+      "latency_p95": 12.54
+    },
+    {
+      "model": "openai/gpt-4o-mini",
+      "n": 14,
+      "schema_gate": 1.0,
+      "error_rate": 0.0,
+      "operation_acc": 0.929,
+      "none_precision": 1.0,
+      "target_acc": 1.0,
+      "latency_p50": 2.64,
+      "latency_p95": 2.92
+    },
+    {
+      "model": "cohere/command-r7b-12-2024",
+      "n": 14,
+      "schema_gate": 0.929,
+      "error_rate": 0.0,
+      "operation_acc": 0.714,
+      "none_precision": 1.0,
+      "target_acc": 1.0,
+      "latency_p50": 2.27,
+      "latency_p95": 2.83
+    },
+    {
+      "model": "ibm-granite/granite-4.1-8b",
+      "n": 14,
+      "schema_gate": 0.929,
+      "error_rate": 0.071,
+      "operation_acc": 0.857,
+      "none_precision": 0.875,
+      "target_acc": 1.0,
+      "latency_p50": 1.83,
+      "latency_p95": 2.51
+    },
+    {
+      "model": "ibm-granite/granite-4.0-h-micro",
+      "n": 14,
+      "schema_gate": 0.857,
+      "error_rate": 0.0,
+      "operation_acc": 0.714,
+      "none_precision": 0.875,
+      "target_acc": 1.0,
+      "latency_p50": 4.01,
+      "latency_p95": 5.16
+    }
+  ],
+  "paraphrase": [
+    {
+      "model": "deepseek/deepseek-v4-flash",
+      "paraphrase_invariance": 0.75,
+      "details": [
+        {
+          "pair": "reminder",
+          "outs": [
+            [
+              "create",
+              "reminder"
+            ],
+            [
+              "create",
+              "reminder"
+            ]
+          ],
+          "expected": [
+            "create",
+            "reminder"
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "event",
+          "outs": [
+            [
+              "create",
+              "event"
+            ],
+            [
+              "create",
+              "event"
+            ]
+          ],
+          "expected": [
+            "create",
+            "event"
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "none-narration",
+          "outs": [
+            [
+              "none",
+              null
+            ],
+            [
+              "none",
+              null
+            ]
+          ],
+          "expected": [
+            "none",
+            null
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "cancel",
+          "outs": [
+            [
+              "cancel",
+              "event"
+            ],
+            [
+              "cancel",
+              "planned_event"
+            ]
+          ],
+          "expected": [
+            "cancel",
+            null
+          ],
+          "invariant": false
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-4o-mini",
+      "paraphrase_invariance": 0.5,
+      "details": [
+        {
+          "pair": "reminder",
+          "outs": [
+            [
+              "none",
+              null
+            ],
+            [
+              "create",
+              "reminder"
+            ]
+          ],
+          "expected": [
+            "create",
+            "reminder"
+          ],
+          "invariant": false
+        },
+        {
+          "pair": "event",
+          "outs": [
+            [
+              "create",
+              "event"
+            ],
+            [
+              "create",
+              "event"
+            ]
+          ],
+          "expected": [
+            "create",
+            "event"
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "none-narration",
+          "outs": [
+            [
+              "none",
+              null
+            ],
+            [
+              "none",
+              null
+            ]
+          ],
+          "expected": [
+            "none",
+            null
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "cancel",
+          "outs": [
+            [
+              "cancel",
+              "event"
+            ],
+            [
+              "cancel",
+              "event"
+            ]
+          ],
+          "expected": [
+            "cancel",
+            null
+          ],
+          "invariant": false
+        }
+      ]
+    },
+    {
+      "model": "cohere/command-r7b-12-2024",
+      "paraphrase_invariance": 0.5,
+      "details": [
+        {
+          "pair": "reminder",
+          "outs": [
+            [
+              "none",
+              null
+            ],
+            [
+              "none",
+              null
+            ]
+          ],
+          "expected": [
+            "create",
+            "reminder"
+          ],
+          "invariant": false
+        },
+        {
+          "pair": "event",
+          "outs": [
+            [
+              "create",
+              "event"
+            ],
+            [
+              "create",
+              "event"
+            ]
+          ],
+          "expected": [
+            "create",
+            "event"
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "none-narration",
+          "outs": [
+            [
+              "none",
+              null
+            ],
+            [
+              "none",
+              null
+            ]
+          ],
+          "expected": [
+            "none",
+            null
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "cancel",
+          "outs": [
+            [
+              "cancel",
+              "event"
+            ],
+            [
+              "cancel",
+              "event"
+            ]
+          ],
+          "expected": [
+            "cancel",
+            null
+          ],
+          "invariant": false
+        }
+      ]
+    },
+    {
+      "model": "ibm-granite/granite-4.1-8b",
+      "paraphrase_invariance": 0.5,
+      "details": [
+        {
+          "pair": "reminder",
+          "outs": [
+            [
+              "create",
+              "reminder"
+            ],
+            [
+              "create",
+              "reminder"
+            ]
+          ],
+          "expected": [
+            "create",
+            "reminder"
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "event",
+          "outs": [
+            [
+              "create",
+              "event"
+            ],
+            [
+              "create",
+              "event"
+            ]
+          ],
+          "expected": [
+            "create",
+            "event"
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "none-narration",
+          "outs": [
+            [
+              "progress",
+              "commitment"
+            ],
+            [
+              "none",
+              null
+            ]
+          ],
+          "expected": [
+            "none",
+            null
+          ],
+          "invariant": false
+        },
+        {
+          "pair": "cancel",
+          "outs": [
+            [
+              "cancel",
+              "event"
+            ],
+            [
+              "cancel",
+              "event"
+            ]
+          ],
+          "expected": [
+            "cancel",
+            null
+          ],
+          "invariant": false
+        }
+      ]
+    },
+    {
+      "model": "ibm-granite/granite-4.0-h-micro",
+      "paraphrase_invariance": 0.75,
+      "details": [
+        {
+          "pair": "reminder",
+          "outs": [
+            [
+              "create",
+              "reminder"
+            ],
+            [
+              "create",
+              "reminder"
+            ]
+          ],
+          "expected": [
+            "create",
+            "reminder"
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "event",
+          "outs": [
+            [
+              "create",
+              "event"
+            ],
+            [
+              "create",
+              "event"
+            ]
+          ],
+          "expected": [
+            "create",
+            "event"
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "none-narration",
+          "outs": [
+            [
+              "none",
+              null
+            ],
+            [
+              "none",
+              null
+            ]
+          ],
+          "expected": [
+            "none",
+            null
+          ],
+          "invariant": true
+        },
+        {
+          "pair": "cancel",
+          "outs": [
+            [
+              "cancel",
+              "event"
+            ],
+            [
+              "cancel",
+              "event"
+            ]
+          ],
+          "expected": [
+            "cancel",
+            null
+          ],
+          "invariant": false
+        }
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "case": "real-20260823-015558-reminder",
+      "repeat": 0,
+      "latency": 6.0364966075867414,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "create",
+      "got_kind": "reminder",
+      "expected": "create",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-193046-dated-event",
+      "repeat": 0,
+      "latency": 12.544591203331947,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "create",
+      "got_kind": "event",
+      "expected": "create",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231930-cancel",
+      "repeat": 0,
+      "latency": 3.6403937228024006,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260830-000251-correct",
+      "repeat": 0,
+      "latency": 11.888285493478179,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231824-correction",
+      "repeat": 0,
+      "latency": 18.536221096292138,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260824-155314-progress",
+      "repeat": 0,
+      "latency": 3.604532640427351,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "create",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-014740-narration",
+      "repeat": 0,
+      "latency": 4.559185486286879,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-015306-feedback",
+      "repeat": 0,
+      "latency": 4.449514072388411,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-184139-pattern",
+      "repeat": 0,
+      "latency": 7.146160235628486,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-024541-sleep",
+      "repeat": 0,
+      "latency": 3.972026636824012,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-193910-venting",
+      "repeat": 0,
+      "latency": 3.637830551713705,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-103011-preferences",
+      "repeat": 0,
+      "latency": 3.93911262601614,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-010038-bed",
+      "repeat": 0,
+      "latency": 3.5960178952664137,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-113945-vague-commitment",
+      "repeat": 0,
+      "latency": 4.482152283191681,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-015558-reminder",
+      "repeat": 0,
+      "latency": 1.4929596073925495,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "create",
+      "got_kind": "reminder",
+      "expected": "create",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-193046-dated-event",
+      "repeat": 0,
+      "latency": 3.046127513051033,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "create",
+      "got_kind": "event",
+      "expected": "create",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231930-cancel",
+      "repeat": 0,
+      "latency": 2.8209553714841604,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260830-000251-correct",
+      "repeat": 0,
+      "latency": 2.92455886118114,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231824-correction",
+      "repeat": 0,
+      "latency": 2.432377288118005,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260824-155314-progress",
+      "repeat": 0,
+      "latency": 2.7266166992485523,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "create",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-014740-narration",
+      "repeat": 0,
+      "latency": 1.6075176261365414,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-015306-feedback",
+      "repeat": 0,
+      "latency": 1.8905608803033829,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-184139-pattern",
+      "repeat": 0,
+      "latency": 2.6825649701058865,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-024541-sleep",
+      "repeat": 0,
+      "latency": 2.7567417062819004,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-193910-venting",
+      "repeat": 0,
+      "latency": 2.7321721240878105,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-103011-preferences",
+      "repeat": 0,
+      "latency": 2.644418114796281,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-010038-bed",
+      "repeat": 0,
+      "latency": 2.3515176475048065,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-113945-vague-commitment",
+      "repeat": 0,
+      "latency": 2.630749151110649,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-015558-reminder",
+      "repeat": 0,
+      "latency": 1.9036196190863848,
+      "schema_ok": false,
+      "call_failed": false,
+      "got": null,
+      "got_kind": null,
+      "expected": "create",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": [
+        "rejected: create requires a title"
+      ]
+    },
+    {
+      "case": "real-20260828-193046-dated-event",
+      "repeat": 0,
+      "latency": 2.2723955158144236,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "create",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231930-cancel",
+      "repeat": 0,
+      "latency": 2.6584031861275434,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260830-000251-correct",
+      "repeat": 0,
+      "latency": 2.4518811032176018,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231824-correction",
+      "repeat": 0,
+      "latency": 2.808853093534708,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260824-155314-progress",
+      "repeat": 0,
+      "latency": 2.2097183782607317,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "create",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-014740-narration",
+      "repeat": 0,
+      "latency": 1.841251576319337,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-015306-feedback",
+      "repeat": 0,
+      "latency": 1.6178340092301369,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-184139-pattern",
+      "repeat": 0,
+      "latency": 2.136441398411989,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-024541-sleep",
+      "repeat": 0,
+      "latency": 2.455597748979926,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-193910-venting",
+      "repeat": 0,
+      "latency": 2.830716300755739,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-103011-preferences",
+      "repeat": 0,
+      "latency": 2.497290777042508,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-010038-bed",
+      "repeat": 0,
+      "latency": 1.7868119347840548,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-113945-vague-commitment",
+      "repeat": 0,
+      "latency": 2.855028383433819,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-015558-reminder",
+      "repeat": 0,
+      "latency": 1.828918345272541,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "create",
+      "got_kind": "reminder",
+      "expected": "create",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-193046-dated-event",
+      "repeat": 0,
+      "latency": 2.5060772877186537,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "create",
+      "got_kind": "event",
+      "expected": "create",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231930-cancel",
+      "repeat": 0,
+      "latency": 2.5548849906772375,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260830-000251-correct",
+      "repeat": 0,
+      "latency": 2.0950591042637825,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231824-correction",
+      "repeat": 0,
+      "latency": 2.4474253207445145,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260824-155314-progress",
+      "repeat": 0,
+      "latency": 1.5525958389043808,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "create",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-014740-narration",
+      "repeat": 0,
+      "latency": 1.5088913962244987,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-015306-feedback",
+      "repeat": 0,
+      "latency": 1.9890865851193666,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-184139-pattern",
+      "repeat": 0,
+      "latency": 1.5585533790290356,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-024541-sleep",
+      "repeat": 0,
+      "latency": 175.93076111748815,
+      "schema_ok": false,
+      "call_failed": true,
+      "got": null,
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": [
+        "model_call_failed: ModelCallError: All extraction models exhausted"
+      ]
+    },
+    {
+      "case": "real-20260828-193910-venting",
+      "repeat": 0,
+      "latency": 1.680734133347869,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-103011-preferences",
+      "repeat": 0,
+      "latency": 1.9947585705667734,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-010038-bed",
+      "repeat": 0,
+      "latency": 1.2309780605137348,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-113945-vague-commitment",
+      "repeat": 0,
+      "latency": 2.110287457704544,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-015558-reminder",
+      "repeat": 0,
+      "latency": 3.611729048192501,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "create",
+      "got_kind": "reminder",
+      "expected": "create",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-193046-dated-event",
+      "repeat": 0,
+      "latency": 3.6627556793391705,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "create",
+      "got_kind": "event",
+      "expected": "create",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231930-cancel",
+      "repeat": 0,
+      "latency": 5.15699845738709,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "cancel",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": true,
+      "target_ok": true,
+      "notes": []
+    },
+    {
+      "case": "real-20260830-000251-correct",
+      "repeat": 0,
+      "latency": 5.19441201351583,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-231824-correction",
+      "repeat": 0,
+      "latency": 3.593286454677582,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "correct",
+      "got_kind": null,
+      "expected": "cancel",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260824-155314-progress",
+      "repeat": 0,
+      "latency": 4.526876175776124,
+      "schema_ok": false,
+      "call_failed": false,
+      "got": null,
+      "got_kind": null,
+      "expected": "create",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": [
+        "rejected: transition requires target_key or canonical_title from PRIOR STATE"
+      ]
+    },
+    {
+      "case": "real-20260823-014740-narration",
+      "repeat": 0,
+      "latency": 4.00517463311553,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-015306-feedback",
+      "repeat": 0,
+      "latency": 3.8052179366350174,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260823-184139-pattern",
+      "repeat": 0,
+      "latency": 4.381121030077338,
+      "schema_ok": false,
+      "call_failed": false,
+      "got": null,
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": false,
+      "target_ok": null,
+      "notes": [
+        "rejected: evidence_text is not a verbatim span of the turn"
+      ]
+    },
+    {
+      "case": "real-20260828-024541-sleep",
+      "repeat": 0,
+      "latency": 3.8682402446866035,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260828-193910-venting",
+      "repeat": 0,
+      "latency": 4.277805581688881,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260829-103011-preferences",
+      "repeat": 0,
+      "latency": 4.648535316810012,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-010038-bed",
+      "repeat": 0,
+      "latency": 3.917820766568184,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    },
+    {
+      "case": "real-20260831-113945-vague-commitment",
+      "repeat": 0,
+      "latency": 4.949595425277948,
+      "schema_ok": true,
+      "call_failed": false,
+      "got": "none",
+      "got_kind": null,
+      "expected": "none",
+      "op_ok": true,
+      "target_ok": null,
+      "notes": []
+    }
+  ]
+}

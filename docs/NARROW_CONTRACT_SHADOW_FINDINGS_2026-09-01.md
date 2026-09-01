@@ -70,7 +70,29 @@ c. TURN CONTEXT CONTINUITY: current pass treats restatement-in-context as
 d. Sleep-signal, reopen-conditions, dual-aperture context: orthogonal
    deterministic services — unchanged by the narrow contract (not affected).
 
-## Recommendation
+## Small-model bakeoff (run 2026-09-01, frozen narrow contract, 14 real cases + 4 paraphrase pairs)
+Harness: evals/narrow_model_bakeoff.py; raw results: evals/results/narrow_model_bakeoff.json.
+| model | schema_gate | operation_acc | none_prec | target_acc | p50/p95 (s) | paraphrase (corrected) |
+|---|---|---|---|---|---|---|
+| deepseek-v4-flash (baseline) | 1.00 | 0.857 | 1.00 | 1.00 | 4.45 / 12.54 | 1.00 |
+| openai/gpt-4o-mini | 1.00 | **0.929** | 1.00 | 1.00 | 2.64 / 2.92 | 0.75 (missed reworded reminder) |
+| ibm-granite/granite-4.1-8b | 0.929 | 0.857 | 0.875 | 1.00 | **1.83 / 2.51** | 0.75 (hallucinated progress on narration) |
+| cohere/command-r7b-12-2024 | 0.929 | 0.714 | 1.00 | 1.00 | 2.27 / 2.83 | 0.75 (missed reminder in BOTH wordings) |
+| ibm-granite/granite-4.0-h-micro | 0.857 | 0.714 | 0.875 | 1.00 | 4.01 / 5.16 | 1.00 |
+
+Reading (gate = schema 1.0 first, then accuracy, then latency):
+- deepseek is now CLEAN on the narrow lane once max_tokens is bounded (earlier
+  malformed-json chaos was the unbounded/truncation interplay) — but it is the
+  slowest (p95 12.5s) and least accurate (0.857) of the finalists.
+- gpt-4o-mini wins accuracy + none-precision at 2.6s p50; its only real miss is
+  an indirect reminder phrasing — worth a prompt nudge (more indirect-reminder
+  examples) before deciding.
+- granite-4.1-8b is the fastest and decent, but hallucinated an operational
+  decision on pure narration — the worst failure mode for this lane.
+- Verdict: switch the narrow-lane extractor to gpt-4o-mini after a prompt
+  revision targeting indirect reminders, then re-run the matrix + 7-day shadow
+  soak. Keep deepseek as fallback model (SYNAPSE_EXTRACTOR_FALLBACK_MODELS).
+
 Keep `SYNAPSE_NARROW_REALTIME=shadow` OFF in prod until (1) OpenRouter credits
 topped up + max_tokens fix deployed, (2) full 14-case matrix green, (3) 7-day
 shadow soak comparing real traffic. Then cutover Lane 1 to narrow decisions;
