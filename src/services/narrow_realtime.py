@@ -107,7 +107,7 @@ Return JSON with EXACTLY these keys:
 {{"decision": "none|create|progress|complete|cancel|reschedule|correct|suppress|reopen",
   "kind": null | "reminder|event|deadline|commitment",
   "title": null | short canonical object title,
-  "temporal_phrase": null | verbatim time phrase from the turn,
+  "temporal_phrase": null | the user's stated time NORMALIZED TO ENGLISH CANONICAL FORM, e.g. "mañana a las 9" -> "tomorrow at 9am", "demain matin" -> "tomorrow morning", "tonight" -> "tonight". Deterministic code grounds this phrase; any language the user wrote must be translated here.
   "target_key": null | target_key of the live object from PRIOR STATE,
   "canonical_title": null | canonical_title of the live object from PRIOR STATE,
   "evidence_text": null | VERBATIM span from the USER TURN supporting this decision,

@@ -1,0 +1,11 @@
+{
+  "name": "sanity_doctor_who_interruption",
+  "timezone": "Europe/London",
+  "steps": [
+    {"op": "turn", "now": "2026-09-01T20:10:00Z", "text": "right, episode's starting. watching Doctor Who now, don't wait up"},
+    {"op": "turn", "now": "2026-09-01T20:25:00Z", "text": "ok that twist was insane. anyway talk tomorrow about the bike thing"},
+    {"op": "initiative", "now": "2026-09-01T20:40:00Z", "expect": [
+      {"type": "initiative", "should_appear": false}
+    ]}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "sanity_hospital_no_nag",
+  "timezone": "Europe/London",
+  "steps": [
+    {"op": "turn", "now": "2026-09-02T15:00:00Z", "text": "I'm at the hospital, my brother's been admitted. I'll be here a while, can't really talk"},
+    {"op": "initiative", "now": "2026-09-02T17:00:00Z", "expect": [
+      {"type": "initiative", "should_appear": false}
+    ]},
+    {"op": "turn", "now": "2026-09-02T19:30:00Z", "text": "he's stable now, thanks for checking in"},
+    {"op": "initiative", "now": "2026-09-02T20:00:00Z", "expect": [
+      {"type": "initiative", "should_appear": false}
+    ]}
+  ]
+}
