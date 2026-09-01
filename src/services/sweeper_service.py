@@ -176,7 +176,7 @@ class SweeperService:
                     "extractor_version": SWEEPER_VERSION,
                     "source_start": None, "source_end": None,
                     "subject_peer_id": peer_id,
-                    "expectation_type": "durable_objective",
+                    "expectation_type": "user_intention",
                     "title": c["title"][:200],
                     "summary": (c.get("summary") or c["evidence_text"])[:1000],
                     "raw_temporal_phrase": None,
