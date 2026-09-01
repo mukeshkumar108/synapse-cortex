@@ -45,6 +45,16 @@ class WorkingSetRequest(BaseModel):
     director_hints: Optional[Dict[str, Any]] = None
 
 
+class InitiativeCompletionRequest(BaseModel):
+    workspace_id: str
+    peer_id: str
+    decision_id: str
+    occurrence_id: Optional[str] = None
+    delivered: bool
+    now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    reason: Optional[str] = None
+
+
 @router.post("/working-set")
 async def get_cortex_working_set(
     req: WorkingSetRequest,
@@ -170,6 +180,48 @@ async def initiative_tick(req: WorkingSetRequest, db: AsyncSession = Depends(get
         agenda=agenda_result.get("items") or [], now=req.now, timezone_str=req.timezone,
     )
     return decision
+
+
+@router.post("/initiative/complete")
+async def initiative_complete(
+    req: InitiativeCompletionRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Finalize a reservation after the external delivery outcome is known."""
+    from uuid import UUID
+    from src.models.operational_state import ProactiveLog, RecurringOccurrence
+
+    try:
+        decision_id = UUID(req.decision_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="invalid decision_id") from exc
+    row = (await db.execute(select(ProactiveLog).where(
+        ProactiveLog.id == decision_id,
+        ProactiveLog.honcho_workspace_id == req.workspace_id,
+        ProactiveLog.owner_peer_id == req.peer_id,
+    ))).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="initiative decision not found")
+    if row.decision == "reserved":
+        row.decision = "appeared" if req.delivered else "failed:delivery"
+        if req.reason:
+            row.reason = req.reason[:200]
+        db.add(row)
+    if req.delivered and req.occurrence_id:
+        try:
+            occurrence_id = UUID(req.occurrence_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="invalid occurrence_id") from exc
+        occurrence = (await db.execute(select(RecurringOccurrence).where(
+            RecurringOccurrence.id == occurrence_id,
+            RecurringOccurrence.honcho_workspace_id == req.workspace_id,
+        ))).scalar_one_or_none()
+        if occurrence is not None and occurrence.asked_at is None:
+            occurrence.asked_at = req.now.astimezone(timezone.utc).replace(tzinfo=None)
+            occurrence.ask_count += 1
+            db.add(occurrence)
+    await db.commit()
+    return {"status": row.decision, "decision_id": req.decision_id}
 
 
 @router.post("/reminders/due")

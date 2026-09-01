@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlmodel import SQLModel
 from src.config import settings
+from src.db import _ENGINE_KWARGS
 from src.models import Expectation  # import all models for autogenerate
 
 config = context.config
@@ -48,6 +49,7 @@ async def run_async_migrations() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        **_ENGINE_KWARGS,
     )
 
     async with connectable.connect() as connection:

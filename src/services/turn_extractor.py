@@ -881,7 +881,16 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     normalized_text,
                     re.IGNORECASE,
                 ))
-                if kind in {"expectation", "durable_objective"} and explicit_daily and not unestablished:
+                semantic_recurrence_proposal = (
+                    raw.get("recurrence_semantic_type") in RecurrenceSemantics._VALID
+                    and bool(raw.get("cadence") or raw.get("interval_days") or raw.get("days_of_week"))
+                )
+                if kind is None and semantic_recurrence_proposal and not unestablished:
+                    raw["operational_kind"] = "recurring_intention"
+                    raw["expectation_type_hint"] = None
+                    kind = "recurring_intention"
+                    validation_notes.append("promoted_structured_recurrence_proposal")
+                elif kind in {"expectation", "durable_objective"} and explicit_daily and not unestablished:
                     raw["operational_kind"] = "recurring_intention"
                     raw["cadence"] = "daily"
                     raw["expectation_type_hint"] = None

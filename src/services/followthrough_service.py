@@ -69,6 +69,7 @@ async def compute_admission(
 
         entry = {
             "what": what,
+            "occurrence_id": str(occ_id) if occ_id else None,
             "owner": item.get("owner", "user"),
             "semantic_type": item.get("semantic_type", "objective"),
             "followup_state": status,

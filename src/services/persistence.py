@@ -25,7 +25,10 @@ async def get_expectation_by_message_id(
 
 
 async def save_expectation_idempotent(
-    session: AsyncSession, expectation_data: dict
+    session: AsyncSession,
+    expectation_data: dict,
+    *,
+    grounding_now: datetime | None = None,
 ) -> Tuple[Expectation, bool]:
     """
     Saves an expectation in an idempotent manner.
@@ -65,7 +68,10 @@ async def save_expectation_idempotent(
             try:
                 anchor_tz = expectation_data.get("anchor_timezone") or "UTC"
                 re_start, re_end, _ = TemporalGrounding().ground_expression(
-                    raw_phrase=phrase, now=datetime.now(timezone.utc), timezone_str=anchor_tz)
+                    raw_phrase=phrase,
+                    now=grounding_now or datetime.now(timezone.utc),
+                    timezone_str=anchor_tz,
+                )
                 if re_start:
                     expectation_data["expected_window_start"] = re_start
                     expectation_data["expected_window_end"] = re_end

@@ -73,6 +73,14 @@ def run_scenario(path: Path) -> dict:
             capture["error"] = f"{type(e).__name__}: {e}"
 
         # Assertions (mechanism lane)
+        if "error" in capture and not any(
+            want.get("type") == "error" for want in step.get("expect", [])
+        ):
+            failures.append({
+                "turn": t_idx,
+                "expect": {"type": "no_error"},
+                "detail": capture["error"],
+            })
         for want in step.get("expect", []):
             ok, detail = _check(want, capture)
             if not ok:

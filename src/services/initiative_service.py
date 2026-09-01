@@ -61,20 +61,21 @@ async def evaluate_initiative(
     except Exception:
         local_hour, local_day = now.hour, now.date().isoformat()
 
-    def ledger(decision: str, item_key: Optional[str] = None, reason: str = "") -> Dict[str, Any]:
-        db.add(ProactiveLog(honcho_workspace_id=workspace_id, owner_peer_id=owner_peer_id,
-                            at=now, item_key=item_key, reason=reason[:200], decision=decision))
-        db.commit()  # ledger must persist within this request or cadence/budget guards are blind
+    async def ledger(decision: str, item_key: Optional[str] = None, reason: str = "") -> Dict[str, Any]:
+        row = ProactiveLog(honcho_workspace_id=workspace_id, owner_peer_id=owner_peer_id,
+                           at=now, item_key=item_key, reason=reason[:200], decision=decision)
+        db.add(row)
+        await db.commit()  # reservation must persist or concurrent cadence guards are blind
         return {"should_appear": decision == "appeared", "reason": reason,
-                "item": None, "local_hour": local_hour}
+                "item": None, "local_hour": local_hour, "decision_id": str(row.id)}
 
     high = _high_pressure_items(agenda, float(policy["pressure_threshold"]))
     if not high:
-        return ledger("withheld:no_pressing_item", reason="no agenda item carries enough pressure right now")
+        return await ledger("withheld:no_pressing_item", reason="no agenda item carries enough pressure right now")
     if policy["quiet_hours"][0] <= local_hour or local_hour < policy["quiet_hours"][1]:
         if high[0].get("severity") != "acute":
-            return ledger("withheld:quiet_hours", item_key=high[0].get("what", "")[:80],
-                          reason=f"local hour {local_hour} is inside quiet hours")
+            return await ledger("withheld:quiet_hours", item_key=high[0].get("what", "")[:80],
+                                reason=f"local hour {local_hour} is inside quiet hours")
     # User-recently-active: if the user messaged within the last 30 minutes,
     # the REACTIVE path owns the agenda (trajectory arbitration); proactive
     # appearing mid-conversation is double-dipping.
@@ -83,29 +84,30 @@ async def evaluate_initiative(
         TurnStamp.honcho_workspace_id == workspace_id,
     ).order_by(TurnStamp.turn_at.desc()).limit(1))).scalar()
     if last_turn and (now - last_turn).total_seconds() < 30 * 60:
-        return ledger("withheld:user_recently_active", reason="user messaged recently; reactive path owns agenda")
+        return await ledger("withheld:user_recently_active", reason="user messaged recently; reactive path owns agenda")
     since = now - timedelta(hours=float(policy["min_gap_hours"]))
     recent = (await db.execute(select(ProactiveLog).where(
         ProactiveLog.honcho_workspace_id == workspace_id,
         ProactiveLog.owner_peer_id == owner_peer_id,
         ProactiveLog.at >= since,
-        ProactiveLog.decision == "appeared",
+        ProactiveLog.decision.in_(("reserved", "appeared")),
     ))).scalars().all()
     if recent:
-        return ledger("withheld:cadence_gap", item_key=high[0].get("what", "")[:80],
-                      reason="proactive appearance inside minimum cadence gap")
+        return await ledger("withheld:cadence_gap", item_key=high[0].get("what", "")[:80],
+                            reason="proactive appearance inside minimum cadence gap")
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     todays = (await db.execute(select(ProactiveLog).where(
         ProactiveLog.honcho_workspace_id == workspace_id,
         ProactiveLog.owner_peer_id == owner_peer_id,
         ProactiveLog.at >= day_start,
-        ProactiveLog.decision == "appeared",
+        ProactiveLog.decision.in_(("reserved", "appeared")),
     ))).scalars().all()
     if len(todays) >= int(policy["max_per_day"]):
-        return ledger("withheld:daily_budget", reason="daily proactive budget exhausted")
+        return await ledger("withheld:daily_budget", reason="daily proactive budget exhausted")
 
     item = high[0]
-    result = ledger("appeared", item_key=str(item.get("what", ""))[:80],
-                    reason="high-pressure agenda item due for follow-up")
+    result = await ledger("reserved", item_key=str(item.get("what", ""))[:80],
+                          reason="high-pressure agenda item reserved for follow-up")
+    result["should_appear"] = True
     result["item"] = item
     return result

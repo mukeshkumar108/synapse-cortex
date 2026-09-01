@@ -176,6 +176,31 @@ def test_model_explicit_null_days_of_week_survives_parsing(monkeypatch):
     assert provider.last_backend == "model"
 
 
+def test_model_structured_recurrence_converges_when_kind_is_null(monkeypatch):
+    text = "my goal is at least 10k steps a day"
+    obs_id = f"o_{hashlib.sha1(text.lower().encode()).hexdigest()[:10]}"
+    loose = {"observations": [{
+        "observation_id": obs_id, "description": "Daily 10k steps goal",
+        "evidence_text": text, "source_start": 0, "source_end": len(text),
+        "confidence": 0.95, "actor_peer_id": "user", "subject_refs": [],
+        "temporal_language": "daily",
+    }]}
+    shaped = {"candidates": [{
+        "loose_observation_id": obs_id, "operational_kind": None,
+        "canonical_title": "Daily 10k steps goal", "observation": "Daily 10k steps goal",
+        "confidence": 0.95, "actor_peer_id": "user", "temporal_phrase": "daily",
+        "cadence": "daily", "recurrence_semantic_type": "measurable_goal",
+        "target_amount": 10000, "target_unit": "steps",
+    }]}
+    provider, _ = _monkeypatch_llm(monkeypatch, loose, shaped)
+
+    candidates = provider.extract(text, peer_id="user")
+
+    assert len(candidates) == 1
+    assert candidates[0].operational_kind == "recurring_intention"
+    assert candidates[0].recurrence_semantic_type == "measurable_goal"
+
+
 def test_model_null_subject_refs_in_loose_stage_survives_parsing(monkeypatch):
     text = "I sent three applications today but I still need to keep applying."
     evidence = "I still need to keep applying"

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from src.db import get_async_session
 from src.schemas.expectation import TurnEventIngest
@@ -120,10 +121,20 @@ async def ingest_turn_event(
     """
     # Turn stamp: the turn's own timestamp (injectable clock), consumed by
     # the initiative engine's user-recently-active guard.
-    db.add(TurnStamp(honcho_workspace_id=payload.workspace_id,
-                     owner_peer_id=payload.peer_id,
-                     honcho_message_id=payload.honcho_message_id,
-                     turn_at=_naive_utc(payload.now)))
+    stamp_values = {
+        "honcho_workspace_id": payload.workspace_id,
+        "owner_peer_id": payload.peer_id,
+        "honcho_message_id": payload.honcho_message_id,
+        "turn_at": _naive_utc(payload.now),
+    }
+    dialect_name = db.get_bind().dialect.name
+    stamp_insert = sqlite_insert if dialect_name == "sqlite" else insert
+    await db.execute(
+        stamp_insert(TurnStamp).values(**stamp_values).on_conflict_do_nothing(
+            index_elements=["honcho_workspace_id", "honcho_message_id"]
+        )
+    )
+    await db.commit()
     # 1. Multi-pass Turn Extraction
     await operational_state_service.sweep(db, workspace_id=payload.workspace_id, now=payload.now)
     await lifecycle_service.apply_reopen_conditions(
@@ -288,7 +299,9 @@ async def ingest_turn_event(
                 # downstream against a grounded window); never raw-text regex.
                 "reminder_requested": cand.reminder_request,  # None = model omitted: deterministic default applies at persistence
             }
-            exp_model, created = await save_expectation_idempotent(db, expectation_record)
+            exp_model, created = await save_expectation_idempotent(
+                db, expectation_record, grounding_now=payload.now
+            )
             if created:
                 expectations_created.append(exp_model.id)
                 expectation_record_id = exp_model.id
