@@ -164,10 +164,52 @@ async def ingest_turn_event(
             current_message_id=payload.honcho_message_id, current_text=payload.text,
             timezone_str=payload.timezone,
         )
-        candidates = turn_extractor.extract_candidates(
-            payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
-        )
-        extraction_result = turn_extractor.extraction_result(candidates)
+        from src.services.narrow_realtime import NarrowRealtimeExtractor, narrow_mode
+        mode = narrow_mode()
+        narrow_extractor = None
+        if mode in ("shadow", "on"):
+            narrow_extractor = getattr(ingest_turn_event, "_narrow_extractor", None)
+            if narrow_extractor is None:
+                narrow_extractor = NarrowRealtimeExtractor()
+                setattr(ingest_turn_event, "_narrow_extractor", narrow_extractor)
+        if mode == "on":
+            # NARROW REAL-TIME LANE IS PRIMARY: one narrow decision per turn,
+            # projected into the EXISTING deterministic commit machinery
+            # (shaping, grounding, lifecycle, admission). Open-ended per-turn
+            # ontology discovery is retired from the real-time lane; discovery
+            # belongs to the async Honcho-backed sweeper (Lane 2).
+            narrow_decision = narrow_extractor.classify(
+                payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
+                now=payload.now, timezone_str=payload.timezone,
+            )
+            narrow_candidate = narrow_extractor.to_candidate(narrow_decision)
+            candidates = [narrow_candidate] if narrow_candidate is not None else []
+            extraction_result = ExtractionResult(
+                candidates=candidates,
+                observations=[],
+                backend="narrow",
+                model=narrow_extractor.last_model_used,
+                failure=None if narrow_decision.valid else (
+                    ";".join(narrow_decision.validation_notes)[:300] or "narrow_decision_invalid"
+                ),
+            )
+            await db.execute(stamp_insert(ExtractionTrace).values(
+                honcho_workspace_id=payload.workspace_id,
+                honcho_session_id=payload.session_id,
+                honcho_message_id=payload.honcho_message_id,
+                stage="narrow",
+                item_key="narrow",
+                status="ok" if narrow_decision.valid else "rejected",
+                model=narrow_extractor.last_model_used,
+                detail_json=json.dumps(narrow_decision.model_dump(), default=str),
+            ))
+            await db.commit()
+            narrow_shadow_summary = narrow_decision.summary()
+        else:
+            candidates = turn_extractor.extract_candidates(
+                payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
+            )
+            extraction_result = turn_extractor.extraction_result(candidates)
     await operational_state_service.trace_result(
         db, workspace_id=payload.workspace_id, session_id=payload.session_id,
         message_id=payload.honcho_message_id, result=extraction_result,
