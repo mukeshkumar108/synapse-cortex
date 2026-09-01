@@ -61,21 +61,8 @@ def compile_handover(
             "next_move": str(item.get("next_move") or "")[:110],
         })
     scene_block = admission.get("scene") or {}
-    agenda_items_unused: List[Dict[str, Any]] = []
-    for item in (agenda or [])[:0]:
-        what = str(item.get("what") or "").strip()
-        if not what:
-            continue
-        pressure = float(item.get("pressure") or 0.0)
-        entry: Dict[str, Any] = {
-            "what": what,
-            "owner": str(item.get("owner") or "user"),
-            "status": str(item.get("status") or "unresolved"),
-            "pressure": "high" if pressure >= 0.6 else ("medium" if pressure >= 0.35 else "low"),
-        }
-        if item.get("next_move"):
-            entry["next_move"] = str(item["next_move"])[:120]
-        agenda_items.append(entry)
+    # handover-v4: the legacy agenda section was retired; owed (above) is the
+    # single surfaced surface. No dead agenda-items block here.
 
     # --- PATTERNS: context, never actionable ---
     pattern_lines: List[str] = []

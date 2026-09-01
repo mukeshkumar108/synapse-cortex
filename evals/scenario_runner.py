@@ -86,7 +86,16 @@ def run_scenario(path: Path) -> dict:
                     "now": now, "timezone": tz, "turn_text": "",
                     "director_hints": {"force_agenda": True, "product": spec.get("product", "sophie")},
                 })
-                capture["agenda"] = h.get("agenda")
+                # handover-v4 contract: the owed list IS the surfaced agenda.
+                # Map float pressure to the labels the assertion layer expects.
+                def _label(p):
+                    if isinstance(p, (int, float)):
+                        return "high" if p >= 0.6 else ("medium" if p >= 0.35 else "low")
+                    return p
+                capture["agenda"] = [
+                    {**it, "pressure": _label(it.get("pressure"))}
+                    for it in (h.get("owed") or [])
+                ]
                 capture["patterns"] = h.get("patterns")
                 capture["metrics"] = h.get("metrics")
             elif step["op"] == "initiative":
