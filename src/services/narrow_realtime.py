@@ -176,8 +176,6 @@ class NarrowRealtimeExtractor:
         prompt = _PROMPT.format(prior_block=prior_block, text=text)
         try:
             raw = self.provider._chat_json(prompt)
-            self.last_backend = "model"
-            self.last_model_used = self.provider.last_model_used
         except Exception as err:  # fail-open to none
             self.last_failure = f"{type(err).__name__}: {err}"[:300]
             self.last_backend = "failed"
@@ -185,7 +183,30 @@ class NarrowRealtimeExtractor:
                 validation_notes=[f"model_call_failed: {self.last_failure}"],
                 raw_model_decision=None,
             )
-        return self.validate(raw, text, now=now, timezone_str=timezone_str)
+        decision = self.validate(raw, text, now=now, timezone_str=timezone_str)
+        if decision.valid or decision.decision == "none" or decision.raw_model_decision is None:
+            return decision
+        # ONE controlled repair pass: feed the validation problems back so the
+        # model can fix verbatim-evidence/grounding/target issues. Still bound
+        # by the same deterministic validator.
+        repair_notes = "; ".join(decision.validation_notes)[:300]
+        try:
+            raw2 = self.provider._chat_json(
+                prompt
+                + f"\n\nYOUR PREVIOUS ATTEMPT WAS REJECTED: {repair_notes}.\n"
+                + "Return the corrected JSON only. Remember: evidence_text verbatim "
+                + "from the turn; temporal_phrase normalized to English; transitions "
+                + "must cite target_key/canonical_title from PRIOR STATE; otherwise "
+                + "decision none."
+            )
+            repaired = self.validate(raw2, text, now=now, timezone_str=timezone_str)
+            if repaired.valid:
+                repaired.validation_notes = ["repaired_after_retry"]
+                return repaired
+        except Exception:
+            pass
+        return decision
+
 
     # -- deterministic validation ---------------------------------------------
 

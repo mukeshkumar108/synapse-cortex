@@ -135,6 +135,12 @@ async def ingest_turn_event(
         )
     )
     await db.commit()
+    # LANE 2 trigger: (re)arm the sweeper debounce/turn-count for this workspace.
+    try:
+        from src.services.sweeper_triggers import schedule_after_turn
+        schedule_after_turn(payload.workspace_id, payload.session_id, payload.peer_id)
+    except Exception as err:
+        logger.warning("Lane 2 trigger scheduling failed: %s", err)
     # 1. Multi-pass Turn Extraction
     await operational_state_service.sweep(db, workspace_id=payload.workspace_id, now=payload.now)
     await lifecycle_service.apply_reopen_conditions(
