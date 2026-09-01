@@ -60,6 +60,10 @@ Return JSON {{"candidates": [...]}}. Each candidate:
   "summary": "one sentence describing the durable finding",
   "evidence_text": "VERBATIM span copied from the evidence (never invented)",
   "evidence_id": "the evidence id it came from",
+  "cadence": "daily|weekly|interval|none",
+  "target_amount": null | number (e.g. 10000),
+  "target_unit": null | string (e.g. "steps"),
+  "recurrence_semantic_type": "measurable_goal|recurring_action|recurring_ritual|adherence_action|none",
   "confidence": 0.0}}
 
 RULES:
@@ -150,6 +154,10 @@ class SweeperService:
                 "evidence_text": ev_text[:1000],
                 "evidence_session_id": next(
                     (p["session_id"] for p in packets if p["id"] == ev_id), None),
+                "cadence": str(cand.get("cadence") or "none").strip().lower(),
+                "target_amount": cand.get("target_amount"),
+                "target_unit": str(cand.get("target_unit") or "") or None,
+                "recurrence_semantic_type": str(cand.get("recurrence_semantic_type") or "none").strip().lower(),
                 "confidence": conf,
                 "valid": not notes, "validation_notes": notes,
             })
@@ -176,6 +184,39 @@ class SweeperService:
         return created
 
     async def _promote_one(self, db, *, workspace_id, peer_id, c, now, created):
+        if c["kind"] in ("goal", "strategy"):
+            # Goals/strategies with cadence evidence become recurring
+            # intentions through the existing deterministic upsert (which
+            # also creates occurrences and the admission projection).
+            from src.schemas.candidate import ExtractionCandidate
+            from src.services.operational_state_service import OperationalStateService
+            if c.get("cadence") in ("daily", "weekly", "interval") and c["confidence"] >= 0.65:
+                cand = ExtractionCandidate(
+                    candidate_key=f"sweep:{c['kind']}:{c['title'][:80]}",
+                    observation=c["title"],
+                    operational_kind="recurring_intention",
+                    canonical_title=c["title"],
+                    cadence=c["cadence"],
+                    recurrence_semantic_type=(
+                        c.get("recurrence_semantic_type") or "measurable_goal"
+                    ),
+                    target_amount=(
+                        float(c["target_amount"]) if c.get("target_amount") else None
+                    ),
+                    target_unit=c.get("target_unit"),
+                    confidence=c["confidence"],
+                    extractor_version=SWEEPER_VERSION,
+                    raw_evidence=c["evidence_text"],
+                )
+                svc = OperationalStateService()
+                result = await svc._upsert_recurrence(
+                    db, workspace_id, c.get("evidence_session_id") or "",
+                    c["evidence_id"], peer_id, cand, now, "UTC",
+                )
+                created.setdefault("recurrences", []).append(
+                    {"title": c["title"], "result": result}
+                )
+                return
         if c["kind"] in ("goal", "strategy", "sophie_promise", "blocker"):
             record = {
                 "honcho_workspace_id": workspace_id,
