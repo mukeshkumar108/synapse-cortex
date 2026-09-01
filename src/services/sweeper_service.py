@@ -166,55 +166,63 @@ class SweeperService:
             if not c["valid"]:
                 created["rejected"].append({"title": c["title"], "notes": c["validation_notes"]})
                 continue
-            if c["kind"] in ("goal", "strategy", "sophie_promise", "blocker"):
-                record = {
-                    "honcho_workspace_id": workspace_id,
-                    "honcho_session_id": c.get("evidence_session_id"),
-                    "honcho_message_id": c["evidence_id"],
-                    "owner_peer_id": peer_id,
-                    "candidate_key": f"sweep:{c['kind']}:{c['title'][:80]}",
-                    "extractor_version": SWEEPER_VERSION,
-                    "source_start": None, "source_end": None,
-                    "subject_peer_id": peer_id,
-                    "expectation_type": "USER_INTENTION",
-                    "title": c["title"][:200],
-                    "summary": (c.get("summary") or c["evidence_text"])[:1000],
-                    "raw_temporal_phrase": None,
-                    "anchor_timezone": "UTC",
-                    "expected_window_start": None,
-                    "expected_window_end": None,
-                    "hard_deadline_at": None,
-                    "extraction_confidence": c["confidence"],
-                    "reminder_requested": False,
-                }
-                exp_model, was_created = await save_expectation_idempotent(
-                    db, record, grounding_now=now,
-                )
-                if was_created:
-                    created["expectations"].append(str(exp_model.id))
-            elif c["kind"] == "open_loop":
-                from src.schemas.candidate import ExtractionCandidate
-                from src.services.lifecycle_service import LifecycleService
-                import uuid as _uuid
-                cand = ExtractionCandidate(
-                    candidate_key=f"sweep-openloop-{_uuid.uuid4().hex[:8]}",
-                    observation=c["title"],
-                    operational_kind="open_loop",
-                    open_loop_hint=c["title"],
-                    canonical_title=c["title"],
-                    confidence=c["confidence"],
-                    extractor_version=SWEEPER_VERSION,
-                    raw_evidence=c["evidence_text"],
-                )
-                svc = LifecycleService()
-                await svc.create_open_loop_if_needed(
-                    db, workspace_id=workspace_id,
-                    session_id=c.get("evidence_session_id"),
-                    message_id=c["evidence_id"], candidate=cand,
-                    owner_peer_id=peer_id, now=now, timezone_str="UTC",
-                )
-            await db.commit()
+            try:
+                await self._promote_one(db, workspace_id=workspace_id, peer_id=peer_id, c=c, now=now, created=created)
+                await db.commit()
+            except Exception as err:
+                await db.rollback()
+                logger.warning("Sweeper promotion failed for %r: %s", c["title"], err)
+                created["rejected"].append({"title": c["title"], "notes": [f"promotion_failed: {str(err)[:200]}"]})
         return created
+
+    async def _promote_one(self, db, *, workspace_id, peer_id, c, now, created):
+        if c["kind"] in ("goal", "strategy", "sophie_promise", "blocker"):
+            record = {
+                "honcho_workspace_id": workspace_id,
+                "honcho_session_id": c.get("evidence_session_id"),
+                "honcho_message_id": c["evidence_id"],
+                "owner_peer_id": peer_id,
+                "candidate_key": f"sweep:{c['kind']}:{c['title'][:80]}",
+                "extractor_version": SWEEPER_VERSION,
+                "source_start": None, "source_end": None,
+                "subject_peer_id": peer_id,
+                "expectation_type": "USER_INTENTION",
+                "title": c["title"][:200],
+                "summary": (c.get("summary") or c["evidence_text"])[:1000],
+                "raw_temporal_phrase": None,
+                "anchor_timezone": "UTC",
+                "expected_window_start": None,
+                "expected_window_end": None,
+                "hard_deadline_at": None,
+                "extraction_confidence": c["confidence"],
+                "reminder_requested": False,
+            }
+            exp_model, was_created = await save_expectation_idempotent(
+                db, record, grounding_now=now,
+            )
+            if was_created:
+                created["expectations"].append(str(exp_model.id))
+        elif c["kind"] == "open_loop":
+            from src.schemas.candidate import ExtractionCandidate
+            from src.services.lifecycle_service import LifecycleService
+            import uuid as _uuid
+            cand = ExtractionCandidate(
+                candidate_key=f"sweep-openloop-{_uuid.uuid4().hex[:8]}",
+                observation=c["title"],
+                operational_kind="open_loop",
+                open_loop_hint=c["title"],
+                canonical_title=c["title"],
+                confidence=c["confidence"],
+                extractor_version=SWEEPER_VERSION,
+                raw_evidence=c["evidence_text"],
+            )
+            svc = LifecycleService()
+            await svc.create_open_loop_if_needed(
+                db, workspace_id=workspace_id,
+                session_id=c.get("evidence_session_id"),
+                message_id=c["evidence_id"], candidate=cand,
+                owner_peer_id=peer_id, now=now, timezone_str="UTC",
+            )
 
     async def run(
         self, db: AsyncSession, *, workspace_id: str, peer_id: str,
