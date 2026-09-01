@@ -1,0 +1,107 @@
+{
+  "description": "Representative REAL turns from production Honcho (peer user_5377a025..., workspace llm-test-agent) for narrow real-time contract shadow comparison. Each case: verbatim turn text, provenance timestamp, expected narrow decision class, and optional prior_state digest.",
+  "cases": [
+    {
+      "id": "real-20260823-015558-reminder",
+      "provenance": "2026-08-23T01:55:58Z honcho message",
+      "expected_narrow": "create",
+      "expected_kind": "reminder",
+      "text": "haha ok. i was just standing outside watching the stars. going to bed now. tomorrow i want you to encourage and remind me to go out for a walk during the day not just an early evening walk!! please"
+    },
+    {
+      "id": "real-20260828-193046-dated-event",
+      "provenance": "2026-08-28T19:30:46Z honcho message",
+      "expected_narrow": "create",
+      "expected_kind": "event",
+      "text": "So Sunday morning we're traveling early. We're going to Oxford to see my uncle and my cousins. It's an event called Raksha Bandhan. And well, I think that was today, but we'll be celebrating it on Sunday. So my cousins will be there and it should be a nice day. So therefore I'm going to go to my mum's tomorrow. But and we leave for Oxford all together on the Sunday morning. But when I'm there, it's just, oh, I don't know. Never got on with my mother. And it's kind of better since I've moved out. But like when I'm there, I have to sleep on the fucking sofa and I never sleep well. I've always got a neck ache."
+    },
+    {
+      "id": "real-20260829-231930-cancel",
+      "provenance": "2026-08-29T23:19:30Z honcho message",
+      "expected_narrow": "cancel",
+      "prior_state": {
+        "objectives": [
+          {"title": "Trip to Oxford for Raksha Bandhan (Sunday)", "target_key": "oxford_raksha_bandhan", "canonical_title": "Trip to Oxford for Raksha Bandhan", "expectation_type": "planned_event", "status": "active"}
+        ]
+      },
+      "text": "Yeah, I've got no way of getting there. So unfortunately, I have to give it a miss. Still don't have a car at the moment. Otherwise, in the past, I would have just driven over to my mum's in the morning, got there, and then jumped in the car with them and gone to Oxford. Then we come back, and I could have come home. But no"
+    },
+    {
+      "id": "real-20260830-000251-correct",
+      "provenance": "2026-08-30T00:02:51Z honcho message",
+      "expected_narrow": "cancel",
+      "prior_state": {
+        "objectives": [
+          {"title": "Trip to Oxford for Raksha Bandhan (Sunday)", "target_key": "oxford_raksha_bandhan", "canonical_title": "Trip to Oxford for Raksha Bandhan", "expectation_type": "planned_event", "status": "active"}
+        ]
+      },
+      "text": "No, we already had this conversation earlier. I can't get to Oxford tomorrow. The only way of getting there, because my brother didn't give me a lift, was to get a bus today. But I didn't get the bus all the way to Bedford. So there are no buses running tomorrow, so I can't leave from here because I don't have a vehicle"
+    },
+    {
+      "id": "real-20260829-231824-correction",
+      "provenance": "2026-08-29T23:18:24Z honcho message",
+      "expected_narrow": "cancel",
+      "prior_state": {
+        "objectives": [
+          {"title": "Visit mum tonight (Bedford)", "target_key": "mum_visit_bedford", "canonical_title": "Visit mum tonight", "expectation_type": "planned_event", "status": "active"},
+          {"title": "Trip to Oxford for Raksha Bandhan (Sunday)", "target_key": "oxford_raksha_bandhan", "canonical_title": "Trip to Oxford for Raksha Bandhan", "expectation_type": "planned_event", "status": "active"}
+        ]
+      },
+      "text": "No, I think you got your dates mixed up. I was meant to go to my mum's tonight, today. Earlier in the day, I didn't go. She rang me this morning and was saying, \"Oh, you've gotta get the bus over.\" And it was just raining all day. Getting the bus over and taking a big bag, it's not the easiest thing to do from where I am. And it meant I would've had to get a bus all the way from my house to Cambridge, then wait for the bus to Bedford, and then get that, which is like an hour and forty-five minutes. And then it's getting to my mum's house, which was another forty-minute walk from there, carrying my bag. It didn't happen. Like, part of me, like I wanted to go to Oxford, but then there's no way of getting there. Um, so yeah, I won't be going for the rucksack and then think... 'Cause I'd asked my brother to come pick me up, but he said, no, he was too busy. And if he had picked me up, I would have gone. But"
+    },
+    {
+      "id": "real-20260824-155314-progress",
+      "provenance": "2026-08-24T15:53:14Z honcho message",
+      "expected_narrow": "create",
+      "expected_kind": "event",
+      "text": "i’m on the bus… into cambridge. well i’m here. we’ll be at the bus station in about 5 mins. and then im going to my mums. bus to bedford."
+    },
+    {
+      "id": "real-20260823-014740-narration",
+      "provenance": "2026-08-23T01:47:40Z honcho message",
+      "expected_narrow": "none",
+      "text": "haha. i just pushed some changes cos i was excited . changes to you lol. i’m trying to make you my friend lol. but gonna go bed. wanted to quickly talk to you tho"
+    },
+    {
+      "id": "real-20260823-015306-feedback",
+      "text": "sycophancy. subsevianxe. no pushback. no banter. no challenging. no stance. no backbone"
+    },
+    {
+      "id": "real-20260823-184139-pattern",
+      "provenance": "2026-08-23T18:41:39Z honcho message",
+      "expected_narrow": "none",
+      "text": "Same old loop, I'm on it right now. We're walking to, I told you before, I live in Burwell, in Cambridgeshire. And Burwell Fen is basically my everyday walk and it takes some variance. But it's predominantly the same walk. And yeah, I told you before, it's 10k to 12k, well it's 10k steps minimum, that's the floor. I told you the other day, I only did 8.888 But my weekly average is still 10k So today it's a beautiful evening Sun's still up in the sky It's probably going to set in about half an hour Because now it starts to go down quite fast when it's at this level So we'll watch it But it's beautiful, it's not hot, it's not cold, it's just lovely"
+    },
+    {
+      "id": "real-20260828-024541-sleep",
+      "provenance": "2026-08-28T02:45:41Z honcho message",
+      "expected_narrow": "none",
+      "text": "i’ve been waking up a lot at this time … 3.30 ish… not needing the toilet lol apart from tonight .. but waking up at 3ish"
+    },
+    {
+      "id": "real-20260828-193910-venting",
+      "provenance": "2026-08-28T19:39:10Z honcho message",
+      "expected_narrow": "none",
+      "text": "Well, hopefully not long. So I, I don't wanna go there tomorrow during the daytime. I wanna go as late as possible so that when I get there I can just sit down and watch TV and go to bed, um, with as li- as little interaction as possible. And, uh, then, you know, it's Sunday morning, just getting ready and leaving. Um, yeah. But, uh, yeah, we'll see what happens. But no, thank you, I appreciate that. I appreciate, um, being able to let off and vent without, uh, without being judged for it. Um, so thank you. Um, it's a long, long-standing issue."
+    },
+    {
+      "id": "real-20260829-103011-preferences",
+      "provenance": "2026-08-29T10:30:11Z honcho message",
+      "expected_narrow": "none",
+      "text": "idk tbh. i can cook. i like cooking. i usew ot play tabla when i was younger. and i was good at it.. i like writing. im ok at it. i used ot be ver good at art. idk, tbh."
+    },
+    {
+      "id": "real-20260831-010038-bed",
+      "provenance": "2026-08-31T01:00:38Z honcho message",
+      "expected_narrow": "none",
+      "text": "just about to go to bed, thought i’d check in lol"
+    },
+    {
+      "id": "real-20260831-113945-vague-commitment",
+      "provenance": "2026-08-31T11:39:45Z honcho message",
+      "expected_narrow": "none",
+      "text": "Yeah, I don't know, maybe. Uh, the, the weather outside doesn't look like it's suitable for, um, cycling today. I don't know, but I should check my bike and see. At least then I'll know. And you know, you're right, I know I need to do tidying. It's just harder than it sounds for me to make that move"
+    }
+  ]
+}
+

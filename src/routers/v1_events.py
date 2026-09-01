@@ -172,6 +172,37 @@ async def ingest_turn_event(
         db, workspace_id=payload.workspace_id, session_id=payload.session_id,
         message_id=payload.honcho_message_id, result=extraction_result,
     )
+    # NARROW REAL-TIME CONTRACT (shadow mode). Non-destructive: runs the narrow
+    # classifier alongside the current extractor, validates deterministically,
+    # and traces the result. It NEVER mutates state or alters the existing
+    # pipeline. Cutover is gated on the comparison harness results.
+    narrow_shadow_summary: dict | None = None
+    from src.services.narrow_realtime import NarrowRealtimeExtractor, narrow_mode
+    if narrow_mode() == "shadow":
+        try:
+            narrow_extractor = getattr(ingest_turn_event, "_narrow_extractor", None)
+            if narrow_extractor is None:
+                narrow_extractor = NarrowRealtimeExtractor()
+                setattr(ingest_turn_event, "_narrow_extractor", narrow_extractor)
+            narrow_decision = narrow_extractor.classify(
+                payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
+                now=payload.now, timezone_str=payload.timezone,
+            )
+            await db.execute(stamp_insert(ExtractionTrace).values(
+                honcho_workspace_id=payload.workspace_id,
+                honcho_session_id=payload.session_id,
+                honcho_message_id=payload.honcho_message_id,
+                stage="narrow_shadow",
+                item_key="narrow",
+                status="ok" if narrow_decision.valid else "rejected",
+                model=narrow_extractor.last_model_used,
+                detail_json=json.dumps(narrow_decision.model_dump(), default=str),
+            ))
+            await db.commit()
+            narrow_shadow_summary = narrow_decision.summary()
+        except Exception as err:  # fail-open: shadow never breaks the real path
+            logger.warning("Narrow shadow extraction failed: %s", err)
+            narrow_shadow_summary = {"error": str(err)[:300]}
     # Fast→slow reconciliation: deterministic suppression of conversation-derived
     # candidates that would duplicate canonical actions already committed from
     # this exact turn by the real-time interpreter. Applied after tracing (so
@@ -188,6 +219,7 @@ async def ingest_turn_event(
             "candidates_suppressed_by_reconciliation": len(suppressed),
             "extraction_backend": extraction_result.backend,
             "extraction_failure": extraction_result.failure,
+            "narrow_shadow": narrow_shadow_summary,
             "context": {
                 "status": turn_context.get("status"),
                 "honcho_status": turn_context.get("honcho_status"),
@@ -353,6 +385,7 @@ async def ingest_turn_event(
         "honcho_message_id": payload.honcho_message_id,
         "extraction_backend": extraction_result.backend,
         "operational_mutations": operational_mutations,
+        "narrow_shadow": narrow_shadow_summary,
         "context": {
             "status": turn_context.get("status"),
             "honcho_status": turn_context.get("honcho_status"),

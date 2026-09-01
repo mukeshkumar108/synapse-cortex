@@ -581,6 +581,11 @@ class LLMExtractorProvider(BaseExtractorProvider):
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": 0.0,
                         "response_format": {"type": "json_object"},
+                        # Bounded output: extraction returns small JSON. Without
+                        # this, OpenRouter reserves the model's full max_tokens
+                        # budget and long prompts can exceed remaining credits
+                        # (HTTP 402), failing every long-turn extraction.
+                        "max_tokens": int(os.getenv("SYNAPSE_EXTRACTOR_MAX_TOKENS", "900")),
                     },
                 )
                 status = response.status_code
