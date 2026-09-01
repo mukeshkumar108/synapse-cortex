@@ -52,7 +52,7 @@ def _honcho_seed(ws: str, session: str, peer: str, turns: list) -> int:
     _req(f"/v3/workspaces/{ws}/sessions/{session}")
     for idx, text in turns:
         _req(f"/v3/workspaces/{ws}/sessions/{session}/messages", "POST", {
-            "messages": [{"role": "user", "content": text, "metadata": {
+            "messages": [{"role": "user", "peer_id": peer, "content": text, "metadata": {
                 "source": "scenario_runner", "app_role": "user",
                 "app_message_id": f"msg_{ws}_{idx}"}}]})
     return len(turns)
