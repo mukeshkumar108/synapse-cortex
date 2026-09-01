@@ -79,9 +79,9 @@ HANDOVER v5 (<=151 tokens verified)
 
 ## 5. DISCOVERED (hard-won facts about the system)
 1. Honcho doc store is RICH (10k floor, autumn-darkness constraint, split-walk
-   strategy, morning routine, walks-as-reflection) but peer.chat returned "no
-   information" for ALL 7 unprimed questions — chat surface disconnected from doc
-   store for this peer (session-scoped). Retrieval fix = prerequisite for Lane 2.
+   strategy, morning routine, walks-as-reflection) and RETRIEVAL WORKS (see §6.1
+   resolution) — the earlier "peer.chat disconnected" finding was a mis-probe of
+   the wrong service (synapse-api on host :8000, not honcho-api).
 2. Half the accountability contract is in ASSISTANT turns (Sophie: "I'll push you if
    you make excuses — I'm fully on record", Aug 23). Extraction never mines assistant
    turns → Sophie promises are represented NOWHERE. Lane 2 must capture them.
@@ -112,6 +112,17 @@ fixture artifact (production has ONE 10k recurrence) — keep as a fixture test
 case, not a consolidation requirement.
 1. Fix/understand Honcho retrieval: doc store is rich (10k history, autumn
    constraint, routines) but peer.chat returns "no information" for all unprimed
+   1. **RESOLVED 2026-09-01**: Honcho retrieval is NOT broken. All surfaces verified
+      working on production (llm-test-agent / user_5377a025...): peer.chat (with and
+      without session_name), workspace+peer search, conclusions/list, representation
+      (POST /peers/{p}/representation {"dialect":{"name":"sophisticated"}}).
+      Root cause of the "no information" finding: mis-probe — host port 8000 is
+      `synapse-api` (a separate "Synapse Memory API" service), NOT honcho-api
+      (docker-network-only, no published ports). Honcho /v3 must be called from
+      inside the docker network. Reusable probe: evals/honcho_probe.py
+      (scp → docker cp into synapse-cortex → run with HONCHO_API_KEY).
+      Peer chat correctly surfaces 10k-floor→12-13k goal, split-walk strategy,
+      morning/evening walks. Doc store: 3396 docs all synced+embedded.
    questions on the production peer. Verify chat surface (session context?),
    conclusions, search. Hard prerequisite for Lane 2.
 2. Define the NARROW real-time Cortex contract: real-time handles only
