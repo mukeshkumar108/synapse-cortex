@@ -14,6 +14,7 @@ from src.services.cortex_handshake_service import CortexHandshakeService
 from src.services.cortex_packet_service import CortexPacketService
 from src.services.cortex_router_service import CortexRouterService
 from src.services.working_set_service import WorkingSetService
+from src.models.work_item import WorkItem  # noqa: F401  (register metadata for create_all)
 from src.runtime_model import get_agenda_adapter
 from src.schemas.candidate import ExtractionCandidate
 from src.models.expectation import Expectation
@@ -138,9 +139,12 @@ async def get_session_handover(
     )
     # Ask ledger: surfacing a high-pressure user-owned objective records the
     # ask opportunity against today's occurrence (deterministic accounting).
+    # handover-v4: surfaced items live in "owed" (numeric pressure), not the
+    # retired "agenda" key.
     try:
-        for item in result.get("agenda", []):
-            if item.get("pressure") != "high":
+        for item in result.get("owed", []):
+            pressure = item.get("pressure")
+            if not isinstance(pressure, (int, float)) or pressure < 0.6:
                 continue
             occ_id = item.get("occurrence_id")
             if occ_id:
@@ -544,3 +548,139 @@ async def run_sweeper(
     except Exception as err:
         logger.exception("Sweeper run failed")
         return {"status": "error", "detail": str(err)[:300]}
+
+
+# --- WORK ITEMS: the executable projection of canonical state ---------------
+
+
+class WorkItemProposal(BaseModel):
+    owner: Literal["user", "sophie"]
+    action: str = Field(min_length=3, max_length=300)
+    importance: float = Field(default=0.5, ge=0.0, le=1.0)
+    authority: Optional[Literal["act", "ask", "prepare"]] = None
+    due_window_start: Optional[datetime] = None
+    due_window_end: Optional[datetime] = None
+    completion_condition: Optional[str] = Field(default=None, max_length=300)
+    blocker: Optional[str] = Field(default=None, max_length=300)
+    sophie_executable: bool = False
+    evidence_text: Optional[str] = Field(default=None, max_length=1000)
+
+
+class WorkItemsPropose(BaseModel):
+    workspace_id: str
+    session_id: Optional[str] = None
+    peer_id: Optional[str] = None
+    parent_type: Literal["objective", "commitment", "expectation", "open_loop", "recurrence", "event"]
+    parent_id: str = Field(min_length=1, max_length=128)
+    parent_title: Optional[str] = Field(default=None, max_length=200)
+    source_agent: Literal["planner", "pa_task", "lane2", "app"] = "planner"
+    items: list[WorkItemProposal] = Field(min_length=1, max_length=10)
+
+
+_VALID_PARENT_TYPES = {
+    "objective", "commitment", "expectation", "open_loop", "recurrence", "event",
+}
+
+
+@router.post("/work-items/propose")
+async def propose_work_items(req: WorkItemsPropose, db: AsyncSession = Depends(get_async_session)):
+    """Deterministic commit for agent-proposed actionable work (model proposes,
+    code commits). Idempotent per (workspace, parent, owner, normalized action).
+    Rejected items are returned with reasons; nothing silently dropped."""
+    import re as _re
+    from src.models.work_item import WorkItem, WorkOwner, WorkStatus
+    from datetime import timedelta
+
+    if req.parent_type not in _VALID_PARENT_TYPES:
+        raise HTTPException(status_code=422, detail=f"invalid parent_type {req.parent_type}")
+
+    created, rejected = [], []
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    for item in req.items:
+        notes = []
+        action = _re.sub(r"\s+", " ", (item.action or "")).strip()
+        if len(action) < 3:
+            notes.append("action too short or empty")
+        if item.due_window_start and item.due_window_end and item.due_window_end < item.due_window_start:
+            notes.append("due window end before start")
+        if item.owner == "sophie" and item.sophie_executable and item.authority != "act":
+            notes.append("sophie_executable requires authority=act (no claimed execution)")
+        due_start = item.due_window_start.replace(tzinfo=None) if item.due_window_start else None
+        due_end = item.due_window_end.replace(tzinfo=None) if item.due_window_end else None
+        norm_action = action.lower()
+        if not notes:
+            dup = (await db.execute(text(
+                "select id from work_items where honcho_workspace_id = :ws "
+                "and parent_id = :pid and owner = :owner and status in ('proposed','surfaced','in_progress') "
+                "and lower(action) = :action limit 1"
+            ), {"ws": req.workspace_id, "pid": req.parent_id, "owner": item.owner, "action": norm_action})).scalar()
+            if dup:
+                rejected.append({"action": action, "notes": ["duplicate_of_existing"]})
+                continue
+        if notes:
+            rejected.append({"action": action, "notes": notes})
+            continue
+        row = WorkItem(
+            honcho_workspace_id=req.workspace_id,
+            owner_peer_id=req.peer_id or "user",
+            honcho_session_id=req.session_id,
+            parent_type=req.parent_type,
+            parent_id=req.parent_id,
+            parent_title=req.parent_title,
+            owner=WorkOwner(item.owner),
+            action=action,
+            status=WorkStatus.PROPOSED.value,
+            importance=item.importance,
+            authority=item.authority,
+            due_window_start=due_start,
+            due_window_end=due_end,
+            completion_condition=item.completion_condition,
+            blocker=item.blocker,
+            sophie_executable=item.sophie_executable,
+            source_agent=req.source_agent,
+            evidence_text=item.evidence_text,
+            created_at=now, updated_at=now,
+        )
+        db.add(row)
+        await db.flush()
+        created.append({"id": str(row.id), "owner": item.owner, "action": action})
+    try:
+        await db.commit()
+    except Exception as err:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(err)[:200])
+    return {"status": "ok", "created": created, "rejected": rejected}
+
+
+class WorkItemListRequest(BaseModel):
+    workspace_id: str
+    peer_id: Optional[str] = None
+    statuses: Optional[list[Literal["proposed", "surfaced", "in_progress", "done", "cancelled", "superseded"]]] = None
+    parent_id: Optional[str] = None
+
+
+@router.post("/work-items/list")
+async def list_work_items(req: WorkItemListRequest, db: AsyncSession = Depends(get_async_session)):
+    """Typed read-packet: actionable work by owner, for PA/Task agent and Synapse."""
+    from src.models.work_item import WorkItem, WorkStatus
+    conds = [WorkItem.honcho_workspace_id == req.workspace_id]
+    if req.peer_id:
+        conds.append(WorkItem.owner_peer_id == req.peer_id)
+    if req.statuses:
+        conds.append(WorkItem.status.in_([s for s in req.statuses]))
+    if req.parent_id:
+        conds.append(WorkItem.parent_id == req.parent_id)
+    rows = (await db.execute(select(WorkItem).where(*conds).order_by(WorkItem.importance.desc()))).scalars().all()
+    return {
+        "items": [
+            {
+                "id": str(r.id), "parent_type": r.parent_type, "parent_id": r.parent_id,
+                "parent_title": r.parent_title, "owner": r.owner, "action": r.action,
+                "status": r.status, "importance": r.importance, "authority": r.authority,
+                "due_window_start": str(r.due_window_start) if r.due_window_start else None,
+                "due_window_end": str(r.due_window_end) if r.due_window_end else None,
+                "completion_condition": r.completion_condition, "blocker": r.blocker,
+                "sophie_executable": r.sophie_executable, "source_agent": r.source_agent,
+            } for r in rows
+        ]
+    }
