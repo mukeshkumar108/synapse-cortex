@@ -131,6 +131,7 @@ async def get_session_handover(
         db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
         agenda_items=agenda_result.get("items") or [],
         packet=packet, now=req.now, timezone_str=req.timezone,
+        current_turn=req.turn_text,
     )
     result = compile_handover(
         packet, product=(req.director_hints or {}).get("product"), now=req.now,

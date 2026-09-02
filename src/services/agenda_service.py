@@ -20,6 +20,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -103,16 +104,37 @@ def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: s
              horizon="now" if (window_passed or daypart in ("evening", "night")) else "day")
 
     # L1 - deadlines & active plans (fresh only)
+    for item in (packet.get("commitments") or []):
+        state = str(item.get("state") or "scheduled")
+        if state not in {"overdue", "reminder_due"}:
+            # Durable scheduled tasks stay available to the backend without
+            # consuming the conversational window before their due/reminder
+            # boundary.
+            continue
+        cand(
+            item_key=f"task:{item.get('source_object_id') or item.get('id')}",
+            what=str(item.get("title") or "")[:100],
+            semantic_type="commitment",
+            urgency=0.9 if state == "overdue" else 0.75,
+            pressure=0.85 if state == "overdue" else 0.7,
+            status="outstanding",
+            why=("task is overdue" if state == "overdue" else "explicit reminder window is open"),
+            next_move="surface once and close the ask when answered",
+            horizon="now",
+        )
     for item in (packet.get("active_expectations") or []):
         if str(item.get("id")) in stale_ids or _is_stale(item):
             continue
         approaching = item.get("temporal_state") == "deadline_approaching"
+        raw_temporal = str(item.get("raw_temporal_phrase") or "")
+        waits_for_event = bool(re.search(r"\b(?:when|after|once|as soon as)\b", raw_temporal.lower()))
         cand(item_key=f"exp:{item.get('id')}", what=str(item.get("title") or "")[:100],
              semantic_type="deadline" if approaching else "expectation",
              urgency=0.8 if approaching else 0.5,
              pressure=0.6 if approaching else 0.3,
+             status="waiting_event" if waits_for_event else "unresolved",
              why=str(item.get("expected_window_label") or "")[:80],
-             next_move="confirm status or offer prep help",
+             next_move=(f"reactivate {raw_temporal}" if waits_for_event else "confirm status or offer prep help"),
              horizon="now" if approaching else "day")
 
     # L2 - gaps (elapsed windows without outcome evidence, recent only)
