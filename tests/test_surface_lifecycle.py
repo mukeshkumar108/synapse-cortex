@@ -57,6 +57,39 @@ async def test_curiosity_not_repeated_under_cooldown_and_extinguished_after_max(
 
 
 @pytest.mark.asyncio
+async def test_clarification_and_recurrence_compile_in_one_transaction(async_client):
+    """A clarification must not expire recurrence rows before they are read."""
+    now = datetime(2026, 8, 22, 12, tzinfo=timezone.utc)
+    async with async_session_maker() as db:
+        db.add(ClarificationCandidate(
+            honcho_workspace_id="ws_combined", honcho_session_id="s_combined",
+            honcho_message_id="m-c", candidate_key="clarify",
+            clarification_type=ClarificationType.UNCLEAR_TARGET,
+            description="Which walk did you mean?",
+            status=ClarificationStatus.PENDING,
+            created_at=now.replace(tzinfo=None), updated_at=now.replace(tzinfo=None),
+        ))
+        db.add(RecurringIntention(
+            honcho_workspace_id="ws_combined", honcho_session_id="s_combined",
+            honcho_message_id="m-r", candidate_key="routine",
+            canonical_key="morning-walk", title="Morning walk", cadence="daily",
+            source_evidence="I walk each morning", status=OperationalStatus.ACTIVE,
+            started_at=(now - timedelta(days=5)).replace(tzinfo=None),
+            created_at=now.replace(tzinfo=None), updated_at=now.replace(tzinfo=None),
+        ))
+        await db.commit()
+
+    response = await async_client.get("/v1/cortex/attention-packet", params={
+        "workspace_id": "ws_combined", "session_id": "s_combined",
+        "now": "2026-08-22T12:00:00Z", "timezone": "Europe/London",
+    })
+    assert response.status_code == 200
+    curiosity = response.json()["curiosity"]
+    assert any(item["type"] == "clarification" for item in curiosity)
+    assert any(item["type"] == "unobserved_routine" for item in curiosity)
+
+
+@pytest.mark.asyncio
 async def test_stale_clarification_is_dismissed_and_not_surfaced(async_client):
     created = datetime(2026, 8, 10, 12, tzinfo=timezone.utc)  # 12 days before surface
     async with async_session_maker() as db:

@@ -951,9 +951,6 @@ class CortexPacketService:
                 "salience": 0.6,
                 "not_before": now.isoformat(),
             })
-        if clarifications:
-            await db.commit()
-
         for recurrence in recurrences:
             if recurrence.started_at and (now_naive - recurrence.started_at).days >= 3:
                 count = (await db.execute(select(func.count()).select_from(RecurringOccurrence).where(
@@ -978,6 +975,13 @@ class CortexPacketService:
                         "salience": 0.55,
                         "not_before": now.isoformat(),
                     })
+        # Commit once after every ORM-backed candidate has been read. A
+        # mid-function commit expires loaded recurrence attributes under the
+        # async session and can trigger MissingGreenlet on recurrence.title.
+        # This also persists recurrence surface-registry marks, which the
+        # previous clarification-only commit could leave uncommitted.
+        if clarifications or recurrences:
+            await db.commit()
         return items[:2]
 
     @staticmethod
