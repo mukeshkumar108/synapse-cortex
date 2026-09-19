@@ -515,6 +515,23 @@ class CortexPacketService:
         packet["curiosity"] = await self._compile_curiosity(
             db, workspace_id, session_id, recurrences[:8], user_day, now
         )
+        # CurrentMeaning: retained belief only (no authority stored). The
+        # per-turn authority decision arrives via revise-sync alongside this
+        # packet; the packet reports which version is retained, never whether
+        # this turn may render it.
+        try:
+            from src.models.current_meaning import scope_key_for
+            from src.services.current_meaning_service import get_active, row_to_dict
+
+            _scope = scope_key_for(
+                workspace_id, "sophie", session_id, owner_peer_id,
+            )
+            _active = await get_active(db, scope_key=_scope)
+            packet["current_meaning"] = (
+                {"status": "retained", **row_to_dict(_active)} if _active else {"status": "missing"}
+            )
+        except Exception:
+            packet["current_meaning"] = {"status": "missing"}
         return packet
 
     @staticmethod

@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -15,6 +15,7 @@ from src.services.cortex_packet_service import CortexPacketService
 from src.services.cortex_router_service import CortexRouterService
 from src.services.working_set_service import WorkingSetService
 from src.models.work_item import WorkItem  # noqa: F401  (register metadata for create_all)
+from src.models.current_meaning import CurrentMeaning  # noqa: F401  (register metadata for create_all)
 from src.runtime_model import get_agenda_adapter
 from src.schemas.candidate import ExtractionCandidate
 from src.models.expectation import Expectation
@@ -431,6 +432,160 @@ async def list_commitment_candidates(
             for row in rows
         ]
     }
+
+
+class CurrentMeaningReviseRequest(BaseModel):
+    """Live revise-sync. Runtime supplies ONLY: turn + bounded local
+    conversation + scope/product (+ optional expected lens version + expected
+    prior). Cortex loads prior row + bounded Cortex state itself. Runtime
+    never sends lens text or Cortex-owned state."""
+    workspace_id: str
+    session_id: str
+    peer_id: Optional[str] = None
+    product: Optional[str] = "sophie"
+    expected_lens_version: Optional[str] = None
+    message_id: str = Field(min_length=1, max_length=200)
+    turn_text: str = Field(default="", max_length=4000)
+    recent_conversation: List[Dict[str, str]] = Field(default_factory=list, max_length=6)
+    expected_prior_id: Optional[str] = None
+    expected_prior_version: Optional[int] = None
+    revision_key: Optional[str] = None  # default turn:<message_id>; deep callers pass consolidation:<digest>
+    now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timezone: str = "Europe/London"
+
+
+@router.post("/current-meaning/revise-sync")
+async def revise_current_meaning_sync(
+    req: CurrentMeaningReviseRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Every-turn semantic fast interpretation (Cortex-owned).
+
+    Returns the ephemeral per-turn result; persists a new version ONLY when
+    meaning genuinely revised. Fail-closed: any failure → retain prior,
+    authority unknown/omitted, render nothing.
+    """
+    import json as _json
+    from src.models.current_meaning import scope_key_for, canonical_owner_peer
+    from src.services import current_meaning_service as _cm
+    from src.services.meaning_lens import resolve_lens
+
+    product = (req.product or "sophie").lower()
+    owner = canonical_owner_peer(req.peer_id)
+    scope = {
+        "workspace_id": req.workspace_id,
+        "product": product,
+        "session_id": req.session_id,
+        "owner_peer_id": owner,
+    }
+    scope_key = scope_key_for(req.workspace_id, product, req.session_id, req.peer_id)
+    revision_key = req.revision_key or f"turn:{req.message_id}"
+    lens = resolve_lens(product)
+    lens_mismatch = bool(req.expected_lens_version and req.expected_lens_version != lens.version)
+
+    prior = await _cm.get_active(db, scope_key=scope_key)
+    prior_dict = _cm.row_to_dict(prior) if prior else None
+
+    def unchanged_outcome(authority: str, trace_extra: Dict[str, Any]) -> Dict[str, Any]:
+        trace = {"lens_version": lens.version, "lens_mismatch": lens_mismatch, **trace_extra}
+        return {
+            "meaning_revision": "unchanged",
+            "foreground_authority": authority,
+            "active": prior_dict,
+            "revision": None,
+            "trace": trace,
+        }
+
+    evidence = await _cm.load_cortex_evidence(
+        db, workspace_id=req.workspace_id, session_id=req.session_id,
+        owner_peer_id=owner, now=req.now,
+    )
+    history: List[Dict[str, str]] = []
+    for item in (req.recent_conversation or [])[-6:]:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "user")[:20]
+        content = str(item.get("content") or "")[:700]
+        if content.strip():
+            history.append({"role": role, "content": content})
+
+    adapter = get_agenda_adapter()
+    started = time.perf_counter()
+    raw = await _cm.run_interpreter(
+        adapter=adapter,
+        system=lens.system,
+        prompt=_cm.build_interpreter_prompt(
+            lens_system=lens.system, turn_text=req.turn_text, prior=prior_dict,
+            history=history, cortex_evidence=evidence,
+        ),
+    )
+    latency_ms = round((time.perf_counter() - started) * 1000, 1)
+    if raw is None:
+        return unchanged_outcome(
+            "unknown_omitted_due_to_interpretation_failure",
+            {"reason": "interpreter_unavailable", "latency_ms": latency_ms},
+        )
+    raw_authority = str(raw.get("foreground_authority") or "").lower()
+    if raw_authority not in {"active", "backgrounded"}:
+        raw_authority = "active" if raw.get("no_change") is True else "active"
+    if raw.get("no_change") is True:
+        return unchanged_outcome(raw_authority, {"reason": "interpreter_no_change", "latency_ms": latency_ms})
+
+    proposal = _cm.validate_proposal(raw=raw, turn_text=req.turn_text, prior=prior)
+    if proposal is None:
+        # Invalid (incl. non-verbatim evidence) or identical → carry, but the
+        # interpreter DID answer, so its authority stands (not a failure).
+        return unchanged_outcome(raw_authority, {"reason": "validation_carry", "latency_ms": latency_ms})
+
+    result = await _cm.commit_revision(
+        db, scope=scope, scope_key=scope_key, revision_key=revision_key,
+        source_message_ids=[req.message_id], proposal=proposal,
+        lens_version=lens.version, now=req.now,
+        expected_prior_id=req.expected_prior_id,
+        expected_prior_version=req.expected_prior_version,
+    )
+    if result["outcome"] == "stale_prior":
+        # Authored against the wrong state: discard, never rebase. v1
+        # abstains rather than paying for a second call → omit.
+        return {
+            "meaning_revision": "unchanged",
+            "foreground_authority": "unknown_omitted_due_to_interpretation_failure",
+            "active": result.get("active"),
+            "revision": None,
+            "trace": {
+                "lens_version": lens.version, "reason": "stale_prior_discarded",
+                "latency_ms": latency_ms,
+            },
+        }
+    row = result["row"]
+    return {
+        "meaning_revision": "revised" if result["outcome"] == "committed" else "unchanged",
+        "foreground_authority": proposal["foreground_authority"],
+        "active": row,
+        "revision": row if result["outcome"] == "committed" else None,
+        "trace": {
+            "lens_version": lens.version, "reason": result["outcome"],
+            "latency_ms": latency_ms, "lens_mismatch": lens_mismatch,
+        },
+    }
+
+
+@router.get("/current-meaning/active")
+async def get_current_meaning_active(
+    workspace_id: str = Query(...),
+    session_id: str = Query(...),
+    peer_id: Optional[str] = Query(None),
+    product: str = Query("sophie"),
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Read the retained active row. Authority is per-turn (revise-sync /
+    packet), never stored — this endpoint reports belief, not bandwidth."""
+    from src.models.current_meaning import scope_key_for
+    from src.services import current_meaning_service as _cm
+
+    scope_key = scope_key_for(workspace_id, product, session_id, peer_id)
+    row = await _cm.get_active(db, scope_key=scope_key)
+    return {"active": _cm.row_to_dict(row) if row else None, "scope_key": scope_key}
 
 
 class CandidateMarkRequest(BaseModel):

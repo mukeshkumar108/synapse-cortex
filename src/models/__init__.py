@@ -8,6 +8,7 @@ from src.models.attention_candidate import AttentionCandidate, AttentionCandidat
 from src.models.operational_state import (RecurringIntention, RecurringOccurrence, ObjectiveProgress,
     ExtractionTrace, OperationalStatus, OccurrenceStatus)
 from src.models.derived_signal import DerivedSignal, DerivedSignalKind
+from src.models.current_meaning import CurrentMeaning
 
 __all__ = [
     "Expectation",
@@ -33,4 +34,5 @@ __all__ = [
     "RecurringIntention", "RecurringOccurrence", "ObjectiveProgress", "ExtractionTrace",
     "OperationalStatus", "OccurrenceStatus",
     "DerivedSignal", "DerivedSignalKind",
+    "CurrentMeaning",
 ]
