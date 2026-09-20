@@ -74,6 +74,32 @@ RPD2 itself is frozen read-only reference; this ledger tracks what crossed the b
 Shared spine now reads: **meaning → authority/release → trajectory →
 first-beat action.**
 
+## Sustain / yield — SHARED / GRADUATED / LIVE
+
+* Proven property: **after a consumed first-beat lead, the next turn's
+  semantic reaction exclusively determines sustain, release, or yield
+  under the same trajectory identity, with no new store and no lexical
+  gating.**
+* What graduated (runtime-side): state-gated N+1 reaction classifier
+  (welcomed/neutral/redirected/refused, bounded, temp 0); sustain reuses
+  the recorded impulse + verdict id as executive first-beat context (no
+  fresh LEAD minted); neutral releases to ordinary conversation; paraphrased
+  refusal yields into the existing guard lifecycle with history retained;
+  multi-turn sustain under one id with per-turn fresh evidence (no
+  self-perpetuation); reaction outcome owns exclusive trajectory authority
+  for its turn (fresh autonomous LEAD suppressed; ordinary responsiveness
+  and director/task lanes untouched); fail-open releases, never sustains
+  without positive evidence.
+* Evidence: `tests/test_trajectory_sustain_yield.py` (A–F incl. exclusivity
+  regression), full suite green, deployed healthy, CurrentMeaning smoke
+  still green post-deploy.
+* Recorded, not fixed: first-token latency (two bounded semantic legs on
+  lead-following turns — measure p50/p95 live before any optimisation);
+  `is_release` retained in session-mode + degraded paths; live calibration
+  of reaction classification.
+
+Closed loop now live: **sense → lead → observe → sustain/yield → repeat.**
+
 ## Queued (from the agreed port table — choose deliberately, no parallel chaos)
 
 * Activation / easing / backgrounding (needs CurrentMeaning as substrate; strongest
