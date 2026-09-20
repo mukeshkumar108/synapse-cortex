@@ -95,34 +95,38 @@ def api(body: dict) -> tuple[int, dict]:
         return getattr(exc, "code", -1) or -1, {"_error": str(exc)[:200]}
 
 
+SAMPLES = int(os.environ.get("PROBE_SAMPLES", "1"))
+
+
 def main() -> int:
-    print("cell | call | revision | authority | active_ver | new_row | desired (label only)")
+    print("cell | sample | call | revision | authority | active_ver | new_row | desired (label only)")
     for cell, (turns, desired) in MATRIX.items():
-        scope = f"ws-probe-auth-{cell}"
-        prior_id, prior_ver = None, None
-        seq = [("seed", SEED_TEXT)] + [(f"probe{i+1}", t) for i, t in enumerate(turns)]
-        for idx, (kind, text) in enumerate(seq):
-            body = {
-                "workspace_id": scope,
-                "session_id": "sess-probe",
-                "peer_id": "probe_user",
-                "message_id": f"{cell}-{kind}",
-                "turn_text": text,
-                "recent_conversation": [],
-                "expected_prior_id": prior_id,
-                "expected_prior_version": prior_ver,
-            }
-            status, out = api(body)
-            if status != 200:
-                print(f"{cell} | {kind} | HTTP {status} {out}")
-                break
-            active = out.get("active") or {}
-            print(
-                f"{cell} | {kind} | {out.get('meaning_revision')} | "
-                f"{out.get('foreground_authority')} | v{active.get('version')} | "
-                f"{'YES' if out.get('revision') else 'no'} | {desired if kind != 'seed' else '(seed)'}"
-            )
-            prior_id, prior_ver = active.get("id"), active.get("version")
+        for sample in range(1, SAMPLES + 1):
+            scope = f"ws-probe2-{cell}-s{sample}" if SAMPLES > 1 else f"ws-probe-auth-{cell}"
+            prior_id, prior_ver = None, None
+            seq = [("seed", SEED_TEXT)] + [(f"probe{i+1}", t) for i, t in enumerate(turns)]
+            for idx, (kind, text) in enumerate(seq):
+                body = {
+                    "workspace_id": scope,
+                    "session_id": "sess-probe",
+                    "peer_id": "probe_user",
+                    "message_id": f"{cell}-s{sample}-{kind}",
+                    "turn_text": text,
+                    "recent_conversation": [],
+                    "expected_prior_id": prior_id,
+                    "expected_prior_version": prior_ver,
+                }
+                status, out = api(body)
+                if status != 200:
+                    print(f"{cell} | s{sample} | {kind} | HTTP {status} {out}")
+                    break
+                active = out.get("active") or {}
+                print(
+                    f"{cell} | s{sample} | {kind} | {out.get('meaning_revision')} | "
+                    f"{out.get('foreground_authority')} | v{active.get('version')} | "
+                    f"{'YES' if out.get('revision') else 'no'} | {desired if kind != 'seed' else '(seed)'}"
+                )
+                prior_id, prior_ver = active.get("id"), active.get("version")
     return 0
 
 
