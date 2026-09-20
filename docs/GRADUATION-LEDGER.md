@@ -50,6 +50,30 @@ RPD2 itself is frozen read-only reference; this ledger tracks what crossed the b
   omission rate. No further changes absent a failing transcript or
   materially bad live metrics.
 
+## First-beat trajectory authority — SHARED / GRADUATED / LIVE
+
+* Proven property: **on ordinary REPLY_ONLY turns, Companion Runtime can
+  make a bounded semantic trajectory decision before generation and give a
+  LEAD/STEER decision executive authority over the first foreground beat.
+  The decision is single-consumption and fails open to HOLD.**
+* What graduated (runtime-side, no new store): pre-generation verdict inside
+  the existing gather window (`TRAJECTORY_PREGEN_TIMEOUT_MS`, default
+  1500ms); executive render reusing the existing objective block with
+  personality/continuity retained; `FIRST_BEAT` consumption barring
+  second-beat/NEXT reuse; verdict provenance in existing state (inspection
+  only — no N+1 executive carry; sustain/yield is separate). Task, session,
+  deferred, CurrentMeaning, and release paths untouched.
+* Evidence: `tests/test_trajectory_first_beat.py` (failed before, green
+  after), full suite green, deployed healthy, CurrentMeaning smoke still
+  green post-deploy.
+* Recorded, not fixed: first-token latency from the bounded pre-generation
+  leg; gear/model-tier effects from real ordinary-turn triggers;
+  `is_release` regex remains debt owned by sustain/yield; existing
+  authority-transition calibration watches remain live.
+
+Shared spine now reads: **meaning → authority/release → trajectory →
+first-beat action.**
+
 ## Queued (from the agreed port table — choose deliberately, no parallel chaos)
 
 * Activation / easing / backgrounding (needs CurrentMeaning as substrate; strongest
