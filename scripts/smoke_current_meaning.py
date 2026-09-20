@@ -56,7 +56,13 @@ def check(name: str, cond: bool, detail: str = "") -> None:
         FAILURES.append(name)
 
 
-SCOPE = {"workspace_id": "ws-smoke", "session_id": "sess-smoke", "peer_id": "smoke_user"}
+import time as _time
+
+# Fresh scope per run: idempotency (UNIQUE scope+revision_key) and retention
+# are proven by unit tests; the smoke must start empty to assert fail-closed
+# baselines honestly instead of tripping over previous runs' rows.
+_RUN = os.environ.get("SMOKE_RUN_ID") or _time.strftime("%Y%m%d-%H%M%S")
+SCOPE = {"workspace_id": f"ws-smoke-{_RUN}", "session_id": "sess-smoke", "peer_id": "smoke_user"}
 X = "she is still hurt about the cancelled walk"
 Y = "she softened when I owned it plainly; the walk is no longer the point"
 Z = "follow up once, lightly, tomorrow — no chase"
