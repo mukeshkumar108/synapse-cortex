@@ -5,7 +5,7 @@ Status values: `PORT` (approved to port, not built) → `SHARED / GRADUATED / LI
 
 RPD2 itself is frozen read-only reference; this ledger tracks what crossed the boundary.
 
-## CurrentMeaning (live Account rewrite) — SHARED / GRADUATED / LIVE VALIDATION PENDING
+## CurrentMeaning (live Account rewrite) — SHARED / GRADUATED / LIVE
 
 * Graduated in: `0018_current_meaning` + `POST /v1/cortex/current-meaning/revise-sync`
   (commit `graduate CurrentMeaning into Cortex fast lane`).
@@ -17,10 +17,15 @@ RPD2 itself is frozen read-only reference; this ledger tracks what crossed the b
   its own evidence; no keyword/regex gate; stale writes discarded, never rebased;
   `revision_key` (idempotency) separate from `source_message_ids` (provenance);
   fail-closed omission on interpreter failure.
-* Live validation pending: deployed smoke harness
-  (`scripts/smoke_current_meaning.py`) must go green against the VPS stack, then
-  watch revision precision, background rate, leak-back, 4th-leg latency, omission
-  rate, and version churn in live Sophie traffic before this flips to LIVE.
+* Live validation PASSED (2026-09-20, VPS): `scripts/smoke_current_meaning.py`
+  green against the deployed stack — health, empty-scope missing, live
+  model-authored v1 revision (revised/active with means shape), stale-prior
+  discard with omission. Runtime (new code, healthy) points at Cortex over the
+  container network, so the 4th gather leg is live in production traffic.
+* Live calibration watchlist (opportunistic, via traces — no manual QA gate):
+  revision precision vs no-change rate, background rate in ordinary chat,
+  leak-back of superseded meaning, 4th-leg latency distribution, omission rate
+  (incl. while Cortex was down on Neon quota), version churn per scope.
 
 ## Queued (from the agreed port table — choose deliberately, no parallel chaos)
 
