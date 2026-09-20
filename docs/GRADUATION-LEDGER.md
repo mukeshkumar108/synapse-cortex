@@ -27,6 +27,29 @@ RPD2 itself is frozen read-only reference; this ledger tracks what crossed the b
   leak-back of superseded meaning, 4th-leg latency distribution, omission rate
   (incl. while Cortex was down on Neon quota), version churn per scope.
 
+## Release / backgrounding v1 — SHARED / GRADUATED / LIVE
+
+* Proven claim: **Cortex can semantically reduce and restore foreground
+  authority over retained CurrentMeaning without deleting it, without TTL
+  expiry, and without lexical gating. Authority-only transitions can occur
+  with zero version churn.**
+* What graduated: machinery (release/reactivation with identical id/version,
+  deterministic tests) + narrow lens calibration (`sophie-meaning-v2`:
+  measure both directions; carry unless meaning itself changed; irrelevance
+  cannot reactivate). No easing schema, no TTL, no keywords, no activation
+  gradient, no CurrentMeaning changes.
+* Evidence: 8-cell contrasted matrix N=3 on the live stack — resolution
+  backgrounds 3/3, banter never reactivates (3/3 unchanged, no rows),
+  topic-shift/warmth background with zero churn (9/9 authority-only calls
+  row-free), pain stays active, relevance return reactivates.
+* Recorded, not fixed: revision eagerness on pain restatement; version churn
+  on genuine reactivation (v3 vs carry); sharpening/space-demand ambiguity —
+  future eval labels must distinguish "issue intensifies" (stays active)
+  from "user requests disengagement" (backgrounds, retained).
+* Watches (existing): version churn, authority calibration, 4th-leg latency,
+  omission rate. No further changes absent a failing transcript or
+  materially bad live metrics.
+
 ## Queued (from the agreed port table — choose deliberately, no parallel chaos)
 
 * Activation / easing / backgrounding (needs CurrentMeaning as substrate; strongest
