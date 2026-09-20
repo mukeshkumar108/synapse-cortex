@@ -74,7 +74,8 @@ check("cortex-health", status == 200, f"status={status} {health}")
 # 2. Empty scope reads missing (fail-closed baseline).
 status, active = api(
     "GET",
-    "/v1/cortex/current-meaning/active?workspace_id=ws-smoke&session_id=sess-smoke&peer_id=smoke_user",
+    f"/v1/cortex/current-meaning/active?workspace_id={SCOPE['workspace_id']}"
+    f"&session_id={SCOPE['session_id']}&peer_id={SCOPE['peer_id']}",
 )
 check("active-empty-scope", status == 200 and active.get("active") is None, f"status={status} {active}")
 
