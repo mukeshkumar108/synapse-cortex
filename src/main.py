@@ -10,8 +10,19 @@ from src.routers import health_router, events_router, debug_router, cortex_route
 from src.services.turn_extractor import extractor_config_status
 
 
+def validate_service_token_config() -> None:
+    if (
+        settings.ENV.strip().lower() in {"production", "prod", "staging"}
+        and not settings.SYNAPSE_CORTEX_API_TOKEN.strip()
+    ):
+        raise RuntimeError(
+            "SYNAPSE_CORTEX_API_TOKEN is required outside development/test"
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_service_token_config()
     # Initialize DB tables on startup
     await init_db()
     status = extractor_config_status()

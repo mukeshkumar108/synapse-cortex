@@ -3,11 +3,12 @@ import time
 from typing import Any, Dict, List, Literal, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-from sqlalchemy import text
+from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import and_, or_, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db import get_async_session
+from src.db import get_async_session, get_rollback_session
 from src.models.commitment_candidate import CommitmentCandidateStatus
 from src.services.commitment_candidate_service import CommitmentCandidateService
 from src.services.cortex_handshake_service import CortexHandshakeService
@@ -20,7 +21,13 @@ from src.runtime_model import get_agenda_adapter
 from src.schemas.candidate import ExtractionCandidate
 from src.models.expectation import Expectation
 from src.models.open_loop import OpenLoop
-from src.models.operational_state import RecurringIntention
+from src.models.operational_state import (
+    CandidateReceipt,
+    OccurrenceStatus,
+    OperationalStatus,
+    RecurringIntention,
+    RecurringOccurrence,
+)
 from sqlmodel import select
 
 logger = logging.getLogger(__name__)
@@ -58,6 +65,215 @@ class InitiativeCompletionRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class CandidateQueryRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=200)
+    owner_peer_id: str = Field(min_length=1, max_length=200)
+    now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CandidateReceiptItem(BaseModel):
+    receipt_id: str = Field(min_length=1, max_length=200)
+    decision_id: str = Field(min_length=1, max_length=200)
+    turn_id: str = Field(min_length=1, max_length=200)
+    candidate_id: str = Field(min_length=1, max_length=240)
+    candidate_version: str = Field(min_length=1, max_length=100)
+    stage: Literal["selected", "surfaced", "delivered", "discarded", "failed"]
+    channel: Literal["inbound", "proactive", "voice"]
+    occurred_at: datetime
+    assistant_message_id: Optional[str] = Field(default=None, max_length=200)
+    effect: Optional[Literal["asked", "mentioned", "acted", "none"]] = None
+
+    @model_validator(mode="after")
+    def validate_delivery_evidence(self):
+        if self.stage == "delivered" and not self.assistant_message_id:
+            raise ValueError("delivered receipts require assistant_message_id")
+        return self
+
+
+class CandidateReceiptRequest(BaseModel):
+    contract_version: Literal["candidate-receipts-v1"] = "candidate-receipts-v1"
+    workspace_id: str = Field(min_length=1, max_length=200)
+    owner_peer_id: str = Field(min_length=1, max_length=200)
+    receipts: List[CandidateReceiptItem] = Field(min_length=1, max_length=50)
+
+
+def _naive_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+@router.post("/candidates/query")
+async def query_neutral_candidates(
+    req: CandidateQueryRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Pure, neutral candidate read. No admission, prompt or ledger writes."""
+    rows = (await db.execute(
+        select(RecurringOccurrence, RecurringIntention)
+        .join(
+            RecurringIntention,
+            RecurringIntention.id == RecurringOccurrence.recurring_intention_id,
+        )
+        .where(
+            RecurringOccurrence.honcho_workspace_id == req.workspace_id,
+            RecurringIntention.honcho_workspace_id == req.workspace_id,
+            RecurringIntention.owner_peer_id == req.owner_peer_id,
+            RecurringIntention.status == OperationalStatus.ACTIVE,
+            RecurringOccurrence.status == OccurrenceStatus.PENDING,
+            RecurringOccurrence.asked_at.is_(None),
+            RecurringOccurrence.user_day <= req.now.date(),
+        )
+        .order_by(RecurringOccurrence.user_day, RecurringOccurrence.id)
+        .limit(20)
+    )).all()
+    candidates = []
+    for occurrence, intention in rows:
+        candidates.append({
+            "candidate_id": f"recurring_occurrence:{occurrence.id}",
+            "candidate_version": occurrence.updated_at.isoformat(),
+            "kind": "unresolved_occurrence",
+            "state": occurrence.status.value,
+            "eligible": True,
+            "not_before": None,
+            "expires_at": None,
+            "due_at": occurrence.user_day.isoformat(),
+            "urgency": 0.7,
+            "importance": 0.8,
+            "confidence": float(intention.confidence),
+            "facts": {
+                "title": intention.title,
+                "outcome_known": False,
+            },
+            "provenance": [{
+                "source_type": "honcho_message",
+                "source_id": occurrence.source_message_id or intention.honcho_message_id,
+            }],
+        })
+    return {
+        "contract_version": "candidate-set-v1",
+        "generated_at": req.now.isoformat(),
+        "candidates": candidates,
+    }
+
+
+@router.post("/candidate-receipts")
+async def record_candidate_receipts(
+    req: CandidateReceiptRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Append idempotent candidate lifecycle evidence scoped to its owner."""
+    accepted = 0
+    duplicates = 0
+    for item in req.receipts:
+        prefix, separator, raw_id = item.candidate_id.partition(":")
+        if separator != ":" or prefix != "recurring_occurrence":
+            raise HTTPException(status_code=422, detail="unsupported candidate_id")
+        try:
+            occurrence_id = __import__("uuid").UUID(raw_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="invalid candidate_id") from exc
+        owned = (await db.execute(
+            select(RecurringOccurrence)
+            .join(
+                RecurringIntention,
+                RecurringIntention.id == RecurringOccurrence.recurring_intention_id,
+            )
+            .where(
+                RecurringOccurrence.id == occurrence_id,
+                RecurringOccurrence.honcho_workspace_id == req.workspace_id,
+                RecurringIntention.honcho_workspace_id == req.workspace_id,
+                RecurringIntention.owner_peer_id == req.owner_peer_id,
+            )
+        )).scalar_one_or_none()
+        if owned is None:
+            raise HTTPException(status_code=404, detail="candidate not found for owner")
+        existing_rows = (await db.execute(select(CandidateReceipt).where(or_(
+            CandidateReceipt.receipt_id == item.receipt_id,
+            and_(
+                CandidateReceipt.decision_id == item.decision_id,
+                CandidateReceipt.candidate_id == item.candidate_id,
+                CandidateReceipt.stage == item.stage,
+            ),
+        )))).scalars().all()
+
+        def exact_match(existing: CandidateReceipt) -> bool:
+            return (
+                existing.receipt_id == item.receipt_id
+                and existing.decision_id == item.decision_id
+                and existing.turn_id == item.turn_id
+                and existing.candidate_id == item.candidate_id
+                and existing.candidate_version == item.candidate_version
+                and existing.honcho_workspace_id == req.workspace_id
+                and existing.owner_peer_id == req.owner_peer_id
+                and existing.stage == item.stage
+                and existing.channel == item.channel
+                and existing.occurred_at == _naive_utc(item.occurred_at)
+                and existing.assistant_message_id == item.assistant_message_id
+                and existing.effect == item.effect
+            )
+
+        if existing_rows:
+            if any(exact_match(existing) for existing in existing_rows):
+                duplicates += 1
+                continue
+            raise HTTPException(status_code=409, detail="conflicting candidate receipt replay")
+
+        if item.candidate_version != owned.updated_at.isoformat():
+            raise HTTPException(status_code=409, detail="stale candidate_version")
+        row = CandidateReceipt(
+            receipt_id=item.receipt_id,
+            decision_id=item.decision_id,
+            turn_id=item.turn_id,
+            candidate_id=item.candidate_id,
+            candidate_version=item.candidate_version,
+            honcho_workspace_id=req.workspace_id,
+            owner_peer_id=req.owner_peer_id,
+            stage=item.stage,
+            channel=item.channel,
+            occurred_at=_naive_utc(item.occurred_at),
+            assistant_message_id=item.assistant_message_id,
+            effect=item.effect,
+        )
+        try:
+            async with db.begin_nested():
+                db.add(row)
+                await db.flush()
+            accepted += 1
+        except IntegrityError:
+            concurrent_rows = (await db.execute(select(CandidateReceipt).where(or_(
+                CandidateReceipt.receipt_id == item.receipt_id,
+                and_(
+                    CandidateReceipt.decision_id == item.decision_id,
+                    CandidateReceipt.candidate_id == item.candidate_id,
+                    CandidateReceipt.stage == item.stage,
+                ),
+            )))).scalars().all()
+            if any(exact_match(existing) for existing in concurrent_rows):
+                duplicates += 1
+                continue
+            raise HTTPException(status_code=409, detail="conflicting candidate receipt replay")
+        if item.stage == "delivered" and item.effect == "asked":
+            await db.execute(
+                update(RecurringOccurrence)
+                .where(
+                    RecurringOccurrence.id == occurrence_id,
+                    RecurringOccurrence.asked_at.is_(None),
+                )
+                .values(
+                    asked_at=_naive_utc(item.occurred_at),
+                    ask_count=RecurringOccurrence.ask_count + 1,
+                    updated_at=_naive_utc(item.occurred_at),
+                )
+            )
+    await db.commit()
+    return {
+        "contract_version": "candidate-receipts-v1",
+        "accepted": accepted,
+        "duplicates": duplicates,
+    }
+
+
 @router.post("/working-set")
 async def get_cortex_working_set(
     req: WorkingSetRequest,
@@ -90,10 +306,11 @@ async def get_cortex_working_set(
     return working_set
 
 
-@router.post("/handover")
-async def get_session_handover(
+async def _compile_session_handover(
     req: WorkingSetRequest,
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession,
+    *,
+    evaluation: bool,
 ):
     """Tiny product-edited session handover (~200-400 tokens).
 
@@ -123,6 +340,7 @@ async def get_session_handover(
         packet=packet, now=req.now, timezone_str=req.timezone,
         adapter=get_agenda_adapter(),
         force=bool((req.director_hints or {}).get("force_agenda")),
+        schedule_background=not evaluation,
     )
     # FOREGROUND ADMISSION CONTROL: the backend decides what deserves
     # foreground bandwidth. Owed/contractual items are admitted with
@@ -158,6 +376,50 @@ async def get_session_handover(
     except Exception:
         await db.rollback()
     result["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
+    if evaluation:
+        result["evaluation"] = {
+            "mode": "evaluation",
+            "effects_rolled_back": True,
+            "would_record_asks": [
+                str(item.get("occurrence_id"))
+                for item in result.get("owed", [])
+                if isinstance(item.get("pressure"), (int, float))
+                and item.get("pressure") >= 0.6
+                and item.get("occurrence_id")
+            ],
+        }
+    return result
+
+
+@router.post("/handover")
+async def get_session_handover(
+    req: WorkingSetRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    return await _compile_session_handover(req, db, evaluation=False)
+
+
+@router.post("/handover/evaluate")
+async def evaluate_session_handover(
+    req: WorkingSetRequest,
+    db: AsyncSession = Depends(get_rollback_session),
+):
+    """Run the complete handover compiler while rolling DB effects back."""
+    return await _compile_session_handover(req, db, evaluation=True)
+
+
+@router.post("/handover/preview")
+async def preview_session_handover(
+    req: WorkingSetRequest,
+    db: AsyncSession = Depends(get_rollback_session),
+):
+    """Live-turn projection with the complete handover logic and zero writes.
+
+    The legacy `/handover` endpoint is preserved for compatibility. Runtime
+    uses this preview endpoint so reading context cannot count as asking.
+    """
+    result = await _compile_session_handover(req, db, evaluation=True)
+    result.pop("evaluation", None)
     return result
 
 
@@ -374,6 +636,25 @@ async def get_cortex_handshake(
     )
 
 
+@router.post("/handshake/evaluate")
+async def evaluate_cortex_handshake(
+    req: HandshakeRequest,
+    db: AsyncSession = Depends(get_rollback_session),
+):
+    result = await handshake_service.compile_handshake(
+        db=db,
+        workspace_id=req.workspace_id,
+        session_id=req.session_id,
+        now=req.now,
+        timezone_str=req.timezone,
+        last_interaction_time=req.last_interaction_time,
+        chronology=req.chronology,
+        owner_peer_id=req.peer_id,
+    )
+    result["evaluation"] = {"mode": "evaluation", "effects_rolled_back": True}
+    return result
+
+
 @router.post("/route")
 async def route_cortex_query(req: RouteRequest):
     """
@@ -403,6 +684,27 @@ async def get_cortex_attention_packet(
         timezone_str=timezone_str,
         owner_peer_id=peer_id,
     )
+
+
+@router.get("/attention-packet/evaluate")
+async def evaluate_cortex_attention_packet(
+    workspace_id: str = Query(...),
+    session_id: str = Query(...),
+    peer_id: Optional[str] = Query(None),
+    now: Optional[datetime] = Query(None),
+    timezone_str: str = Query("UTC", alias="timezone"),
+    db: AsyncSession = Depends(get_rollback_session),
+):
+    result = await packet_service.compile_attention_packet(
+        db=db,
+        workspace_id=workspace_id,
+        session_id=session_id,
+        now=now or datetime.now(timezone.utc),
+        timezone_str=timezone_str,
+        owner_peer_id=peer_id,
+    )
+    result["evaluation"] = {"mode": "evaluation", "effects_rolled_back": True}
+    return result
 
 
 @router.get("/commitment-candidates")
@@ -568,6 +870,20 @@ async def revise_current_meaning_sync(
             "latency_ms": latency_ms, "lens_mismatch": lens_mismatch,
         },
     }
+
+
+@router.post("/current-meaning/revise-sync/evaluate")
+async def evaluate_current_meaning_sync(
+    req: CurrentMeaningReviseRequest,
+    db: AsyncSession = Depends(get_rollback_session),
+):
+    """Run the real interpreter and commit path inside a rolled-back txn."""
+    result = await revise_current_meaning_sync(req, db)
+    trace = result.setdefault("trace", {})
+    trace["evaluation"] = True
+    trace["effects_rolled_back"] = True
+    trace["would_write_revision"] = bool(result.get("revision"))
+    return result
 
 
 @router.get("/current-meaning/active")

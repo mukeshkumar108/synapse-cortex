@@ -96,6 +96,37 @@ class RecurringOccurrence(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
+class CandidateReceipt(SQLModel, table=True):
+    """Append-only lifecycle evidence for a neutral Cortex candidate.
+
+    Reading or projecting a candidate never creates this row. Products and
+    Runtime report selected/surfaced/delivered/discarded/failed explicitly;
+    only a delivered receipt with effect=asked may update the legacy ask
+    ledger.
+    """
+
+    __tablename__ = "candidate_receipts"
+    __table_args__ = (
+        UniqueConstraint("decision_id", "candidate_id", "stage", name="uq_candidate_receipt_stage"),
+        UniqueConstraint("receipt_id", name="uq_candidate_receipt_id"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    receipt_id: str = Field(index=True, nullable=False)
+    decision_id: str = Field(index=True, nullable=False)
+    turn_id: str = Field(index=True, nullable=False)
+    candidate_id: str = Field(index=True, nullable=False)
+    candidate_version: str = Field(nullable=False)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: str = Field(index=True, nullable=False)
+    stage: str = Field(index=True, nullable=False)
+    channel: str = Field(nullable=False)
+    occurred_at: datetime = Field(nullable=False)
+    assistant_message_id: Optional[str] = Field(default=None, index=True)
+    effect: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
 class ObjectiveProgress(SQLModel, table=True):
     __tablename__ = "objective_progress"
     __table_args__ = (UniqueConstraint("honcho_workspace_id", "honcho_message_id", "candidate_key", name="uq_progress_source_candidate"),)

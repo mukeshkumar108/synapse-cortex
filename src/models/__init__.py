@@ -5,7 +5,7 @@ from src.models.clarification import ClarificationCandidate, ClarificationType, 
 from src.models.epistemic import EpistemicAnnotation, EpistemicProvenance
 from src.models.domain_annotation import DomainAnnotation, DomainTag, CategoryTag
 from src.models.attention_candidate import AttentionCandidate, AttentionCandidateKind, AttentionCandidateStatus
-from src.models.operational_state import (RecurringIntention, RecurringOccurrence, ObjectiveProgress,
+from src.models.operational_state import (RecurringIntention, RecurringOccurrence, CandidateReceipt, ObjectiveProgress,
     ExtractionTrace, OperationalStatus, OccurrenceStatus)
 from src.models.derived_signal import DerivedSignal, DerivedSignalKind
 from src.models.current_meaning import CurrentMeaning
@@ -31,7 +31,7 @@ __all__ = [
     "AttentionCandidate",
     "AttentionCandidateKind",
     "AttentionCandidateStatus",
-    "RecurringIntention", "RecurringOccurrence", "ObjectiveProgress", "ExtractionTrace",
+    "RecurringIntention", "RecurringOccurrence", "CandidateReceipt", "ObjectiveProgress", "ExtractionTrace",
     "OperationalStatus", "OccurrenceStatus",
     "DerivedSignal", "DerivedSignalKind",
     "CurrentMeaning",

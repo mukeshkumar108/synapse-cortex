@@ -53,3 +53,35 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for providing async database session."""
     async with async_session_maker() as session:  # type: ignore
         yield session
+
+
+async def get_rollback_session() -> AsyncGenerator[AsyncSession, None]:
+    """Run a request against real state while rolling every DB effect back.
+
+    Services in this codebase legitimately call ``session.commit()`` while
+    compiling state. ``join_transaction_mode='create_savepoint'`` keeps those
+    commits inside an outer connection transaction, so the dependency can
+    roll the complete request back after producing its evaluation response.
+    Evaluation routes must also suppress work scheduled on independent
+    sessions, because that work would sit outside this transaction.
+    """
+    async with engine.connect() as connection:
+        outer = await connection.begin()
+        # SQLite's driver defers the physical BEGIN until the first write.
+        # If that first write happens inside a SAVEPOINT, releasing the
+        # savepoint can make it durable before SQLAlchemy's logical outer
+        # transaction is rolled back. Force the physical boundary in tests
+        # and local SQLite deployments. Postgres begins eagerly already.
+        if connection.dialect.name == "sqlite":
+            await connection.exec_driver_sql("BEGIN")
+        session = AsyncSession(
+            bind=connection,
+            expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
+        try:
+            yield session
+        finally:
+            await session.close()
+            if outer.is_active:
+                await outer.rollback()

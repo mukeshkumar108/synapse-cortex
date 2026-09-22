@@ -282,7 +282,8 @@ async def ensure_occurrence_rows(db: AsyncSession, *, workspace_id: str, packet:
 
 async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: Optional[str],
                          packet: Dict[str, Any], now: datetime, timezone_str: str,
-                         adapter: Any, force: bool = False) -> Dict[str, Any]:
+                         adapter: Any, force: bool = False,
+                         schedule_background: bool = True) -> Dict[str, Any]:
     """Read-or-compile the live agenda. Fresh snapshot returns instantly.
     Otherwise compile deterministically, persist, and refresh via the model
     in the background (never blocking the foreground)."""
@@ -339,7 +340,7 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
             await db.commit()
 
     # Model-ranked refresh in the background: better judgment, zero latency cost.
-    if adapter is not None:
+    if adapter is not None and schedule_background:
         asyncio.create_task(_background_model_refresh(
             workspace_id, owner_peer_id, candidates, daypart, adapter, now))
 
