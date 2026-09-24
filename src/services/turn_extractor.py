@@ -837,6 +837,26 @@ Classify durable state by what it IS:
 Violation is never emitted: it is derived later from existing state plus
 conflicting evidence. Attention is never emitted: it is applied to existing
 state by a later layer, never stored as content.
+Same evidence may yield more than one primitive when each encodes genuinely
+different state (an appointment Thursday 2pm can be an Event, plus an Open Loop
+for its pending outcome, plus an Expectation about it, plus a Commitment to ask
+afterward) — parallel proposals are allowed, duplicates are not.
+Subtype calibration (surface wording never decides alone; context does):
+"dream of X" -> model/aspiration content, not a plan; "plan to X" without undertaking
+-> expectation/intention; "I'll X" as genuine undertaking -> commitment; "haven't
+decided whether" -> open_loop pending decision; dated upcoming happening -> event,
+with loop/expectation/commitment added only if each is genuinely present; fear/worry
+("scared I'll lose my job") -> model/fear content, plus expectation only with a
+concrete anticipated future state; "might surprise you" (companion tentative) ->
+companion-held expectation/intention, never auto-promoted to commitment; "don't
+mention X until Friday" -> boundary/suppression plus expectation only if a future
+return is expected; "you said you'd ask and didn't" -> commitment plus derived
+violation evidence, never a fresh intention.
+Ambiguity rule: when classification or identity is materially uncertain, do NOT
+guess a primitive. Emit at reduced confidence, and where the gap blocks safe
+state (unknown referent, unknown timing), add clarification_hint instead. A
+forced wrong row is worse than an honest uncertain one; resolution against
+existing evidence happens downstream, not by invention here.
 Valid operational_kind:
 expectation, durable_objective, recurring_intention, progress, completion, cancellation,
 suppression, open_loop, event, commitment_candidate, semantic_only. Recurrence must include cadence daily/weekly/
@@ -876,7 +896,11 @@ Explicit permission such as "we can talk about X now", "you can ask me about X n
 topic_or_entity = X). Recognize it and do not suppress X again. Granting permission
 ("permission for X", "you can show X", "be real with me") is the OPPOSITE of suppression:
 never emit a suppression for the permitted topic from a permission grant; at most reopen.
-Polarity matters more than vocabulary — read whether the turn opens or closes the topic.
+Directionality test before any suppression: does the turn ask for MORE of X (invitation,
+request, permission, "share something real with me") or LESS of X (refusal, "don't",
+"stop", boundary)? Suppress ONLY on LESS. An invitation misread as a suppression is the
+worst failure this lane has — it bans exactly what the user asked for. Polarity matters
+more than vocabulary — read whether the turn opens or closes the topic.
 "I did my walk today" is completion (target_key walk), not progress. "Ashley's event went
 well" is completion/resolution (target_key Ashley event), not a new event. A change from
 daily to Monday/Wednesday/Friday is a revised recurring_intention with cadence weekly and
@@ -1243,8 +1267,8 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
             return []
         try:
             data = self._chat_json(f"""You are reading ONE assistant/character utterance to record promises it makes. Nothing else matters.
-Emit a candidate ONLY for an explicit promise/commitment about future behaviour ("I'll give you space", "I'll reach out when X", "I won't fight you") -> operational_kind commitment_candidate, evidence_class character_promise, authority act if the promise is concrete else ask.
-Everything else — banter, politeness, emotions, opinions, self-description, roleplay stage directions, apologies for the past, questions — gets NO candidate (empty list). Never infer a promise from politeness, performance, or emotional display. When in doubt, emit nothing: a missed promise is cheaper than a fake one.
+Emit a candidate ONLY for an explicit undertaking about future behaviour that answers all three: WHO promised WHAT, TO WHOM or FOR WHOM, and UNDER WHAT CONDITION or TIME if any ("I'll give you space", "I'll reach out when X", "I won't fight you") -> operational_kind commitment_candidate, evidence_class character_promise, authority act if the promise is concrete else ask.
+NEVER emit for: politeness, thank-you, willingness, "I understand", hypotheticals ("I would start with presence", "I can imagine a morning where"), aspirational wishes ("I would like to be someone who"), emotional posture or resolve ("I can stay", "I'm not running"), character self-description ("I make tea", "I am someone who stays"), roleplay stage directions ("I'm going inside", "I'm coming to you" as scene action), conditional dramatic lines never adopted outside the scene, apologies for the past, questions. When in doubt, emit nothing: a missed promise is cheaper than a fake one, because every row here can later derive violations.
 Return JSON {{"candidates": [...]}}. Each candidate: operational_kind (REQUIRED: commitment_candidate), observation (plain semantic English), raw_evidence (verbatim quote from the utterance — REQUIRED), confidence (REQUIRED number 0..1), canonical_title, temporal_phrase or null. UTTERANCE: {json.dumps(text)}
 SPEAKER: {json.dumps(peer_id or "assistant")}""")
         except Exception as err:
