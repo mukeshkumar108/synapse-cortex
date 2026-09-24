@@ -691,6 +691,15 @@ HARD EXCLUSION - one-off work is never a recurrence: "I need to fix X", "I'm deb
 "keep on top of X" describe a current objective/expectation. recurring_intention requires
 the user to state an established repeating practice with cadence evidence ("every morning",
 "every day", "on weekdays"), not merely repetition of a task across days.
+When a current user reports an outcome, abandonment or replacement of a prior standalone
+open loop or Sophie attention item, use resolution_hint with target_kind (open_loop,
+attention or clarification), target_id copied EXACTLY from PRIOR STATE, action (fulfill, cancel or
+supersede), and verbatim current-user evidence. Do not infer resolution from silence,
+from an assistant question, or from hypothetical/negated completion. Uncertain target
+means a clarification, never a guessed mutation. When the user answers an existing
+clarification, fulfill that exact clarification ID; preserve the source trace. Existing app_task objects are owned
+by the app: do not overwrite them with conversational outcome mutations.
+
 PRIOR STATE is read-only background — existing objectives, loops, routines, suppressions and
 recent evidence. It tells you about continuity only. Do not re-extract prior state as new.
 If the current turn restates or continues something already in PRIOR STATE, treat it as a

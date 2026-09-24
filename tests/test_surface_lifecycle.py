@@ -28,7 +28,7 @@ async def test_surface_registry_cooldown_max_and_resolve():
 
 
 @pytest.mark.asyncio
-async def test_curiosity_not_repeated_under_cooldown_and_extinguished_after_max(async_client):
+async def test_curiosity_reads_do_not_consume_surface_budget(async_client):
     now = datetime(2026, 8, 22, 12, tzinfo=timezone.utc)
     recurrence = RecurringIntention(
         honcho_workspace_id="ws_sc", honcho_session_id="s_sc", honcho_message_id="m1",
@@ -46,9 +46,9 @@ async def test_curiosity_not_repeated_under_cooldown_and_extinguished_after_max(
     first = (await async_client.get("/v1/cortex/attention-packet", params=params)).json()
     assert any(c["type"] == "unobserved_routine" and c["topic"] == "Morning walk" for c in first["curiosity"])
 
-    # Same instant again -> cooldown -> not repeated in this compile.
+    # Reading a packet does not establish that any question was asked.
     second = (await async_client.get("/v1/cortex/attention-packet", params=params)).json()
-    assert not any(c["type"] == "unobserved_routine" and c["topic"] == "Morning walk" for c in second["curiosity"])
+    assert any(c["type"] == "unobserved_routine" and c["topic"] == "Morning walk" for c in second["curiosity"])
 
     # A couple of hours later (past cooldown), remains available but budgeted.
     params2 = {**params, "now": "2026-08-22T14:00:00Z"}

@@ -244,6 +244,7 @@ class ObjectLifecycleService:
                     await db.execute(
                         select(Expectation).where(
                             Expectation.id == ref_uuid,
+                            Expectation.source_system.is_(None),
                             Expectation.honcho_workspace_id == payload.workspace_id,
                             Expectation.owner_peer_id == owner_peer_id,
                             Expectation.superseded_by_id.is_(None),
@@ -274,6 +275,15 @@ class ObjectLifecycleService:
                 if loop is None:
                     continue
                 if loop.expectation_id is not None:
+                    previous = await db.get(Expectation, loop.expectation_id)
+                    if (previous is not None and previous.id != expectation.id
+                            and previous.honcho_workspace_id == payload.workspace_id
+                            and previous.owner_peer_id == owner_peer_id and not previous.source_system):
+                        previous.outcome_state = OutcomeState.SUPERSEDED
+                        previous.superseded_by_id = expectation.id
+                        previous.resolution_evidence = f"promoted_to_task:{payload.source.object_id}"
+                        previous.updated_at = _now_naive()
+                        db.add(previous)
                     loop.expectation_id = expectation.id
                 else:
                     loop.status = OpenLoopStatus.RESOLVED

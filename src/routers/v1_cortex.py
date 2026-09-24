@@ -77,7 +77,7 @@ class CandidateReceiptItem(BaseModel):
     turn_id: str = Field(min_length=1, max_length=200)
     candidate_id: str = Field(min_length=1, max_length=240)
     candidate_version: str = Field(min_length=1, max_length=100)
-    stage: Literal["selected", "surfaced", "delivered", "discarded", "failed"]
+    stage: Literal["selected", "included_in_context", "generated", "persisted", "surfaced", "delivered", "visible", "user_responded", "resolved", "discarded", "failed"]
     channel: Literal["inbound", "proactive", "voice"]
     occurred_at: datetime
     assistant_message_id: Optional[str] = Field(default=None, max_length=200)
@@ -85,7 +85,7 @@ class CandidateReceiptItem(BaseModel):
 
     @model_validator(mode="after")
     def validate_delivery_evidence(self):
-        if self.stage == "delivered" and not self.assistant_message_id:
+        if self.stage in ("generated", "persisted", "delivered", "visible") and not self.assistant_message_id:
             raise ValueError("delivered receipts require assistant_message_id")
         return self
 
@@ -167,25 +167,28 @@ async def record_candidate_receipts(
     duplicates = 0
     for item in req.receipts:
         prefix, separator, raw_id = item.candidate_id.partition(":")
-        if separator != ":" or prefix != "recurring_occurrence":
+        from src.models.attention_candidate import AttentionCandidate, AttentionCandidateStatus
+        from src.models.open_loop import OpenLoop
+        from src.models.clarification import ClarificationCandidate
+        if separator != ":" or prefix not in {"recurring_occurrence", "attention", "open_loop", "clarification"}:
             raise HTTPException(status_code=422, detail="unsupported candidate_id")
         try:
             occurrence_id = __import__("uuid").UUID(raw_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail="invalid candidate_id") from exc
-        owned = (await db.execute(
-            select(RecurringOccurrence)
-            .join(
-                RecurringIntention,
-                RecurringIntention.id == RecurringOccurrence.recurring_intention_id,
-            )
-            .where(
+        if prefix == "recurring_occurrence":
+            owned = (await db.execute(select(RecurringOccurrence).join(RecurringIntention,
+                RecurringIntention.id == RecurringOccurrence.recurring_intention_id).where(
                 RecurringOccurrence.id == occurrence_id,
                 RecurringOccurrence.honcho_workspace_id == req.workspace_id,
                 RecurringIntention.honcho_workspace_id == req.workspace_id,
                 RecurringIntention.owner_peer_id == req.owner_peer_id,
-            )
-        )).scalar_one_or_none()
+            ))).scalar_one_or_none()
+        else:
+            model = {"attention": AttentionCandidate, "open_loop": OpenLoop, "clarification": ClarificationCandidate}[prefix]
+            owned = (await db.execute(select(model).where(model.id == occurrence_id,
+                model.honcho_workspace_id == req.workspace_id,
+                model.owner_peer_id == req.owner_peer_id))).scalar_one_or_none()
         if owned is None:
             raise HTTPException(status_code=404, detail="candidate not found for owner")
         existing_rows = (await db.execute(select(CandidateReceipt).where(or_(
@@ -253,7 +256,17 @@ async def record_candidate_receipts(
                 duplicates += 1
                 continue
             raise HTTPException(status_code=409, detail="conflicting candidate receipt replay")
-        if item.stage == "delivered" and item.effect == "asked":
+        if prefix == "attention" and item.stage in ("generated", "delivered") and item.effect == "asked":
+            # Asked/generated is NOT a claim of delivery, visibility or response.
+            await db.execute(update(AttentionCandidate).where(
+                AttentionCandidate.id == owned.id, AttentionCandidate.surfaced_count == 0,
+            ).values(surfaced_count=1, last_surfaced_at=_naive_utc(item.occurred_at)))
+        if prefix == "clarification" and item.stage in ("generated", "delivered") and item.effect == "asked":
+            from src.services.surface_lifecycle import SurfaceRegistry
+            await SurfaceRegistry().mark(db, workspace_id=req.workspace_id,
+                session_id=owned.honcho_session_id, message_id=item.assistant_message_id,
+                key=f"clarification:{owned.id}", now=item.occurred_at)
+        if prefix == "recurring_occurrence" and item.stage == "delivered" and item.effect == "asked":
             await db.execute(
                 update(RecurringOccurrence)
                 .where(
@@ -339,7 +352,7 @@ async def _compile_session_handover(
         db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
         packet=packet, now=req.now, timezone_str=req.timezone,
         adapter=get_agenda_adapter(),
-        force=bool((req.director_hints or {}).get("force_agenda")),
+        force=False,  # compile_agenda reconciles cached rank against current eligibility
         schedule_background=not evaluation,
     )
     # FOREGROUND ADMISSION CONTROL: the backend decides what deserves
@@ -357,36 +370,13 @@ async def _compile_session_handover(
         agenda=agenda_result.get("items"), admission=admission,
         compiled_by=agenda_result.get("compiled_by", "fallback"),
     )
-    # Ask ledger: surfacing a high-pressure user-owned objective records the
-    # ask opportunity against today's occurrence (deterministic accounting).
-    # handover-v4: surfaced items live in "owed" (numeric pressure), not the
-    # retired "agenda" key.
-    try:
-        for item in result.get("owed", []):
-            pressure = item.get("pressure")
-            if not isinstance(pressure, (int, float)) or pressure < 0.6:
-                continue
-            occ_id = item.get("occurrence_id")
-            if occ_id:
-                await db.execute(text(
-                    "update recurring_occurrences set asked_at = :now, "
-                    "ask_count = ask_count + 1 where id = :id and asked_at is null"
-                ), {"now": (req.now or datetime.now(timezone.utc)).replace(tzinfo=None), "id": occ_id})
-        await db.commit()
-    except Exception:
-        await db.rollback()
+    # Compiling context is not an ask. Only explicit effect receipts update ledgers.
     result["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
     if evaluation:
         result["evaluation"] = {
             "mode": "evaluation",
             "effects_rolled_back": True,
-            "would_record_asks": [
-                str(item.get("occurrence_id"))
-                for item in result.get("owed", [])
-                if isinstance(item.get("pressure"), (int, float))
-                and item.get("pressure") >= 0.6
-                and item.get("occurrence_id")
-            ],
+            "would_record_asks": [],
         }
     return result
 

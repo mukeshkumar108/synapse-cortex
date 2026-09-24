@@ -6,6 +6,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 
 from src.models.expectation import Expectation, OutcomeState
@@ -65,10 +66,47 @@ class LifecycleService:
         message_id: str,
         candidate: ExtractionCandidate,
         now: datetime,
+        owner_peer_id: Optional[str] = None,
     ) -> List[UUID]:
         """Processes resolution or cancellation hints against active expectations."""
         if not candidate.resolution_hint:
             return []
+
+        from src.models.attention_candidate import AttentionCandidate, AttentionCandidateStatus
+        hint = candidate.resolution_hint
+        kind = hint.get("target_kind")
+        if kind in ("open_loop", "attention", "clarification"):
+            evidence_text = " ".join(filter(None, [candidate.raw_evidence, candidate.observation]))
+            if self._has_marker(evidence_text, self.COUNTERFACTUAL_MARKERS):
+                return []
+            if hint.get("action") == "fulfill" and self._has_marker(evidence_text, self.NEGATIVE_OUTCOME_MARKERS):
+                return []
+            # The existing semantic extractor supplies identity and user evidence;
+            # deterministic code requires an exact owner-scoped target.
+            if candidate.is_hypothetical or candidate.is_quoted or candidate.is_reported_speech:
+                return []
+            model = {"open_loop": OpenLoop, "attention": AttentionCandidate, "clarification": ClarificationCandidate}[kind]
+            try:
+                target_id = UUID(str(hint.get("target_id")))
+            except ValueError:
+                return []
+            row = (await db.execute(select(model).where(model.id == target_id,
+                model.honcho_workspace_id == workspace_id,
+                model.owner_peer_id == owner_peer_id))).scalar_one_or_none() if owner_peer_id else None
+            if row is None or hint.get("action") not in ("fulfill", "cancel", "supersede"):
+                return []
+            if kind == "open_loop":
+                row.status = {"fulfill": OpenLoopStatus.RESOLVED, "cancel": OpenLoopStatus.ABANDONED,
+                    "supersede": OpenLoopStatus.SUPERSEDED}[hint["action"]]
+                row.resolution_evidence = f"honcho_message:{message_id}#candidate:{candidate.candidate_key}"
+            elif kind == "clarification":
+                row.status = ClarificationStatus.RESOLVED if hint["action"] == "fulfill" else ClarificationStatus.DISMISSED
+            else:
+                row.status = AttentionCandidateStatus.RESOLVED if hint["action"] == "fulfill" else AttentionCandidateStatus.DISMISSED
+            row.updated_at = self._naive_utc(now)
+            db.add(row)
+            await db.commit()
+            return [row.id]
 
         action = candidate.resolution_hint.get("action")
         evidence = f"honcho_message:{message_id}#candidate:{candidate.candidate_key}"
@@ -78,6 +116,7 @@ class LifecycleService:
             Expectation.honcho_workspace_id == workspace_id,
             Expectation.honcho_session_id == session_id,
             Expectation.outcome_state == OutcomeState.UNKNOWN,
+            Expectation.source_system.is_(None),
         )
         res = await db.execute(stmt)
         active_expectations = list(res.scalars().all())
@@ -86,7 +125,7 @@ class LifecycleService:
             await self._create_clarification(
                 db, workspace_id, session_id, message_id, candidate,
                 "Outcome or correction target is ambiguous",
-                active_expectations,
+                active_expectations, owner_peer_id=owner_peer_id,
             )
             return []
 
@@ -175,6 +214,7 @@ class LifecycleService:
         stmt = select(Expectation).where(
             Expectation.honcho_workspace_id == workspace_id,
             Expectation.outcome_state == OutcomeState.UNKNOWN,
+            Expectation.source_system.is_(None),
             Expectation.superseded_by_id.is_(None),
             Expectation.id != resolved.id,
         )
@@ -235,6 +275,7 @@ class LifecycleService:
         stmt = select(Expectation).where(
             Expectation.honcho_workspace_id == expectation.honcho_workspace_id,
             Expectation.outcome_state == OutcomeState.UNKNOWN,
+            Expectation.source_system.is_(None),
             Expectation.superseded_by_id.is_(None),
             Expectation.id != expectation.id,
         )
@@ -379,6 +420,7 @@ class LifecycleService:
             Expectation.honcho_workspace_id == workspace_id,
             Expectation.honcho_session_id == session_id,
             Expectation.outcome_state == OutcomeState.UNKNOWN,
+            Expectation.source_system.is_(None),
         )
         res = await db.execute(stmt)
         active = list(res.scalars().all())
@@ -486,7 +528,7 @@ class LifecycleService:
     async def _create_clarification(
         self, db: AsyncSession, workspace_id: str, session_id: str,
         message_id: str, candidate: ExtractionCandidate, description: str,
-        possible_targets: List[Expectation],
+        possible_targets: List[Expectation], owner_peer_id: Optional[str] = None,
     ) -> ClarificationCandidate:
         stmt = select(ClarificationCandidate).where(
             ClarificationCandidate.honcho_workspace_id == workspace_id,
@@ -502,6 +544,7 @@ class LifecycleService:
             honcho_session_id=session_id,
             honcho_message_id=message_id,
             candidate_key=candidate.candidate_key,
+            owner_peer_id=owner_peer_id,
             clarification_type=ClarificationType.UNCLEAR_TARGET,
             description=description,
             candidates_json=json.dumps([
@@ -601,6 +644,7 @@ class LifecycleService:
         candidate: ExtractionCandidate,
         now: datetime,
         timezone_str: str,
+        owner_peer_id: Optional[str] = None,
     ) -> Optional[Suppression]:
         if not candidate.suppression_hint:
             return None
@@ -609,14 +653,14 @@ class LifecycleService:
         if hint.get("ambiguous_target"):
             await self._create_clarification(
                 db, workspace_id, session_id, message_id, candidate,
-                "Suppression target is ambiguous", [],
+                "Suppression target is ambiguous", [], owner_peer_id=owner_peer_id,
             )
             return None
         if hint.get("action") == "reopen":
             topic = str(hint.get("topic_or_entity") or "").lower()
             stmt = select(Suppression).where(
                 Suppression.honcho_workspace_id == workspace_id,
-                Suppression.honcho_session_id == session_id,
+                or_(Suppression.owner_peer_id == owner_peer_id, and_(Suppression.owner_peer_id.is_(None), Suppression.honcho_session_id == session_id)) if owner_peer_id else Suppression.honcho_session_id == session_id,
                 Suppression.status == SuppressionStatus.ACTIVE,
             )
             matches = [
@@ -656,6 +700,8 @@ class LifecycleService:
             honcho_message_id=message_id,
             candidate_key=candidate.candidate_key,
             target_type=target_type,
+            owner_peer_id=owner_peer_id,
+            target_id=hint.get("target_id"),
             topic_or_entity=hint.get("topic_or_entity"),
             reason="user_explicit_suppression",
             surface_scope=hint.get("action_scope") or "all_surfaces",
@@ -777,6 +823,7 @@ class LifecycleService:
         workspace_id: str,
         session_id: str,
         text: str,
+        owner_peer_id: Optional[str] = None,
     ) -> List[str]:
         """Consumer for stored reopen_condition.
 
@@ -784,10 +831,12 @@ class LifecycleService:
         reopens the moment the user mentions the topic again. Subsequent turns
         are no longer suppressed by it.
         """
-        lower = text.lower()
+        lower = text.lower().replace("’", "'")
+        if re.search(r"\b(don't|do not|stop|not want|rather not|leave it)\b", lower):
+            return []
         candidates = (await db.execute(select(Suppression).where(
             Suppression.honcho_workspace_id == workspace_id,
-            Suppression.honcho_session_id == session_id,
+            or_(Suppression.owner_peer_id == owner_peer_id, and_(Suppression.owner_peer_id.is_(None), Suppression.honcho_session_id == session_id)) if owner_peer_id else Suppression.honcho_session_id == session_id,
             Suppression.status == SuppressionStatus.ACTIVE,
         ))).scalars().all()
         reopened: list[str] = []

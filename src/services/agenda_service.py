@@ -297,8 +297,18 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
     ).with_for_update())).scalars().first()
     if snap is not None and snap.expires_at > now and not force:
         try:
-            return {"items": json.loads(snap.items_json), "compiled_by": snap.compiled_by,
-                    "compiled_at": snap.compiled_at.isoformat(), "stale": False}
+            # A prepared rank is reusable; its eligibility and facts are not.
+            # Reconcile against today's packet so cancellation, suppression,
+            # receipts and temporal boundaries win immediately in every consumer.
+            current = {c["item_key"]: c for c in extract_candidates(packet, now=now, timezone_str=timezone_str)}
+            ranked = json.loads(snap.items_json)
+            items = [{**item, **current[item["item_key"]]} for item in ranked
+                     if item.get("item_key") in current]
+            if len(items) == len(ranked) and (items or not current):
+                return {"items": items, "compiled_by": snap.compiled_by,
+                        "compiled_at": snap.compiled_at.isoformat(), "stale": False}
+            # Eligibility changed: rebuild the cheap fallback below. No extra
+            # synchronous model stage is introduced.
         except (TypeError, ValueError):
             pass
 

@@ -65,6 +65,7 @@ async def ingest_attention_candidates(
         values = {
             "honcho_workspace_id": payload.workspace_id,
             "honcho_session_id": payload.session_id,
+            "owner_peer_id": payload.owner_peer_id,
             "source_message_id": payload.source_message_id,
             "source_assistant_message_id": payload.source_assistant_message_id,
             "candidate_key": candidate.key,
@@ -80,11 +81,9 @@ async def ingest_attention_candidates(
             "updated_at": attention_utc_now(),
         }
         result = await db.execute(
-            insert(AttentionCandidate)
+            (sqlite_insert if db.bind.dialect.name == "sqlite" else insert)(AttentionCandidate)
             .values(**values)
-            .on_conflict_do_nothing(
-                constraint="uq_attention_candidate_workspace_source_key"
-            )
+            .on_conflict_do_nothing(index_elements=["honcho_workspace_id", "source_message_id", "candidate_key"])
             .returning(AttentionCandidate.id)
         )
         if result.scalar_one_or_none() is not None:
@@ -144,7 +143,7 @@ async def ingest_turn_event(
     # 1. Multi-pass Turn Extraction
     await operational_state_service.sweep(db, workspace_id=payload.workspace_id, now=payload.now)
     await lifecycle_service.apply_reopen_conditions(
-        db, workspace_id=payload.workspace_id, session_id=payload.session_id, text=payload.text,
+        db, workspace_id=payload.workspace_id, session_id=payload.session_id, text=payload.text, owner_peer_id=payload.peer_id,
     )
     await sleep_tracker.observe(
         db, workspace_id=payload.workspace_id, session_id=payload.session_id,
@@ -279,6 +278,14 @@ async def ingest_turn_event(
     operational_mutations = []
 
     for cand in candidates:
+        if cand.clarification_hint:
+            # Preserve the existing extractor's uncertainty; no guessed change.
+            hint = cand.clarification_hint
+            await lifecycle_service._create_clarification(
+                db, payload.workspace_id, payload.session_id, payload.honcho_message_id,
+                cand, str(hint.get("question") or hint.get("description") or "What did you mean?")[:280],
+                [], owner_peer_id=payload.peer_id)
+            continue
         # Commitment candidates are derived, fallible proposals: they persist
         # only into the bounded candidate store and never enter the hard lanes.
         if cand.operational_kind == "commitment_candidate":
@@ -293,6 +300,15 @@ async def ingest_turn_event(
                 "authority": candidate_row.authority.value if candidate_row else None,
                 "canonical_key": candidate_row.canonical_key if candidate_row else None,
             })
+            continue
+
+        if (cand.resolution_hint or {}).get("target_kind") in ("attention", "open_loop", "clarification"):
+            # One semantic proposal, one lifecycle writer. Do not also create
+            # an operational objective from the same resolution evidence.
+            mutated_ids.extend(await lifecycle_service.handle_outcome_mutations(
+                db=db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                message_id=payload.honcho_message_id, candidate=cand, now=payload.now,
+                owner_peer_id=payload.peer_id))
             continue
 
         operational_result = await operational_state_service.apply(
@@ -312,6 +328,7 @@ async def ingest_turn_event(
             message_id=payload.honcho_message_id,
             candidate=cand,
             now=payload.now,
+            owner_peer_id=payload.peer_id,
         )
         if special_lifecycle:
             # Progress/completion lanes skip generic outcome mutations (they
@@ -336,6 +353,7 @@ async def ingest_turn_event(
             candidate=cand,
             now=payload.now,
             timezone_str=payload.timezone,
+            owner_peer_id=payload.peer_id,
         )
 
         # C. Expectation Shaping & Persistence

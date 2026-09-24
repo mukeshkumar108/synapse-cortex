@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, or_
 from sqlmodel import select
 
 from src.clients.honcho_client import HonchoClient
@@ -91,13 +92,17 @@ class TurnContextAssembler:
             "suppressed_topics": [],
         }
 
+        def owner_scope(model):
+            return or_(model.owner_peer_id == peer_id,
+                and_(model.owner_peer_id.is_(None), model.honcho_session_id == session_id))
+
         # ── Cortex operational state (authoritative for lifecycle) ───────────
         objectives = (
             await db.execute(
                 select(Expectation)
                 .where(
                     Expectation.honcho_workspace_id == workspace_id,
-                    Expectation.honcho_session_id == session_id,
+                    owner_scope(Expectation),
                     Expectation.outcome_state == OutcomeState.UNKNOWN,
                     Expectation.superseded_by_id.is_(None),
                 )
@@ -107,6 +112,7 @@ class TurnContextAssembler:
         ).scalars().all()
         digest["objectives"] = [
             {
+                "id": str(exp.id),
                 "title": exp.title,
                 "summary": _cut(exp.summary, 100),
                 "expectation_type": exp.expectation_type.value,
@@ -120,7 +126,7 @@ class TurnContextAssembler:
                 select(OpenLoop)
                 .where(
                     OpenLoop.honcho_workspace_id == workspace_id,
-                    OpenLoop.honcho_session_id == session_id,
+                    owner_scope(OpenLoop),
                     OpenLoop.status == OpenLoopStatus.OPEN,
                 )
                 .order_by(OpenLoop.created_at.desc())
@@ -128,7 +134,8 @@ class TurnContextAssembler:
             )
         ).scalars().all()
         digest["open_loops"] = [
-            {"title": loop.title, "summary": _cut(loop.summary, 100)}
+            {"id": str(loop.id),
+                "title": loop.title, "summary": _cut(loop.summary, 100)}
             for loop in loops
         ]
 
@@ -137,7 +144,7 @@ class TurnContextAssembler:
                 select(RecurringIntention)
                 .where(
                     RecurringIntention.honcho_workspace_id == workspace_id,
-                    RecurringIntention.honcho_session_id == session_id,
+                    owner_scope(RecurringIntention),
                     RecurringIntention.status == OperationalStatus.ACTIVE,
                 )
                 .order_by(RecurringIntention.updated_at.desc())
@@ -160,7 +167,7 @@ class TurnContextAssembler:
                 select(Suppression)
                 .where(
                     Suppression.honcho_workspace_id == workspace_id,
-                    Suppression.honcho_session_id == session_id,
+                    owner_scope(Suppression),
                     Suppression.status == SuppressionStatus.ACTIVE,
                 )
                 .order_by(Suppression.created_at.desc())
@@ -170,6 +177,23 @@ class TurnContextAssembler:
         digest["suppressed_topics"] = [
             s.topic_or_entity for s in suppressions if s.topic_or_entity
         ]
+
+        from src.models.attention_candidate import AttentionCandidate, AttentionCandidateStatus
+        attention_rows = (await db.execute(select(AttentionCandidate).where(
+            AttentionCandidate.honcho_workspace_id == workspace_id, owner_scope(AttentionCandidate),
+            AttentionCandidate.status.in_([AttentionCandidateStatus.ACTIVE, AttentionCandidateStatus.SURFACED]),
+        ).order_by(AttentionCandidate.updated_at.desc()).limit(4))).scalars().all()
+        digest["attention"] = [{"id": str(row.id), "content": row.content[:200],
+            "source_message_id": row.source_message_id} for row in attention_rows]
+
+        from src.models.clarification import ClarificationCandidate, ClarificationStatus
+        pending = (await db.execute(select(ClarificationCandidate).where(
+            ClarificationCandidate.honcho_workspace_id == workspace_id,
+            owner_scope(ClarificationCandidate),
+            ClarificationCandidate.status == ClarificationStatus.PENDING,
+        ).order_by(ClarificationCandidate.created_at.desc()).limit(2))).scalars().all()
+        digest["clarifications"] = [{"id": str(row.id), "question": row.description[:200],
+            "source_message_id": row.honcho_message_id} for row in pending]
 
         # ── Honcho evidence (bounded, fail-open) ─────────────────────────────
         client = self.honcho or _honcho_client()
@@ -290,6 +314,8 @@ def context_to_prompt(digest: Dict[str, Any], limit: int = 700) -> str:
 
     section("OBJECTIVES (active)", digest.get("objectives"))
     section("OPEN LOOPS (active)", digest.get("open_loops"))
+    section("SOPHIE ATTENTION (unresolved)", digest.get("attention"))
+    section("PENDING CLARIFICATIONS", digest.get("clarifications"))
     section("RECURRING INTENTIONS (active)", digest.get("recurrences"))
     section("SUPPRESSED TOPICS", digest.get("suppressed_topics"))
     section("RECENT HONCHO MESSAGES", digest.get("recent_evidence"))

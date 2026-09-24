@@ -17,6 +17,7 @@ class AttentionCandidateIn(BaseModel):
 class AttentionCandidatesIngest(BaseModel):
     workspace_id: str
     session_id: str
+    owner_peer_id: Optional[str] = None
     source_message_id: str
     source_assistant_message_id: Optional[str] = None
     candidates: list[AttentionCandidateIn] = Field(default_factory=list, max_length=3)

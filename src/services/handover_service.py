@@ -41,6 +41,7 @@ def compile_handover(
     agenda: Optional[List[Dict[str, Any]]] = None,
     admission: Optional[Dict[str, Any]] = None,
     compiled_by: str = "fallback",
+    current_turn: str = "",
 ) -> Dict[str, Any]:
     """Handover v4: ONE live agenda is the center of behavioral attention.
     The fragmented section pile (now/changed/uncertain/...) is retired; the
@@ -83,6 +84,18 @@ def compile_handover(
         if len(avoid_lines) >= profile.handover_limits["avoid"]:
             break
 
+    available = []
+    # Optional matters never become owed work. The foreground's incoming request
+    # and intent policy decide whether this single grounded opportunity is useful.
+    for item in list(packet.get("sophie_attention") or []) + list(packet.get("open_loops") or []):
+        content = _line(item, "content", "title", "summary")
+        if str(item.get("title") or "").lower() == "open loop":
+            content = _line(item, "summary", "content", "title")
+        if content and not any(content.lower() == str(x.get("what", "")).lower() for x in owed_items):
+            available.append({"what": content, "authority": "optional_not_obligation",
+                "candidate_id": item.get("candidate_id"), "candidate_version": item.get("candidate_version"),
+                "evidence_refs": item.get("evidence_refs") or [item.get("honcho_message_id")]})
+            break
     handover: Dict[str, Any] = {
         "version": "handover-v4",
         "product": profile.name,
@@ -92,6 +105,8 @@ def compile_handover(
             **{k: v for k, v in scene_block.items() if v not in (None, "")},
         },
         "owed": owed_items,
+        "available": available,
+        "clarifications": list(packet.get("clarifications") or [])[:1],
         "optional_count": len(admission.get("optional") or []),
         "patterns": pattern_lines,
         "avoid": avoid_lines,

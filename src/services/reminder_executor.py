@@ -31,6 +31,7 @@ async def due_reminders(db: AsyncSession, *, workspace_id: str, owner_peer_id: s
     rows = (await db.execute(select(Expectation).where(
         Expectation.honcho_workspace_id == workspace_id,
         Expectation.owner_peer_id == owner_peer_id,
+        Expectation.source_system.is_(None),
         Expectation.outcome_state == OutcomeState.UNKNOWN,
         Expectation.reminder_windows_json.is_not(None),
     ))).scalars().all()

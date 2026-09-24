@@ -80,7 +80,7 @@ class SurfaceRegistry:
                 db.add(existing)
                 await db.commit()
 
-    async def mark(
+    async def eligibility(
         self,
         db: AsyncSession,
         *,
@@ -92,10 +92,10 @@ class SurfaceRegistry:
         cooldown_seconds: int = 3600,
         max_count: int = 3,
     ) -> str:
-        """Record one surfacing.
+        """Read eligibility without recording a surfacing.
 
         Returns:
-          allowed - admitted to the packet (and counted).
+          allowed - eligible for inclusion; no effect is recorded.
           cooldown - last surfacing too recent; suppressed this time.
           maxed - surface budget exhausted; caller should resolve/dismiss.
         """
@@ -116,6 +116,21 @@ class SurfaceRegistry:
             return "maxed"
         if last_at is not None and (now_utc - last_at).total_seconds() < cooldown_seconds:
             return "cooldown"
+        return "allowed"
+
+    async def mark(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        message_id: str, key: str, now: datetime,
+        cooldown_seconds: int = 3600, max_count: int = 3,
+    ) -> str:
+        outcome = await self.eligibility(db, workspace_id=workspace_id, session_id=session_id,
+            message_id=message_id, key=key, now=now, cooldown_seconds=cooldown_seconds, max_count=max_count)
+        if outcome != "allowed":
+            return outcome
+        row = await self._load(db, workspace_id, session_id)
+        payload = json.loads(row.payload_json) if row else {}
+        current = int((payload.get(key) or {}).get("count", 0))
+        now_utc = _utc(now)
         payload[key] = {
             "count": current + 1,
             "last": now_utc.isoformat(),

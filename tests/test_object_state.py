@@ -192,7 +192,7 @@ async def test_packet_surfaces_upcoming_then_reminder_window_then_overdue(async_
 
 
 @pytest.mark.asyncio
-async def test_reminder_window_surfacing_is_bounded(async_client):
+async def test_reminder_window_reads_do_not_claim_delivery(async_client):
     await post_object(async_client, object_payload())
     in_window = iso(days_ahead=1)
     first = await get_packet(async_client, now=in_window)
@@ -201,12 +201,8 @@ async def test_reminder_window_surfacing_is_bounded(async_client):
     second = await get_packet(async_client, now=in_window)
     item = second.json()["commitments"][0]
     assert item["state"] == "reminder_due"
-    assert item["reminder_surfaced"] is True, "same window must not re-nag"
-    continuity = second.json()["continuity_context"]["continuity"]
-    assert not any(
-        item.get("type") == "task_due" and item.get("status") == "reminder_due"
-        for item in continuity
-    ), "surfaced reminder must not re-enter continuity"
+    assert item["reminder_surfaced"] is False, "context reads are not delivery receipts"
+
 
 
 @pytest.mark.asyncio

@@ -46,6 +46,13 @@ class CortexPacketService:
     Requires 0 LLM calls.
     """
 
+    @staticmethod
+    def _topic_matches(topic: str, content: str) -> bool:
+        import re
+        stop = {"about", "that", "this", "with", "your", "have", "what", "talk"}
+        words = {w for w in re.findall(r"[a-z]+", topic.lower()) if len(w) >= 4 and w not in stop}
+        return bool(words & set(re.findall(r"[a-z]+", content.lower())))
+
     async def compile_attention_packet(
         self,
         db: AsyncSession,
@@ -68,7 +75,7 @@ class CortexPacketService:
         # 1. Fetch active Suppressions
         stmt_supp = select(Suppression).where(
             Suppression.honcho_workspace_id == workspace_id,
-            Suppression.honcho_session_id == session_id,
+            owner_scope(Suppression),
             Suppression.status == SuppressionStatus.ACTIVE,
         )
         res_supp = await db.execute(stmt_supp)
@@ -247,7 +254,21 @@ class CortexPacketService:
 
         open_loops_list = []
         expectations_by_id = {exp.id: exp for exp in expectations}
+        from src.models.operational_state import CandidateReceipt
+        asked_loop_ids = set((await db.execute(select(CandidateReceipt.candidate_id).where(
+            CandidateReceipt.honcho_workspace_id == workspace_id,
+            CandidateReceipt.owner_peer_id == owner_peer_id,
+            CandidateReceipt.stage.in_(["generated", "delivered"]),
+            CandidateReceipt.effect == "asked",
+        ))).scalars().all()) if owner_peer_id else set()
         for loop in loops:
+            if f"open_loop:{loop.id}" in asked_loop_ids:
+                continue
+            linked = expectations_by_id.get(loop.expectation_id)
+            if linked is not None and (linked.outcome_state != OutcomeState.UNKNOWN or linked.source_system):
+                continue
+            if loop.expires_at and loop.expires_at <= now_utc:
+                continue
             age = now_utc - loop.created_at
             explicitly_invited = loop.title == "Invited follow-up"
             linked_active = any(
@@ -276,6 +297,8 @@ class CortexPacketService:
                 linked_expectation = expectations_by_id.get(loop.expectation_id)
                 open_loops_list.append({
                     "id": str(loop.id),
+                    "candidate_id": f"open_loop:{loop.id}",
+                    "candidate_version": loop.updated_at.isoformat(),
                     "honcho_message_id": loop.honcho_message_id,
                     "title": (
                         (linked_expectation.title if linked_expectation else loop.summary)
@@ -295,18 +318,9 @@ class CortexPacketService:
         # carry something, never an instruction to say it now. Source-linked
         # attention (e.g. bounded post-event follow-up opportunities) is
         # owner-scoped and remains visible across that owner's chats.
-        attention_session_scope = AttentionCandidate.honcho_session_id == session_id
-        if owner_peer_id:
-            attention_session_scope = or_(
-                attention_session_scope,
-                and_(
-                    AttentionCandidate.owner_peer_id.is_not(None),
-                    AttentionCandidate.owner_peer_id == owner_peer_id,
-                ),
-            )
         stmt_attention = select(AttentionCandidate).where(
             AttentionCandidate.honcho_workspace_id == workspace_id,
-            attention_session_scope,
+            owner_scope(AttentionCandidate),
             AttentionCandidate.status == AttentionCandidateStatus.ACTIVE,
         )
         res_attention = await db.execute(stmt_attention)
@@ -320,6 +334,12 @@ class CortexPacketService:
                 continue
             if candidate.not_before and candidate.not_before > now_utc:
                 continue
+            if candidate.surfaced_count > 0:
+                continue  # generated/asked effect, never mere packet inclusion
+            if any(s.surface_scope in ("all_surfaces", "followup_prompt") and s.topic_or_entity
+                   and self._topic_matches(s.topic_or_entity, candidate.content)
+                   for s in active_suppressions):
+                continue
             active_attention.append(candidate)
         if len(active_attention) != len(attention_rows):
             await db.commit()
@@ -329,6 +349,8 @@ class CortexPacketService:
         sophie_attention = [
             {
                 "id": str(item.id),
+                "candidate_id": f"attention:{item.id}",
+                "candidate_version": item.updated_at.isoformat(),
                 "type": item.kind.value,
                 "content": item.content,
                 "salience": item.salience,
@@ -412,6 +434,10 @@ class CortexPacketService:
         occurrences_by_intention: dict = {}
         for occurrence in week_occurrences:
             occurrences_by_intention.setdefault(str(occurrence.recurring_intention_id), []).append(occurrence)
+        recurrences = [r for r in recurrences if not any(
+            (s.target_id and str(s.target_id) == str(r.id)) or
+            (s.topic_or_entity and self._topic_matches(s.topic_or_entity, r.title))
+            for s in active_suppressions)]
         recurring_items = []
         for recurrence in recurrences[:8]:
             occurrence = (await db.execute(select(RecurringOccurrence).where(
@@ -513,8 +539,9 @@ class CortexPacketService:
         )
         packet["attention"] = self._compile_gap_signals(recurring_items)
         packet["curiosity"] = await self._compile_curiosity(
-            db, workspace_id, session_id, recurrences[:8], user_day, now
+            db, workspace_id, session_id, recurrences[:8], user_day, now, owner_peer_id
         )
+        packet["clarifications"] = [x for x in packet["curiosity"] if x.get("type") == "clarification"]
         # CurrentMeaning: retained belief only (no authority stored). The
         # per-turn authority decision arrives via revise-sync alongside this
         # packet; the packet reports which version is retained, never whether
@@ -759,7 +786,7 @@ class CortexPacketService:
                     if window_end
                     else 86_400
                 )
-                outcome = await registry.mark(
+                outcome = await registry.eligibility(
                     db,
                     workspace_id=workspace_id,
                     session_id=session_id,
@@ -918,13 +945,14 @@ class CortexPacketService:
         recurrences: List[RecurringIntention],
         user_day,
         now: datetime,
+        owner_peer_id: str | None = None,
     ) -> List[Dict[str, Any]]:
         """Curiosity = useful unknowns, bounded and gated. Sources: pending
         clarifications (an answer is genuinely outstanding), and recurring
         intentions that have existed for a while but have never been observed
         (e.g. 'what their normal morning actually looks like').
 
-        Delivery lifecycle: every admission is marked surfaced in the surface
+        Delivery lifecycle: explicit asked receipts update the surface
         registry, which enforces a per-key cooldown and max-count budget so a
         candidate can never nag indefinitely. Clarifications that go stale
         (> CLARIFICATION_MAX_AGE_DAYS) or exhaust their surface budget are
@@ -940,7 +968,8 @@ class CortexPacketService:
 
         clarifications = (await db.execute(select(ClarificationCandidate).where(
             ClarificationCandidate.honcho_workspace_id == workspace_id,
-            ClarificationCandidate.honcho_session_id == session_id,
+            or_(ClarificationCandidate.owner_peer_id == owner_peer_id,
+                and_(ClarificationCandidate.owner_peer_id.is_(None), ClarificationCandidate.honcho_session_id == session_id)) if owner_peer_id else ClarificationCandidate.honcho_session_id == session_id,
             ClarificationCandidate.status == ClarificationStatus.PENDING,
         ).order_by(ClarificationCandidate.created_at.desc()).limit(4))).scalars().all()
         for clarification in clarifications:
@@ -952,7 +981,7 @@ class CortexPacketService:
                 await registry.resolve(db, workspace_id=workspace_id, session_id=session_id,
                     message_id=message_id, key=key, now=now)
                 continue
-            outcome = await registry.mark(db, workspace_id=workspace_id, session_id=session_id,
+            outcome = await registry.eligibility(db, workspace_id=workspace_id, session_id=session_id,
                 message_id=message_id, key=key, now=now,
                 cooldown_seconds=CURIOSITY_COOLDOWN_SECONDS, max_count=CURIOSITY_MAX_SURFACES)
             if outcome == "cooldown":
@@ -962,6 +991,9 @@ class CortexPacketService:
                 db.add(clarification)
                 continue
             items.append({
+                "id": str(clarification.id),
+                "candidate_id": f"clarification:{clarification.id}",
+                "candidate_version": clarification.updated_at.isoformat(),
                 "type": "clarification",
                 "topic": clarification.description,
                 "reason": "an answer is still outstanding",
@@ -980,7 +1012,7 @@ class CortexPacketService:
                 ))).scalar_one()
                 if count == 0:
                     key = f"unobserved:{recurrence.id}"
-                    outcome = await registry.mark(db, workspace_id=workspace_id, session_id=session_id,
+                    outcome = await registry.eligibility(db, workspace_id=workspace_id, session_id=session_id,
                         message_id=message_id, key=key, now=now,
                         cooldown_seconds=CURIOSITY_COOLDOWN_SECONDS, max_count=CURIOSITY_MAX_SURFACES)
                     if outcome != "allowed":
@@ -995,7 +1027,7 @@ class CortexPacketService:
         # Commit once after every ORM-backed candidate has been read. A
         # mid-function commit expires loaded recurrence attributes under the
         # async session and can trigger MissingGreenlet on recurrence.title.
-        # This also persists recurrence surface-registry marks, which the
+        # Any lifecycle expiry above is distinct from an asked receipt, which the
         # previous clarification-only commit could leave uncommitted.
         if clarifications or recurrences:
             await db.commit()
