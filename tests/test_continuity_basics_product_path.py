@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from sqlmodel import select
 
-RUNTIME = Path(os.environ.get('CONTINUITY_RUNTIME_PATH', str(Path(__file__).resolve().parents[2] / 'companion-runtime-continuity-basics-v0')))
+RUNTIME = Path(os.environ.get('CONTINUITY_RUNTIME_PATH', str(Path(__file__).resolve().parents[2] / 'companion-runtime')))
 sys.path.insert(0, str(RUNTIME))
 # Both checked-out applications supply their existing local test dependencies.
 for site_packages in (RUNTIME / ".venv/lib").glob("python*/site-packages"):
