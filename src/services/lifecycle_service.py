@@ -269,9 +269,12 @@ class LifecycleService:
         now: datetime,
     ) -> List[UUID]:
         """A newly created expectation is the CURRENT belief about its plan.
-        Prior UNKNOWN expectations for the same owner describing the same plan
+        Prior UNKNOWN expectations for the same owner describing the SAME plan
         are superseded onto it, so old 'tomorrow' rows cannot outlive newer
-        evidence."""
+        evidence. Same-plan is deliberately strict: a shared subject pair, or
+        high content-token overlap. Mere topical resemblance ("both turns were
+        about the relationship") must NOT retire rows — that turns ingestion
+        into a destructive FIFO queue."""
         stmt = select(Expectation).where(
             Expectation.honcho_workspace_id == expectation.honcho_workspace_id,
             Expectation.outcome_state == OutcomeState.UNKNOWN,
@@ -294,8 +297,10 @@ class LifecycleService:
                 and expectation.owner_peer_id
                 and expectation.subject_peer_id != expectation.owner_peer_id
             )
-            shared = self._significant_tokens(row.title) & new_tokens
-            if not (same_subject or len(shared) >= 2):
+            row_tokens = self._significant_tokens(row.title)
+            shared = row_tokens & new_tokens
+            overlap = len(shared) / max(len(row_tokens), len(new_tokens), 1)
+            if not (same_subject or overlap >= 0.6):
                 continue
             row.outcome_state = OutcomeState.SUPERSEDED
             row.superseded_by_id = expectation.id
@@ -319,6 +324,13 @@ class LifecycleService:
             "user", "intends", "intend", "plans", "plan", "planning", "went",
             "going", "goes", "will", "was", "were", "that", "this", "from",
             "about", "into", "their", "them", "they", "his", "her", "its",
+            # Generic cognition verbs: every model-shaped title contains
+            # them, so they carry no plan identity. Both inflected and stem
+            # forms (the stemmer below adds stems separately).
+            "reflecting", "reflect", "engaging", "engage", "continuing",
+            "continue", "expressing", "express", "seeking", "seek",
+            "questioning", "question", "exploring", "explore", "ongoing",
+            "current", "indicating", "indicate", "suggesting", "suggest",
         }
         words = set()
         for token in re.findall(r"[a-z0-9']+", (title or "").lower()):

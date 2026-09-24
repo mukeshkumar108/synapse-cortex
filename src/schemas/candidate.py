@@ -40,6 +40,10 @@ class ExtractionCandidate(BaseModel):
     expectation_type_hint: Optional[str] = Field(default=None, description="Hint for expectation classification")
     temporal_phrase: Optional[str] = Field(default=None, description="Extracted raw temporal phrase e.g. tonight")
     confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Extraction confidence score")
+    formation: Optional[Literal["explicit", "inferred"]] = Field(
+        default=None,
+        description="Whether the content was explicitly stated (explicit) or derived by the extractor/background cognition (inferred). None = derive at shaping (explicit for verbatim turn evidence).",
+    )
     
     # Semantic Flags
     is_negated: bool = Field(default=False, description="True if statement contains negation e.g. not going to")

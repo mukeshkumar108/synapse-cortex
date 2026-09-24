@@ -109,5 +109,11 @@ class Expectation(SQLModel, table=True):
     
     # Confidence & Audit Metadata
     extraction_confidence: float = Field(default=1.0, nullable=False)
+    # Formation: was this row's content explicitly stated in evidenced turns
+    # ("explicit") or derived by extractor/background cognition ("inferred")?
+    # Companion-authored tentative intentions from later dreaming cognition
+    # write formation="inferred" with holder=companion; the column accepts
+    # both from the start so no rework is needed when that cognition arrives.
+    formation: str = Field(default="explicit", nullable=False, index=True)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)

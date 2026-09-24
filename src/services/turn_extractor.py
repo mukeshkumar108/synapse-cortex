@@ -549,7 +549,7 @@ class LLMExtractorProvider(BaseExtractorProvider):
                        if os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY")
                        else "https://api.openai.com/v1/chat/completions")
         self.api_url = api_url or os.getenv("SYNAPSE_MODEL_URL") or default_url
-        self.model = model or os.getenv("SYNAPSE_EXTRACTOR_MODEL") or "gpt-4o-mini"
+        self.model = model or os.getenv("SYNAPSE_EXTRACTOR_MODEL") or "google/gemini-2.5-flash-lite"
         if models is None:
             raw = os.getenv("SYNAPSE_EXTRACTOR_FALLBACK_MODELS", "")
             models = [
@@ -707,7 +707,9 @@ continuation/update of that item, not as a brand-new fact.
 Return JSON {{"observations": [...]}} with at most 8 items. Each item: description (plain
 semantic English, need not be verbatim), evidence_text (verbatim supporting excerpt),
 source_start/source_end when confident, confidence 0..1, actor_peer_id, subject_refs array,
-temporal_language. When one turn reports concrete progress/accomplishment AND says the larger
+temporal_language. description, evidence_text and confidence are REQUIRED on every item:
+confidence must always be a number 0..1 estimating how strongly the turn supports the
+observation — never omit it, never use a word. When one turn reports concrete progress/accomplishment AND says the larger
 goal remains unresolved (for example "sent three applications but still need to keep
 applying"), emit two observations: the progress event and the continuing objective. Do not
 collapse them. Do not assign operational types. Do not invent context.
@@ -725,6 +727,7 @@ PEER: {json.dumps(peer_id or 'user')}"""
                 "usage": dict(self._last_call_usage),
             }
             observations = []
+            malformed_loose = 0
             for i, raw in enumerate((loose.get("observations") or [])[:8]):
                 evidence = str(raw.get("evidence_text") or "")
                 if not evidence:
@@ -738,15 +741,31 @@ PEER: {json.dumps(peer_id or 'user')}"""
                     observation_id=f"o_{hashlib.sha1(folded_evidence.encode()).hexdigest()[:10]}",
                     source_start=start, source_end=end,
                 )
-                observations.append(LooseObservation(**raw))
+                try:
+                    observations.append(LooseObservation(**raw))
+                except Exception:
+                    # One malformed item (e.g. a model omitting a required
+                    # field) must not nuke the whole turn's extraction.
+                    malformed_loose += 1
+                    continue
             self.last_observations = observations
+            self.last_stage_metrics["loose"]["malformed_skipped"] = malformed_loose
             if not observations:
                 self.last_backend = "model"
                 return []
 
             shape_started = time.perf_counter()
             shaped = self._chat_json(f"""You are the lane-shaping stage. Map untrusted loose observations into
-bounded operational proposals. Return JSON {{"candidates": [...]}}. Valid operational_kind:
+bounded operational proposals. Return JSON {{"candidates": [...]}}. operational_kind is
+REQUIRED on every candidate and is the primary classification — exactly one of:
+expectation, durable_objective, recurring_intention, progress, completion, cancellation,
+suppression, open_loop, event, commitment_candidate, semantic_only. Do NOT put these
+words in expectation_type_hint. expectation_type_hint is used ONLY when operational_kind
+is expectation or durable_objective, and must then be exactly one of: user_intention,
+user_commitment, external_dependency, planned_event, expected_outcome,
+followup_invitation. A past action already finished is completion or event, never an
+expectation. A fact about health, history or biography is event or semantic_only, never
+an expectation. Valid operational_kind:
 expectation, durable_objective, recurring_intention, progress, completion, cancellation,
 suppression, open_loop, event, commitment_candidate, semantic_only. Recurrence must include cadence daily/weekly/
 interval; optional days_of_week uses Monday=0. Use recurring_intention ONLY when the user
@@ -782,7 +801,10 @@ not feel/look/sound a certain way is product semantics, not a companion suppress
 to that event/window, while a separate desire to check in later is an open_loop.
 Explicit permission such as "we can talk about X now", "you can ask me about X now", or
 "fine to talk about X" is a suppression REOPEN (suppression_hint.action = "reopen" with
-topic_or_entity = X). Recognize it and do not suppress X again.
+topic_or_entity = X). Recognize it and do not suppress X again. Granting permission
+("permission for X", "you can show X", "be real with me") is the OPPOSITE of suppression:
+never emit a suppression for the permitted topic from a permission grant; at most reopen.
+Polarity matters more than vocabulary — read whether the turn opens or closes the topic.
 "I did my walk today" is completion (target_key walk), not progress. "Ashley's event went
 well" is completion/resolution (target_key Ashley event), not a new event. A change from
 daily to Monday/Wednesday/Friday is a revised recurring_intention with cadence weekly and
@@ -790,6 +812,18 @@ days_of_week [0,2,4], so deterministic reconciliation can supersede the prior ca
 Cancellation/completion should include target_key/canonical_title. Time-bound follow-ups use
 open_loop_hint and expiry_phrase. Suppressions include suppression_hint with target_type,
 topic_or_entity, action_scope, raw_temporal_phrase. Static descriptions use semantic_only.
+Health states, bodily facts, biographical facts, grief history and other settled past
+events use semantic_only: they are evidence and user-model content, never expectations
+or planned actions, no matter how salient. A relational boundary ("i need space",
+"leave me alone", "don't push this topic") is a suppression with target_type topic or
+self and a reopen_condition where stated — never an expectation or intention.
+A promise about future behaviour by EITHER speaker ("I'll give you space", "I'll be
+here", "I'll reach out when X") is a commitment_candidate with actor_peer_id set to
+the promising peer (user or character/assistant) and evidence_class describing whose
+promise it is; relational promises are commitments, not tasks, and must never be
+dropped merely because assistant text is not user authority. Speaker attribution is
+load-bearing: content originating in prior-state assistant/character text belongs to
+that peer. Never attribute assistant utterances to the current user as their intention.
 Project descriptions, product purpose, motivation, and hoped-for impact are semantic_only
 unless the turn contains a concrete operational transition beyond "I'm working on X because
 I want to create Y". If the user says a possible routine is not established, preserve that
@@ -813,6 +847,8 @@ Task. Explicit commands ("remind me
 to X"), explicit resolutions ("I did X"), explicit cancellations, and explicit reschedules
 are NEVER commitment_candidate — they use their proper lanes.
 Each candidate must include loose_observation_id, observation, raw_evidence, confidence,
+formation (exactly "explicit" when the current turn states the content outright,
+"inferred" when the content is derived, guessed, or read between the lines),
 canonical_title, actor_peer_id, subject_peer_id, temporal_phrase, expectation_type_hint,
 evidence_class, authority, cadence, interval_days, days_of_week, preferred_window,
 target_amount, target_unit, progress_amount, progress_unit, expiry_phrase, open_loop_hint,
@@ -887,6 +923,18 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     if value not in allowed:
                         raw[enum_key] = None
                         validation_notes.append(f"discarded_invalid_{enum_key}")
+                if raw.get("evidence_class") not in (
+                    None, "explicit_command", "explicit_acceptance",
+                    "explicit_resolution", "explicit_modification",
+                    "implicit_self_commitment", "sophie_proposed_user_accepted",
+                    "sophie_proposed_soft_acceptance", "vague_self_talk",
+                ):
+                    # A model-invented class (e.g. relational wording) must not
+                    # nuke the turn; the lane,hints still route. Relational
+                    # promise/boundary taxonomy arrives in step 2 (bilateral).
+                    validation_notes.append(
+                        f"discarded_invalid_evidence_class:{raw.get('evidence_class')}")
+                    raw["evidence_class"] = None
                 evidence_lower = obs.evidence_text.lower().replace("’", "'")
                 normalized_text = text.replace("’", "'")
                 explicit_daily = bool(re.search(r"\b(?:every day|daily|each day)\b", text, re.IGNORECASE))
@@ -899,6 +947,27 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     raw.get("recurrence_semantic_type") in RecurrenceSemantics._VALID
                     and bool(raw.get("cadence") or raw.get("interval_days") or raw.get("days_of_week"))
                 )
+                if kind is None and isinstance(raw.get("expectation_type_hint"), str) and raw.get(
+                    "expectation_type_hint"
+                ) in {
+                    "expectation", "durable_objective", "recurring_intention",
+                    "progress", "completion", "cancellation", "suppression",
+                    "open_loop", "event", "semantic_only", "commitment_candidate",
+                }:
+                    # Demonstrated model habit: the kind taxonomy lands in the
+                    # hint field with operational_kind left null. Adopt it as
+                    # the kind deterministically rather than dropping the row;
+                    # the shaper still judges type strictly from a real hint.
+                    raw["operational_kind"] = raw["expectation_type_hint"]
+                    raw["expectation_type_hint"] = None
+                    kind = raw["operational_kind"]
+                    validation_notes.append("moved_kind_from_hint_field")
+                if raw.get("actor_peer_id") == "user":
+                    # Generic role word instead of the turn's peer id: fall
+                    # back to the sender rather than storing "user" as a
+                    # subject. Character peers keep their explicit ids.
+                    raw["actor_peer_id"] = None
+                    validation_notes.append("normalized_generic_user_actor")
                 if kind is None and semantic_recurrence_proposal and not unestablished:
                     raw["operational_kind"] = "recurring_intention"
                     raw["expectation_type_hint"] = None
@@ -960,12 +1029,15 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                 if kind == "durable_objective" and not raw.get("expectation_type_hint"):
                     raw["expectation_type_hint"] = "user_commitment"
                     validation_notes.append("defaulted_durable_objective_expectation_type")
-                elif kind == "event" and not raw.get("expectation_type_hint"):
-                    raw["expectation_type_hint"] = "planned_event"
-                    validation_notes.append("defaulted_event_expectation_type")
-                elif kind == "expectation" and not raw.get("expectation_type_hint"):
-                    raw["expectation_type_hint"] = "user_intention"
-                    validation_notes.append("defaulted_expectation_type")
+                elif kind in ("event", "expectation") and not raw.get("expectation_type_hint"):
+                    # No default type: an untyped event/expectation carries no
+                    # classifiable future-state claim, and the shaper rejects
+                    # it rather than minting a sink default (USER_INTENTION).
+                    # The model contract requires an explicit type per row.
+                    validation_notes.append("withheld_missing_expectation_type")
+                if raw.get("formation") not in ("explicit", "inferred", None):
+                    raw["formation"] = None
+                    validation_notes.append("normalized_invalid_formation")
                 if kind == "open_loop" and not raw.get("open_loop_hint"):
                     raw["open_loop_hint"] = raw.get("canonical_title") or obs.description
                     validation_notes.append("defaulted_open_loop_hint")
