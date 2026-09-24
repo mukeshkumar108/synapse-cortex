@@ -6,6 +6,7 @@ from sqlmodel import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.expectation import Expectation, OutcomeState
+from src.models.fact import Fact
 
 logger = logging.getLogger(__name__)
 
@@ -123,3 +124,37 @@ async def save_expectation_idempotent(
         await session.commit()
     logger.info("Created new expectation id=%s for message_id=%s", expectation.id, message_id)
     return expectation, True
+
+
+async def save_fact_idempotent(session: AsyncSession, fact_data: dict) -> Tuple[Fact, bool]:
+    """Idempotent fact write keyed on (workspace, message, candidate_key).
+
+    Facts are holder-scoped settled content (health, biography, grief history,
+    vocation). They never participate in expectation supersession, outcome
+    lifecycle or violation derivation — they are evidence the rest of the
+    substrate reads, including later dreaming cognition.
+    """
+    existing = (await session.execute(select(Fact).where(
+        Fact.honcho_workspace_id == fact_data["honcho_workspace_id"],
+        Fact.honcho_message_id == fact_data["honcho_message_id"],
+        Fact.candidate_key == fact_data.get("candidate_key", "primary"),
+    ))).scalar_one_or_none()
+    if existing:
+        return existing, False
+    fact = Fact(**fact_data)
+    session.add(fact)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        existing = (await session.execute(select(Fact).where(
+            Fact.honcho_workspace_id == fact_data["honcho_workspace_id"],
+            Fact.honcho_message_id == fact_data["honcho_message_id"],
+            Fact.candidate_key == fact_data.get("candidate_key", "primary"),
+        ))).scalar_one_or_none()
+        if existing:
+            return existing, False
+        raise
+    await session.refresh(fact)
+    logger.info("Created new fact id=%s for message_id=%s", fact.id, fact.honcho_message_id)
+    return fact, True

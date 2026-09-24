@@ -9,7 +9,10 @@ from src.schemas.candidate import ExtractionCandidate
 # carrying only one of these has no temporal scope and must not be minted.
 # (Deterministic check on the writer's own gate values, not on conversation
 # language — relational semantics are never keyword-matched.)
-_NON_FUTURE_TEMPORAL = frozenset({"present", "current", "ongoing", "recent", "past", "now"})
+_NON_FUTURE_TEMPORAL = frozenset({
+    "present", "current", "ongoing", "recent", "past", "now",
+    "recurring", "for weeks", "always",
+})
 
 
 def _has_future_temporal(phrase: Optional[str]) -> bool:
@@ -92,10 +95,20 @@ class ExpectationShaper:
             return None
 
         if (
-            expectation_type == ExpectationType.USER_INTENTION
+            expectation_type
+            in (
+                ExpectationType.USER_INTENTION,
+                ExpectationType.PLANNED_EVENT,
+                ExpectationType.EXPECTED_OUTCOME,
+                ExpectationType.FOLLOWUP_INVITATION,
+            )
             and not _has_future_temporal(candidate.temporal_phrase)
             and candidate.operational_kind != "durable_objective"
         ):
+            # Future-scoped types without a future scope are not expectations:
+            # replay showed health states minted as PLANNED_EVENT ("neck ache
+            # (recurring)"). Commitments and dependencies may be open-ended;
+            # dated intentions, events, outcomes and follow-ups may not.
             return None
 
         # Extract title

@@ -21,6 +21,11 @@ class TurnEventIngest(BaseModel):
     text: str = Field(..., description="Raw turn text")
     now: datetime = Field(..., description="Turn timestamp")
     timezone: str = Field(default="UTC", description="User timezone string e.g. Europe/London")
+    # Assistant/character turns take a deliberately narrowed path: durable
+    # SELF-owned state only (commitment / self-fact / open loop) with the
+    # owner forced to the speaking peer. No user-authority rows can come out
+    # of that path; see ingest_assistant_turn.
+    is_assistant_turn: bool = Field(default=False)
     # Fast→slow reconciliation: canonical actions the app already committed
     # synchronously from this exact turn (real-time interpreter). The watcher
     # deterministically suppresses conversation-derived candidates that would

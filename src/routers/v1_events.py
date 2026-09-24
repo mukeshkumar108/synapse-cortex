@@ -14,7 +14,8 @@ from src.services.expectation_shaper import ExpectationShaper
 from src.services.temporal_grounding import TemporalGrounding
 from src.models.operational_state import TurnStamp
 
-from src.services.persistence import save_expectation_idempotent
+from src.services.persistence import save_expectation_idempotent, save_fact_idempotent
+from src.services.ownership import resolve_owner
 from src.services.lifecycle_service import LifecycleService
 from src.services.object_lifecycle_service import ObjectLifecycleService
 from src.services.operational_state_service import OperationalStateService
@@ -109,6 +110,40 @@ async def ingest_object_state(
     return result
 
 
+async def ingest_assistant_turn(db: AsyncSession, payload: TurnEventIngest) -> dict:
+    """Narrow assistant/character-turn ingress: promises ONLY, speaker-owned.
+
+    Hard boundaries (defense in depth across extractor + handler):
+    - owner is ALWAYS the speaking peer; nothing here can mint user rows;
+    - allowed kind: commitment_candidate — enforced here again even if the
+      extractor misbehaves (event/open_loop trial sprawled in replay and was
+      cut; character facts and loops flow via user-turn extraction instead);
+    - create-only: no resolutions, suppressions, clarifications, expectations,
+      sweeper arming, sleep tracking or user-active stamps. Lifecycle and
+      revision of these rows belongs to later work, acting on both sides'
+      evidence — never to ingestion.
+    Idempotent per (workspace, message, candidate_key) via the same stores.
+    """
+    from src.services.turn_extractor import _SELF_OWNED_KINDS
+
+    await operational_state_service.sweep(db, workspace_id=payload.workspace_id, now=payload.now)
+    candidates = turn_extractor.extract_assistant_owned(payload.text, peer_id=payload.peer_id)
+    mutations = []
+    for cand in candidates:
+        if cand.operational_kind not in _SELF_OWNED_KINDS:
+            mutations.append({"mutation": "assistant_lane_rejected", "kind": cand.operational_kind})
+            continue
+        row = await commitment_candidate_service.upsert_from_candidate(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            owner_peer_id=payload.peer_id, message_id=payload.honcho_message_id,
+            candidate=cand, now=payload.now,
+        )
+        mutations.append({"mutation": "commitment_candidate_upserted",
+                          "candidate_key": row.candidate_key if row else None})
+    return {"status": "accepted", "assistant_lane": True,
+            "candidates_extracted": len(candidates), "mutations": mutations}
+
+
 @router.post("/turn", status_code=status.HTTP_202_ACCEPTED)
 async def ingest_turn_event(
     payload: TurnEventIngest,
@@ -118,6 +153,8 @@ async def ingest_turn_event(
     Ingests shadow turn event from Sophie/Honcho.
     Executes V4 multi-pass extraction -> shaping -> temporal grounding -> lifecycle mutations -> idempotent persistence.
     """
+    if payload.is_assistant_turn:
+        return await ingest_assistant_turn(db=db, payload=payload)
     # Turn stamp: the turn's own timestamp (injectable clock), consumed by
     # the initiative engine's user-recently-active guard.
     stamp_values = {
@@ -277,7 +314,17 @@ async def ingest_turn_event(
     mutated_ids = []
     operational_mutations = []
 
+    # Bilateral ownership: rows about character-owned content are ownable by
+    # the character peer when the extractor attributes to an explicit peer id
+    # evidenced in this turn's context. Everything else stays sender-owned.
+    evidence_peer_ids = {payload.peer_id}
+    for item in (turn_context.get("recent_evidence") or []):
+        peer = item.get("peer_id") if isinstance(item, dict) else None
+        if peer:
+            evidence_peer_ids.add(peer)
+
     for cand in candidates:
+        row_owner = resolve_owner(payload.peer_id, cand.actor_peer_id, evidence_peer_ids)
         if cand.clarification_hint:
             # Preserve the existing extractor's uncertainty; no guessed change.
             hint = cand.clarification_hint
@@ -291,7 +338,7 @@ async def ingest_turn_event(
         if cand.operational_kind == "commitment_candidate":
             candidate_row = await commitment_candidate_service.upsert_from_candidate(
                 db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-                owner_peer_id=payload.peer_id, message_id=payload.honcho_message_id,
+                owner_peer_id=row_owner, message_id=payload.honcho_message_id,
                 candidate=cand, now=payload.now,
             )
             operational_mutations.append({
@@ -356,19 +403,44 @@ async def ingest_turn_event(
             owner_peer_id=payload.peer_id,
         )
 
-        # C. Expectation Shaping & Persistence
+        # C. Expectation Shaping & Persistence. Settled event content is
+        # holder-scoped fact material, never an expectation (shaper rejects
+        # the event kind outright); persist it to the fact store instead.
         is_replacement_event = bool(
             cand.resolution_hint
             and cand.resolution_hint.get("action") in ("correct", "reschedule")
         )
-        existing_objective = None
-        if cand.operational_kind == "durable_objective":
-            existing_objective = await operational_state_service.match_expectation(
-                db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-                candidate=cand, peer_id=payload.peer_id,
-            )
-        shaped_data = None if (is_replacement_event or special_lifecycle or existing_objective) else expectation_shaper.shape_expectation(cand, payload.peer_id)
-        expectation_record_id = existing_objective.id if existing_objective else None
+        if cand.operational_kind == "event":
+            fact_record = {
+                "honcho_workspace_id": payload.workspace_id,
+                "honcho_session_id": payload.session_id,
+                "honcho_message_id": payload.honcho_message_id,
+                "owner_peer_id": row_owner,
+                "candidate_key": f"{cand.candidate_key}@{cand.extractor_version}",
+                "category": cand.domain_tag or "general",
+                "title": (cand.canonical_title or cand.observation or "")[:280],
+                "evidence_verbatim": (cand.raw_evidence or cand.observation or "")[:2000],
+                "formation": cand.formation or "explicit",
+                "confidence": cand.confidence,
+            }
+            if fact_record["title"]:
+                fact_row, fact_created = await save_fact_idempotent(db, fact_record)
+                operational_mutations.append({
+                    "mutation": "fact_recorded" if fact_created else "fact_duplicate",
+                    "id": str(fact_row.id),
+                })
+            shaped_data = None
+            existing_objective = None
+            expectation_record_id = None
+        else:
+            existing_objective = None
+            if cand.operational_kind == "durable_objective":
+                existing_objective = await operational_state_service.match_expectation(
+                    db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                    candidate=cand, peer_id=payload.peer_id,
+                )
+            shaped_data = None if (is_replacement_event or special_lifecycle or existing_objective) else expectation_shaper.shape_expectation(cand, payload.peer_id)
+            expectation_record_id = existing_objective.id if existing_objective else None
         if shaped_data:
             raw_phrase = shaped_data.get("raw_temporal_phrase")
             win_start, win_end, hard_deadline = temporal_grounder.ground_expression(
@@ -378,7 +450,7 @@ async def ingest_turn_event(
                 "honcho_workspace_id": payload.workspace_id,
                 "honcho_session_id": payload.session_id,
                 "honcho_message_id": payload.honcho_message_id,
-                "owner_peer_id": payload.peer_id,
+                "owner_peer_id": row_owner,
                 "candidate_key": f"{shaped_data['candidate_key']}@{cand.extractor_version}",
                 "extractor_version": cand.extractor_version,
                 "source_start": shaped_data["source_start"],

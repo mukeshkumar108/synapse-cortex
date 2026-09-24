@@ -54,6 +54,14 @@ def test_pseudo_temporal_does_not_ground_intention():
         assert shaper.shape_expectation(cand, "user-1") is None, marker
 
 
+def test_health_state_as_planned_event_rejected():
+    cand = make_cand(
+        operational_kind="expectation", expectation_type_hint="planned_event",
+        observation="User is experiencing a recurring neck ache",
+        temporal_phrase="recurring", confidence=0.9)
+    assert shaper.shape_expectation(cand, "user-1") is None
+
+
 def test_type_specific_summaries():
     comm = make_cand(expectation_type_hint="user_commitment", temporal_phrase="tomorrow")
     shaped = shaper.shape_expectation(comm, "user-1")

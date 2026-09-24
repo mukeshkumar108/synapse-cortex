@@ -40,6 +40,11 @@ class OpenLoop(SQLModel, table=True):
     
     title: str = Field(nullable=False)
     summary: str = Field(nullable=False)
+    # Whether this loop came from an explicit invitation to return
+    # ("follow up", "report back", open_loop kind). Previously encoded by
+    # magic title text ("Invited follow-up"); now an explicit flag so titles
+    # can carry the model's own words. Packet surfacing keys off this.
+    invited: bool = Field(default=False, nullable=False)
     status: OpenLoopStatus = Field(
         default=OpenLoopStatus.OPEN,
         sa_column=Column(SAEnum(OpenLoopStatus, native_enum=False), nullable=False, index=True),

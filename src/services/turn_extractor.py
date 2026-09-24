@@ -61,6 +61,18 @@ _VALID_EPISTEMIC_PROVENANCE = {
     "inference", "hypothesis", "pattern", "derived_state", "external_source",
 }
 
+# Assistant/character-turn lane: commitments ONLY. The lane was trialled with
+# event/open_loop kinds and the replay showed both sprawl on gemini-lite
+# (106 transient-state "facts", 20 question-"loops" in 58 turns): the model
+# cannot scope those categories without a subject, while promises have a
+# crisp shape (future behaviour + promiser). Character facts and loops still
+# flow through user-turn extraction (kind=event -> fact store with
+# actor-aware owner; open_loop_hint -> loops) where the engaging turn gives
+# them context. Everything else belongs to user-turn processing and later
+# lifecycle work — never to assistant ingestion, no matter what a model
+# proposes.
+_SELF_OWNED_KINDS = ("commitment_candidate",)
+
 
 _WHITESPACE_TRANSLATION = {ord(ch): " " for ch in "\u00a0\u2007\u202f\u2009\u200a"}
 _QUOTE_TRANSLATION = {
@@ -125,6 +137,21 @@ class BaseExtractorProvider:
     def extract(self, text: str, peer_id: Optional[str] = None,
                 prior_state: Optional[Dict[str, Any]] = None) -> List[ExtractionCandidate]:
         raise NotImplementedError
+
+    def extract_self_owned(
+        self, text: str, peer_id: Optional[str] = None,
+    ) -> List[ExtractionCandidate]:
+        """Default narrow lane: keep only self-ownable kinds, force speaker
+        ownership. Full providers override with a cheaper dedicated call."""
+        narrowed: List[ExtractionCandidate] = []
+        for cand in self.extract(text, peer_id=peer_id):
+            if cand.operational_kind not in _SELF_OWNED_KINDS:
+                continue
+            cand.actor_peer_id = peer_id
+            cand.subject_peer_id = peer_id
+            cand.formation = cand.formation or "explicit"
+            narrowed.append(cand)
+        return narrowed
 
 
 class RuleBasedExtractorProvider(BaseExtractorProvider):
@@ -676,7 +703,9 @@ class LLMExtractorProvider(BaseExtractorProvider):
 Notice meaning before categorising. From the latest USER TURN, describe only things that may
 have changed operationally: unresolved obligations, commitments, recurring intentions,
 upcoming events, follow-ups, important current state, cancellations, completions, progress,
-boundaries/suppressions, or active project focus. Static background or aspirations normally
+boundaries/suppressions, or active project focus. Prefer observations that could matter
+beyond this turn; the shaping stage persists only what the future could need and files
+the merely momentary as semantic_only. Static background or aspirations normally
 belong in semantic memory and should not be promoted. Natural phrasing such as 'still need',
 'been meaning to', 'I'd like to', 'managed to', and 'forget that' is meaningful.
 HARD EXCLUSION - life narration is never operational: sensory or observational narration
@@ -704,6 +733,15 @@ PRIOR STATE is read-only background — existing objectives, loops, routines, su
 recent evidence. It tells you about continuity only. Do not re-extract prior state as new.
 If the current turn restates or continues something already in PRIOR STATE, treat it as a
 continuation/update of that item, not as a brand-new fact.
+One exception for the live edge: an explicit promise, commitment, boundary, or open
+question stated by ANY peer in the immediately preceding turns (visible in recent
+evidence) that no existing objective/loop captures may be surfaced once, with
+actor_peer_id set to the peer who actually said it (use their exact peer id from the
+evidence, never a generic role word) and evidence_text quoted verbatim from their
+words. Concretely: always check the immediately preceding assistant/character turn —
+a promise there ("I'll give you space", "I'll be here", "I'll reach out when X")
+is a commitment_candidate with that peer as actor even though the current turn is
+the user's. Do not mine deep history — only the live edge still open in this turn's context.
 Return JSON {{"observations": [...]}} with at most 8 items. Each item: description (plain
 semantic English, need not be verbatim), evidence_text (verbatim supporting excerpt),
 source_start/source_end when confident, confidence 0..1, actor_peer_id, subject_refs array,
@@ -765,7 +803,41 @@ is expectation or durable_objective, and must then be exactly one of: user_inten
 user_commitment, external_dependency, planned_event, expected_outcome,
 followup_invitation. A past action already finished is completion or event, never an
 expectation. A fact about health, history or biography is event or semantic_only, never
-an expectation. Valid operational_kind:
+an expectation. Durability gate (apply before choosing any kind): understand the
+evidence first, then ask whether it warrants DURABLE structured state — would knowing
+it materially improve interpretation of a later turn, a relationship state, an
+obligation, an ongoing condition, identity, or an unresolved matter? If no, use
+semantic_only. semantic_only is a correct outcome, not a failure: Honcho keeps the
+evidence; Cortex persists only what the future needs.
+Classify durable state by what it IS:
+- happened / stably true AND longitudinally useful -> event. Momentary feelings,
+  facial expressions, poetic descriptions and one-turn color are NOT facts even when
+  true. Good: father died in 2019; recurring neck pain; user slept four hours; Kai
+  left the house; roleplay ended. Not facts: looked frightened for a moment; sighed;
+  sounded annoyed; "gave wall instead of wife" as description.
+- durable belief about a person or relationship that reframes future turns ->
+  event with the holder as actor (dedicated model stores do not exist yet; facts
+  carry holder). Momentary emotions and single actions are NOT model content.
+- future-state belief held by an identifiable holder about a target ->
+  expectation (holder, target, expected state, evidence, formation). Must be
+  falsifiable: the row must imply what evidence would confirm, revise or violate
+  it. Topics, present emotions, facts, and aspirations without expectation are
+  NOT expectations.
+- explicit undertaking by an identifiable actor to do, avoid, maintain or deliver
+  something in the future -> commitment_candidate (who promised what, to whom or
+  for whom, under what condition or time if known). NOT commitments: politeness,
+  thank-you, willingness, "I understand", hypotheticals, tentative private
+  plans, roleplay-conditional lines never adopted outside the scene.
+- unresolved matter that must or is likely to require future return, action,
+  decision, information or acknowledgement beyond this exchange -> open_loop.
+  It persists because something is UNFINISHED: the hint must say what is
+  unfinished, who or what can resolve it, and what evidence would close it. NOT
+  loops: every question, invitations to keep talking, rhetorical questions,
+  ordinary turn-taking, topics merely discussed, anything answered next turn.
+Violation is never emitted: it is derived later from existing state plus
+conflicting evidence. Attention is never emitted: it is applied to existing
+state by a later layer, never stored as content.
+Valid operational_kind:
 expectation, durable_objective, recurring_intention, progress, completion, cancellation,
 suppression, open_loop, event, commitment_candidate, semantic_only. Recurrence must include cadence daily/weekly/
 interval; optional days_of_week uses Monday=0. Use recurring_intention ONLY when the user
@@ -813,17 +885,27 @@ Cancellation/completion should include target_key/canonical_title. Time-bound fo
 open_loop_hint and expiry_phrase. Suppressions include suppression_hint with target_type,
 topic_or_entity, action_scope, raw_temporal_phrase. Static descriptions use semantic_only.
 Health states, bodily facts, biographical facts, grief history and other settled past
-events use semantic_only: they are evidence and user-model content, never expectations
+events are event-kind facts with holder attribution (actor_peer_id set to whose fact
+it is): they are evidence and user/character-model content, never expectations
 or planned actions, no matter how salient. A relational boundary ("i need space",
 "leave me alone", "don't push this topic") is a suppression with target_type topic or
 self and a reopen_condition where stated — never an expectation or intention.
 A promise about future behaviour by EITHER speaker ("I'll give you space", "I'll be
 here", "I'll reach out when X") is a commitment_candidate with actor_peer_id set to
 the promising peer (user or character/assistant) and evidence_class describing whose
-promise it is; relational promises are commitments, not tasks, and must never be
-dropped merely because assistant text is not user authority. Speaker attribution is
-load-bearing: content originating in prior-state assistant/character text belongs to
-that peer. Never attribute assistant utterances to the current user as their intention.
+promise it is: implicit_self_commitment for the user's own promises,
+character_promise for a character/assistant promise (including a proposal the other
+side accepted). A commitment must actually be a promise or obligation — an agreement
+to act, a granted permission with a future, an accepted proposal. Background activity
+("the things I'm working on"), politeness ("thank you", "yes, go on"), and ongoing
+stances are never commitments. Relational promises are commitments, not tasks, and must
+never be dropped merely because assistant text is not user authority. Speaker
+attribution is load-bearing: content originating in prior-state assistant/character
+text belongs to that peer. Attribute actor_peer_id using the actual peer ids visible
+in PRIOR STATE — never generic words like "user" or "assistant", never the current
+user for another speaker's words. User ratification ("yes, do that") is the user's
+own evidence: it may sit alongside the character's commitment as a separate row but
+must never overwrite the character's side.
 Project descriptions, product purpose, motivation, and hoped-for impact are semantic_only
 unless the turn contains a concrete operational transition beyond "I'm working on X because
 I want to create Y". If the user says a possible routine is not established, preserve that
@@ -928,6 +1010,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     "explicit_resolution", "explicit_modification",
                     "implicit_self_commitment", "sophie_proposed_user_accepted",
                     "sophie_proposed_soft_acceptance", "vague_self_talk",
+                    "character_promise",
                 ):
                     # A model-invented class (e.g. relational wording) must not
                     # nuke the turn; the lane,hints still route. Relational
@@ -1101,7 +1184,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                         "explicit_command", "explicit_acceptance", "explicit_resolution",
                         "explicit_modification", "implicit_self_commitment",
                         "sophie_proposed_user_accepted", "sophie_proposed_soft_acceptance",
-                        "vague_self_talk",
+                        "vague_self_talk", "character_promise",
                     ):
                         raw["evidence_class"] = "implicit_self_commitment"
                         validation_notes.append("defaulted_invalid_evidence_class")
@@ -1147,6 +1230,79 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
             return RuleBasedExtractorProvider().extract(text, peer_id=peer_id)
         return []
 
+    def extract_self_owned(
+        self, text: str, peer_id: Optional[str] = None,
+    ) -> List[ExtractionCandidate]:
+        """Single cheap call for one assistant/character utterance: its
+        explicit promises, nothing else. No prior state: the utterance is
+        read on its own as self-evidence. The HTTP handler enforces the
+        commitment-only allowlist again before persisting (defense in depth)."""
+        if not self.api_key:
+            self.last_backend = "failed"
+            self.last_failure = "credentials_unavailable"
+            return []
+        try:
+            data = self._chat_json(f"""You are reading ONE assistant/character utterance to record promises it makes. Nothing else matters.
+Emit a candidate ONLY for an explicit promise/commitment about future behaviour ("I'll give you space", "I'll reach out when X", "I won't fight you") -> operational_kind commitment_candidate, evidence_class character_promise, authority act if the promise is concrete else ask.
+Everything else — banter, politeness, emotions, opinions, self-description, roleplay stage directions, apologies for the past, questions — gets NO candidate (empty list). Never infer a promise from politeness, performance, or emotional display. When in doubt, emit nothing: a missed promise is cheaper than a fake one.
+Return JSON {{"candidates": [...]}}. Each candidate: operational_kind (REQUIRED: commitment_candidate), observation (plain semantic English), raw_evidence (verbatim quote from the utterance — REQUIRED), confidence (REQUIRED number 0..1), canonical_title, temporal_phrase or null. UTTERANCE: {json.dumps(text)}
+SPEAKER: {json.dumps(peer_id or "assistant")}""")
+        except Exception as err:
+            logger.warning("Self-owned extraction failed: %s", str(err)[:200])
+            self.last_backend = "failed"
+            self.last_failure = f"{type(err).__name__}: {err}"[:300]
+            return []
+        candidates: List[ExtractionCandidate] = []
+        for raw in (data.get("candidates") or [])[:6]:
+            kind = raw.get("operational_kind")
+            if kind not in _SELF_OWNED_KINDS:
+                continue
+            conf = raw.get("confidence")
+            if not isinstance(conf, (int, float)) or not 0 <= conf <= 1:
+                continue
+            evidence = str(raw.get("raw_evidence") or "")
+            if not evidence or _find_normalized(text, evidence) is None:
+                # Promises must be verbatim-quoted, never invented.
+                continue
+            if kind == "open_loop" and not raw.get("open_loop_hint"):
+                raw["open_loop_hint"] = raw.get("canonical_title") or raw.get("observation")
+            notes = []
+            if kind == "commitment_candidate":
+                raw["resolution_hint"] = None
+                raw["suppression_hint"] = None
+                if raw.get("evidence_class") != "character_promise":
+                    raw["evidence_class"] = "character_promise"
+                    notes.append("defaulted_narrow_lane_evidence_class")
+                if raw.get("authority") not in ("act", "ask"):
+                    raw["authority"] = "ask"
+                    notes.append("defaulted_narrow_lane_authority")
+                if raw.get("is_negated") or raw.get("is_hypothetical") or raw.get("is_quoted"):
+                    continue
+            title = str(raw.get("canonical_title") or raw.get("observation") or "").strip()
+            if not title:
+                continue
+            key_material = f"self:{peer_id}:{title}"
+            candidates.append(ExtractionCandidate(
+                candidate_key=f"c_{hashlib.sha1(key_material.lower().encode()).hexdigest()[:12]}",
+                observation=str(raw.get("observation") or title),
+                raw_evidence=evidence,
+                canonical_title=title[:280],
+                operational_kind=kind,
+                actor_peer_id=peer_id,
+                subject_peer_id=peer_id,
+                temporal_phrase=raw.get("temporal_phrase"),
+                open_loop_hint=raw.get("open_loop_hint"),
+                evidence_class=raw.get("evidence_class"),
+                authority=raw.get("authority"),
+                confidence=float(conf),
+                formation="explicit",
+                extractor_version="model-self-owned-v1",
+                validation_notes=notes,
+            ))
+        self.last_backend = "model-self-owned"
+        self.last_failure = None
+        return candidates
+
 
 class TurnExtractor:
     """
@@ -1171,6 +1327,22 @@ class TurnExtractor:
         if not text or not text.strip():
             return []
         return self.provider.extract(text, peer_id=peer_id, prior_state=prior_state)
+
+    def extract_assistant_owned(
+        self, text: str, peer_id: Optional[str] = None,
+    ) -> List[ExtractionCandidate]:
+        """Narrow assistant/character-turn lane: durable SELF-owned state only.
+
+        The speaking peer's utterance is authoritative evidence about itself —
+        never about the user. Allowed outputs: commitment_candidate (its own
+        promises), event (settled facts about itself), open_loop (threads it
+        opens). No expectations, resolutions, suppressions or clarifications
+        can ever come out of this path; those belong to user-turn processing
+        (and later lifecycle/revision work), never to assistant ingestion.
+        """
+        if not text or not text.strip():
+            return []
+        return self.provider.extract_self_owned(text, peer_id=peer_id)
 
     def extraction_result(self, candidates: List[ExtractionCandidate]) -> ExtractionResult:
         return ExtractionResult(

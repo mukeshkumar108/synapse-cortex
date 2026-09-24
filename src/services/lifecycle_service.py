@@ -632,8 +632,15 @@ class LifecycleService:
             owner_peer_id=owner_peer_id,
             candidate_key=candidate.candidate_key,
             expectation_id=expectation_id,
-            title="Invited follow-up" if "follow" in candidate.open_loop_hint.lower() or candidate.operational_kind == "open_loop" else "Open loop",
-            summary=candidate.canonical_title or candidate.open_loop_hint,
+            # Titles come from the model's own words: a loop row must say what
+            # is unfinished. Hardcoded labels ("Open loop") made every loop
+            # unmatchable and unjudgeable in replay.
+            title=(candidate.canonical_title or candidate.open_loop_hint or "Open loop")[:280],
+            summary=candidate.open_loop_hint or candidate.canonical_title,
+            invited=bool(
+                (candidate.open_loop_hint and "follow" in candidate.open_loop_hint.lower())
+                or candidate.operational_kind == "open_loop"
+            ),
             status=OpenLoopStatus.OPEN,
             expires_at=expires_at,
         )

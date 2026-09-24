@@ -9,6 +9,7 @@ from src.models.operational_state import (RecurringIntention, RecurringOccurrenc
     ExtractionTrace, OperationalStatus, OccurrenceStatus)
 from src.models.derived_signal import DerivedSignal, DerivedSignalKind
 from src.models.current_meaning import CurrentMeaning
+from src.models.fact import Fact
 
 __all__ = [
     "Expectation",
@@ -35,4 +36,5 @@ __all__ = [
     "OperationalStatus", "OccurrenceStatus",
     "DerivedSignal", "DerivedSignalKind",
     "CurrentMeaning",
+    "Fact",
 ]

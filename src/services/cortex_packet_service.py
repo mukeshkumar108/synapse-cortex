@@ -270,7 +270,7 @@ class CortexPacketService:
             if loop.expires_at and loop.expires_at <= now_utc:
                 continue
             age = now_utc - loop.created_at
-            explicitly_invited = loop.title == "Invited follow-up"
+            explicitly_invited = bool(getattr(loop, "invited", False))
             linked_active = any(
                 exp.id == loop.expectation_id and exp.outcome_state == OutcomeState.UNKNOWN
                 for exp in expectations
@@ -302,7 +302,7 @@ class CortexPacketService:
                     "honcho_message_id": loop.honcho_message_id,
                     "title": (
                         (linked_expectation.title if linked_expectation else loop.summary)
-                        if loop.title == "Invited follow-up"
+                        if explicitly_invited
                         else loop.title
                     ),
                     "summary": (
