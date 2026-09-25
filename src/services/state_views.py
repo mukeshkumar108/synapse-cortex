@@ -222,7 +222,7 @@ async def compile_views(
         db, workspace_id=workspace_id, session_id=session_id, unknowns=unknowns,
         loops=loops, cands=cands, user_peer_id=owner_peer_id)
 
-    return {
+    views = {
         "todo": todo, "reminder": reminder, "calendar": calendar,
         "open_matter": open_matter, "waiting_on": waiting_on, "worry": worry,
         "follow_up": follow_up, "companion_obligation": companion_obligation,
@@ -230,6 +230,36 @@ async def compile_views(
         "relationship_context": relationship_context,
         "narrative_continuity": narrative_continuity,
     }
+    return _with_signals(views)
+
+
+# Section-level machine signals for downstream pressure/attention policy.
+# Deterministic from section/kind provenance — never content inspection.
+_SECTION_SIGNALS = {
+    "todo": {"actionable": True},
+    "reminder": {"urgent": True, "actionable": True},
+    "calendar": {"actionable": True},
+    "follow_up": {"actionable": True},
+    "worry": {"protective": True},
+    "companion_obligation": {"actionable": True},
+}
+
+
+def _with_signals(views: Dict[str, List[Dict[str, Any]]]) -> Dict[str, List[Dict[str, Any]]]:
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for section, view_items in views.items():
+        base = {"protective": False, "urgent": False, "actionable": False,
+                **_SECTION_SIGNALS.get(section, {})}
+        annotated = []
+        for item in view_items or []:
+            if not isinstance(item, dict):
+                continue
+            signals = dict(base)
+            if item.get("kind") == "commitment":
+                signals["actionable"] = True
+            annotated.append({**item, "signals": signals})
+        out[section] = annotated
+    return out
 
 
 def _followup_eligible(temporal_value: Any, outcome: Any) -> bool:

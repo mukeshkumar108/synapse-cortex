@@ -319,6 +319,100 @@ async def get_cortex_working_set(
     return working_set
 
 
+class SessionWorkingSetRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    peer_id: Optional[str] = None
+    now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timezone: str = "Europe/London"
+    product: str = "sophie"
+    scene: Optional[Dict[str, Any]] = None
+
+
+class SessionWorkingSetRefreshRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    cached_source_version: str
+
+
+class SurfacingEvent(BaseModel):
+    matter_kind: str
+    matter_id: str
+    outcome: str
+    move_key: Optional[str] = None
+
+
+class SurfacingReportRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    peer_id: str
+    message_id: str
+    channel: str = "chat"
+    now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    events: List[SurfacingEvent] = Field(min_length=1, max_length=25)
+
+
+@router.post("/session-working-set")
+async def get_session_working_set(
+    req: SessionWorkingSetRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Disposable session/scene working set compiled from independent views
+    (never the foreground packet). Runtime caches it and selects locally per
+    turn; recompile only on material change (see refresh). Canonical truth
+    stays in Cortex — a stale/corrupt set is discarded, never repaired."""
+    from src.services.session_workingset import compile_session_working_set
+    started = time.perf_counter()
+    artifact = await compile_session_working_set(
+        db, workspace_id=req.workspace_id, session_id=req.session_id,
+        owner_peer_id=req.peer_id, now=req.now, timezone_str=req.timezone,
+        product=req.product, scene=req.scene)
+    artifact["metrics"] = {
+        "cortex_ms": round((time.perf_counter() - started) * 1000, 1)}
+    return artifact
+
+
+@router.post("/session-working-set/refresh")
+async def session_working_set_refresh(
+    req: SessionWorkingSetRefreshRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Cheap staleness answer without recompiling."""
+    from src.services.session_workingset import needs_refresh
+    return await needs_refresh(
+        db, workspace_id=req.workspace_id, session_id=req.session_id,
+        cached_source_version=req.cached_source_version)
+
+
+@router.post("/surfacing/report")
+async def report_surfacing_outcomes(
+    req: SurfacingReportRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Runtime reconciles local surfacing state back in bounded batches:
+    surfaced/deferred/dismissed/answered/still-open. Ignored never resolves;
+    explicit dismissal outranks silence."""
+    from src.services.surfacing import report_back
+    return await report_back(
+        db, workspace_id=req.workspace_id, session_id=req.session_id,
+        owner_peer_id=req.peer_id,
+        events=[ev.model_dump() for ev in req.events],
+        now=req.now, message_id=req.message_id, channel=req.channel)
+
+
+@router.post("/background-sweep")
+async def run_background_sweep(
+    req: WorkingSetRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Inspect eligible views, diff vs last snapshot, return newly-eligible
+    items for the proactive scheduler. No user query needed."""
+    from src.services.background_sweep import background_sweep
+    return await background_sweep(
+        db, workspace_id=req.workspace_id, session_id=req.session_id,
+        owner_peer_id=req.peer_id, now=req.now, timezone_str=req.timezone)
+
+
 async def _compile_session_handover(
     req: WorkingSetRequest,
     db: AsyncSession,

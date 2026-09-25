@@ -47,8 +47,10 @@ _TASK_INTENT_TOKENS = {
 
 
 def _tokens(text: str) -> set:
-    # Drop apostrophes first so "mum's" and "mums" tokenize identically.
-    cleaned = (text or "").lower().replace("'", "")
+    # Drop possessives first ("Carlos's" -> "carlos", not "carloss"), then
+    # remaining apostrophes ("don't" -> "dont") so possessive mentions match
+    # their base entity on both sides of an overlap comparison.
+    cleaned = (text or "").lower().replace("'s", "").replace("'", "")
     raw = {
         token for token in re.findall(r"[a-z0-9]+", cleaned)
         if len(token) >= 3 and token not in _STOPWORDS

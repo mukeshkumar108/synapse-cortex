@@ -14,6 +14,7 @@ def utc_now() -> datetime:
 class DerivedSignalKind(str, Enum):
     SLEEP_EPISODE = "sleep_episode"
     SURFACE_COOLDOWN = "surface_cooldown"
+    BACKGROUND_WATCH = "background_watch"
 
 
 class DerivedSignal(SQLModel, table=True):
