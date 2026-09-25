@@ -1,0 +1,155 @@
+{
+  "scenario_id": "scenario_3",
+  "title": "Scenario 3 — Multi-source Conflict, Two People Same Name, Indirect Closure",
+  "source_notion_url": "https://app.notion.com/p/3e66297866b08176a1c9cdf95348db15",
+  "fixture_version": "1.0.0",
+  "timezone": "Europe/London",
+  "user_peer_id": "user",
+  "companion_peer_id": "sophie",
+  "events": [
+    {
+      "id": "s3_e01",
+      "timestamp": "2026-09-28T11:32:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "user",
+      "content": "Quick brain dump before this meeting. Sam from the studio said he’d send the revised contract today. Sam — my cousin Sam, not studio Sam — is supposed to pick Mum up Thursday but he’s useless so remind me to check Wednesday evening. The dentist texted but I didn’t read it. I think my appointment moved. And Lucy owes me £240 for the camera, unless she already sent it because there’s some random £240 in my account from yesterday and I don’t recognise the surname."
+    },
+    {
+      "id": "s3_e02",
+      "timestamp": "2026-09-28T12:04:00+01:00",
+      "source_type": "payment_feed",
+      "role": "external",
+      "sender": "bank_feed",
+      "metadata": {
+        "direction": "incoming",
+        "amount": 240,
+        "currency": "GBP",
+        "counterparty": "L. HARGREAVES",
+        "memo": null
+      },
+      "content": "Incoming £240 from L. HARGREAVES. No memo."
+    },
+    {
+      "id": "s3_e03",
+      "timestamp": "2026-09-28T12:31:00+01:00",
+      "source_type": "email",
+      "role": "external",
+      "sender": "studio_sam",
+      "sender_address": "sam@studio.com",
+      "metadata": {
+        "subject": "Revised contract"
+      },
+      "content": "Attached. I changed clause 7 as discussed. Please confirm by Wednesday 17:00 if you’re happy."
+    },
+    {
+      "id": "s3_e04",
+      "timestamp": "2026-09-28T16:18:00+01:00",
+      "source_type": "sms",
+      "role": "external",
+      "sender": "dentist",
+      "sender_number": "+447700900077",
+      "metadata": {
+        "service": "dental_appointment"
+      },
+      "content": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20. Reply YES to confirm."
+    },
+    {
+      "id": "s3_e05",
+      "timestamp": "2026-09-28T21:43:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "user",
+      "content": "I saw the contract. Clause 7 is better but I’m not agreeing tonight, I want to read it properly tomorrow. The dentist thing is Friday now, I replied yes. The £240 might be Lucy because her surname starts with H, actually. Don’t count it as paid until I ask her though."
+    },
+    {
+      "id": "s3_e06",
+      "timestamp": "2026-09-29T14:12:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "user",
+      "content": "Studio Sam contract is fine. I replied ‘looks good to me, go ahead’. I didn’t sign anything though. Is that enough? Also Lucy hasn’t answered me."
+    },
+    {
+      "id": "s3_e07",
+      "timestamp": "2026-09-29T16:55:00+01:00",
+      "source_type": "email",
+      "role": "external",
+      "sender": "studio_sam",
+      "sender_address": "sam@studio.com",
+      "metadata": {
+        "subject": "Re: Revised contract"
+      },
+      "content": "Thanks — I’ll treat that as approval and send the final signature copy tomorrow."
+    },
+    {
+      "id": "s3_e08",
+      "timestamp": "2026-09-30T08:33:00+01:00",
+      "source_type": "message",
+      "role": "external",
+      "sender": "lucy",
+      "metadata": {
+        "channel": "direct_message"
+      },
+      "content": "Yep that £240 was me! Sorry, should’ve put camera in the reference x"
+    },
+    {
+      "id": "s3_e09",
+      "timestamp": "2026-09-30T18:40:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "user",
+      "content": "I have a feeling I was meant to check something about Mum tonight. Oh — cousin Sam. I texted him and he said yes he’s still picking her up at 3 tomorrow. So that’s fine. Also Lucy finally replied, all sorted."
+    },
+    {
+      "id": "s3_e10",
+      "timestamp": "2026-10-01T15:18:00+01:00",
+      "source_type": "calendar",
+      "role": "external",
+      "sender": "google_calendar",
+      "metadata": {
+        "action": "completed",
+        "system": "google_calendar",
+        "object_id": "mum-pickup-sam",
+        "title": "Mum pickup — Sam"
+      },
+      "content": "Event “Mum pickup — Sam” marked completed by user."
+    },
+    {
+      "id": "s3_e11",
+      "timestamp": "2026-10-01T22:06:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "user",
+      "content": "Today was a mess but Mum got home fine. Dentist tomorrow morning. Did the contract ever come back? I don’t remember seeing it."
+    },
+    {
+      "id": "s3_e12",
+      "timestamp": "2026-10-02T07:15:00+01:00",
+      "source_type": "email",
+      "role": "external",
+      "sender": "studio_sam",
+      "sender_address": "sam@studio.com",
+      "metadata": {
+        "subject": "Final contract for signature"
+      },
+      "content": "Apologies for the delay. Final copy attached for signature."
+    },
+    {
+      "id": "s3_e13",
+      "timestamp": "2026-10-02T08:02:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "user",
+      "content": "I’m literally leaving for the dentist, remind me about the contract this afternoon because I will forget. And if I come back moaning about Sam later I mean studio Sam, cousin Sam actually did what he said for once."
+    },
+    {
+      "id": "s3_e14",
+      "timestamp": "2026-10-02T15:47:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "user",
+      "content": "Oh, I signed the contract about an hour ago. Nearly forgot. Anything else hanging?"
+    }
+  ]
+}

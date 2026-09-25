@@ -1,0 +1,119 @@
+{
+  "scenario_id": "scenario_3",
+  "title": "Scenario 3 — Multi-source Conflict, Two People Same Name, Indirect Closure (Evaluator Oracle)",
+  "source_notion_url": "https://app.notion.com/p/3e66297866b08176a1c9cdf95348db15",
+  "fixture_version": "1.0.0",
+  "hidden_evaluator_truth": {
+    "summary": "Studio Sam and cousin Sam are distinct entities despite same name. Lucy £240 is uncertain Monday even though bank feed matches amount; user explicitly withholds confirmation. Wednesday Lucy confirms, closing payment uncertainty. Dentist appointment moves from Thursday 10:00 to Friday 09:20 and user confirms. Old appointment should be superseded/released. Studio contract: draft received Monday; user approves content Tuesday but final signature remains outstanding until Friday. 'looks good to me, go ahead' should not be mistaken for completed signature. Cousin Sam pickup check is due Wednesday evening and is fulfilled by the user’s check; pickup itself completes Thursday. 'Mum got home fine' is indirect real-world evidence that the pickup succeeded, additionally corroborated by calendar completion. Friday reminder about contract is explicit; user independently signs before any later follow-up, so the obligation resolves rather than becoming a violation. Later 'Sam' reference after user’s explicit disambiguation should resolve to Studio Sam in that local frame.",
+    "entities": {
+      "sam_studio": {
+        "domain": "professional_studio",
+        "role": "contract_counterparty",
+        "distinct_from": "sam_cousin"
+      },
+      "sam_cousin": {
+        "domain": "family",
+        "role": "cousin_picking_up_mum",
+        "distinct_from": "sam_studio"
+      },
+      "lucy": {
+        "full_name_evidence": "L. HARGREAVES",
+        "camera_debt": 240,
+        "currency": "GBP"
+      }
+    },
+    "lucy_camera_payment": {
+      "monday_status": "unverified_despite_bank_feed",
+      "wednesday_status": "confirmed_by_lucy_closed"
+    },
+    "dentist_appointment": {
+      "original_time": "Thursday 10:00",
+      "rescheduled_time": "Friday 09:20",
+      "status": "confirmed_friday_supersedes_thursday"
+    },
+    "studio_contract": {
+      "approval_stage": "content_approved_tuesday",
+      "signature_stage": "signature_copy_received_friday_morning",
+      "reminder_requested": "Friday afternoon",
+      "execution": "signed_by_user_before_reminder",
+      "status": "closed_without_violation"
+    },
+    "cousin_sam_pickup": {
+      "check_due": "Wednesday evening",
+      "checked_by_user": "Wednesday 18:40",
+      "pickup_executed": "Thursday afternoon",
+      "corroboration": "calendar_completed_plus_mum_got_home_fine"
+    }
+  },
+  "false_positive_traps": [
+    {
+      "trigger_text": "Incoming £240 from L. HARGREAVES",
+      "event_id": "s3_e02",
+      "prohibited_persistence": ["auto_mark_lucy_paid_on_monday"],
+      "rationale": "User explicitly withholds confirmation on Monday ('Don't count it as paid until I ask her though')."
+    },
+    {
+      "trigger_text": "I replied ‘looks good to me, go ahead’",
+      "event_id": "s3_e06",
+      "prohibited_persistence": ["mark_contract_signed_and_fully_executed"],
+      "rationale": "Content approval is not legal signature; final copy remains outstanding."
+    }
+  ],
+  "expected_checkpoints": [
+    {
+      "checkpoint_id": "cp1_after_s3_e05",
+      "after_event_id": "s3_e05",
+      "label": "Monday 21:43 - Monday night multi-source reconciliation",
+      "deterministic_assertions": {
+        "entity_separation": "Studio Sam != Cousin Sam",
+        "dentist_status": "Friday 09:20 active, Thursday superseded",
+        "lucy_payment_status": "unconfirmed_pending_user_verification"
+      }
+    },
+    {
+      "checkpoint_id": "cp2_after_s3_e07",
+      "after_event_id": "s3_e07",
+      "label": "Tuesday 16:55 - Studio Sam contract content approved",
+      "deterministic_assertions": {
+        "contract_status": "content_approved_awaiting_final_signature_copy"
+      }
+    },
+    {
+      "checkpoint_id": "cp3_after_s3_e09",
+      "after_event_id": "s3_e09",
+      "label": "Wednesday 18:40 - Cousin Sam check & Lucy payment confirmed",
+      "deterministic_assertions": {
+        "lucy_payment_closed": true,
+        "cousin_sam_check_fulfilled": true,
+        "pickup_scheduled_for": "Thursday 15:00"
+      }
+    },
+    {
+      "checkpoint_id": "cp4_after_s3_e11",
+      "after_event_id": "s3_e11",
+      "label": "Thursday 22:06 - Mum pickup indirect closure",
+      "deterministic_assertions": {
+        "mum_pickup_status": "completed_corroborated",
+        "contract_status": "pending_final_copy"
+      }
+    },
+    {
+      "checkpoint_id": "cp5_after_s3_e13",
+      "after_event_id": "s3_e13",
+      "label": "Friday 08:02 - Contract reminder requested & Sam disambiguation",
+      "deterministic_assertions": {
+        "active_reminder_expectation": "remind about contract Friday afternoon",
+        "current_frame_sam_binding": "Studio Sam"
+      }
+    },
+    {
+      "checkpoint_id": "cp6_after_s3_e14",
+      "after_event_id": "s3_e14",
+      "label": "Friday 15:47 - Contract signed by user, final closeout",
+      "deterministic_assertions": {
+        "contract_obligation_status": "fulfilled_closed_no_violation",
+        "active_open_loops_count": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "scenario_id": "scenario_1",
+  "title": "Scenario 1 — Ashley Event Ops + Children + External Evidence",
+  "source_notion_url": "https://app.notion.com/p/3e66297866b081e68e0ddfbca87e2afa",
+  "fixture_version": "1.0.0",
+  "timezone": "Europe/London",
+  "user_peer_id": "ashley",
+  "companion_peer_id": "sophie",
+  "events": [
+    {
+      "id": "s1_e01",
+      "timestamp": "2026-09-28T08:07:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "ashley",
+      "content": "Okay I’m just going to dump this because my head is all over the place. I need to message the woman for the flowers — not today actually, maybe later because she still hasn’t sent me the colours. Carlos still owes me, I think it’s 3,000? Or 3,600 because there was delivery, I need to check the invoice. He said Friday but I don’t know if he meant this Friday. Also Yoshi has something after school Wednesday, dance maybe, I’ve got a screenshot somewhere. Matías has the sports thing Friday I think and I need to sign something but I don’t know where the email is. Andree needs money for school, I think £18 or maybe that was last term. I promised the venue I’d confirm chairs today. Oh and remind me not to forget the cake lady because I keep forgetting her. I’m going to call you back because somebody’s here."
+    },
+    {
+      "id": "s1_e02",
+      "timestamp": "2026-09-28T09:26:00+01:00",
+      "source_type": "email",
+      "role": "external",
+      "sender": "school",
+      "sender_address": "school@stmarys.sch.uk",
+      "metadata": {
+        "subject": "Year 5 Sports Day"
+      },
+      "content": "Sports Day is Thursday 1 October at 13:30. Pupils should bring PE kit and water. Parent consent form due by Wednesday 16:00."
+    },
+    {
+      "id": "s1_e03",
+      "timestamp": "2026-09-28T10:14:00+01:00",
+      "source_type": "email",
+      "role": "external",
+      "sender": "carlos",
+      "sender_address": "carlos@client.com",
+      "metadata": {
+        "subject": "Transfer update"
+      },
+      "content": "Sent Q1,500 this morning. I’ll send the rest after the bank releases the transfer tomorrow."
+    },
+    {
+      "id": "s1_e04",
+      "timestamp": "2026-09-28T10:22:00+01:00",
+      "source_type": "payment_feed",
+      "role": "external",
+      "sender": "bank_feed",
+      "metadata": {
+        "direction": "incoming",
+        "amount": 1500,
+        "currency": "GTQ",
+        "reference": "EVENT BALANCE",
+        "counterparty": "Carlos M."
+      },
+      "content": "Incoming payment: Carlos M. — Q1,500 — reference EVENT BALANCE."
+    },
+    {
+      "id": "s1_e05",
+      "timestamp": "2026-09-28T13:41:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "ashley",
+      "content": "Sorry, where was I? Right. The chairs. I told the venue yes, 120 chairs, so that’s done. Carlos messaged me but I haven’t looked properly. The florist can wait. Oh, and I think Matías’s thing might actually be Thursday, not Friday? I haven’t checked. Can you keep me straight on that. And I need to pay the school thing for one of the boys but I can’t remember which one right now."
+    },
+    {
+      "id": "s1_e06",
+      "timestamp": "2026-09-28T17:55:00+01:00",
+      "source_type": "calendar",
+      "role": "external",
+      "sender": "google_calendar",
+      "metadata": {
+        "action": "updated",
+        "system": "google_calendar",
+        "object_id": "yoshi-after-school-activity",
+        "title": "Yoshi — after school activity",
+        "previous_start": "2026-09-30T16:00:00+01:00",
+        "scheduled_start": "2026-10-01T16:30:00+01:00",
+        "version": 2
+      },
+      "content": "Event “Yoshi — after school activity” moved from Wednesday 16:00 to Thursday 16:30. Calendar title contains no activity type."
+    },
+    {
+      "id": "s1_e07",
+      "timestamp": "2026-09-29T08:18:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "ashley",
+      "content": "Morning. I slept terribly. I’m not dealing with Carlos yet. If he hasn’t paid by tomorrow then we’ll chase him. Did I ever sort the chairs? Also the school sent me something yesterday and I remember thinking I had to do it but now I can’t remember what."
+    },
+    {
+      "id": "s1_e08",
+      "timestamp": "2026-09-29T12:05:00+01:00",
+      "source_type": "email",
+      "role": "external",
+      "sender": "florist",
+      "sender_address": "florist@blooms.com",
+      "metadata": {
+        "subject": "Flowers"
+      },
+      "content": "Palette attached. Please confirm final colour choice by Wednesday noon or we cannot guarantee Saturday delivery."
+    },
+    {
+      "id": "s1_e09",
+      "timestamp": "2026-09-29T18:32:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "ashley",
+      "content": "Okay flowers: cream and yellow, definitely. I sent her that just now. Carlos paid something but not all of it. I think he still owes 2,100? Don’t chase him tonight. I’m too tired. Oh and Yoshi’s thing is Thursday now. It’s dance, yes. Matías sports day is also Thursday which is annoying. I don’t know how I’m doing both. I still haven’t signed that form."
+    },
+    {
+      "id": "s1_e10",
+      "timestamp": "2026-09-30T09:11:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "ashley",
+      "content": "Can you remind me what’s actually urgent today? I’ve got that horrible feeling I’ve forgotten something. And don’t just give me everything, please."
+    },
+    {
+      "id": "s1_e11",
+      "timestamp": "2026-09-30T16:18:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "ashley",
+      "content": "Shit. I signed Matías’s form at 4:10, I think just after the deadline. I emailed the teacher apologising. Carlos hasn’t sent the rest yet. Don’t message him though, he said bank issue. I’ll give him until tomorrow."
+    },
+    {
+      "id": "s1_e12",
+      "timestamp": "2026-10-01T07:54:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "ashley",
+      "content": "Today is chaos. Matías at 1:30, Yoshi 4:30. Andree just told me he needs the school money today or he can’t go on the trip — so yes, it was him. I’ll pay it when I get home from sports day. If I forget, actually remind me tonight."
+    },
+    {
+      "id": "s1_e13",
+      "timestamp": "2026-10-01T18:49:00+01:00",
+      "source_type": "payment_feed",
+      "role": "external",
+      "sender": "bank_feed",
+      "metadata": {
+        "direction": "outgoing",
+        "amount": 18,
+        "currency": "GBP",
+        "reference": "School Trips Ltd",
+        "counterparty": "School Trips Ltd"
+      },
+      "content": "Outgoing payment: School Trips Ltd — £18."
+    },
+    {
+      "id": "s1_e14",
+      "timestamp": "2026-10-01T19:12:00+01:00",
+      "source_type": "conversation",
+      "role": "user",
+      "sender": "ashley",
+      "content": "I’m home. I feel like I’ve done nothing but drive children around. What did I still owe people? Carlos still hasn’t paid the rest by the way. And I think the florist is fine now?"
+    }
+  ]
+}

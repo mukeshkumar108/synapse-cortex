@@ -1,0 +1,117 @@
+{
+  "scenario_id": "scenario_2",
+  "title": "Scenario 2 — Ordinary Sophie: Plans, Half-Intentions, Changed Mind, Missing Detail (Evaluator Oracle)",
+  "source_notion_url": "https://app.notion.com/p/3e66297866b08116a057e8bfd240630a",
+  "fixture_version": "1.0.0",
+  "hidden_evaluator_truth": {
+    "summary": "Course application is never a commitment; it is tentative and then explicitly abandoned Tuesday. Running is casual self-talk and explicitly 'don’t make that a thing'. Auntie call expectation resolves because Auntie calls first. Later a different/open question exists: whether original letter is available. Original-letter issue remains unresolved until Saturday, when evidence closes it. Subscription identity is initially unknown. Clarification/uncertainty is correct; guessing Notion/Envato is wrong. Freepik renewal becomes explicit Wednesday. User wants Friday reminder, then changes it Friday to Saturday afternoon unless otherwise resolved. User cancels Saturday, closing the obligation. 'parcel downstairs' is incidental unless later evidence makes it important; it should not become immortal debt. Sophie’s Monday offer is not yet a commitment to perform a reminder because the missing subscription identity/date had not been supplied and user had not accepted a specific reminder.",
+    "course_application": {
+      "status": "abandoned_tuesday",
+      "actionable": false,
+      "admitted_to_commitments": false
+    },
+    "running": {
+      "status": "dismissed_tuesday",
+      "actionable": false,
+      "trap": true
+    },
+    "parcel_downstairs": {
+      "status": "incidental",
+      "trap": true
+    },
+    "auntie_call": {
+      "original_task": "Call Auntie Tuesday about house",
+      "resolution": "Auntie called user first on Tuesday morning",
+      "superseded_by": "Find original insurance letter in loft",
+      "final_resolution": "Found letter in loft Saturday, sent photo, closed"
+    },
+    "freepik_subscription": {
+      "monday_status": "unknown_identity",
+      "tuesday_status": "guessed_envato_or_notion_uncertain",
+      "wednesday_status": "identified_freepik_renews_saturday",
+      "friday_status": "reminder_deferred_to_saturday_afternoon",
+      "saturday_status": "cancelled_by_user_closed"
+    },
+    "sophie_monday_turn": {
+      "is_actionable_commitment": false,
+      "nature": "conditional_conversational_offer"
+    }
+  },
+  "false_positive_traps": [
+    {
+      "trigger_text": "I should probably apply for that course",
+      "event_id": "s2_e01",
+      "prohibited_persistence": ["actionable_commitment"],
+      "rationale": "Tentative contemplation/half-intention, later abandoned."
+    },
+    {
+      "trigger_text": "I might go running in the morning if I wake up early",
+      "event_id": "s2_e01",
+      "prohibited_persistence": ["actionable_commitment", "durable_expectation"],
+      "rationale": "Vague self-talk, explicitly dismissed ('Don't make that a thing')."
+    },
+    {
+      "trigger_text": "there’s a parcel downstairs I’ve ignored for two days",
+      "event_id": "s2_e01",
+      "prohibited_persistence": ["open_loop", "actionable_commitment"],
+      "rationale": "Incidental passing remark, never elevated by user."
+    },
+    {
+      "trigger_text": "I remembered the subscription — it’s Notion, no, sorry, it’s that stock-photo thing. Envato maybe?",
+      "event_id": "s2_e03",
+      "prohibited_persistence": ["definitive_entity_fact:Notion", "definitive_entity_fact:Envato"],
+      "rationale": "Explicit user uncertainty; should not commit to wrong entity prematurely."
+    }
+  ],
+  "expected_checkpoints": [
+    {
+      "checkpoint_id": "cp1_after_s2_e02",
+      "after_event_id": "s2_e02",
+      "label": "Monday 21:11 - After initial brain dump & Sophie offer",
+      "deterministic_assertions": {
+        "actionable_commitments_count": 0,
+        "subscription_loop_status": "open_with_missing_details"
+      }
+    },
+    {
+      "checkpoint_id": "cp2_after_s2_e05",
+      "after_event_id": "s2_e05",
+      "label": "Tuesday 13:03 - After Auntie email & loft deferral",
+      "deterministic_assertions": {
+        "auntie_phone_call_expectation": "resolved_called_first",
+        "course_application_status": "cancelled_abandoned",
+        "running_status": "dismissed",
+        "loft_search_due": "weekend"
+      }
+    },
+    {
+      "checkpoint_id": "cp3_after_s2_e07",
+      "after_event_id": "s2_e07",
+      "label": "Wednesday 09:46 - Subscription identified as Freepik",
+      "deterministic_assertions": {
+        "subscription_entity": "Freepik",
+        "renewal_date": "Saturday 2026-10-03",
+        "reminder_requested_for": "Friday morning 2026-10-02"
+      }
+    },
+    {
+      "checkpoint_id": "cp4_after_s2_e09",
+      "after_event_id": "s2_e09",
+      "label": "Friday 08:07 - Cancellation reminder deferred",
+      "deterministic_assertions": {
+        "freepik_reminder_deferred_to": "Saturday afternoon 2026-10-03",
+        "cancellation_executed": false
+      }
+    },
+    {
+      "checkpoint_id": "cp5_after_s2_e10",
+      "after_event_id": "s2_e10",
+      "label": "Saturday 14:22 - Saturday closeout",
+      "deterministic_assertions": {
+        "freepik_status": "cancelled_by_user_closed",
+        "grandad_letter_status": "found_sent_closed",
+        "active_open_loops_count": 0
+      }
+    }
+  ]
+}

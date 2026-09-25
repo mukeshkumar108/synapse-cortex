@@ -1,0 +1,183 @@
+{
+  "scenario_id": "scenario_2",
+  "provider": "rules",
+  "timestamp": "2026-09-25T09:54:37.033281+00:00",
+  "checkpoints": [
+    {
+      "event_id": "s2_e02",
+      "label": "Monday 21:11 - After initial brain dump & Sophie offer",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "actionable_commitments_count": 0,
+        "subscription_loop_status": "open_with_missing_details"
+      }
+    },
+    {
+      "event_id": "s2_e05",
+      "label": "Tuesday 13:03 - After Auntie email & loft deferral",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "auntie_phone_call_expectation": "resolved_called_first",
+        "course_application_status": "cancelled_abandoned",
+        "running_status": "dismissed",
+        "loft_search_due": "weekend"
+      }
+    },
+    {
+      "event_id": "s2_e07",
+      "label": "Wednesday 09:46 - Subscription identified as Freepik",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "subscription_entity": "Freepik",
+        "renewal_date": "Saturday 2026-10-03",
+        "reminder_requested_for": "Friday morning 2026-10-02"
+      }
+    },
+    {
+      "event_id": "s2_e09",
+      "label": "Friday 08:07 - Cancellation reminder deferred",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "freepik_reminder_deferred_to": "Saturday afternoon 2026-10-03",
+        "cancellation_executed": false
+      }
+    },
+    {
+      "event_id": "s2_e10",
+      "label": "Saturday 14:22 - Saturday closeout",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "freepik_status": "cancelled_by_user_closed",
+        "grandad_letter_status": "found_sent_closed",
+        "active_open_loops_count": 0
+      }
+    }
+  ],
+  "trap_evaluations": [
+    {
+      "trigger_text": "I should probably apply for that course",
+      "prohibited": [
+        "actionable_commitment"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trigger_text": "I might go running in the morning if I wake up early",
+      "prohibited": [
+        "actionable_commitment",
+        "durable_expectation"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trigger_text": "there\u2019s a parcel downstairs I\u2019ve ignored for two days",
+      "prohibited": [
+        "open_loop",
+        "actionable_commitment"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trigger_text": "I remembered the subscription \u2014 it\u2019s Notion, no, sorry, it\u2019s that stock-photo thing. Envato maybe?",
+      "prohibited": [
+        "definitive_entity_fact:Notion",
+        "definitive_entity_fact:Envato"
+      ],
+      "passed": true,
+      "violations_found": []
+    }
+  ],
+  "summary": {
+    "total_checkpoints": 5,
+    "traps_evaluated": 4,
+    "traps_passed": 4
+  }
+}

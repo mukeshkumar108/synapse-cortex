@@ -1,0 +1,177 @@
+{
+  "scenario_id": "scenario_1",
+  "title": "Scenario 1 — Ashley Event Ops + Children + External Evidence (Evaluator Oracle)",
+  "source_notion_url": "https://app.notion.com/p/3e66297866b081e68e0ddfbca87e2afa",
+  "fixture_version": "1.0.0",
+  "hidden_evaluator_truth": {
+    "summary": "Carlos invoice total is Q3,600. Q1,500 received Monday; Q2,100 remains. His promised remainder was 'tomorrow' relative to Monday email = Tuesday. Ashley explicitly defers chasing Tuesday night, then gives him until Thursday on Wednesday. Whether this is a violation depends on the current agreed expectation, not the original Tuesday promise alone. Chairs resolved Monday 13:41 and should leave current attention. Matías sports day is Thursday 13:30, not Friday. Consent due Wednesday 16:00; Ashley submits at ~16:10 and apologises. This is a late completion, not an unresolved loop afterward. Yoshi after-school activity is Thursday 16:30; dance identity becomes explicit Tuesday. Andree’s £18 trip payment is ambiguous until Thursday morning, then resolved and paid Thursday evening. No need to ask which child after the later evidence resolves it. Florist confirmation becomes urgent after Tuesday email; Ashley explicitly confirms cream/yellow Tuesday evening, so it should close/release. 'I slept terribly' is potentially useful current context, not automatically a durable Fact/Open Loop. 'Don’t just give me everything' is an attention/projection preference for that moment, not necessarily a permanent global rule.",
+    "carlos_debt": {
+      "total": 3600,
+      "currency": "GTQ",
+      "mon_received": 1500,
+      "remaining": 2100,
+      "chase_deferred_tuesday": true,
+      "chase_deferred_wednesday": true,
+      "violation_status": "deferred_not_violated_prematurely"
+    },
+    "chairs": {
+      "count": 120,
+      "resolved_event_id": "s1_e05",
+      "expected_attention": "released"
+    },
+    "matias_sports_day": {
+      "scheduled_time": "2026-10-01T13:30:00+01:00",
+      "consent_deadline": "2026-09-30T16:00:00+01:00",
+      "completed_at": "2026-09-30T16:18:00+01:00",
+      "status": "late_completion_not_open_loop"
+    },
+    "yoshi_activity": {
+      "rescheduled_time": "2026-10-01T16:30:00+01:00",
+      "activity_type": "dance",
+      "source_evidence": "calendar_update_plus_conversation"
+    },
+    "andree_school_payment": {
+      "amount": 18,
+      "currency": "GBP",
+      "ambiguous_until": "s1_e12",
+      "resolved_child": "Andree",
+      "paid_via_feed": "s1_e13",
+      "status": "closed"
+    },
+    "florist": {
+      "supplier": "florist",
+      "deadline": "2026-09-30T12:00:00+01:00",
+      "confirmed_palette": "cream and yellow",
+      "resolved_event_id": "s1_e09",
+      "status": "closed_released"
+    }
+  },
+  "false_positive_traps": [
+    {
+      "trigger_text": "I slept terribly",
+      "event_id": "s1_e07",
+      "prohibited_persistence": ["durable_fact", "open_loop", "actionable_commitment"],
+      "rationale": "Turn-local somatic context; undramatic and non-actionable."
+    },
+    {
+      "trigger_text": "Don’t just give me everything, please",
+      "event_id": "s1_e10",
+      "prohibited_persistence": ["global_user_rule", "permanent_preference"],
+      "rationale": "Attention/projection restraint instruction for that specific query turn."
+    }
+  ],
+  "expected_checkpoints": [
+    {
+      "checkpoint_id": "cp1_after_s1_e01",
+      "after_event_id": "s1_e01",
+      "label": "Monday 08:07 - After initial operational brain dump",
+      "deterministic_assertions": {
+        "candidate_intentions_or_expectations": [
+          "confirm chairs with venue today",
+          "message florist woman later",
+          "check invoice / Carlos payment status",
+          "cake lady reminder"
+        ],
+        "ambiguous_entities": [
+          "Yoshi activity (type unknown)",
+          "Matías sports thing (day uncertain)",
+          "School money (£18, child unknown)"
+        ]
+      }
+    },
+    {
+      "checkpoint_id": "cp2_after_s1_e04",
+      "after_event_id": "s1_e04",
+      "label": "Monday 10:22 - After morning external evidence (emails & payment feed)",
+      "deterministic_assertions": {
+        "external_facts_ingested": [
+          "Sports Day is Thursday 1 Oct 13:30; Consent due Wednesday 16:00",
+          "Carlos incoming payment Q1,500 received; promised remainder tomorrow"
+        ]
+      }
+    },
+    {
+      "checkpoint_id": "cp3_after_s1_e05",
+      "after_event_id": "s1_e05",
+      "label": "Monday 13:41 - Midday user check-in",
+      "deterministic_assertions": {
+        "resolved_obligations": ["chairs confirmed (120 chairs)"],
+        "chairs_attention": "released_or_suppressed"
+      }
+    },
+    {
+      "checkpoint_id": "cp4_after_s1_e06",
+      "after_event_id": "s1_e06",
+      "label": "Monday 17:55 - After Google Calendar event update",
+      "deterministic_assertions": {
+        "yoshi_event_time": "2026-10-01T16:30:00+01:00",
+        "previous_expectation_superseded": true
+      }
+    },
+    {
+      "checkpoint_id": "cp5_after_s1_e07",
+      "after_event_id": "s1_e07",
+      "label": "Tuesday 08:18 - Tuesday morning user check-in",
+      "deterministic_assertions": {
+        "carlos_chase_status": "deferred_to_tomorrow",
+        "chairs_status": "remains_completed"
+      }
+    },
+    {
+      "checkpoint_id": "cp6_after_s1_e09",
+      "after_event_id": "s1_e09",
+      "label": "Tuesday 18:32 - Tuesday evening flowers & dance confirmation",
+      "deterministic_assertions": {
+        "florist_obligation": "fulfilled_closed",
+        "carlos_remainder_balance": 2100,
+        "yoshi_activity_type": "dance"
+      }
+    },
+    {
+      "checkpoint_id": "cp7_after_s1_e10",
+      "after_event_id": "s1_e10",
+      "label": "Wednesday 09:11 - Wednesday morning urgency query",
+      "deterministic_assertions": {
+        "urgent_item": "Matías parent consent form due by Wednesday 16:00",
+        "restraint_required": true
+      }
+    },
+    {
+      "checkpoint_id": "cp8_after_s1_e11",
+      "after_event_id": "s1_e11",
+      "label": "Wednesday 16:18 - Wednesday late afternoon consent form resolution",
+      "deterministic_assertions": {
+        "matias_form_status": "signed_late_closed",
+        "carlos_chase_deferred_to": "Thursday"
+      }
+    },
+    {
+      "checkpoint_id": "cp9_after_s1_e12",
+      "after_event_id": "s1_e12",
+      "label": "Thursday 07:54 - Thursday morning disambiguation",
+      "deterministic_assertions": {
+        "school_trip_child_resolved": "Andree",
+        "andree_payment_commitment": "pay tonight if forgotten"
+      }
+    },
+    {
+      "checkpoint_id": "cp10_after_s1_e13",
+      "after_event_id": "s1_e13",
+      "label": "Thursday 18:49 - Bank outgoing payment feed received",
+      "deterministic_assertions": {
+        "andree_trip_payment_status": "satisfied_by_external_evidence"
+      }
+    },
+    {
+      "checkpoint_id": "cp11_after_s1_e14",
+      "after_event_id": "s1_e14",
+      "label": "Thursday 19:12 - Thursday closeout",
+      "deterministic_assertions": {
+        "andree_trip_payment_due": false,
+        "carlos_debt_open": true,
+        "carlos_balance": 2100,
+        "florist_due": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,406 @@
+{
+  "scenario_id": "scenario_1",
+  "provider": "rules",
+  "timestamp": "2026-09-25T09:54:36.316396+00:00",
+  "checkpoints": [
+    {
+      "event_id": "s1_e01",
+      "label": "Monday 08:07 - After initial operational brain dump",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "candidate_intentions_or_expectations": [
+          "confirm chairs with venue today",
+          "message florist woman later",
+          "check invoice / Carlos payment status",
+          "cake lady reminder"
+        ],
+        "ambiguous_entities": [
+          "Yoshi activity (type unknown)",
+          "Mat\u00edas sports thing (day uncertain)",
+          "School money (\u00a318, child unknown)"
+        ]
+      }
+    },
+    {
+      "event_id": "s1_e04",
+      "label": "Monday 10:22 - After morning external evidence (emails & payment feed)",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "external_facts_ingested": [
+          "Sports Day is Thursday 1 Oct 13:30; Consent due Wednesday 16:00",
+          "Carlos incoming payment Q1,500 received; promised remainder tomorrow"
+        ]
+      }
+    },
+    {
+      "event_id": "s1_e05",
+      "label": "Monday 13:41 - Midday user check-in",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "resolved_obligations": [
+          "chairs confirmed (120 chairs)"
+        ],
+        "chairs_attention": "released_or_suppressed"
+      }
+    },
+    {
+      "event_id": "s1_e06",
+      "label": "Monday 17:55 - After Google Calendar event update",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "08164564-a380-4283-921e-f3be399c0288",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Yoshi \u2014 after school activity",
+          "summary": "Yoshi \u2014 after school activity",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "yoshi_event_time": "2026-10-01T16:30:00+01:00",
+        "previous_expectation_superseded": true
+      }
+    },
+    {
+      "event_id": "s1_e07",
+      "label": "Tuesday 08:18 - Tuesday morning user check-in",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "08164564-a380-4283-921e-f3be399c0288",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Yoshi \u2014 after school activity",
+          "summary": "Yoshi \u2014 after school activity",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "carlos_chase_status": "deferred_to_tomorrow",
+        "chairs_status": "remains_completed"
+      }
+    },
+    {
+      "event_id": "s1_e09",
+      "label": "Tuesday 18:32 - Tuesday evening flowers & dance confirmation",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "08164564-a380-4283-921e-f3be399c0288",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Yoshi \u2014 after school activity",
+          "summary": "Yoshi \u2014 after school activity",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "florist_obligation": "fulfilled_closed",
+        "carlos_remainder_balance": 2100,
+        "yoshi_activity_type": "dance"
+      }
+    },
+    {
+      "event_id": "s1_e10",
+      "label": "Wednesday 09:11 - Wednesday morning urgency query",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "08164564-a380-4283-921e-f3be399c0288",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Yoshi \u2014 after school activity",
+          "summary": "Yoshi \u2014 after school activity",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "urgent_item": "Mat\u00edas parent consent form due by Wednesday 16:00",
+        "restraint_required": true
+      }
+    },
+    {
+      "event_id": "s1_e11",
+      "label": "Wednesday 16:18 - Wednesday late afternoon consent form resolution",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "08164564-a380-4283-921e-f3be399c0288",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Yoshi \u2014 after school activity",
+          "summary": "Yoshi \u2014 after school activity",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "matias_form_status": "signed_late_closed",
+        "carlos_chase_deferred_to": "Thursday"
+      }
+    },
+    {
+      "event_id": "s1_e12",
+      "label": "Thursday 07:54 - Thursday morning disambiguation",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "08164564-a380-4283-921e-f3be399c0288",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Yoshi \u2014 after school activity",
+          "summary": "Yoshi \u2014 after school activity",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "school_trip_child_resolved": "Andree",
+        "andree_payment_commitment": "pay tonight if forgotten"
+      }
+    },
+    {
+      "event_id": "s1_e13",
+      "label": "Thursday 18:49 - Bank outgoing payment feed received",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "08164564-a380-4283-921e-f3be399c0288",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Yoshi \u2014 after school activity",
+          "summary": "Yoshi \u2014 after school activity",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "andree_trip_payment_status": "satisfied_by_external_evidence"
+      }
+    },
+    {
+      "event_id": "s1_e14",
+      "label": "Thursday 19:12 - Thursday closeout",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "08164564-a380-4283-921e-f3be399c0288",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Yoshi \u2014 after school activity",
+          "summary": "Yoshi \u2014 after school activity",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "andree_trip_payment_due": false,
+        "carlos_debt_open": true,
+        "carlos_balance": 2100,
+        "florist_due": false
+      }
+    }
+  ],
+  "trap_evaluations": [
+    {
+      "trigger_text": "I slept terribly",
+      "prohibited": [
+        "durable_fact",
+        "open_loop",
+        "actionable_commitment"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trigger_text": "Don\u2019t just give me everything, please",
+      "prohibited": [
+        "global_user_rule",
+        "permanent_preference"
+      ],
+      "passed": true,
+      "violations_found": []
+    }
+  ],
+  "summary": {
+    "total_checkpoints": 11,
+    "traps_evaluated": 2,
+    "traps_passed": 2
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "corpus_name": "sophie_longitudinal_benchmark",
+  "version": "1.0.0",
+  "created_at": "2026-09-25T10:48:00+01:00",
+  "parent_requirements_url": "https://app.notion.com/p/3e66297866b081efa21acc9b46944c22",
+  "baseline_commits": {
+    "synapse_cortex": "44a89d1721d95eecd51fd53cf305dd598a27e5e1",
+    "companion_runtime": "6b2f78dff838f6d7db29d6bcb58e3c443c101210"
+  },
+  "scenarios": [
+    {
+      "id": "scenario_1",
+      "title": "Scenario 1 — Ashley Event Ops + Children + External Evidence",
+      "input_file": "scenario_1_ashley_event_ops_input.json",
+      "oracle_file": "scenario_1_ashley_event_ops_oracle.json",
+      "notion_url": "https://app.notion.com/p/3e66297866b081e68e0ddfbca87e2afa",
+      "timezone": "Europe/London",
+      "start_time": "2026-09-28T08:07:00+01:00",
+      "end_time": "2026-10-01T19:12:00+01:00",
+      "checkpoints_count": 11,
+      "evidence_source_types": [
+        "conversation",
+        "email",
+        "payment_feed",
+        "calendar"
+      ],
+      "evaluation_dimensions": [
+        "operational_continuity",
+        "multi_source_reconciliation",
+        "resolve_before_clarify",
+        "external_calendar_sync",
+        "temporal_grounding",
+        "deferred_violation_semantics",
+        "structural_release_of_completed_items",
+        "candidate_precision"
+      ]
+    },
+    {
+      "id": "scenario_2",
+      "title": "Scenario 2 — Ordinary Sophie: Plans, Half-Intentions, Changed Mind, Missing Detail",
+      "input_file": "scenario_2_ordinary_sophie_plans_input.json",
+      "oracle_file": "scenario_2_ordinary_sophie_plans_oracle.json",
+      "notion_url": "https://app.notion.com/p/3e66297866b08116a057e8bfd240630a",
+      "timezone": "Europe/London",
+      "start_time": "2026-09-28T21:08:00+01:00",
+      "end_time": "2026-10-03T14:22:00+01:00",
+      "checkpoints_count": 5,
+      "evidence_source_types": [
+        "conversation",
+        "email"
+      ],
+      "evaluation_dimensions": [
+        "durable_vs_semantic_admission",
+        "half_intention_filtering",
+        "open_loop_lifecycle",
+        "cancellation_and_abandonment",
+        "missing_detail_uncertainty_preservation",
+        "rescheduling_and_supersession",
+        "stale_state_backgrounding"
+      ]
+    },
+    {
+      "id": "scenario_3",
+      "title": "Scenario 3 — Multi-source Conflict, Two People Same Name, Indirect Closure",
+      "input_file": "scenario_3_multisource_conflict_input.json",
+      "oracle_file": "scenario_3_multisource_conflict_oracle.json",
+      "notion_url": "https://app.notion.com/p/3e66297866b08176a1c9cdf95348db15",
+      "timezone": "Europe/London",
+      "start_time": "2026-09-28T11:32:00+01:00",
+      "end_time": "2026-10-02T15:47:00+01:00",
+      "checkpoints_count": 6,
+      "evidence_source_types": [
+        "conversation",
+        "payment_feed",
+        "email",
+        "sms",
+        "message",
+        "calendar"
+      ],
+      "evaluation_dimensions": [
+        "entity_disambiguation_same_name",
+        "conflicting_evidence_withholding",
+        "indirect_real_world_fulfilment",
+        "multi_source_reconciliation",
+        "contract_lifecycle_approval_vs_signature",
+        "frame_scoped_attribution"
+      ]
+    },
+    {
+      "id": "scenario_4",
+      "title": "Scenario 4 — Health, Worry & Personality Texture: Bidirectional Check-ins",
+      "input_file": "scenario_4_health_worry_texture_input.json",
+      "oracle_file": "scenario_4_health_worry_texture_oracle.json",
+      "notion_url": "https://app.notion.com/p/3e66297866b081019ecdfbed758ee2df",
+      "timezone": "Europe/London",
+      "start_time": "2026-09-28T07:52:00+01:00",
+      "end_time": "2026-10-03T18:44:00+01:00",
+      "checkpoints_count": 9,
+      "evidence_source_types": [
+        "conversation"
+      ],
+      "evaluation_dimensions": [
+        "somatic_health_watch_candidate_lifecycle",
+        "emotional_worry_check_in",
+        "personality_texture_continuity",
+        "unprompted_companion_promise_fulfillment",
+        "plain_user_self_correction",
+        "standing_recurring_weekly_commitment",
+        "conversational_restraint_and_silence",
+        "dual_aperture_gear_selection"
+      ]
+    }
+  ]
+}

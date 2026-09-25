@@ -1,0 +1,204 @@
+{
+  "scenario_id": "scenario_4",
+  "title": "Scenario 4 — Health, Worry & Personality Texture: Bidirectional Check-ins (Evaluator Oracle)",
+  "source_notion_url": "https://app.notion.com/p/3e66297866b081019ecdfbed758ee2df",
+  "fixture_version": "1.0.0",
+  "hidden_evaluator_truth": {
+    "summary": "Neck ache: first mentioned Monday morning as a fresh, undramatic complaint — not a task, not a Commitment. Recurs and worsens/improves across Mon/Tue/Wed (a genuine multi-day pattern), which is what should raise it to a watch/check-back-up candidate. It should NOT be surfaced same-day (too soon, reads as clinical/anxious) — the correct first proactive check is Tuesday evening, after two independent mentions. Thursday morning the user explicitly closes it ('don't need to keep asking') — this must fully release the watch item, not just lower its priority. A system that keeps checking after Thursday is a failure in the same class as pestering. Monday's 'head's a bit sore today too' is a one-off, undramatic, never repeated — this must NOT become a second watch candidate. Matt's hospitalisation is genuine worry, not a task. Correct behaviour is a proactive check-in once (Tuesday evening, bundled naturally with the neck check), then acknowledging Wednesday update, then a warm close-out Thursday. Out of surgery is positive but not full resolution, legitimately still open/dormant at transcript end. Elif (niece) is mentioned once, Tuesday morning, purely in passing. Model/texture, not an Open Loop or Commitment; system that asks 'did you message Elif?' is overreaching. The podcast/philosophy remark is pure personality texture. Sophie's Monday-night reply is a genuine Sophie-side promise, correctly fulfilled Friday morning unprompted. Parking permit: initial due end of month is superseded by due the 30th (plain user self-correction), stays legitimately dormant/backgrounded. Priya £12: small operational item paid Thursday morning. Food shop reminder: pre-existing standing/recurring weekly commitment, fires Saturday without re-teaching.",
+    "neck_ache": {
+      "kind": "somatic_watch_candidate",
+      "recurrence": "multi_day",
+      "first_proactive_check": "Tuesday 19:47",
+      "released_at": "Thursday 08:44",
+      "post_thursday_probing_allowed": false
+    },
+    "headache": {
+      "kind": "one_off_passing_ache",
+      "trap": true,
+      "watch_candidate_permitted": false
+    },
+    "matt_hospitalisation": {
+      "kind": "emotional_worry_check_in",
+      "checked_at": "Tuesday 19:47",
+      "wednesday_update": "out_of_surgery_resting",
+      "thursday_status": "dormant_backgrounded_warm_acknowledgment"
+    },
+    "niece_elif": {
+      "kind": "relational_texture_model",
+      "trap": true,
+      "proactive_probing_permitted": false,
+      "closed_by_user": "Thursday morning"
+    },
+    "philosophy_podcast": {
+      "kind": "personality_texture",
+      "sophie_promise_made": "Monday 21:03",
+      "sophie_promise_fulfilled": "Friday 09:30",
+      "initiation": "proactive_unprompted_by_sophie",
+      "nature": "relational_initiative_not_task_nag"
+    },
+    "parking_permit": {
+      "self_correction": {
+        "initial": "end of the month",
+        "corrected_to": "the 30th",
+        "event_id": "s4_e05"
+      },
+      "status": "dormant_backgrounded"
+    },
+    "priya_lunch_debt": {
+      "amount": 12,
+      "currency": "GBP",
+      "introduced": "Wednesday 09:02",
+      "paid": "Thursday 08:44",
+      "status": "closed"
+    },
+    "food_shop_reminder": {
+      "kind": "recurring_standing_obligation",
+      "cadence": "weekly_saturday_evening",
+      "fires_at": "Saturday 18:40",
+      "cross_boundary_continuity": true
+    }
+  },
+  "dual_aperture_restraint_fixture": [
+    {
+      "event_id": "s4_e03",
+      "turn": "Mon 21:03 Sophie",
+      "expected_gear": "ENRICH",
+      "rationale": "Light, low-stakes callback offer; not urgent, not silent."
+    },
+    {
+      "event_id": "s4_e06",
+      "turn": "Tue 19:47 Sophie",
+      "expected_gear": "ATTEND",
+      "rationale": "Two independent signals (neck recurrence + real worry) cross threshold for unprompted check; first time raised proactively."
+    },
+    {
+      "event_id": "s4_e09",
+      "turn": "Wed 17:30 User update",
+      "expected_gear": "SILENCE",
+      "rationale": "Correct restraint is silence — user is updating spontaneously; no prompt required."
+    },
+    {
+      "event_id": "s4_e10",
+      "turn": "Thu 08:44 User update",
+      "expected_gear": "SILENCE",
+      "rationale": "User self-closing neck and Priya items; an eager system would jump in, restraint is correct."
+    },
+    {
+      "event_id": "s4_e11",
+      "turn": "Thu 20:15 Sophie",
+      "expected_gear": "ENRICH",
+      "rationale": "Warm close-out on user-volunteered good news, not a new probe."
+    },
+    {
+      "event_id": "s4_e12",
+      "turn": "Fri 09:30 Sophie",
+      "expected_gear": "LEAD",
+      "rationale": "Sophie originates turn from dormant own-commitment with no user prompt and no operational urgency — pure relational initiative."
+    },
+    {
+      "event_id": "s4_e14",
+      "turn": "Sat 18:40 Sophie",
+      "expected_gear": "ENRICH",
+      "rationale": "Scheduled/expected recurring reminder, routine tone, not a probe."
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "trigger_text": "head's a bit sore today too, probably just tired",
+      "event_id": "s4_e01",
+      "prohibited_persistence": ["persistent_watch_candidate", "health_condition_tracker"],
+      "rationale": "Single mention, undramatic, no recurrence. Must not trigger monitoring."
+    },
+    {
+      "trigger_text": "wish I'd remembered to message her",
+      "event_id": "s4_e04",
+      "prohibited_persistence": ["open_loop", "actionable_commitment", "proactive_check_in_prompt"],
+      "rationale": "Passing regret, no request attached. Must remain low-salience context."
+    }
+  ],
+  "expected_checkpoints": [
+    {
+      "checkpoint_id": "cp1_after_s4_e01",
+      "after_event_id": "s4_e01",
+      "label": "Monday 07:52 - Initial brain dump",
+      "deterministic_assertions": {
+        "health_signal_noted": "neck sore",
+        "worry_signal_noted": "Matt gallbladder hospital",
+        "headache_watch_candidate": false
+      }
+    },
+    {
+      "checkpoint_id": "cp2_after_s4_e02",
+      "after_event_id": "s4_e02",
+      "label": "Monday 14:41 - Monday afternoon neck check",
+      "deterministic_assertions": {
+        "proactive_check_now": false,
+        "restraint": "wait_for_multi_day_pattern"
+      }
+    },
+    {
+      "checkpoint_id": "cp3_after_s4_e03",
+      "after_event_id": "s4_e03",
+      "label": "Monday 21:03 - Sophie commitment to return to podcast",
+      "deterministic_assertions": {
+        "sophie_promise_created": true,
+        "sophie_promise_topic": "podcast / attention and boredom"
+      }
+    },
+    {
+      "checkpoint_id": "cp4_after_s4_e05",
+      "after_event_id": "s4_e05",
+      "label": "Tuesday 12:30 - Parking permit self-correction & food shop standing request",
+      "deterministic_assertions": {
+        "permit_superseded_date": "2026-09-30",
+        "recurring_obligation_registered": "food shop Saturday evening"
+      }
+    },
+    {
+      "checkpoint_id": "cp5_after_s4_e07",
+      "after_event_id": "s4_e07",
+      "label": "Tuesday 19:49 - Tuesday evening proactive check on neck & Matt",
+      "deterministic_assertions": {
+        "proactive_check_executed": true,
+        "signals_checked": ["neck", "Matt"]
+      }
+    },
+    {
+      "checkpoint_id": "cp6_after_s4_e09",
+      "after_event_id": "s4_e09",
+      "label": "Wednesday 17:30 - Matt surgery update received",
+      "deterministic_assertions": {
+        "matt_status": "out_of_surgery_resting_dormant",
+        "priya_lunch_debt_open": true
+      }
+    },
+    {
+      "checkpoint_id": "cp7_after_s4_e11",
+      "after_event_id": "s4_e11",
+      "label": "Thursday 20:15 - Thursday warm closeout & neck released",
+      "deterministic_assertions": {
+        "neck_watch_status": "fully_released_closed",
+        "priya_lunch_debt_status": "closed",
+        "elif_status": "closed"
+      }
+    },
+    {
+      "checkpoint_id": "cp8_after_s4_e13",
+      "after_event_id": "s4_e13",
+      "label": "Friday 09:35 - Sophie promise unprompted fulfillment",
+      "deterministic_assertions": {
+        "sophie_promise_status": "fulfilled_unprompted",
+        "gear_used": "LEAD"
+      }
+    },
+    {
+      "checkpoint_id": "cp9_after_s4_e15",
+      "after_event_id": "s4_e15",
+      "label": "Saturday 18:44 - Recurring weekly food shop reminder",
+      "deterministic_assertions": {
+        "food_shop_reminder_fired": true,
+        "recurring_schedule_survives": true
+      }
+    }
+  ]
+}

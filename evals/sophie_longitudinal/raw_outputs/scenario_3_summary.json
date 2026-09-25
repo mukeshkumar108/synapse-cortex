@@ -1,0 +1,214 @@
+{
+  "scenario_id": "scenario_3",
+  "provider": "rules",
+  "timestamp": "2026-09-25T09:54:37.492617+00:00",
+  "checkpoints": [
+    {
+      "event_id": "s3_e05",
+      "label": "Monday 21:43 - Monday night multi-source reconciliation",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "entity_separation": "Studio Sam != Cousin Sam",
+        "dentist_status": "Friday 09:20 active, Thursday superseded",
+        "lucy_payment_status": "unconfirmed_pending_user_verification"
+      }
+    },
+    {
+      "event_id": "s3_e07",
+      "label": "Tuesday 16:55 - Studio Sam contract content approved",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "contract_status": "content_approved_awaiting_final_signature_copy"
+      }
+    },
+    {
+      "event_id": "s3_e09",
+      "label": "Wednesday 18:40 - Cousin Sam check & Lucy payment confirmed",
+      "counts": {
+        "expectations": 0,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "lucy_payment_closed": true,
+        "cousin_sam_check_fulfilled": true,
+        "pickup_scheduled_for": "Thursday 15:00"
+      }
+    },
+    {
+      "event_id": "s3_e11",
+      "label": "Thursday 22:06 - Mum pickup indirect closure",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 1,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "d9344a2f-6ee5-4c61-a2da-3377bb26f054",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Mum pickup \u2014 Sam",
+          "summary": "Mum pickup \u2014 Sam",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "mum_pickup_status": "completed_corroborated",
+        "contract_status": "pending_final_copy"
+      }
+    },
+    {
+      "event_id": "s3_e13",
+      "label": "Friday 08:02 - Contract reminder requested & Sam disambiguation",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 1,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "d9344a2f-6ee5-4c61-a2da-3377bb26f054",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Mum pickup \u2014 Sam",
+          "summary": "Mum pickup \u2014 Sam",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "active_reminder_expectation": "remind about contract Friday afternoon",
+        "current_frame_sam_binding": "Studio Sam"
+      }
+    },
+    {
+      "event_id": "s3_e14",
+      "label": "Friday 15:47 - Contract signed by user, final closeout",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 1,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "d9344a2f-6ee5-4c61-a2da-3377bb26f054",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Mum pickup \u2014 Sam",
+          "summary": "Mum pickup \u2014 Sam",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "contract_obligation_status": "fulfilled_closed_no_violation",
+        "active_open_loops_count": 0
+      }
+    }
+  ],
+  "trap_evaluations": [
+    {
+      "trigger_text": "Incoming \u00a3240 from L. HARGREAVES",
+      "prohibited": [
+        "auto_mark_lucy_paid_on_monday"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trigger_text": "I replied \u2018looks good to me, go ahead\u2019",
+      "prohibited": [
+        "mark_contract_signed_and_fully_executed"
+      ],
+      "passed": true,
+      "violations_found": []
+    }
+  ],
+  "summary": {
+    "total_checkpoints": 6,
+    "traps_evaluated": 2,
+    "traps_passed": 2
+  }
+}
