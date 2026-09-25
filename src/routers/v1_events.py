@@ -340,8 +340,37 @@ async def ingest_turn_event(
             db, workspace_id=payload.workspace_id, now=payload.now)
     except Exception as err:
         logger.warning("Due evaluation failed: %s", err)
+    # Semantic reconciliation (event-driven, bounded, fail-open): open matters
+    # the deterministic pass left open get one semantic judgement each against
+    # this turn's evidence. Model understands; deterministic promotion governs.
+    semantic_reconciliation_summary: dict = {}
+    try:
+        from src.services.semantic_reconciliation import reconcile_turn
+        semantic_reconciliation_summary = await reconcile_turn(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            message_id=payload.honcho_message_id, text=payload.text,
+            peer_id=payload.peer_id, now=payload.now,
+            closed_loop_ids=[str(lid) for lid in closed_loop_ids],
+        )
+    except Exception as err:
+        logger.warning("Semantic reconciliation failed: %s", err)
+        semantic_reconciliation_summary = {"error": str(err)[:200]}
     if not candidates:
         logger.info("No state candidates extracted from turn msg_id=%s", payload.honcho_message_id)
+        try:
+            from src.services.current_meaning_service import maybe_revise_after_turn
+            t2_summary = await maybe_revise_after_turn(
+                db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                peer_id=payload.peer_id, message_id=payload.honcho_message_id,
+                turn_text=payload.text, now=payload.now,
+                mutated=bool(closed_loop_ids or violated_ids
+                             or semantic_reconciliation_summary.get("promoted")
+                             or semantic_reconciliation_summary.get("closed")
+                             or semantic_reconciliation_summary.get("judged")),
+            )
+        except Exception as err:
+            logger.warning("T2 revise failed: %s", err)
+            t2_summary = {"revised": False, "reason": "error"}
         return {
             "status": "accepted",
             "expectation_created": False,
@@ -352,6 +381,8 @@ async def ingest_turn_event(
             "closed_loop_ids": [str(lid) for lid in closed_loop_ids],
             "violated_commitment_ids": [str(vid) for vid in violated_ids],
             "narrow_shadow": narrow_shadow_summary,
+            "semantic_reconciliation": semantic_reconciliation_summary,
+            "current_meaning": t2_summary,
             "context": {
                 "status": turn_context.get("status"),
                 "honcho_status": turn_context.get("honcho_status"),
@@ -626,6 +657,23 @@ async def ingest_turn_event(
 
     # Structural release + due evaluation ran earlier (before the empty
     # extraction early-return) so later evidence always gets its turn.
+    # Event-driven T2: revise when this turn durably changed state — any
+    # created/mutated/closed rows, or relations the semantic pass promoted.
+    try:
+        from src.services.current_meaning_service import maybe_revise_after_turn
+        t2_summary = await maybe_revise_after_turn(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            peer_id=payload.peer_id, message_id=payload.honcho_message_id,
+            turn_text=payload.text, now=payload.now,
+            mutated=bool(expectations_created or mutated_ids or closed_loop_ids
+                         or violated_ids or operational_mutations
+                         or semantic_reconciliation_summary.get("promoted")
+                         or semantic_reconciliation_summary.get("closed")
+                         or semantic_reconciliation_summary.get("judged")),
+        )
+    except Exception as err:
+        logger.warning("T2 revise failed: %s", err)
+        t2_summary = {"revised": False, "reason": "error"}
     return {
         "status": "accepted",
         "candidates_extracted": len(candidates),
@@ -640,6 +688,8 @@ async def ingest_turn_event(
         "extraction_backend": extraction_result.backend,
         "operational_mutations": operational_mutations,
         "narrow_shadow": narrow_shadow_summary,
+        "semantic_reconciliation": semantic_reconciliation_summary,
+        "current_meaning": t2_summary,
         "context": {
             "status": turn_context.get("status"),
             "honcho_status": turn_context.get("honcho_status"),

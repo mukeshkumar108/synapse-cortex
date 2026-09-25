@@ -59,6 +59,66 @@ class LifecycleService:
         lowered = (text or "").lower()
         return any(marker in lowered for marker in markers)
 
+    async def _fulfill_grounded(self, db, *, exp, evidence_text: str,
+                               candidate, message_id: str) -> bool:
+        """Fulfillment claims need grounding: strong lexical overlap proceeds
+        deterministically; weak overlap requires a bounded semantic-judge
+        confirmation (verbatim span in the evidence); no adapter means prior
+        behavior (proceed) so rules mode is untouched. Every decision is
+        traced for inspection."""
+        from src.models.operational_state import ExtractionTrace
+
+        async def trace(status: str, detail: dict) -> None:
+            try:
+                db.add(ExtractionTrace(
+                    honcho_workspace_id=exp.honcho_workspace_id,
+                    honcho_session_id=exp.honcho_session_id,
+                    honcho_message_id=message_id,
+                    stage="fulfill_grounding",
+                    item_key=f"{exp.id}:{message_id}",
+                    status=status,
+                    model="deterministic+judge",
+                    detail_json=json.dumps(detail, default=str)[:2000],
+                ))
+                await db.commit()
+            except Exception as err:
+                logger.warning("fulfill grounding trace failed: %s", err)
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+
+        overlap = len(self._significant_tokens(evidence_text or "") & self._significant_tokens(
+            f"{exp.title or ''} {exp.summary or ''}"))
+        if overlap >= 2:
+            await trace("proceeded-deterministic", {"overlap": overlap})
+            return True
+        try:
+            from src.services import semantic_judge
+            result = await semantic_judge.adjudicate(
+                kind="fulfils",
+                earlier=f"{exp.title or ''} {exp.summary or ''}".strip(),
+                later=evidence_text or "")
+        except Exception as err:
+            logger.warning("fulfill grounding check failed (fail-open): %s", err)
+            return True
+        if result.verdict == "unavailable":
+            return True  # no adapter etc: prior behavior
+        if result.accepted and result.evidence_span.strip() \
+                and result.evidence_span.strip() in (evidence_text or ""):
+            await trace("proceeded-judged", {
+                "overlap": overlap, "confidence": result.confidence,
+                "evidence_span": result.evidence_span,
+                "rationale": result.rationale})
+            return True
+        logger.info(
+            "Blocked ungrounded fulfillment for expectation id=%s "
+            "(overlap=%d, verdict=%s)", exp.id, overlap, result.verdict)
+        await trace("blocked", {
+            "overlap": overlap, "verdict": result.verdict,
+            "confidence": result.confidence, "rationale": result.rationale})
+        return False
+
     async def handle_outcome_mutations(
         self,
         db: AsyncSession,
@@ -169,6 +229,14 @@ class LifecycleService:
                 )
                 return []
             else:
+                if not await self._fulfill_grounded(
+                    db, exp=exp, evidence_text=evidence_text,
+                    candidate=candidate, message_id=message_id,
+                ):
+                    # Lexically disconnected fulfillment claim with no semantic
+                    # confirmation: leave UNKNOWN rather than fulfill wrongly.
+                    # Rules mode (no adapter) keeps prior behavior.
+                    return []
                 exp.outcome_state = OutcomeState.FULFILLED
                 pending_promotion = (
                     "fulfils",
@@ -499,12 +567,31 @@ class LifecycleService:
         if negative:
             exp.outcome_state = OutcomeState.NOT_FULFILLED
         else:
+            evidence_text = f"{candidate.canonical_title or ''} {candidate.observation}"
+            if not await self._fulfill_grounded(
+                db, exp=exp, evidence_text=evidence_text,
+                candidate=candidate, message_id=message_id,
+            ):
+                return []
             exp.outcome_state = OutcomeState.FULFILLED
         exp.resolution_evidence = evidence
         exp.updated_at = self._naive_utc(now)
         db.add(exp)
         await self._resolve_open_loop_for_expectation(db, exp.id, evidence)
         await db.commit()
+        if not negative:
+            # Phase-B deterministic promotion (advisory, post-commit).
+            try:
+                await promote_transition(
+                    db, workspace_id=workspace_id, rel_type="fulfils",
+                    from_text=candidate.observation or candidate.canonical_title or "",
+                    to_text=exp.title,
+                    source_key=evidence,
+                    evidence_refs=[evidence],
+                    subjects_to=[exp.subject_peer_id] if exp.subject_peer_id else [],
+                    formation="inferred", confidence=0.9)
+            except Exception:
+                logger.exception("semantic promotion failed for explicit completion")
         logger.info(
             "Explicit completion resolved expectation id=%s to %s from %s",
             exp.id, exp.outcome_state.value, candidate.operational_kind,

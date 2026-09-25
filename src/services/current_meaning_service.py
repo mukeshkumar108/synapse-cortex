@@ -358,3 +358,125 @@ async def run_interpreter(
         logger.warning("[current-meaning] interpreter failed (fail-closed): %s", exc)
         return None
     return raw if isinstance(raw, dict) else None
+
+
+MEANING_MIN_REVISE_INTERVAL_SECONDS = float(
+    os.getenv("MEANING_MIN_REVISE_INTERVAL_SECONDS", "2700"))
+# Fallback liveness: zero-write stretches still move meaning (rupture/repair
+# dialogue often writes nothing durable). Structural only: N user turns since
+# the last revision + a minimum age. No content inspection, no keywords.
+MEANING_FALLBACK_USER_TURNS = int(os.getenv("MEANING_FALLBACK_USER_TURNS", "3"))
+MEANING_FALLBACK_MIN_AGE_SECONDS = float(
+    os.getenv("MEANING_FALLBACK_MIN_AGE_SECONDS", "600"))
+
+
+async def maybe_revise_after_turn(
+    db: AsyncSession,
+    *,
+    workspace_id: str,
+    session_id: str,
+    peer_id: str,
+    product: str = "sophie",
+    message_id: str,
+    turn_text: str,
+    now: datetime,
+    mutated: bool,
+) -> Dict[str, Any]:
+    """Event-driven T2 maintenance: revise only when this turn mutated state
+    AND (no active meaning OR the active row is older than the cooldown).
+    Bounded (one interpreter call max), fail-closed, never blocks ingest.
+    History comes from bounded Honcho recency, never the full transcript."""
+    outcome: Dict[str, Any] = {"revised": False, "reason": "no_mutation"}
+    if not mutated:
+        # Liveness fallback: sustained user activity with zero durable writes
+        # (rupture/repair dialogue) still deserves a re-read, subject to
+        # cooldown. Structural turn counting only.
+        try:
+            from src.models.operational_state import TurnStamp
+            from sqlmodel import select as _select
+            prior_row = await get_active(db, scope_key=scope_key_for(
+                workspace_id, product, session_id, peer_id))
+            if prior_row is not None:
+                now_naive = now.replace(tzinfo=None) if now.tzinfo else now
+                obs = prior_row.observed_at
+                obs_naive = obs.replace(tzinfo=None) if obs.tzinfo else obs
+                age = (now_naive - obs_naive).total_seconds()
+                if age >= MEANING_FALLBACK_MIN_AGE_SECONDS:
+                    user_turns = len((await db.execute(_select(TurnStamp).where(
+                        TurnStamp.honcho_workspace_id == workspace_id,
+                        TurnStamp.owner_peer_id == peer_id,
+                        TurnStamp.turn_at > obs_naive,
+                    ))).scalars().all())
+                    if user_turns < MEANING_FALLBACK_USER_TURNS:
+                        return outcome
+                else:
+                    return outcome
+            else:
+                return outcome
+        except Exception as err:
+            logger.warning("[current-meaning] liveness check failed: %s", err)
+            return outcome
+    try:
+        from src.runtime_model import get_agenda_adapter
+
+        adapter = get_agenda_adapter()
+        if adapter is None:
+            return {**outcome, "reason": "interpreter_unavailable"}
+        scope_key = scope_key_for(workspace_id, product, session_id, peer_id)
+        prior = await get_active(db, scope_key=scope_key)
+        if prior is not None:
+            age = (now.replace(tzinfo=None) if now.tzinfo else now) - (
+                prior.observed_at.replace(tzinfo=None)
+                if prior.observed_at.tzinfo else prior.observed_at)
+            if age.total_seconds() < MEANING_MIN_REVISE_INTERVAL_SECONDS:
+                return {**outcome, "reason": "cooldown"}
+        lens = resolve_lens((product or "sophie").lower())
+        evidence = await load_cortex_evidence(
+            db, workspace_id=workspace_id, session_id=session_id,
+            owner_peer_id=canonical_owner_peer(peer_id), now=now)
+        history: List[Dict[str, str]] = []
+        try:
+            from src.config import settings
+            if settings.HONCHO_CONTEXT_ENABLED:
+                from src.clients.honcho_client import HonchoClient
+                client = HonchoClient(
+                    base_url=settings.HONCHO_BASE_URL,
+                    api_key=settings.HONCHO_API_KEY,
+                    timeout=settings.HONCHO_TIMEOUT_SECONDS)
+                recent = await client.recent_messages(
+                    workspace_id, session_id, limit=6) or []
+                for item in recent:
+                    content = str((item or {}).get("content") or "")[:700]
+                    if content.strip():
+                        history.append({
+                            "role": str((item or {}).get("peer_id") or "user")[:20],
+                            "content": content})
+        except Exception as err:
+            logger.warning("[current-meaning] history fetch failed: %s", err)
+        raw = await run_interpreter(
+            adapter=adapter, system=lens.system,
+            prompt=build_interpreter_prompt(
+                lens_system=lens.system, turn_text=(turn_text or "")[:4000],
+                prior=row_to_dict(prior) if prior else None,
+                history=history, cortex_evidence=evidence))
+        if raw is None or raw.get("no_change") is True:
+            return {**outcome, "reason": "interpreter_no_change"}
+        proposal = validate_proposal(raw=raw, turn_text=turn_text or "", prior=prior)
+        if proposal is None:
+            return {**outcome, "reason": "validation_carry"}
+        result = await commit_revision(
+            db,
+            scope={"workspace_id": workspace_id, "product": product,
+                   "session_id": session_id,
+                   "owner_peer_id": canonical_owner_peer(peer_id)},
+            scope_key=scope_key, revision_key=f"turn:{message_id}",
+            source_message_ids=[message_id], proposal=proposal,
+            lens_version=lens.version, now=now,
+            expected_prior_id=str(prior.id) if prior else None,
+            expected_prior_version=prior.version if prior else None)
+        outcome_name = (result or {}).get("outcome", "unknown")
+        return {"revised": outcome_name in ("committed", "idempotent_hit"),
+                "reason": f"commit:{outcome_name}"}
+    except Exception as err:
+        logger.warning("[current-meaning] event-driven revise failed: %s", err)
+        return {"revised": False, "reason": f"error:{str(err)[:120]}"}

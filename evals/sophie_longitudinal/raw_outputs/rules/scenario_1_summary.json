@@ -5,7 +5,7 @@
   "provider": "rules",
   "model": null,
   "external_model_calls": false,
-  "timestamp": "2026-09-25T10:27:28.655275+00:00",
+  "timestamp": "2026-09-25T15:01:34.349138+00:00",
   "checkpoints": [
     {
       "event_id": "s1_e01",
@@ -16,7 +16,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 1,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 0,
@@ -26,7 +26,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -34,7 +34,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -42,7 +42,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -76,7 +76,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 3,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 0,
@@ -86,7 +86,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -94,7 +94,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -102,7 +102,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -110,7 +110,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -137,7 +137,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 4,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -147,7 +147,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -155,7 +155,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.SUPERSEDED",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -163,7 +163,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -171,7 +171,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -179,7 +179,7 @@
           "source_system": null
         },
         {
-          "id": "3f037f8a-4a38-4b45-aa3a-a74da36b4b00",
+          "id": "5e68ae3e-f56f-4afd-92c4-92123980d625",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -187,7 +187,7 @@
           "source_system": null
         },
         {
-          "id": "63fa5ee2-7697-41f7-b051-27aaed783b79",
+          "id": "32b7fd2c-5e38-4252-9256-98826802bb22",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "And I need to pay the school thing for one of the boys but I can\u2019t remember which one right now",
@@ -214,7 +214,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 4,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -224,7 +224,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -232,7 +232,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.SUPERSEDED",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -240,7 +240,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -248,7 +248,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -256,7 +256,7 @@
           "source_system": null
         },
         {
-          "id": "3f037f8a-4a38-4b45-aa3a-a74da36b4b00",
+          "id": "5e68ae3e-f56f-4afd-92c4-92123980d625",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -264,7 +264,7 @@
           "source_system": null
         },
         {
-          "id": "63fa5ee2-7697-41f7-b051-27aaed783b79",
+          "id": "32b7fd2c-5e38-4252-9256-98826802bb22",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "And I need to pay the school thing for one of the boys but I can\u2019t remember which one right now",
@@ -272,7 +272,7 @@
           "source_system": null
         },
         {
-          "id": "cdf302ea-64ab-4049-9e7d-7f47a41bedd2",
+          "id": "f3284c61-c533-41ff-9746-5886efb3a233",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -297,7 +297,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 4,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -307,7 +307,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -315,7 +315,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.SUPERSEDED",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -323,7 +323,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -331,7 +331,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -339,7 +339,7 @@
           "source_system": null
         },
         {
-          "id": "3f037f8a-4a38-4b45-aa3a-a74da36b4b00",
+          "id": "5e68ae3e-f56f-4afd-92c4-92123980d625",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -347,7 +347,7 @@
           "source_system": null
         },
         {
-          "id": "63fa5ee2-7697-41f7-b051-27aaed783b79",
+          "id": "32b7fd2c-5e38-4252-9256-98826802bb22",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "And I need to pay the school thing for one of the boys but I can\u2019t remember which one right now",
@@ -355,7 +355,7 @@
           "source_system": null
         },
         {
-          "id": "cdf302ea-64ab-4049-9e7d-7f47a41bedd2",
+          "id": "f3284c61-c533-41ff-9746-5886efb3a233",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -380,7 +380,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 5,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -390,7 +390,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -398,7 +398,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.SUPERSEDED",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -406,7 +406,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -414,7 +414,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -422,7 +422,7 @@
           "source_system": null
         },
         {
-          "id": "3f037f8a-4a38-4b45-aa3a-a74da36b4b00",
+          "id": "5e68ae3e-f56f-4afd-92c4-92123980d625",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -430,7 +430,7 @@
           "source_system": null
         },
         {
-          "id": "63fa5ee2-7697-41f7-b051-27aaed783b79",
+          "id": "32b7fd2c-5e38-4252-9256-98826802bb22",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "And I need to pay the school thing for one of the boys but I can\u2019t remember which one right now",
@@ -438,7 +438,7 @@
           "source_system": null
         },
         {
-          "id": "cdf302ea-64ab-4049-9e7d-7f47a41bedd2",
+          "id": "f3284c61-c533-41ff-9746-5886efb3a233",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -464,7 +464,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 5,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -474,7 +474,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -482,7 +482,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.SUPERSEDED",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -490,7 +490,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -498,7 +498,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -506,7 +506,7 @@
           "source_system": null
         },
         {
-          "id": "3f037f8a-4a38-4b45-aa3a-a74da36b4b00",
+          "id": "5e68ae3e-f56f-4afd-92c4-92123980d625",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -514,7 +514,7 @@
           "source_system": null
         },
         {
-          "id": "63fa5ee2-7697-41f7-b051-27aaed783b79",
+          "id": "32b7fd2c-5e38-4252-9256-98826802bb22",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "And I need to pay the school thing for one of the boys but I can\u2019t remember which one right now",
@@ -522,7 +522,7 @@
           "source_system": null
         },
         {
-          "id": "cdf302ea-64ab-4049-9e7d-7f47a41bedd2",
+          "id": "f3284c61-c533-41ff-9746-5886efb3a233",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -547,7 +547,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 6,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -557,7 +557,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -565,7 +565,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.SUPERSEDED",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -573,7 +573,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -581,7 +581,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -589,7 +589,7 @@
           "source_system": null
         },
         {
-          "id": "3f037f8a-4a38-4b45-aa3a-a74da36b4b00",
+          "id": "5e68ae3e-f56f-4afd-92c4-92123980d625",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -597,7 +597,7 @@
           "source_system": null
         },
         {
-          "id": "63fa5ee2-7697-41f7-b051-27aaed783b79",
+          "id": "32b7fd2c-5e38-4252-9256-98826802bb22",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "And I need to pay the school thing for one of the boys but I can\u2019t remember which one right now",
@@ -605,7 +605,7 @@
           "source_system": null
         },
         {
-          "id": "cdf302ea-64ab-4049-9e7d-7f47a41bedd2",
+          "id": "f3284c61-c533-41ff-9746-5886efb3a233",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -613,7 +613,7 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "5481edb6-be8d-4b0a-ab35-d1c91bbe47af",
+          "id": "d95deef6-a5ff-42cc-a667-6066bea0fd61",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Don\u2019t message him though, he said bank issue",
@@ -638,7 +638,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 7,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -648,7 +648,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -656,7 +656,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.SUPERSEDED",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -664,7 +664,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -672,7 +672,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -680,7 +680,7 @@
           "source_system": null
         },
         {
-          "id": "3f037f8a-4a38-4b45-aa3a-a74da36b4b00",
+          "id": "5e68ae3e-f56f-4afd-92c4-92123980d625",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -688,7 +688,7 @@
           "source_system": null
         },
         {
-          "id": "63fa5ee2-7697-41f7-b051-27aaed783b79",
+          "id": "32b7fd2c-5e38-4252-9256-98826802bb22",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "And I need to pay the school thing for one of the boys but I can\u2019t remember which one right now",
@@ -696,7 +696,7 @@
           "source_system": null
         },
         {
-          "id": "cdf302ea-64ab-4049-9e7d-7f47a41bedd2",
+          "id": "f3284c61-c533-41ff-9746-5886efb3a233",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -704,7 +704,7 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "5481edb6-be8d-4b0a-ab35-d1c91bbe47af",
+          "id": "d95deef6-a5ff-42cc-a667-6066bea0fd61",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Don\u2019t message him though, he said bank issue",
@@ -729,7 +729,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 7,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -739,7 +739,7 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
@@ -747,7 +747,7 @@
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.SUPERSEDED",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -755,7 +755,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -763,7 +763,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -771,7 +771,7 @@
           "source_system": null
         },
         {
-          "id": "3f037f8a-4a38-4b45-aa3a-a74da36b4b00",
+          "id": "5e68ae3e-f56f-4afd-92c4-92123980d625",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -779,7 +779,7 @@
           "source_system": null
         },
         {
-          "id": "63fa5ee2-7697-41f7-b051-27aaed783b79",
+          "id": "32b7fd2c-5e38-4252-9256-98826802bb22",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "And I need to pay the school thing for one of the boys but I can\u2019t remember which one right now",
@@ -787,7 +787,7 @@
           "source_system": null
         },
         {
-          "id": "cdf302ea-64ab-4049-9e7d-7f47a41bedd2",
+          "id": "f3284c61-c533-41ff-9746-5886efb3a233",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -795,7 +795,7 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "5481edb6-be8d-4b0a-ab35-d1c91bbe47af",
+          "id": "d95deef6-a5ff-42cc-a667-6066bea0fd61",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Don\u2019t message him though, he said bank issue",
@@ -819,7 +819,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 8,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -829,15 +829,15 @@
       },
       "expectations": [
         {
-          "id": "4ebe91aa-0a61-452a-bf05-ab21180b3bcf",
+          "id": "338afabe-aae3-4163-a645-02112b026c6a",
           "type": "ExpectationType.USER_COMMITMENT",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
           "summary": "User committed: Carlos still owes me, I think it\u2019s 3,000? Or 3,600 because there was delivery, I need to check the invoice",
           "source_system": null
         },
         {
-          "id": "805380f7-8af8-48fd-be37-4d1c7bd4f469",
+          "id": "d20c265e-c728-42ee-9dae-8d014ae331c6",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.SUPERSEDED",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -845,7 +845,7 @@
           "source_system": null
         },
         {
-          "id": "1be0b7a1-ce40-4c93-84af-c331f025397b",
+          "id": "c8dca250-b57a-465c-a069-d37b7642b355",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sign something but I don\u2019t know where the email is",
@@ -853,7 +853,7 @@
           "source_system": null
         },
         {
-          "id": "8781139f-e380-4f0d-a42b-0fb05594f506",
+          "id": "bca30106-2feb-42a9-8bb3-0cd3ec9667b5",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019ll send the rest",
@@ -861,7 +861,7 @@
           "source_system": null
         },
         {
-          "id": "3f037f8a-4a38-4b45-aa3a-a74da36b4b00",
+          "id": "5e68ae3e-f56f-4afd-92c4-92123980d625",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said Friday but I don\u2019t know if he meant this",
@@ -869,7 +869,7 @@
           "source_system": null
         },
         {
-          "id": "63fa5ee2-7697-41f7-b051-27aaed783b79",
+          "id": "32b7fd2c-5e38-4252-9256-98826802bb22",
           "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "And I need to pay the school thing for one of the boys but I can\u2019t remember which one right now",
@@ -877,7 +877,7 @@
           "source_system": null
         },
         {
-          "id": "cdf302ea-64ab-4049-9e7d-7f47a41bedd2",
+          "id": "f3284c61-c533-41ff-9746-5886efb3a233",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -885,7 +885,7 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "5481edb6-be8d-4b0a-ab35-d1c91bbe47af",
+          "id": "d95deef6-a5ff-42cc-a667-6066bea0fd61",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Don\u2019t message him though, he said bank issue",
@@ -944,7 +944,7 @@
       "stored_ask": 0,
       "surfaced_shelf": 0,
       "open_loops": 0,
-      "current_meaning": 0,
+      "current_meaning": 8,
       "attention_candidates": 0,
       "suppressions": 0,
       "clarifications": 1,

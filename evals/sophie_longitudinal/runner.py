@@ -374,7 +374,7 @@ class SophieScenarioRunner:
 
         log.append(f"## CURRENT MEANING ({len(meanings)} rows)")
         for m in meanings:
-            log.append(f"- scope={m.scope_key} rev={m.revision} text={str(m.meaning_text)[:400]!r}")
+            log.append(f"- scope={m.scope_key} rev={m.version} text={str(m.means_json)[:400]!r}")
 
         log.append("## ATTENTION (active / suppressed)")
         for a in attn:

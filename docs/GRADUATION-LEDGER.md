@@ -106,3 +106,24 @@ Closed loop now live: **sense → lead → observe → sustain/yield → repeat.
   remaining RPD2 finding).
 * Union-selector Director, subtraction projection regimes, executability filter,
   write screen, initiative pin/sustain — still PORT, not started.
+
+## Semantic relations + operational intelligence — SHARED / GRADUATED / LIVE VALIDATION PENDING
+
+* Graduated in: `0028_semantic_relations` + `0029_claim_occurrence_identity`
+  (`semantic_claims` occurrence identity, `semantic_relations` bounded 13-type
+  reified edges with provenance), deterministic promotion from lifecycle
+  transitions, bounded semantic judge (9 kinds, reused adapter, verbatim
+  grounding), event-driven reconciliation, fulfillment grounding gate,
+  structural roles, 11 independent views, read-side moves, form-vs-authority
+  operational decisions, event-driven T2 maintenance.
+* Integrity boundaries: model understands, deterministic code governs; no
+  keyword/regex semantics; occurrence identity (same wording, different
+  speaker/evidence = different rows); no family column; no salience/authority
+  columns; ASK never promoted; expiry never resolves; external execution only
+  via pre-existing authority paths; fail-open everywhere off the mutation path.
+* Evidence: `tests/test_semantic_pipeline.py`, `test_operational_views.py`,
+  `test_semantic_relations.py`, `test_semantic_views.py`,
+  `test_rpd2_elena_key_turns.py`; Sophie S1–S4 rules+model replays traps green;
+  115-turn Elena live replay (ownership/ACT-boundary/T2-trajectory verified).
+* Live validation pending: judge cost/latency in traffic, `same_as` writer,
+  source-coverage telemetry for observability-gated absence.

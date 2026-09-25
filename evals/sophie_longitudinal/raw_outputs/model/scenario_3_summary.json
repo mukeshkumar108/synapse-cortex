@@ -5,84 +5,82 @@
   "provider": "model",
   "model": "google/gemini-2.5-flash-lite",
   "external_model_calls": true,
-  "timestamp": "2026-09-25T10:56:12.899632+00:00",
+  "timestamp": "2026-09-25T15:00:08.009212+00:00",
   "checkpoints": [
     {
       "event_id": "s3_e05",
       "label": "Monday 21:43 - Monday night multi-source reconciliation",
       "counts": {
         "expectations": 2,
-        "commitments": 2,
-        "stored_ask": 1,
-        "surfaced_shelf": 1,
-        "open_loops": 4,
-        "current_meaning": 0,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 5,
+        "current_meaning": 3,
         "attention_candidates": 0,
         "suppressions": 0,
-        "clarifications": 1,
+        "clarifications": 0,
         "facts": 2,
         "entities": 1,
         "models": 0
       },
       "expectations": [
         {
-          "id": "7a68a245-96cb-4d4d-8a70-57e1ad5467e1",
+          "id": "2982ff97-d99f-47d5-a27f-0f28c314d97d",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
           "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
           "source_system": null
         },
         {
-          "id": "2c555060-516f-4c8f-8a6c-0dc07ff116b4",
+          "id": "37c823a3-1e73-4b30-9271-33315ab9c87f",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "The user wants to read the contract properly tomorrow before agreeing to it",
-          "summary": "User intends: The user wants to read the contract properly tomorrow before agreeing to it (tomorrow)",
+          "title": "The user wants to review clause 7 of the contract",
+          "summary": "User intends: The user wants to review clause 7 of the contract (tomorrow)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "f10a24f9-0f46-49a1-a775-03a21d2f017a",
+          "id": "a3c0d94e-f108-4678-8755-f111ad134bf8",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "send revised contract",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "7f48823f-c1ab-4a52-a292-b5e69c4170ad",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ASK",
-          "title": "ask Lucy about \u00a3240 debt",
           "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "2e223089-3fb3-459b-8dd2-03d83609656f",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "a28c8ab2-3a8f-47bb-b9b6-898afa33fbd2",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "dentist appointment"
         },
         {
-          "id": "9d6ee6a9-cc84-4c11-8211-2b4684bcc2f2",
+          "id": "4369550d-48aa-466d-b716-8b63c0095074",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Lucy debt for camera"
         },
         {
-          "id": "9831c9e5-a3c3-41b8-ab48-a5a4da0f1a06",
+          "id": "c08eeff6-8fa8-4a10-b74a-5d447269eea5",
           "status": "OpenLoopStatus.EXPIRED",
           "title": "appointment confirmation"
         },
         {
-          "id": "f09444e5-87a3-49be-a668-1684b299bb97",
+          "id": "a312555c-96fd-4c32-924a-a0ad1ee4dafd",
           "status": "OpenLoopStatus.OPEN",
-          "title": "confirm \u00a3240 debt"
+          "title": "investigate \u00a3240 debt from Lucy"
+        },
+        {
+          "id": "f7d48037-443d-43b0-a312-67c9b014df4f",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "confirm \u00a3240 debt as paid"
         }
       ],
       "entities": [
         {
-          "id": "04e78731-68f6-4a9b-8ff4-a66282699fed",
+          "id": "d68c6f67-f6e2-41ed-b8eb-ae89a5f8120a",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -100,95 +98,94 @@
       "event_id": "s3_e07",
       "label": "Tuesday 16:55 - Studio Sam contract content approved",
       "counts": {
-        "expectations": 2,
-        "commitments": 3,
-        "stored_ask": 1,
-        "surfaced_shelf": 1,
-        "open_loops": 6,
-        "current_meaning": 0,
+        "expectations": 3,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 7,
+        "current_meaning": 5,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
-        "facts": 2,
+        "facts": 3,
         "entities": 1,
         "models": 0
       },
       "expectations": [
         {
-          "id": "7a68a245-96cb-4d4d-8a70-57e1ad5467e1",
+          "id": "2982ff97-d99f-47d5-a27f-0f28c314d97d",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
           "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
           "source_system": null
         },
         {
-          "id": "2c555060-516f-4c8f-8a6c-0dc07ff116b4",
+          "id": "37c823a3-1e73-4b30-9271-33315ab9c87f",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The user wants to read the contract properly tomorrow before agreeing to it",
-          "summary": "User intends: The user wants to read the contract properly tomorrow before agreeing to it (tomorrow)",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user wants to review clause 7 of the contract",
+          "summary": "User intends: The user wants to review clause 7 of the contract (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "54d4734b-d88d-4b23-a02b-615fafd010df",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "f10a24f9-0f46-49a1-a775-03a21d2f017a",
+          "id": "a3c0d94e-f108-4678-8755-f111ad134bf8",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "send revised contract",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "7f48823f-c1ab-4a52-a292-b5e69c4170ad",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ASK",
-          "title": "ask Lucy about \u00a3240 debt",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "ed9727b4-8de2-4dd2-9840-75677cc69e37",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "send the final signature copy",
           "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "2e223089-3fb3-459b-8dd2-03d83609656f",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "a28c8ab2-3a8f-47bb-b9b6-898afa33fbd2",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "dentist appointment"
         },
         {
-          "id": "9d6ee6a9-cc84-4c11-8211-2b4684bcc2f2",
+          "id": "4369550d-48aa-466d-b716-8b63c0095074",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Lucy debt for camera"
         },
         {
-          "id": "9831c9e5-a3c3-41b8-ab48-a5a4da0f1a06",
+          "id": "c08eeff6-8fa8-4a10-b74a-5d447269eea5",
           "status": "OpenLoopStatus.EXPIRED",
           "title": "appointment confirmation"
         },
         {
-          "id": "f09444e5-87a3-49be-a668-1684b299bb97",
+          "id": "a312555c-96fd-4c32-924a-a0ad1ee4dafd",
           "status": "OpenLoopStatus.OPEN",
-          "title": "confirm \u00a3240 debt"
+          "title": "investigate \u00a3240 debt from Lucy"
         },
         {
-          "id": "2d0e825d-e021-44ef-820f-4c233b9dd858",
+          "id": "f7d48037-443d-43b0-a312-67c9b014df4f",
           "status": "OpenLoopStatus.OPEN",
-          "title": "Sufficiency of verbal approval for Studio Sam contract"
+          "title": "confirm \u00a3240 debt as paid"
         },
         {
-          "id": "8abf1290-7aee-49e0-89b3-fe793250fc4b",
+          "id": "bb996a16-eb61-4565-84ac-8b83252f9cfd",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Confirmation of verbal approval for Studio Sam contract"
+        },
+        {
+          "id": "5b39df32-7d59-4631-84f5-d21fb3ba2f18",
           "status": "OpenLoopStatus.OPEN",
-          "title": "Lucy's response to \u00a3240 debt query"
+          "title": "Response from Lucy"
         }
       ],
       "entities": [
         {
-          "id": "04e78731-68f6-4a9b-8ff4-a66282699fed",
+          "id": "d68c6f67-f6e2-41ed-b8eb-ae89a5f8120a",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -205,102 +202,93 @@
       "label": "Wednesday 18:40 - Cousin Sam check & Lucy payment confirmed",
       "counts": {
         "expectations": 3,
-        "commitments": 3,
-        "stored_ask": 1,
-        "surfaced_shelf": 1,
-        "open_loops": 6,
-        "current_meaning": 0,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 7,
+        "current_meaning": 7,
         "attention_candidates": 0,
         "suppressions": 0,
-        "clarifications": 1,
-        "facts": 3,
+        "clarifications": 2,
+        "facts": 4,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "7a68a245-96cb-4d4d-8a70-57e1ad5467e1",
+          "id": "2982ff97-d99f-47d5-a27f-0f28c314d97d",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
           "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
           "source_system": null
         },
         {
-          "id": "2c555060-516f-4c8f-8a6c-0dc07ff116b4",
+          "id": "37c823a3-1e73-4b30-9271-33315ab9c87f",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The user wants to read the contract properly tomorrow before agreeing to it",
-          "summary": "User intends: The user wants to read the contract properly tomorrow before agreeing to it (tomorrow)",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user wants to review clause 7 of the contract",
+          "summary": "User intends: The user wants to review clause 7 of the contract (tomorrow)",
           "source_system": null
         },
         {
-          "id": "0213ea6f-07a5-435c-b33f-f08300245e4f",
+          "id": "54d4734b-d88d-4b23-a02b-615fafd010df",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "The user had a prior intention to check something about their Mum tonight, which seems to be related to cousin Sam picking her up",
-          "summary": "User intends: The user had a prior intention to check something about their Mum tonight, which seems to be related to cousin Sam picking her up (tonight)",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "f10a24f9-0f46-49a1-a775-03a21d2f017a",
+          "id": "a3c0d94e-f108-4678-8755-f111ad134bf8",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "send revised contract",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "7f48823f-c1ab-4a52-a292-b5e69c4170ad",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ASK",
-          "title": "ask Lucy about \u00a3240 debt",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "ed9727b4-8de2-4dd2-9840-75677cc69e37",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "send the final signature copy",
           "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "2e223089-3fb3-459b-8dd2-03d83609656f",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "a28c8ab2-3a8f-47bb-b9b6-898afa33fbd2",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "dentist appointment"
         },
         {
-          "id": "9d6ee6a9-cc84-4c11-8211-2b4684bcc2f2",
+          "id": "4369550d-48aa-466d-b716-8b63c0095074",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Lucy debt for camera"
         },
         {
-          "id": "9831c9e5-a3c3-41b8-ab48-a5a4da0f1a06",
+          "id": "c08eeff6-8fa8-4a10-b74a-5d447269eea5",
           "status": "OpenLoopStatus.EXPIRED",
           "title": "appointment confirmation"
         },
         {
-          "id": "f09444e5-87a3-49be-a668-1684b299bb97",
+          "id": "a312555c-96fd-4c32-924a-a0ad1ee4dafd",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "confirm \u00a3240 debt"
+          "title": "investigate \u00a3240 debt from Lucy"
         },
         {
-          "id": "2d0e825d-e021-44ef-820f-4c233b9dd858",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Sufficiency of verbal approval for Studio Sam contract"
+          "id": "f7d48037-443d-43b0-a312-67c9b014df4f",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "confirm \u00a3240 debt as paid"
         },
         {
-          "id": "8abf1290-7aee-49e0-89b3-fe793250fc4b",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Lucy's response to \u00a3240 debt query"
+          "id": "bb996a16-eb61-4565-84ac-8b83252f9cfd",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Confirmation of verbal approval for Studio Sam contract"
+        },
+        {
+          "id": "5b39df32-7d59-4631-84f5-d21fb3ba2f18",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Response from Lucy"
         }
       ],
       "entities": [
         {
-          "id": "04e78731-68f6-4a9b-8ff4-a66282699fed",
+          "id": "d68c6f67-f6e2-41ed-b8eb-ae89a5f8120a",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -308,7 +296,7 @@
           ]
         },
         {
-          "id": "f9dc5aa0-dd8d-4150-a407-b7c883615852",
+          "id": "8b7c028b-0dd2-4fa8-8493-55a564d2d6cc",
           "name": "Sam",
           "type": "person",
           "aliases": [
@@ -327,45 +315,45 @@
       "label": "Thursday 22:06 - Mum pickup indirect closure",
       "counts": {
         "expectations": 4,
-        "commitments": 3,
-        "stored_ask": 1,
-        "surfaced_shelf": 1,
-        "open_loops": 7,
-        "current_meaning": 0,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 8,
+        "current_meaning": 8,
         "attention_candidates": 1,
         "suppressions": 0,
-        "clarifications": 1,
-        "facts": 4,
+        "clarifications": 2,
+        "facts": 5,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "7a68a245-96cb-4d4d-8a70-57e1ad5467e1",
+          "id": "2982ff97-d99f-47d5-a27f-0f28c314d97d",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
           "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
           "source_system": null
         },
         {
-          "id": "2c555060-516f-4c8f-8a6c-0dc07ff116b4",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The user wants to read the contract properly tomorrow before agreeing to it",
-          "summary": "User intends: The user wants to read the contract properly tomorrow before agreeing to it (tomorrow)",
-          "source_system": null
-        },
-        {
-          "id": "0213ea6f-07a5-435c-b33f-f08300245e4f",
+          "id": "37c823a3-1e73-4b30-9271-33315ab9c87f",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "The user had a prior intention to check something about their Mum tonight, which seems to be related to cousin Sam picking her up",
-          "summary": "User intends: The user had a prior intention to check something about their Mum tonight, which seems to be related to cousin Sam picking her up (tonight)",
+          "title": "The user wants to review clause 7 of the contract",
+          "summary": "User intends: The user wants to review clause 7 of the contract (tomorrow)",
           "source_system": null
         },
         {
-          "id": "07f15131-d83e-4260-b408-e46d0fe7456e",
+          "id": "54d4734b-d88d-4b23-a02b-615fafd010df",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "6b9d28d1-175b-4f48-acea-0cee288cdc17",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.FULFILLED",
           "title": "Mum pickup \u2014 Sam",
@@ -375,67 +363,58 @@
       ],
       "commitments": [
         {
-          "id": "f10a24f9-0f46-49a1-a775-03a21d2f017a",
+          "id": "a3c0d94e-f108-4678-8755-f111ad134bf8",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "send revised contract",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "7f48823f-c1ab-4a52-a292-b5e69c4170ad",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ASK",
-          "title": "ask Lucy about \u00a3240 debt",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "ed9727b4-8de2-4dd2-9840-75677cc69e37",
-          "status": "CommitmentCandidateStatus.VIOLATED",
-          "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "send the final signature copy",
           "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "2e223089-3fb3-459b-8dd2-03d83609656f",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "a28c8ab2-3a8f-47bb-b9b6-898afa33fbd2",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "dentist appointment"
         },
         {
-          "id": "9d6ee6a9-cc84-4c11-8211-2b4684bcc2f2",
+          "id": "4369550d-48aa-466d-b716-8b63c0095074",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Lucy debt for camera"
         },
         {
-          "id": "9831c9e5-a3c3-41b8-ab48-a5a4da0f1a06",
+          "id": "c08eeff6-8fa8-4a10-b74a-5d447269eea5",
           "status": "OpenLoopStatus.EXPIRED",
           "title": "appointment confirmation"
         },
         {
-          "id": "f09444e5-87a3-49be-a668-1684b299bb97",
+          "id": "a312555c-96fd-4c32-924a-a0ad1ee4dafd",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "confirm \u00a3240 debt"
+          "title": "investigate \u00a3240 debt from Lucy"
         },
         {
-          "id": "2d0e825d-e021-44ef-820f-4c233b9dd858",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Sufficiency of verbal approval for Studio Sam contract"
+          "id": "f7d48037-443d-43b0-a312-67c9b014df4f",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "confirm \u00a3240 debt as paid"
         },
         {
-          "id": "8abf1290-7aee-49e0-89b3-fe793250fc4b",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Lucy's response to \u00a3240 debt query"
+          "id": "bb996a16-eb61-4565-84ac-8b83252f9cfd",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Confirmation of verbal approval for Studio Sam contract"
         },
         {
-          "id": "4b294d32-7ca7-43cf-a357-bdf548f1caf2",
+          "id": "5b39df32-7d59-4631-84f5-d21fb3ba2f18",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Response from Lucy"
+        },
+        {
+          "id": "6455ff73-6e65-4466-9b6b-86dbf801a975",
           "status": "OpenLoopStatus.OPEN",
-          "title": "Studio Sam contract status"
+          "title": "Contract return status"
         }
       ],
       "entities": [
         {
-          "id": "04e78731-68f6-4a9b-8ff4-a66282699fed",
+          "id": "d68c6f67-f6e2-41ed-b8eb-ae89a5f8120a",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -443,7 +422,7 @@
           ]
         },
         {
-          "id": "f9dc5aa0-dd8d-4150-a407-b7c883615852",
+          "id": "8b7c028b-0dd2-4fa8-8493-55a564d2d6cc",
           "name": "Sam",
           "type": "person",
           "aliases": [
@@ -461,45 +440,45 @@
       "label": "Friday 08:02 - Contract reminder requested & Sam disambiguation",
       "counts": {
         "expectations": 5,
-        "commitments": 3,
-        "stored_ask": 1,
-        "surfaced_shelf": 1,
-        "open_loops": 7,
-        "current_meaning": 0,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 8,
+        "current_meaning": 10,
         "attention_candidates": 1,
         "suppressions": 0,
         "clarifications": 2,
-        "facts": 4,
+        "facts": 5,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "7a68a245-96cb-4d4d-8a70-57e1ad5467e1",
+          "id": "2982ff97-d99f-47d5-a27f-0f28c314d97d",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
           "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
           "source_system": null
         },
         {
-          "id": "2c555060-516f-4c8f-8a6c-0dc07ff116b4",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The user wants to read the contract properly tomorrow before agreeing to it",
-          "summary": "User intends: The user wants to read the contract properly tomorrow before agreeing to it (tomorrow)",
-          "source_system": null
-        },
-        {
-          "id": "0213ea6f-07a5-435c-b33f-f08300245e4f",
+          "id": "37c823a3-1e73-4b30-9271-33315ab9c87f",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "The user had a prior intention to check something about their Mum tonight, which seems to be related to cousin Sam picking her up",
-          "summary": "User intends: The user had a prior intention to check something about their Mum tonight, which seems to be related to cousin Sam picking her up (tonight)",
+          "title": "The user wants to review clause 7 of the contract",
+          "summary": "User intends: The user wants to review clause 7 of the contract (tomorrow)",
           "source_system": null
         },
         {
-          "id": "07f15131-d83e-4260-b408-e46d0fe7456e",
+          "id": "54d4734b-d88d-4b23-a02b-615fafd010df",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.FULFILLED",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "6b9d28d1-175b-4f48-acea-0cee288cdc17",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.FULFILLED",
           "title": "Mum pickup \u2014 Sam",
@@ -507,77 +486,68 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "b5f901fd-883a-460b-8323-be237a87d426",
-          "type": "ExpectationType.USER_INTENTION",
+          "id": "5c1db489-1437-4ddb-8933-3dc5504f2fe8",
+          "type": "ExpectationType.USER_COMMITMENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "The user is leaving for the dentist and wants a reminder about the contract this afternoon",
-          "summary": "User intends: The user is leaving for the dentist and wants a reminder about the contract this afternoon (this afternoon)",
+          "summary": "User committed: The user is leaving for the dentist and wants a reminder about the contract this afternoon (this afternoon)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "f10a24f9-0f46-49a1-a775-03a21d2f017a",
+          "id": "a3c0d94e-f108-4678-8755-f111ad134bf8",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "send revised contract",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "7f48823f-c1ab-4a52-a292-b5e69c4170ad",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ASK",
-          "title": "ask Lucy about \u00a3240 debt",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "ed9727b4-8de2-4dd2-9840-75677cc69e37",
-          "status": "CommitmentCandidateStatus.VIOLATED",
-          "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "send the final signature copy",
           "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "2e223089-3fb3-459b-8dd2-03d83609656f",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "a28c8ab2-3a8f-47bb-b9b6-898afa33fbd2",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "dentist appointment"
         },
         {
-          "id": "9d6ee6a9-cc84-4c11-8211-2b4684bcc2f2",
+          "id": "4369550d-48aa-466d-b716-8b63c0095074",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Lucy debt for camera"
         },
         {
-          "id": "9831c9e5-a3c3-41b8-ab48-a5a4da0f1a06",
+          "id": "c08eeff6-8fa8-4a10-b74a-5d447269eea5",
           "status": "OpenLoopStatus.EXPIRED",
           "title": "appointment confirmation"
         },
         {
-          "id": "f09444e5-87a3-49be-a668-1684b299bb97",
+          "id": "a312555c-96fd-4c32-924a-a0ad1ee4dafd",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "confirm \u00a3240 debt"
+          "title": "investigate \u00a3240 debt from Lucy"
         },
         {
-          "id": "2d0e825d-e021-44ef-820f-4c233b9dd858",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Sufficiency of verbal approval for Studio Sam contract"
-        },
-        {
-          "id": "8abf1290-7aee-49e0-89b3-fe793250fc4b",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Lucy's response to \u00a3240 debt query"
-        },
-        {
-          "id": "4b294d32-7ca7-43cf-a357-bdf548f1caf2",
+          "id": "f7d48037-443d-43b0-a312-67c9b014df4f",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "Studio Sam contract status"
+          "title": "confirm \u00a3240 debt as paid"
+        },
+        {
+          "id": "bb996a16-eb61-4565-84ac-8b83252f9cfd",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Confirmation of verbal approval for Studio Sam contract"
+        },
+        {
+          "id": "5b39df32-7d59-4631-84f5-d21fb3ba2f18",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Response from Lucy"
+        },
+        {
+          "id": "6455ff73-6e65-4466-9b6b-86dbf801a975",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Contract return status"
         }
       ],
       "entities": [
         {
-          "id": "04e78731-68f6-4a9b-8ff4-a66282699fed",
+          "id": "d68c6f67-f6e2-41ed-b8eb-ae89a5f8120a",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -585,7 +555,7 @@
           ]
         },
         {
-          "id": "f9dc5aa0-dd8d-4150-a407-b7c883615852",
+          "id": "8b7c028b-0dd2-4fa8-8493-55a564d2d6cc",
           "name": "Sam",
           "type": "person",
           "aliases": [
@@ -603,45 +573,45 @@
       "label": "Friday 15:47 - Contract signed by user, final closeout",
       "counts": {
         "expectations": 5,
-        "commitments": 3,
-        "stored_ask": 1,
-        "surfaced_shelf": 1,
-        "open_loops": 8,
-        "current_meaning": 0,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 9,
+        "current_meaning": 11,
         "attention_candidates": 1,
         "suppressions": 0,
-        "clarifications": 2,
-        "facts": 4,
+        "clarifications": 3,
+        "facts": 5,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "7a68a245-96cb-4d4d-8a70-57e1ad5467e1",
+          "id": "2982ff97-d99f-47d5-a27f-0f28c314d97d",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
           "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
           "source_system": null
         },
         {
-          "id": "2c555060-516f-4c8f-8a6c-0dc07ff116b4",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The user wants to read the contract properly tomorrow before agreeing to it",
-          "summary": "User intends: The user wants to read the contract properly tomorrow before agreeing to it (tomorrow)",
-          "source_system": null
-        },
-        {
-          "id": "0213ea6f-07a5-435c-b33f-f08300245e4f",
+          "id": "37c823a3-1e73-4b30-9271-33315ab9c87f",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "The user had a prior intention to check something about their Mum tonight, which seems to be related to cousin Sam picking her up",
-          "summary": "User intends: The user had a prior intention to check something about their Mum tonight, which seems to be related to cousin Sam picking her up (tonight)",
+          "title": "The user wants to review clause 7 of the contract",
+          "summary": "User intends: The user wants to review clause 7 of the contract (tomorrow)",
           "source_system": null
         },
         {
-          "id": "07f15131-d83e-4260-b408-e46d0fe7456e",
+          "id": "54d4734b-d88d-4b23-a02b-615fafd010df",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.FULFILLED",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "6b9d28d1-175b-4f48-acea-0cee288cdc17",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.FULFILLED",
           "title": "Mum pickup \u2014 Sam",
@@ -649,82 +619,73 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "b5f901fd-883a-460b-8323-be237a87d426",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "id": "5c1db489-1437-4ddb-8933-3dc5504f2fe8",
+          "type": "ExpectationType.USER_COMMITMENT",
+          "state": "OutcomeState.UNKNOWN",
           "title": "The user is leaving for the dentist and wants a reminder about the contract this afternoon",
-          "summary": "User intends: The user is leaving for the dentist and wants a reminder about the contract this afternoon (this afternoon)",
+          "summary": "User committed: The user is leaving for the dentist and wants a reminder about the contract this afternoon (this afternoon)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "f10a24f9-0f46-49a1-a775-03a21d2f017a",
+          "id": "a3c0d94e-f108-4678-8755-f111ad134bf8",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "send revised contract",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "7f48823f-c1ab-4a52-a292-b5e69c4170ad",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ASK",
-          "title": "ask Lucy about \u00a3240 debt",
-          "class": "implicit_self_commitment"
-        },
-        {
-          "id": "ed9727b4-8de2-4dd2-9840-75677cc69e37",
-          "status": "CommitmentCandidateStatus.VIOLATED",
-          "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "send the final signature copy",
           "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "2e223089-3fb3-459b-8dd2-03d83609656f",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "a28c8ab2-3a8f-47bb-b9b6-898afa33fbd2",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "dentist appointment"
         },
         {
-          "id": "9d6ee6a9-cc84-4c11-8211-2b4684bcc2f2",
+          "id": "4369550d-48aa-466d-b716-8b63c0095074",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Lucy debt for camera"
         },
         {
-          "id": "9831c9e5-a3c3-41b8-ab48-a5a4da0f1a06",
+          "id": "c08eeff6-8fa8-4a10-b74a-5d447269eea5",
           "status": "OpenLoopStatus.EXPIRED",
           "title": "appointment confirmation"
         },
         {
-          "id": "f09444e5-87a3-49be-a668-1684b299bb97",
+          "id": "a312555c-96fd-4c32-924a-a0ad1ee4dafd",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "confirm \u00a3240 debt"
+          "title": "investigate \u00a3240 debt from Lucy"
         },
         {
-          "id": "2d0e825d-e021-44ef-820f-4c233b9dd858",
+          "id": "f7d48037-443d-43b0-a312-67c9b014df4f",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "Sufficiency of verbal approval for Studio Sam contract"
+          "title": "confirm \u00a3240 debt as paid"
         },
         {
-          "id": "8abf1290-7aee-49e0-89b3-fe793250fc4b",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Lucy's response to \u00a3240 debt query"
-        },
-        {
-          "id": "4b294d32-7ca7-43cf-a357-bdf548f1caf2",
+          "id": "bb996a16-eb61-4565-84ac-8b83252f9cfd",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "Studio Sam contract status"
+          "title": "Confirmation of verbal approval for Studio Sam contract"
         },
         {
-          "id": "1a6e786c-4a70-4181-b7b3-72f17bc771a8",
+          "id": "5b39df32-7d59-4631-84f5-d21fb3ba2f18",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Response from Lucy"
+        },
+        {
+          "id": "6455ff73-6e65-4466-9b6b-86dbf801a975",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Contract return status"
+        },
+        {
+          "id": "024fca0b-7e5a-4252-9cdf-747971af87c2",
           "status": "OpenLoopStatus.OPEN",
           "title": "outstanding tasks or obligations"
         }
       ],
       "entities": [
         {
-          "id": "04e78731-68f6-4a9b-8ff4-a66282699fed",
+          "id": "d68c6f67-f6e2-41ed-b8eb-ae89a5f8120a",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -732,7 +693,7 @@
           ]
         },
         {
-          "id": "f9dc5aa0-dd8d-4150-a407-b7c883615852",
+          "id": "8b7c028b-0dd2-4fa8-8493-55a564d2d6cc",
           "name": "Sam",
           "type": "person",
           "aliases": [
@@ -779,15 +740,15 @@
     "trap_defense_interpretation": "Semantic baseline evaluation against active model state generation.",
     "final_state_counts": {
       "expectations": 5,
-      "commitments": 3,
-      "stored_ask": 1,
-      "surfaced_shelf": 1,
-      "open_loops": 8,
-      "current_meaning": 0,
+      "commitments": 1,
+      "stored_ask": 0,
+      "surfaced_shelf": 0,
+      "open_loops": 9,
+      "current_meaning": 11,
       "attention_candidates": 1,
       "suppressions": 0,
-      "clarifications": 2,
-      "facts": 4,
+      "clarifications": 3,
+      "facts": 5,
       "entities": 2,
       "models": 0
     }

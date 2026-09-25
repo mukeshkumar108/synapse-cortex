@@ -5,7 +5,7 @@
   "provider": "model",
   "model": "google/gemini-2.5-flash-lite",
   "external_model_calls": true,
-  "timestamp": "2026-09-25T10:54:54.744790+00:00",
+  "timestamp": "2026-09-25T15:24:38.085474+00:00",
   "checkpoints": [
     {
       "event_id": "s1_e01",
@@ -16,7 +16,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 5,
-        "current_meaning": 0,
+        "current_meaning": 1,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -27,7 +27,7 @@
       "expectations": [],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
@@ -36,34 +36,34 @@
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
           "status": "OpenLoopStatus.OPEN",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.OPEN",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
           "status": "OpenLoopStatus.OPEN",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
           "status": "OpenLoopStatus.OPEN",
           "title": "confirm Andree's school money amount"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -94,7 +94,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 5,
-        "current_meaning": 0,
+        "current_meaning": 4,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -104,9 +104,9 @@
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
@@ -114,14 +114,14 @@
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
@@ -130,34 +130,34 @@
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
           "status": "OpenLoopStatus.OPEN",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
           "status": "OpenLoopStatus.OPEN",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
           "status": "OpenLoopStatus.OPEN",
           "title": "confirm Andree's school money amount"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -165,7 +165,7 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
@@ -189,7 +189,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 5,
-        "current_meaning": 0,
+        "current_meaning": 5,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -199,9 +199,9 @@
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
@@ -209,14 +209,14 @@
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
@@ -225,34 +225,34 @@
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
           "status": "OpenLoopStatus.OPEN",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
           "status": "OpenLoopStatus.OPEN",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
           "status": "OpenLoopStatus.OPEN",
           "title": "confirm Andree's school money amount"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -260,7 +260,7 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
@@ -284,7 +284,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 5,
-        "current_meaning": 0,
+        "current_meaning": 5,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -294,15 +294,15 @@
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
         },
         {
-          "id": "176fea2f-db0f-4ac9-88a7-fd14135426c2",
+          "id": "7bdffc8d-d167-40f2-bbad-2903f6112f98",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -312,14 +312,14 @@
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
@@ -328,34 +328,34 @@
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
           "status": "OpenLoopStatus.OPEN",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
           "status": "OpenLoopStatus.OPEN",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
           "status": "OpenLoopStatus.OPEN",
           "title": "confirm Andree's school money amount"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -363,7 +363,7 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
@@ -380,12 +380,12 @@
       "event_id": "s1_e07",
       "label": "Tuesday 08:18 - Tuesday morning user check-in",
       "counts": {
-        "expectations": 2,
+        "expectations": 3,
         "commitments": 2,
         "stored_ask": 0,
         "surfaced_shelf": 0,
-        "open_loops": 8,
-        "current_meaning": 0,
+        "open_loops": 7,
+        "current_meaning": 6,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -395,32 +395,40 @@
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
         },
         {
-          "id": "176fea2f-db0f-4ac9-88a7-fd14135426c2",
+          "id": "7bdffc8d-d167-40f2-bbad-2903f6112f98",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
           "summary": "Yoshi \u2014 after school activity",
           "source_system": "google_calendar"
+        },
+        {
+          "id": "0950b80d-4bcc-4c43-97d6-7a529796a645",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "A task received from the school yesterday is forgotten and needs to be recalled",
+          "summary": "User intends: A task received from the school yesterday is forgotten and needs to be recalled (yesterday)",
+          "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
@@ -429,49 +437,44 @@
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
           "status": "OpenLoopStatus.OPEN",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
           "status": "OpenLoopStatus.OPEN",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
           "status": "OpenLoopStatus.OPEN",
           "title": "confirm Andree's school money amount"
         },
         {
-          "id": "fd4d55f5-9636-4cbe-a92b-11c59994edcb",
+          "id": "55b91cef-587c-4bae-a6fe-c8facc602ce6",
           "status": "OpenLoopStatus.OPEN",
           "title": "Chase Carlos for debt payment"
         },
         {
-          "id": "8bfbfee4-7009-4b1d-b2e5-7caf32dae23c",
+          "id": "31a7c4b9-ee14-4a2b-b110-3763499a2261",
           "status": "OpenLoopStatus.OPEN",
           "title": "Sort the chairs"
-        },
-        {
-          "id": "c3a86e1d-f4f2-4321-b7e1-6702edd7848c",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Do task from school"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -479,7 +482,7 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
@@ -500,26 +503,26 @@
         "commitments": 2,
         "stored_ask": 0,
         "surfaced_shelf": 0,
-        "open_loops": 8,
-        "current_meaning": 0,
+        "open_loops": 9,
+        "current_meaning": 8,
         "attention_candidates": 0,
-        "suppressions": 0,
+        "suppressions": 1,
         "clarifications": 1,
-        "facts": 4,
+        "facts": 6,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
         },
         {
-          "id": "176fea2f-db0f-4ac9-88a7-fd14135426c2",
+          "id": "7bdffc8d-d167-40f2-bbad-2903f6112f98",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -527,32 +530,32 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "ad5dfb0a-644a-4182-8af5-4d6cb5140342",
+          "id": "0950b80d-4bcc-4c43-97d6-7a529796a645",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "A task received from the school yesterday is forgotten and needs to be recalled",
+          "summary": "User intends: A task received from the school yesterday is forgotten and needs to be recalled (yesterday)",
+          "source_system": null
+        },
+        {
+          "id": "e87936f3-1ade-49ef-bd9e-aa69bb50495d",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "A confirmation of the final color choice is needed by Wednesday noon to guarantee Saturday delivery",
           "summary": "Expected from another: A confirmation of the final color choice is needed by Wednesday noon to guarantee Saturday delivery (by Wednesday noon)",
           "source_system": null
-        },
-        {
-          "id": "4b7fb0af-0ed4-4b51-95a8-185be6ec074f",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.UNKNOWN",
-          "title": "The form has not yet been signed",
-          "summary": "User intends: The form has not yet been signed",
-          "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
@@ -561,49 +564,54 @@
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
           "status": "OpenLoopStatus.OPEN",
           "title": "confirm Andree's school money amount"
         },
         {
-          "id": "fd4d55f5-9636-4cbe-a92b-11c59994edcb",
+          "id": "55b91cef-587c-4bae-a6fe-c8facc602ce6",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Chase Carlos for debt payment"
         },
         {
-          "id": "8bfbfee4-7009-4b1d-b2e5-7caf32dae23c",
+          "id": "31a7c4b9-ee14-4a2b-b110-3763499a2261",
           "status": "OpenLoopStatus.OPEN",
           "title": "Sort the chairs"
         },
         {
-          "id": "c3a86e1d-f4f2-4321-b7e1-6702edd7848c",
+          "id": "24fa3c54-aca3-4c29-81fe-6c4b9884c8b9",
           "status": "OpenLoopStatus.OPEN",
-          "title": "Do task from school"
+          "title": "Mat\u00edas's sports day"
+        },
+        {
+          "id": "a9333a56-be4e-47e2-b28f-b95bc4cff1a9",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Sign form"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -611,7 +619,7 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
@@ -633,26 +641,26 @@
         "commitments": 2,
         "stored_ask": 0,
         "surfaced_shelf": 0,
-        "open_loops": 8,
-        "current_meaning": 0,
+        "open_loops": 9,
+        "current_meaning": 8,
         "attention_candidates": 0,
-        "suppressions": 1,
+        "suppressions": 2,
         "clarifications": 1,
-        "facts": 4,
+        "facts": 6,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
         },
         {
-          "id": "176fea2f-db0f-4ac9-88a7-fd14135426c2",
+          "id": "7bdffc8d-d167-40f2-bbad-2903f6112f98",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -660,7 +668,15 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "ad5dfb0a-644a-4182-8af5-4d6cb5140342",
+          "id": "0950b80d-4bcc-4c43-97d6-7a529796a645",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "A task received from the school yesterday is forgotten and needs to be recalled",
+          "summary": "User intends: A task received from the school yesterday is forgotten and needs to be recalled (yesterday)",
+          "source_system": null
+        },
+        {
+          "id": "e87936f3-1ade-49ef-bd9e-aa69bb50495d",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "A confirmation of the final color choice is needed by Wednesday noon to guarantee Saturday delivery",
@@ -668,15 +684,7 @@
           "source_system": null
         },
         {
-          "id": "4b7fb0af-0ed4-4b51-95a8-185be6ec074f",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.UNKNOWN",
-          "title": "The form has not yet been signed",
-          "summary": "User intends: The form has not yet been signed",
-          "source_system": null
-        },
-        {
-          "id": "6414100e-9fa8-4058-897f-cf58f9fc47f4",
+          "id": "824291c2-eca0-4664-ac71-d2bb6d45d6df",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something",
@@ -686,14 +694,14 @@
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
@@ -702,49 +710,54 @@
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
           "status": "OpenLoopStatus.OPEN",
           "title": "confirm Andree's school money amount"
         },
         {
-          "id": "fd4d55f5-9636-4cbe-a92b-11c59994edcb",
+          "id": "55b91cef-587c-4bae-a6fe-c8facc602ce6",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Chase Carlos for debt payment"
         },
         {
-          "id": "8bfbfee4-7009-4b1d-b2e5-7caf32dae23c",
+          "id": "31a7c4b9-ee14-4a2b-b110-3763499a2261",
           "status": "OpenLoopStatus.OPEN",
           "title": "Sort the chairs"
         },
         {
-          "id": "c3a86e1d-f4f2-4321-b7e1-6702edd7848c",
+          "id": "24fa3c54-aca3-4c29-81fe-6c4b9884c8b9",
           "status": "OpenLoopStatus.OPEN",
-          "title": "Do task from school"
+          "title": "Mat\u00edas's sports day"
+        },
+        {
+          "id": "a9333a56-be4e-47e2-b28f-b95bc4cff1a9",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Sign form"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -752,7 +765,7 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
@@ -769,30 +782,30 @@
       "event_id": "s1_e11",
       "label": "Wednesday 16:18 - Wednesday late afternoon consent form resolution",
       "counts": {
-        "expectations": 5,
+        "expectations": 6,
         "commitments": 2,
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 10,
-        "current_meaning": 0,
+        "current_meaning": 9,
         "attention_candidates": 0,
-        "suppressions": 1,
+        "suppressions": 2,
         "clarifications": 1,
-        "facts": 4,
-        "entities": 2,
+        "facts": 7,
+        "entities": 3,
         "models": 0
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
         },
         {
-          "id": "176fea2f-db0f-4ac9-88a7-fd14135426c2",
+          "id": "7bdffc8d-d167-40f2-bbad-2903f6112f98",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -800,7 +813,15 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "ad5dfb0a-644a-4182-8af5-4d6cb5140342",
+          "id": "0950b80d-4bcc-4c43-97d6-7a529796a645",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "A task received from the school yesterday is forgotten and needs to be recalled",
+          "summary": "User intends: A task received from the school yesterday is forgotten and needs to be recalled (yesterday)",
+          "source_system": null
+        },
+        {
+          "id": "e87936f3-1ade-49ef-bd9e-aa69bb50495d",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "A confirmation of the final color choice is needed by Wednesday noon to guarantee Saturday delivery",
@@ -808,32 +829,32 @@
           "source_system": null
         },
         {
-          "id": "4b7fb0af-0ed4-4b51-95a8-185be6ec074f",
+          "id": "824291c2-eca0-4664-ac71-d2bb6d45d6df",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The form has not yet been signed",
-          "summary": "User intends: The form has not yet been signed",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something",
+          "summary": "User intends: User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something (today)",
           "source_system": null
         },
         {
-          "id": "6414100e-9fa8-4058-897f-cf58f9fc47f4",
+          "id": "ccf7671f-31bb-414f-bd48-a78a8c87b8cb",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something",
-          "summary": "User intends: User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something (today)",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "User has set a new deadline for Carlos to send the forms, giving him until",
+          "summary": "User intends: User has set a new deadline for Carlos to send the forms, giving him until (tomorrow)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
@@ -842,59 +863,59 @@
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
           "status": "OpenLoopStatus.OPEN",
           "title": "confirm Andree's school money amount"
         },
         {
-          "id": "fd4d55f5-9636-4cbe-a92b-11c59994edcb",
+          "id": "55b91cef-587c-4bae-a6fe-c8facc602ce6",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Chase Carlos for debt payment"
         },
         {
-          "id": "8bfbfee4-7009-4b1d-b2e5-7caf32dae23c",
+          "id": "31a7c4b9-ee14-4a2b-b110-3763499a2261",
           "status": "OpenLoopStatus.OPEN",
           "title": "Sort the chairs"
         },
         {
-          "id": "c3a86e1d-f4f2-4321-b7e1-6702edd7848c",
+          "id": "24fa3c54-aca3-4c29-81fe-6c4b9884c8b9",
           "status": "OpenLoopStatus.OPEN",
-          "title": "Do task from school"
+          "title": "Mat\u00edas's sports day"
         },
         {
-          "id": "1a5fb907-5d27-4f6a-84ae-01b90c96ddee",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Carlos send remaining forms"
+          "id": "a9333a56-be4e-47e2-b28f-b95bc4cff1a9",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Sign form"
         },
         {
-          "id": "7036a91b-ffea-4eff-a28b-5607e01f1538",
+          "id": "abf33db3-e824-4782-8539-78807909b9a5",
           "status": "OpenLoopStatus.OPEN",
-          "title": "follow up with Carlos regarding forms"
+          "title": "Carlos sending forms"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -902,11 +923,19 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
             "pupils"
+          ]
+        },
+        {
+          "id": "8d3c6622-c09d-4af8-94e7-bff01e641065",
+          "name": "Carlos",
+          "type": "person",
+          "aliases": [
+            "carlos"
           ]
         }
       ],
@@ -924,25 +953,25 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 10,
-        "current_meaning": 0,
+        "current_meaning": 10,
         "attention_candidates": 0,
-        "suppressions": 1,
+        "suppressions": 2,
         "clarifications": 1,
-        "facts": 6,
-        "entities": 2,
+        "facts": 9,
+        "entities": 5,
         "models": 0
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
         },
         {
-          "id": "176fea2f-db0f-4ac9-88a7-fd14135426c2",
+          "id": "7bdffc8d-d167-40f2-bbad-2903f6112f98",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -950,7 +979,15 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "ad5dfb0a-644a-4182-8af5-4d6cb5140342",
+          "id": "0950b80d-4bcc-4c43-97d6-7a529796a645",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "A task received from the school yesterday is forgotten and needs to be recalled",
+          "summary": "User intends: A task received from the school yesterday is forgotten and needs to be recalled (yesterday)",
+          "source_system": null
+        },
+        {
+          "id": "e87936f3-1ade-49ef-bd9e-aa69bb50495d",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "A confirmation of the final color choice is needed by Wednesday noon to guarantee Saturday delivery",
@@ -958,116 +995,108 @@
           "source_system": null
         },
         {
-          "id": "4b7fb0af-0ed4-4b51-95a8-185be6ec074f",
+          "id": "824291c2-eca0-4664-ac71-d2bb6d45d6df",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The form has not yet been signed",
-          "summary": "User intends: The form has not yet been signed",
-          "source_system": null
-        },
-        {
-          "id": "6414100e-9fa8-4058-897f-cf58f9fc47f4",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something",
           "summary": "User intends: User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something (today)",
           "source_system": null
         },
         {
-          "id": "705f8a0b-9886-4f4d-9170-014ee5cfa6f5",
+          "id": "ccf7671f-31bb-414f-bd48-a78a8c87b8cb",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "Need to pay school money today for Andree to go on the trip",
-          "summary": "User intends: Need to pay school money today for Andree to go on the trip (today)",
+          "title": "User has set a new deadline for Carlos to send the forms, giving him until",
+          "summary": "User intends: User has set a new deadline for Carlos to send the forms, giving him until (tomorrow)",
           "source_system": null
         },
         {
-          "id": "9b81a483-88f5-4f0b-b27d-e258426eff80",
+          "id": "1927c97e-43a0-4b76-acbd-a6670515c8f4",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "Reminder requested for school money payment tonight if forgotten",
-          "summary": "User intends: Reminder requested for school money payment tonight if forgotten (tonight)",
+          "title": "User wants a reminder tonight to pay the school money",
+          "summary": "User intends: User wants a reminder tonight to pay the school money (tonight)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
           "class": "character_promise"
         },
         {
-          "id": "58b442f2-4e5b-43f7-8814-8149b990885c",
+          "id": "08bed2c4-0aad-46ac-9fbe-05cc592710bc",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "Pay school money after sports day",
+          "title": "pay for school trip",
           "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "confirm Andree's school money amount"
         },
         {
-          "id": "fd4d55f5-9636-4cbe-a92b-11c59994edcb",
+          "id": "55b91cef-587c-4bae-a6fe-c8facc602ce6",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Chase Carlos for debt payment"
         },
         {
-          "id": "8bfbfee4-7009-4b1d-b2e5-7caf32dae23c",
+          "id": "31a7c4b9-ee14-4a2b-b110-3763499a2261",
           "status": "OpenLoopStatus.OPEN",
           "title": "Sort the chairs"
         },
         {
-          "id": "c3a86e1d-f4f2-4321-b7e1-6702edd7848c",
+          "id": "24fa3c54-aca3-4c29-81fe-6c4b9884c8b9",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "Do task from school"
+          "title": "Mat\u00edas's sports day"
         },
         {
-          "id": "1a5fb907-5d27-4f6a-84ae-01b90c96ddee",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Carlos send remaining forms"
+          "id": "a9333a56-be4e-47e2-b28f-b95bc4cff1a9",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Sign form"
         },
         {
-          "id": "7036a91b-ffea-4eff-a28b-5607e01f1538",
+          "id": "abf33db3-e824-4782-8539-78807909b9a5",
           "status": "OpenLoopStatus.OPEN",
-          "title": "follow up with Carlos regarding forms"
+          "title": "Carlos sending forms"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -1075,11 +1104,35 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
             "pupils"
+          ]
+        },
+        {
+          "id": "8d3c6622-c09d-4af8-94e7-bff01e641065",
+          "name": "Carlos",
+          "type": "person",
+          "aliases": [
+            "carlos"
+          ]
+        },
+        {
+          "id": "ea7c3ae6-c0c8-49c1-9d91-b06b09d7a88c",
+          "name": "Andree",
+          "type": "person",
+          "aliases": [
+            "andree"
+          ]
+        },
+        {
+          "id": "12201322-d94d-4cee-b05d-2338eb2d7670",
+          "name": "Yoshi",
+          "type": "person",
+          "aliases": [
+            "yoshi"
           ]
         }
       ],
@@ -1097,25 +1150,25 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 10,
-        "current_meaning": 0,
+        "current_meaning": 11,
         "attention_candidates": 0,
-        "suppressions": 1,
+        "suppressions": 2,
         "clarifications": 1,
-        "facts": 7,
-        "entities": 2,
+        "facts": 10,
+        "entities": 5,
         "models": 0
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
         },
         {
-          "id": "176fea2f-db0f-4ac9-88a7-fd14135426c2",
+          "id": "7bdffc8d-d167-40f2-bbad-2903f6112f98",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -1123,7 +1176,15 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "ad5dfb0a-644a-4182-8af5-4d6cb5140342",
+          "id": "0950b80d-4bcc-4c43-97d6-7a529796a645",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "A task received from the school yesterday is forgotten and needs to be recalled",
+          "summary": "User intends: A task received from the school yesterday is forgotten and needs to be recalled (yesterday)",
+          "source_system": null
+        },
+        {
+          "id": "e87936f3-1ade-49ef-bd9e-aa69bb50495d",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "A confirmation of the final color choice is needed by Wednesday noon to guarantee Saturday delivery",
@@ -1131,116 +1192,108 @@
           "source_system": null
         },
         {
-          "id": "4b7fb0af-0ed4-4b51-95a8-185be6ec074f",
+          "id": "824291c2-eca0-4664-ac71-d2bb6d45d6df",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The form has not yet been signed",
-          "summary": "User intends: The form has not yet been signed",
-          "source_system": null
-        },
-        {
-          "id": "6414100e-9fa8-4058-897f-cf58f9fc47f4",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something",
           "summary": "User intends: User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something (today)",
           "source_system": null
         },
         {
-          "id": "705f8a0b-9886-4f4d-9170-014ee5cfa6f5",
+          "id": "ccf7671f-31bb-414f-bd48-a78a8c87b8cb",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "Need to pay school money today for Andree to go on the trip",
-          "summary": "User intends: Need to pay school money today for Andree to go on the trip (today)",
+          "title": "User has set a new deadline for Carlos to send the forms, giving him until",
+          "summary": "User intends: User has set a new deadline for Carlos to send the forms, giving him until (tomorrow)",
           "source_system": null
         },
         {
-          "id": "9b81a483-88f5-4f0b-b27d-e258426eff80",
+          "id": "1927c97e-43a0-4b76-acbd-a6670515c8f4",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "Reminder requested for school money payment tonight if forgotten",
-          "summary": "User intends: Reminder requested for school money payment tonight if forgotten (tonight)",
+          "title": "User wants a reminder tonight to pay the school money",
+          "summary": "User intends: User wants a reminder tonight to pay the school money (tonight)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
           "class": "character_promise"
         },
         {
-          "id": "58b442f2-4e5b-43f7-8814-8149b990885c",
+          "id": "08bed2c4-0aad-46ac-9fbe-05cc592710bc",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "Pay school money after sports day",
+          "title": "pay for school trip",
           "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "confirm Andree's school money amount"
         },
         {
-          "id": "fd4d55f5-9636-4cbe-a92b-11c59994edcb",
+          "id": "55b91cef-587c-4bae-a6fe-c8facc602ce6",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Chase Carlos for debt payment"
         },
         {
-          "id": "8bfbfee4-7009-4b1d-b2e5-7caf32dae23c",
+          "id": "31a7c4b9-ee14-4a2b-b110-3763499a2261",
           "status": "OpenLoopStatus.OPEN",
           "title": "Sort the chairs"
         },
         {
-          "id": "c3a86e1d-f4f2-4321-b7e1-6702edd7848c",
+          "id": "24fa3c54-aca3-4c29-81fe-6c4b9884c8b9",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "Do task from school"
+          "title": "Mat\u00edas's sports day"
         },
         {
-          "id": "1a5fb907-5d27-4f6a-84ae-01b90c96ddee",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Carlos send remaining forms"
+          "id": "a9333a56-be4e-47e2-b28f-b95bc4cff1a9",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Sign form"
         },
         {
-          "id": "7036a91b-ffea-4eff-a28b-5607e01f1538",
+          "id": "abf33db3-e824-4782-8539-78807909b9a5",
           "status": "OpenLoopStatus.OPEN",
-          "title": "follow up with Carlos regarding forms"
+          "title": "Carlos sending forms"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -1248,11 +1301,35 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
             "pupils"
+          ]
+        },
+        {
+          "id": "8d3c6622-c09d-4af8-94e7-bff01e641065",
+          "name": "Carlos",
+          "type": "person",
+          "aliases": [
+            "carlos"
+          ]
+        },
+        {
+          "id": "ea7c3ae6-c0c8-49c1-9d91-b06b09d7a88c",
+          "name": "Andree",
+          "type": "person",
+          "aliases": [
+            "andree"
+          ]
+        },
+        {
+          "id": "12201322-d94d-4cee-b05d-2338eb2d7670",
+          "name": "Yoshi",
+          "type": "person",
+          "aliases": [
+            "yoshi"
           ]
         }
       ],
@@ -1268,26 +1345,26 @@
         "commitments": 3,
         "stored_ask": 0,
         "surfaced_shelf": 0,
-        "open_loops": 11,
-        "current_meaning": 0,
+        "open_loops": 12,
+        "current_meaning": 11,
         "attention_candidates": 0,
-        "suppressions": 1,
+        "suppressions": 2,
         "clarifications": 1,
-        "facts": 7,
-        "entities": 2,
+        "facts": 10,
+        "entities": 5,
         "models": 0
       },
       "expectations": [
         {
-          "id": "320a23f1-3088-4642-aea2-8903fd7bdc20",
+          "id": "0c98a0c5-2058-48c5-8841-da766273ca97",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Pupils are required to bring their PE kit and water to Sports Day",
           "summary": "User intends: Pupils are required to bring their PE kit and water to Sports Day",
           "source_system": null
         },
         {
-          "id": "176fea2f-db0f-4ac9-88a7-fd14135426c2",
+          "id": "7bdffc8d-d167-40f2-bbad-2903f6112f98",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Yoshi \u2014 after school activity",
@@ -1295,7 +1372,15 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "ad5dfb0a-644a-4182-8af5-4d6cb5140342",
+          "id": "0950b80d-4bcc-4c43-97d6-7a529796a645",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "A task received from the school yesterday is forgotten and needs to be recalled",
+          "summary": "User intends: A task received from the school yesterday is forgotten and needs to be recalled (yesterday)",
+          "source_system": null
+        },
+        {
+          "id": "e87936f3-1ade-49ef-bd9e-aa69bb50495d",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "A confirmation of the final color choice is needed by Wednesday noon to guarantee Saturday delivery",
@@ -1303,121 +1388,118 @@
           "source_system": null
         },
         {
-          "id": "4b7fb0af-0ed4-4b51-95a8-185be6ec074f",
+          "id": "824291c2-eca0-4664-ac71-d2bb6d45d6df",
           "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The form has not yet been signed",
-          "summary": "User intends: The form has not yet been signed",
-          "source_system": null
-        },
-        {
-          "id": "6414100e-9fa8-4058-897f-cf58f9fc47f4",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something",
           "summary": "User intends: User is asking for a reminder of urgent tasks for today, indicating a feeling of having forgotten something (today)",
           "source_system": null
         },
         {
-          "id": "705f8a0b-9886-4f4d-9170-014ee5cfa6f5",
+          "id": "ccf7671f-31bb-414f-bd48-a78a8c87b8cb",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "Need to pay school money today for Andree to go on the trip",
-          "summary": "User intends: Need to pay school money today for Andree to go on the trip (today)",
+          "title": "User has set a new deadline for Carlos to send the forms, giving him until",
+          "summary": "User intends: User has set a new deadline for Carlos to send the forms, giving him until (tomorrow)",
           "source_system": null
         },
         {
-          "id": "9b81a483-88f5-4f0b-b27d-e258426eff80",
+          "id": "1927c97e-43a0-4b76-acbd-a6670515c8f4",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "Reminder requested for school money payment tonight if forgotten",
-          "summary": "User intends: Reminder requested for school money payment tonight if forgotten (tonight)",
+          "title": "User wants a reminder tonight to pay the school money",
+          "summary": "User intends: User wants a reminder tonight to pay the school money (tonight)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "46906362-4385-4a46-9ede-89c62c70fc07",
+          "id": "baf8a1d4-d3f2-45e5-8193-0b7eaef54ec3",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "confirm chairs with venue",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "03fe4dcc-592e-4b7f-ad1b-fe92a19a85ca",
+          "id": "25d19a3a-e8e1-42e2-8099-536afd06af24",
           "status": "CommitmentCandidateStatus.VIOLATED",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "remaining payment",
           "class": "character_promise"
         },
         {
-          "id": "58b442f2-4e5b-43f7-8814-8149b990885c",
+          "id": "08bed2c4-0aad-46ac-9fbe-05cc592710bc",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "Pay school money after sports day",
+          "title": "pay for school trip",
           "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "639ae7f0-f711-4367-a731-28effb1d29d8",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "eabc59f7-b634-4215-bc51-666af4887df1",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "message woman about flowers"
         },
         {
-          "id": "197998de-4c13-4cf5-8ced-1d215059be9d",
+          "id": "24ad01f0-f4fb-4d71-ab98-49845e7a91db",
           "status": "OpenLoopStatus.OPEN",
           "title": "check invoice for Carlos' debt"
         },
         {
-          "id": "59c80d52-0c80-4698-ad86-950322b23553",
+          "id": "aac2be0e-8587-4805-b1df-afaa043abe2c",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "clarify payment Friday with Carlos"
         },
         {
-          "id": "14a69d6f-20c3-468b-b5dc-709ef20e7abd",
+          "id": "87718296-f8ce-40b2-a5b0-210071cb3ed5",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Mat\u00edas' sports event signature"
         },
         {
-          "id": "44275cbb-3131-4f4a-815c-d4081a9cd8fd",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "2d60ca60-afd0-4087-a42a-40f64801fa58",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "confirm Andree's school money amount"
         },
         {
-          "id": "fd4d55f5-9636-4cbe-a92b-11c59994edcb",
+          "id": "55b91cef-587c-4bae-a6fe-c8facc602ce6",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "Chase Carlos for debt payment"
         },
         {
-          "id": "8bfbfee4-7009-4b1d-b2e5-7caf32dae23c",
+          "id": "31a7c4b9-ee14-4a2b-b110-3763499a2261",
           "status": "OpenLoopStatus.OPEN",
           "title": "Sort the chairs"
         },
         {
-          "id": "c3a86e1d-f4f2-4321-b7e1-6702edd7848c",
+          "id": "24fa3c54-aca3-4c29-81fe-6c4b9884c8b9",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "Do task from school"
+          "title": "Mat\u00edas's sports day"
         },
         {
-          "id": "1a5fb907-5d27-4f6a-84ae-01b90c96ddee",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Carlos send remaining forms"
+          "id": "a9333a56-be4e-47e2-b28f-b95bc4cff1a9",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Sign form"
         },
         {
-          "id": "7036a91b-ffea-4eff-a28b-5607e01f1538",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "follow up with Carlos regarding forms"
+          "id": "abf33db3-e824-4782-8539-78807909b9a5",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Carlos sending forms"
         },
         {
-          "id": "851c380e-3133-4726-b4c1-fc8181996d8f",
+          "id": "f908d212-6fc2-49c3-87d1-ce112aa7b0a3",
           "status": "OpenLoopStatus.OPEN",
-          "title": "Carlos payment"
+          "title": "Carlos's outstanding payment status"
+        },
+        {
+          "id": "f0b7a67e-1670-4717-9671-23cb54a32898",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Inquiry about outstanding obligations"
         }
       ],
       "entities": [
         {
-          "id": "17a19c30-7e52-4629-bafc-3194cefedeee",
+          "id": "cfcdca10-6ed7-406f-b809-63dcbda263e8",
           "name": "Yoshi",
           "type": "person",
           "aliases": [
@@ -1425,11 +1507,35 @@
           ]
         },
         {
-          "id": "904516d1-e8c0-4203-95c3-d418ff8b547f",
+          "id": "992aa536-ef00-4f53-9081-b00e534e7459",
           "name": "Pupils",
           "type": "person",
           "aliases": [
             "pupils"
+          ]
+        },
+        {
+          "id": "8d3c6622-c09d-4af8-94e7-bff01e641065",
+          "name": "Carlos",
+          "type": "person",
+          "aliases": [
+            "carlos"
+          ]
+        },
+        {
+          "id": "ea7c3ae6-c0c8-49c1-9d91-b06b09d7a88c",
+          "name": "Andree",
+          "type": "person",
+          "aliases": [
+            "andree"
+          ]
+        },
+        {
+          "id": "12201322-d94d-4cee-b05d-2338eb2d7670",
+          "name": "Yoshi",
+          "type": "person",
+          "aliases": [
+            "yoshi"
           ]
         }
       ],
@@ -1480,13 +1586,13 @@
       "commitments": 3,
       "stored_ask": 0,
       "surfaced_shelf": 0,
-      "open_loops": 11,
-      "current_meaning": 0,
+      "open_loops": 12,
+      "current_meaning": 11,
       "attention_candidates": 0,
-      "suppressions": 1,
+      "suppressions": 2,
       "clarifications": 1,
-      "facts": 7,
-      "entities": 2,
+      "facts": 10,
+      "entities": 5,
       "models": 0
     }
   }

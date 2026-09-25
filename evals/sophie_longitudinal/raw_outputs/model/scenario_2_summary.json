@@ -5,7 +5,7 @@
   "provider": "model",
   "model": "google/gemini-2.5-flash-lite",
   "external_model_calls": true,
-  "timestamp": "2026-09-25T10:55:45.617741+00:00",
+  "timestamp": "2026-09-25T15:23:35.974746+00:00",
   "checkpoints": [
     {
       "event_id": "s2_e02",
@@ -27,7 +27,7 @@
       "expectations": [],
       "commitments": [
         {
-          "id": "08ddbfa5-2ad6-412c-85f9-3003a31ef7c7",
+          "id": "e43d550a-a168-48a7-9a1f-ac6aa09db24b",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
@@ -50,7 +50,7 @@
         "stored_ask": 1,
         "surfaced_shelf": 1,
         "open_loops": 2,
-        "current_meaning": 0,
+        "current_meaning": 1,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -60,7 +60,7 @@
       },
       "expectations": [
         {
-          "id": "088302d1-7c5d-4c79-ac78-5921aceb2782",
+          "id": "9eefeaeb-efcc-4d31-a64b-a3041ee3b8b2",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.CANCELLED",
           "title": "The user will look for the original document in Dad's old folder in the loft",
@@ -70,7 +70,7 @@
       ],
       "commitments": [
         {
-          "id": "08ddbfa5-2ad6-412c-85f9-3003a31ef7c7",
+          "id": "e43d550a-a168-48a7-9a1f-ac6aa09db24b",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
@@ -79,19 +79,19 @@
       ],
       "open_loops": [
         {
-          "id": "820e94c5-0ef8-4450-9b10-1b1971cdeeaf",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "efa1255b-9ed4-4d9b-b680-c7fcbb7f5c5b",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "original insurance letter"
         },
         {
-          "id": "6c903bcc-ae3e-4067-a582-1eabad90998d",
+          "id": "53da6e1a-5b7b-45b0-aebf-0ceb2c84bb29",
           "status": "OpenLoopStatus.OPEN",
           "title": "look for original document in the loft"
         }
       ],
       "entities": [
         {
-          "id": "fd7d5081-106f-45ce-885e-cb515aa04773",
+          "id": "8bd24cb9-c794-4635-bcf7-12589d2028bd",
           "name": "Grandad",
           "type": "person",
           "aliases": [
@@ -110,85 +110,57 @@
       "event_id": "s2_e07",
       "label": "Wednesday 09:46 - Subscription identified as Freepik",
       "counts": {
-        "expectations": 2,
-        "commitments": 2,
+        "expectations": 1,
+        "commitments": 1,
         "stored_ask": 1,
         "surfaced_shelf": 1,
-        "open_loops": 3,
-        "current_meaning": 0,
+        "open_loops": 2,
+        "current_meaning": 2,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
-        "facts": 2,
-        "entities": 2,
+        "facts": 1,
+        "entities": 1,
         "models": 0
       },
       "expectations": [
         {
-          "id": "088302d1-7c5d-4c79-ac78-5921aceb2782",
+          "id": "9eefeaeb-efcc-4d31-a64b-a3041ee3b8b2",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.CANCELLED",
           "title": "The user will look for the original document in Dad's old folder in the loft",
           "summary": "User intends: The user will look for the original document in Dad's old folder in the loft (tonight)",
           "source_system": null
-        },
-        {
-          "id": "630c9172-d638-4393-9052-f8ae9b2db6d1",
-          "type": "ExpectationType.USER_INTENTION",
-          "state": "OutcomeState.UNKNOWN",
-          "title": "The user still needs the Freepik annual thing for a job",
-          "summary": "User intends: The user still needs the Freepik annual thing for a job (today)",
-          "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "08ddbfa5-2ad6-412c-85f9-3003a31ef7c7",
+          "id": "e43d550a-a168-48a7-9a1f-ac6aa09db24b",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
           "class": "character_promise"
-        },
-        {
-          "id": "306b8693-9c97-480b-912e-08f88ae42e07",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "Cancel Freepik annual renewal",
-          "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "820e94c5-0ef8-4450-9b10-1b1971cdeeaf",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "efa1255b-9ed4-4d9b-b680-c7fcbb7f5c5b",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "original insurance letter"
         },
         {
-          "id": "6c903bcc-ae3e-4067-a582-1eabad90998d",
+          "id": "53da6e1a-5b7b-45b0-aebf-0ceb2c84bb29",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "look for original document in the loft"
-        },
-        {
-          "id": "c07571f9-f20c-43ec-bdc3-a90fe8c028f9",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Sort Auntie thing"
         }
       ],
       "entities": [
         {
-          "id": "fd7d5081-106f-45ce-885e-cb515aa04773",
+          "id": "8bd24cb9-c794-4635-bcf7-12589d2028bd",
           "name": "Grandad",
           "type": "person",
           "aliases": [
             "grandad"
-          ]
-        },
-        {
-          "id": "2cf9654f-455e-4416-b072-587d4a4c5903",
-          "name": "Auntie",
-          "type": "person",
-          "aliases": [
-            "auntie"
           ]
         }
       ],
@@ -202,22 +174,22 @@
       "event_id": "s2_e09",
       "label": "Friday 08:07 - Cancellation reminder deferred",
       "counts": {
-        "expectations": 2,
-        "commitments": 2,
+        "expectations": 3,
+        "commitments": 1,
         "stored_ask": 1,
         "surfaced_shelf": 1,
-        "open_loops": 3,
-        "current_meaning": 0,
+        "open_loops": 4,
+        "current_meaning": 3,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
-        "facts": 2,
+        "facts": 1,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "088302d1-7c5d-4c79-ac78-5921aceb2782",
+          "id": "9eefeaeb-efcc-4d31-a64b-a3041ee3b8b2",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.CANCELLED",
           "title": "The user will look for the original document in Dad's old folder in the loft",
@@ -225,50 +197,56 @@
           "source_system": null
         },
         {
-          "id": "630c9172-d638-4393-9052-f8ae9b2db6d1",
+          "id": "128ee482-7b71-49d7-9b5f-a95353b721e4",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
-          "title": "The user still needs the Freepik annual thing for a job",
-          "summary": "User intends: The user still needs the Freepik annual thing for a job (today)",
+          "title": "The user is asking for a reminder of outstanding obligations or tasks",
+          "summary": "User intends: The user is asking for a reminder of outstanding obligations or tasks (Morning)",
+          "source_system": null
+        },
+        {
+          "id": "241f75ab-5878-4f6d-a59f-407424d88cfa",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user wants to postpone the cancellation of Freepik until tomorrow afternoon, pending client approval of graphics",
+          "summary": "User intends: The user wants to postpone the cancellation of Freepik until tomorrow afternoon, pending client approval of graphics (tomorrow afternoon)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "08ddbfa5-2ad6-412c-85f9-3003a31ef7c7",
+          "id": "e43d550a-a168-48a7-9a1f-ac6aa09db24b",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
           "class": "character_promise"
-        },
-        {
-          "id": "306b8693-9c97-480b-912e-08f88ae42e07",
-          "status": "CommitmentCandidateStatus.PENDING",
-          "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "Cancel Freepik annual renewal",
-          "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "820e94c5-0ef8-4450-9b10-1b1971cdeeaf",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "efa1255b-9ed4-4d9b-b680-c7fcbb7f5c5b",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "original insurance letter"
         },
         {
-          "id": "6c903bcc-ae3e-4067-a582-1eabad90998d",
+          "id": "53da6e1a-5b7b-45b0-aebf-0ceb2c84bb29",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "look for original document in the loft"
         },
         {
-          "id": "c07571f9-f20c-43ec-bdc3-a90fe8c028f9",
+          "id": "e3a399d1-9c00-4c6e-8496-c6c17ba05af1",
           "status": "OpenLoopStatus.OPEN",
-          "title": "Sort Auntie thing"
+          "title": "Postpone Freepik cancellation"
+        },
+        {
+          "id": "182c010d-c317-41e6-ab98-d0c8c3d06be7",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Client approval of graphics"
         }
       ],
       "entities": [
         {
-          "id": "fd7d5081-106f-45ce-885e-cb515aa04773",
+          "id": "8bd24cb9-c794-4635-bcf7-12589d2028bd",
           "name": "Grandad",
           "type": "person",
           "aliases": [
@@ -276,11 +254,11 @@
           ]
         },
         {
-          "id": "2cf9654f-455e-4416-b072-587d4a4c5903",
-          "name": "Auntie",
+          "id": "b2d5825f-52f2-4b1b-acb9-8e00c629f7b3",
+          "name": "Freepik",
           "type": "person",
           "aliases": [
-            "auntie"
+            "freepik"
           ]
         }
       ],
@@ -293,22 +271,22 @@
       "event_id": "s2_e10",
       "label": "Saturday 14:22 - Saturday closeout",
       "counts": {
-        "expectations": 2,
-        "commitments": 2,
+        "expectations": 3,
+        "commitments": 1,
         "stored_ask": 1,
         "surfaced_shelf": 1,
-        "open_loops": 3,
-        "current_meaning": 0,
+        "open_loops": 4,
+        "current_meaning": 4,
         "attention_candidates": 0,
         "suppressions": 0,
-        "clarifications": 2,
-        "facts": 2,
+        "clarifications": 1,
+        "facts": 1,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "088302d1-7c5d-4c79-ac78-5921aceb2782",
+          "id": "9eefeaeb-efcc-4d31-a64b-a3041ee3b8b2",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.CANCELLED",
           "title": "The user will look for the original document in Dad's old folder in the loft",
@@ -316,50 +294,56 @@
           "source_system": null
         },
         {
-          "id": "630c9172-d638-4393-9052-f8ae9b2db6d1",
+          "id": "128ee482-7b71-49d7-9b5f-a95353b721e4",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.FULFILLED",
-          "title": "The user still needs the Freepik annual thing for a job",
-          "summary": "User intends: The user still needs the Freepik annual thing for a job (today)",
+          "title": "The user is asking for a reminder of outstanding obligations or tasks",
+          "summary": "User intends: The user is asking for a reminder of outstanding obligations or tasks (Morning)",
+          "source_system": null
+        },
+        {
+          "id": "241f75ab-5878-4f6d-a59f-407424d88cfa",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.FULFILLED",
+          "title": "The user wants to postpone the cancellation of Freepik until tomorrow afternoon, pending client approval of graphics",
+          "summary": "User intends: The user wants to postpone the cancellation of Freepik until tomorrow afternoon, pending client approval of graphics (tomorrow afternoon)",
           "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "08ddbfa5-2ad6-412c-85f9-3003a31ef7c7",
+          "id": "e43d550a-a168-48a7-9a1f-ac6aa09db24b",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
           "class": "character_promise"
-        },
-        {
-          "id": "306b8693-9c97-480b-912e-08f88ae42e07",
-          "status": "CommitmentCandidateStatus.VIOLATED",
-          "authority": "CommitmentCandidateAuthority.ACT",
-          "title": "Cancel Freepik annual renewal",
-          "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "820e94c5-0ef8-4450-9b10-1b1971cdeeaf",
+          "id": "efa1255b-9ed4-4d9b-b680-c7fcbb7f5c5b",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "original insurance letter"
         },
         {
-          "id": "6c903bcc-ae3e-4067-a582-1eabad90998d",
+          "id": "53da6e1a-5b7b-45b0-aebf-0ceb2c84bb29",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "look for original document in the loft"
         },
         {
-          "id": "c07571f9-f20c-43ec-bdc3-a90fe8c028f9",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Sort Auntie thing"
+          "id": "e3a399d1-9c00-4c6e-8496-c6c17ba05af1",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Postpone Freepik cancellation"
+        },
+        {
+          "id": "182c010d-c317-41e6-ab98-d0c8c3d06be7",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Client approval of graphics"
         }
       ],
       "entities": [
         {
-          "id": "fd7d5081-106f-45ce-885e-cb515aa04773",
+          "id": "8bd24cb9-c794-4635-bcf7-12589d2028bd",
           "name": "Grandad",
           "type": "person",
           "aliases": [
@@ -367,11 +351,11 @@
           ]
         },
         {
-          "id": "2cf9654f-455e-4416-b072-587d4a4c5903",
-          "name": "Auntie",
+          "id": "b2d5825f-52f2-4b1b-acb9-8e00c629f7b3",
+          "name": "Freepik",
           "type": "person",
           "aliases": [
-            "auntie"
+            "freepik"
           ]
         }
       ],
@@ -435,16 +419,16 @@
     "traps_passed": 4,
     "trap_defense_interpretation": "Semantic baseline evaluation against active model state generation.",
     "final_state_counts": {
-      "expectations": 2,
-      "commitments": 2,
+      "expectations": 3,
+      "commitments": 1,
       "stored_ask": 1,
       "surfaced_shelf": 1,
-      "open_loops": 3,
-      "current_meaning": 0,
+      "open_loops": 4,
+      "current_meaning": 4,
       "attention_candidates": 0,
       "suppressions": 0,
-      "clarifications": 2,
-      "facts": 2,
+      "clarifications": 1,
+      "facts": 1,
       "entities": 2,
       "models": 0
     }

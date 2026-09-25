@@ -5,7 +5,7 @@
   "provider": "rules",
   "model": null,
   "external_model_calls": false,
-  "timestamp": "2026-09-25T10:27:30.066730+00:00",
+  "timestamp": "2026-09-25T15:02:23.612429+00:00",
   "checkpoints": [
     {
       "event_id": "s3_e05",
@@ -16,7 +16,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 1,
-        "current_meaning": 0,
+        "current_meaning": 3,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 1,
@@ -26,7 +26,7 @@
       },
       "expectations": [
         {
-          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "id": "1b45e561-5975-4c05-af02-f7d40b0ba9b0",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sam from the studio said he\u2019d send the revised contract",
@@ -34,9 +34,9 @@
           "source_system": null
         },
         {
-          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "id": "7d35e824-eb1a-4ea6-8164-93a2a8ae7852",
           "type": "ExpectationType.PLANNED_EVENT",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
           "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
           "source_system": null
@@ -45,7 +45,7 @@
       "commitments": [],
       "open_loops": [
         {
-          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
+          "id": "f62ffebe-9e83-46a2-8b1c-1c10545012a3",
           "status": "OpenLoopStatus.OPEN",
           "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
         }
@@ -66,7 +66,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 1,
-        "current_meaning": 0,
+        "current_meaning": 5,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 2,
@@ -76,7 +76,7 @@
       },
       "expectations": [
         {
-          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "id": "1b45e561-5975-4c05-af02-f7d40b0ba9b0",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sam from the studio said he\u2019d send the revised contract",
@@ -84,15 +84,15 @@
           "source_system": null
         },
         {
-          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "id": "7d35e824-eb1a-4ea6-8164-93a2a8ae7852",
           "type": "ExpectationType.PLANNED_EVENT",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
           "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
           "source_system": null
         },
         {
-          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "id": "8e177242-53c9-4d98-a848-09770ec43507",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Send the final signature copy",
@@ -103,7 +103,7 @@
       "commitments": [],
       "open_loops": [
         {
-          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
+          "id": "f62ffebe-9e83-46a2-8b1c-1c10545012a3",
           "status": "OpenLoopStatus.OPEN",
           "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
         }
@@ -122,7 +122,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 1,
-        "current_meaning": 0,
+        "current_meaning": 6,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 3,
@@ -132,7 +132,7 @@
       },
       "expectations": [
         {
-          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "id": "1b45e561-5975-4c05-af02-f7d40b0ba9b0",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sam from the studio said he\u2019d send the revised contract",
@@ -140,15 +140,15 @@
           "source_system": null
         },
         {
-          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "id": "7d35e824-eb1a-4ea6-8164-93a2a8ae7852",
           "type": "ExpectationType.PLANNED_EVENT",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
           "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
           "source_system": null
         },
         {
-          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "id": "8e177242-53c9-4d98-a848-09770ec43507",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Send the final signature copy",
@@ -156,7 +156,7 @@
           "source_system": null
         },
         {
-          "id": "4f3b9e56-adc8-4679-b46c-b38282e316e6",
+          "id": "61132128-5ec0-4039-be7c-2fe93947b75d",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "I have a feeling I was meant to check something about Mum",
@@ -164,7 +164,7 @@
           "source_system": null
         },
         {
-          "id": "55639ea1-4a87-4679-8991-a1973290b68b",
+          "id": "496cea98-d132-4a49-96e4-196514c1cf53",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said yes he\u2019s still picking her up at 3",
@@ -175,8 +175,8 @@
       "commitments": [],
       "open_loops": [
         {
-          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "f62ffebe-9e83-46a2-8b1c-1c10545012a3",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
         }
       ],
@@ -196,7 +196,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 1,
-        "current_meaning": 0,
+        "current_meaning": 7,
         "attention_candidates": 1,
         "suppressions": 0,
         "clarifications": 3,
@@ -206,7 +206,7 @@
       },
       "expectations": [
         {
-          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "id": "1b45e561-5975-4c05-af02-f7d40b0ba9b0",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sam from the studio said he\u2019d send the revised contract",
@@ -214,15 +214,15 @@
           "source_system": null
         },
         {
-          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "id": "7d35e824-eb1a-4ea6-8164-93a2a8ae7852",
           "type": "ExpectationType.PLANNED_EVENT",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
           "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
           "source_system": null
         },
         {
-          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "id": "8e177242-53c9-4d98-a848-09770ec43507",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Send the final signature copy",
@@ -230,7 +230,7 @@
           "source_system": null
         },
         {
-          "id": "4f3b9e56-adc8-4679-b46c-b38282e316e6",
+          "id": "61132128-5ec0-4039-be7c-2fe93947b75d",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "I have a feeling I was meant to check something about Mum",
@@ -238,7 +238,7 @@
           "source_system": null
         },
         {
-          "id": "55639ea1-4a87-4679-8991-a1973290b68b",
+          "id": "496cea98-d132-4a49-96e4-196514c1cf53",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said yes he\u2019s still picking her up at 3",
@@ -246,7 +246,7 @@
           "source_system": null
         },
         {
-          "id": "9a96165f-c0a3-4b00-b30d-b3fc1551213a",
+          "id": "8774c4bf-0acd-446d-8690-4640a7e04683",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.FULFILLED",
           "title": "Mum pickup \u2014 Sam",
@@ -254,7 +254,7 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "229e2ee7-c19a-4f07-abed-442db8723759",
+          "id": "640e90c5-7714-4dc0-9fc1-4db823a188f4",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Dentist",
@@ -265,8 +265,8 @@
       "commitments": [],
       "open_loops": [
         {
-          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "f62ffebe-9e83-46a2-8b1c-1c10545012a3",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
         }
       ],
@@ -285,7 +285,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 2,
-        "current_meaning": 0,
+        "current_meaning": 8,
         "attention_candidates": 1,
         "suppressions": 0,
         "clarifications": 3,
@@ -295,7 +295,7 @@
       },
       "expectations": [
         {
-          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "id": "1b45e561-5975-4c05-af02-f7d40b0ba9b0",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sam from the studio said he\u2019d send the revised contract",
@@ -303,15 +303,15 @@
           "source_system": null
         },
         {
-          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "id": "7d35e824-eb1a-4ea6-8164-93a2a8ae7852",
           "type": "ExpectationType.PLANNED_EVENT",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
           "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
           "source_system": null
         },
         {
-          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "id": "8e177242-53c9-4d98-a848-09770ec43507",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Send the final signature copy",
@@ -319,7 +319,7 @@
           "source_system": null
         },
         {
-          "id": "4f3b9e56-adc8-4679-b46c-b38282e316e6",
+          "id": "61132128-5ec0-4039-be7c-2fe93947b75d",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "I have a feeling I was meant to check something about Mum",
@@ -327,7 +327,7 @@
           "source_system": null
         },
         {
-          "id": "55639ea1-4a87-4679-8991-a1973290b68b",
+          "id": "496cea98-d132-4a49-96e4-196514c1cf53",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said yes he\u2019s still picking her up at 3",
@@ -335,7 +335,7 @@
           "source_system": null
         },
         {
-          "id": "9a96165f-c0a3-4b00-b30d-b3fc1551213a",
+          "id": "8774c4bf-0acd-446d-8690-4640a7e04683",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.FULFILLED",
           "title": "Mum pickup \u2014 Sam",
@@ -343,7 +343,7 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "229e2ee7-c19a-4f07-abed-442db8723759",
+          "id": "640e90c5-7714-4dc0-9fc1-4db823a188f4",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Dentist",
@@ -351,7 +351,7 @@
           "source_system": null
         },
         {
-          "id": "7db81ed6-73b0-488c-b38e-be6dc8049368",
+          "id": "15d5d174-66b0-47f4-84ba-5ce4d0116e8a",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget",
@@ -362,12 +362,12 @@
       "commitments": [],
       "open_loops": [
         {
-          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
-          "status": "OpenLoopStatus.EXPIRED",
+          "id": "f62ffebe-9e83-46a2-8b1c-1c10545012a3",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
         },
         {
-          "id": "d69b17f9-afe1-48ec-831a-14a6790f7ea5",
+          "id": "927150e4-1879-4ab7-bb3d-1e26a1388966",
           "status": "OpenLoopStatus.OPEN",
           "title": "Follow-up on: I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget"
         }
@@ -387,7 +387,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 2,
-        "current_meaning": 0,
+        "current_meaning": 9,
         "attention_candidates": 1,
         "suppressions": 0,
         "clarifications": 3,
@@ -397,7 +397,7 @@
       },
       "expectations": [
         {
-          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "id": "1b45e561-5975-4c05-af02-f7d40b0ba9b0",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "Sam from the studio said he\u2019d send the revised contract",
@@ -405,15 +405,15 @@
           "source_system": null
         },
         {
-          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "id": "7d35e824-eb1a-4ea6-8164-93a2a8ae7852",
           "type": "ExpectationType.PLANNED_EVENT",
-          "state": "OutcomeState.FULFILLED",
+          "state": "OutcomeState.UNKNOWN",
           "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
           "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
           "source_system": null
         },
         {
-          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "id": "8e177242-53c9-4d98-a848-09770ec43507",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Send the final signature copy",
@@ -421,7 +421,7 @@
           "source_system": null
         },
         {
-          "id": "4f3b9e56-adc8-4679-b46c-b38282e316e6",
+          "id": "61132128-5ec0-4039-be7c-2fe93947b75d",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "I have a feeling I was meant to check something about Mum",
@@ -429,7 +429,7 @@
           "source_system": null
         },
         {
-          "id": "55639ea1-4a87-4679-8991-a1973290b68b",
+          "id": "496cea98-d132-4a49-96e4-196514c1cf53",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "He said yes he\u2019s still picking her up at 3",
@@ -437,7 +437,7 @@
           "source_system": null
         },
         {
-          "id": "9a96165f-c0a3-4b00-b30d-b3fc1551213a",
+          "id": "8774c4bf-0acd-446d-8690-4640a7e04683",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.FULFILLED",
           "title": "Mum pickup \u2014 Sam",
@@ -445,7 +445,7 @@
           "source_system": "google_calendar"
         },
         {
-          "id": "229e2ee7-c19a-4f07-abed-442db8723759",
+          "id": "640e90c5-7714-4dc0-9fc1-4db823a188f4",
           "type": "ExpectationType.PLANNED_EVENT",
           "state": "OutcomeState.UNKNOWN",
           "title": "Dentist",
@@ -453,7 +453,7 @@
           "source_system": null
         },
         {
-          "id": "7db81ed6-73b0-488c-b38e-be6dc8049368",
+          "id": "15d5d174-66b0-47f4-84ba-5ce4d0116e8a",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget",
@@ -464,13 +464,13 @@
       "commitments": [],
       "open_loops": [
         {
-          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
-          "status": "OpenLoopStatus.EXPIRED",
+          "id": "f62ffebe-9e83-46a2-8b1c-1c10545012a3",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
         },
         {
-          "id": "d69b17f9-afe1-48ec-831a-14a6790f7ea5",
-          "status": "OpenLoopStatus.OPEN",
+          "id": "927150e4-1879-4ab7-bb3d-1e26a1388966",
+          "status": "OpenLoopStatus.RESOLVED",
           "title": "Follow-up on: I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget"
         }
       ],
@@ -518,7 +518,7 @@
       "stored_ask": 0,
       "surfaced_shelf": 0,
       "open_loops": 2,
-      "current_meaning": 0,
+      "current_meaning": 9,
       "attention_candidates": 1,
       "suppressions": 0,
       "clarifications": 3,

@@ -5,7 +5,7 @@
   "provider": "rules",
   "model": null,
   "external_model_calls": false,
-  "timestamp": "2026-09-25T10:27:29.582209+00:00",
+  "timestamp": "2026-09-25T15:02:03.590965+00:00",
   "checkpoints": [
     {
       "event_id": "s2_e02",
@@ -16,7 +16,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 1,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 0,
@@ -26,7 +26,7 @@
       },
       "expectations": [
         {
-          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "id": "fe66591d-7ad3-4226-819a-ea38fed08b26",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
@@ -51,7 +51,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 2,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 0,
@@ -61,7 +61,7 @@
       },
       "expectations": [
         {
-          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "id": "fe66591d-7ad3-4226-819a-ea38fed08b26",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
@@ -69,7 +69,7 @@
           "source_system": null
         },
         {
-          "id": "95adf1f0-3bbf-4dd7-82b6-f14c634d437b",
+          "id": "6992526a-e911-4763-a7ed-59eeefbe840a",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "She said she\u2019ll send me a photo",
@@ -96,7 +96,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 2,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 0,
@@ -106,7 +106,7 @@
       },
       "expectations": [
         {
-          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "id": "fe66591d-7ad3-4226-819a-ea38fed08b26",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
@@ -114,7 +114,7 @@
           "source_system": null
         },
         {
-          "id": "95adf1f0-3bbf-4dd7-82b6-f14c634d437b",
+          "id": "6992526a-e911-4763-a7ed-59eeefbe840a",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "She said she\u2019ll send me a photo",
@@ -140,7 +140,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 2,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 0,
@@ -150,7 +150,7 @@
       },
       "expectations": [
         {
-          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "id": "fe66591d-7ad3-4226-819a-ea38fed08b26",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
@@ -158,7 +158,7 @@
           "source_system": null
         },
         {
-          "id": "95adf1f0-3bbf-4dd7-82b6-f14c634d437b",
+          "id": "6992526a-e911-4763-a7ed-59eeefbe840a",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "She said she\u2019ll send me a photo",
@@ -183,7 +183,7 @@
         "stored_ask": 0,
         "surfaced_shelf": 0,
         "open_loops": 0,
-        "current_meaning": 0,
+        "current_meaning": 2,
         "attention_candidates": 0,
         "suppressions": 0,
         "clarifications": 0,
@@ -193,7 +193,7 @@
       },
       "expectations": [
         {
-          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "id": "fe66591d-7ad3-4226-819a-ea38fed08b26",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.UNKNOWN",
           "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
@@ -201,7 +201,7 @@
           "source_system": null
         },
         {
-          "id": "95adf1f0-3bbf-4dd7-82b6-f14c634d437b",
+          "id": "6992526a-e911-4763-a7ed-59eeefbe840a",
           "type": "ExpectationType.EXTERNAL_DEPENDENCY",
           "state": "OutcomeState.UNKNOWN",
           "title": "She said she\u2019ll send me a photo",
@@ -277,7 +277,7 @@
       "stored_ask": 0,
       "surfaced_shelf": 0,
       "open_loops": 0,
-      "current_meaning": 0,
+      "current_meaning": 2,
       "attention_candidates": 0,
       "suppressions": 0,
       "clarifications": 0,
