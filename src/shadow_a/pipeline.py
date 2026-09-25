@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from typing import Dict, List, Optional, Tuple
 
 from .schema import (
@@ -30,7 +31,9 @@ _WS = re.compile(r"\s+")
 
 
 def _norm(text: str) -> str:
-    return _WS.sub(" ", (text or "").strip().lower())
+    # NFKD fold so Matías/Markó-style mentions match ascii rules; real mess.
+    folded = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode()
+    return _WS.sub(" ", folded.strip().lower())
 
 
 def _key_hit(low: str, key: str) -> bool:
@@ -153,6 +156,47 @@ _CLAIM_RULES: List[Tuple[str, List[str], str, List[str], str, Optional[str], flo
      "stated", None, 0.75, "explicit"),
     ("different words, same matter", ["user"], "same matter restated in different words", ["user"],
      "stated", None, 0.7, "explicit"),
+    # --- A.5 real-evidence rules (S1 revision chains, S4 promises, RPD2 fragment)
+    ("yoshi", ["user"], "yoshi after-school activity (day uncertain, dance maybe)", ["user", "yoshi"],
+     "reported", None, 0.6, "explicit"),
+    ("after school activity", ["user"], "yoshi calendar slot thursday 16:30 (moved from wednesday)", ["user", "yoshi"],
+     "reported", None, 0.85, "explicit"),
+    ("yoshis thing is thursday", ["user"], "yoshi thursday dance confirmed (same after-school activity)", ["user", "yoshi"],
+     "stated", None, 0.85, "explicit"),
+    ("matias", ["user"], "matias school sports item (friday?, day uncertain)", ["user", "matias"],
+     "reported", None, 0.6, "explicit"),
+    ("matias sports day", ["user"], "matias school sports thursday + clash with yoshi", ["user", "matias"],
+     "stated", None, 0.8, "explicit"),
+    ("signed matias", ["user"], "matias form signed after deadline; teacher emailed", ["user", "matias"],
+     "stated", None, 0.85, "explicit"),
+    ("told the venue yes", ["user"], "venue chairs confirmed: 120 chairs, done", ["user", "venue"],
+     "stated", None, 0.9, "explicit"),
+    ("did i ever sort the chairs", ["user"], "user re-asks whether chairs were sorted", ["user"],
+     "question", None, 0.8, "explicit"),
+    ("cream and yellow", ["user"], "florist colours decided and sent (cream/yellow)", ["user", "florist"],
+     "stated", None, 0.9, "explicit"),
+    ("school trips ltd", ["bank_feed"], "school trip 18 paid to School Trips Ltd", ["user", "school"],
+     "stated", None, 0.9, "explicit"),
+    ("school money", ["user"], "school trip money needed (amount/child uncertain)", ["user", "school"],
+     "reported", None, 0.55, "explicit"),
+    ("chase him", ["user"], "chase carlos if unpaid by tomorrow", ["user", "carlos"],
+     "conditional", "if unpaid by tomorrow", 0.75, "explicit"),
+    ("dont chase", ["user"], "chase paused tonight (user tired)", ["user", "carlos"],
+     "stated", None, 0.8, "explicit"),
+    ("dont message him", ["user"], "no chase: bank issue, wait until tomorrow", ["user", "carlos"],
+     "conditional", "bank issue; until tomorrow", 0.8, "explicit"),
+    ("bank issue", ["carlos"], "carlos cites bank issue for delay", ["carlos", "user"],
+     "reported", None, 0.7, "explicit"),
+    ("still owes 2,100", ["carlos"], "carlos remainder updated to 2,100 (consistent with 3,600-1,500)", ["carlos", "user"],
+     "reported", None, 0.75, "explicit"),
+    ("hasnt paid", ["carlos"], "carlos still has not paid the rest", ["carlos", "user"],
+     "reported", None, 0.85, "explicit"),
+    ("finally messaged elif", ["user"], "user finally messaged elif; she loves the new job", ["user", "elif"],
+     "stated", None, 0.9, "explicit"),
+    ("come back to it", ["sophie"], "sophie will come back to boredom topic later this week", ["sophie", "user"],
+     "promised", "later this week", 0.8, "explicit"),
+    ("give you space", ["elena"], "elena will give space and be here (RPD2 msg-17 fragment)", ["elena", "kai"],
+     "promised", None, 0.95, "explicit"),
 ]
 
 _REL_HINTS = [
@@ -160,7 +204,7 @@ _REL_HINTS = [
     ("pushed to tomorrow", "freepik annual", "supersedes"),
     ("improving", "neck pain", "refines"),
     ("over / not a thing", "neck pain", "resolves"),
-    ("confirms pickup", "pick mum up", "fulfils"),
+    ("confirms pickup", "picks mum up", "fulfils"),
     ("partial payment", "amount owed by carlos", "partially_fulfils"),
     ("remainder after bank", "amount owed by carlos", "depends_on"),
     ("photo sent", "grandad original", "fulfils"),
@@ -169,6 +213,20 @@ _REL_HINTS = [
     ("school-run split", "bilateral pact", "part_of"),
     ("mornings term", "bilateral pact", "part_of"),
     ("romantic wrapper", "bilateral pact", "part_of"),
+    # --- A.5 real-evidence hints
+    ("florist colours decided", "florist follow-up", "resolves"),
+    ("finally messaged elif", "wishes they had messaged", "resolves"),
+    ("venue chairs confirmed", "venue chairs confirmation", "fulfils"),
+    ("re-asks whether chairs", "venue chairs confirmation", "reopens"),
+    ("remainder updated to 2,100", "amount owed by carlos", "refines"),
+    ("still has not paid", "amount owed by carlos", "refines"),
+    ("school trip 18 paid", "school trip money needed", "fulfils"),
+    ("chase carlos if unpaid", "wait until tomorrow", "conditioned_on"),
+    ("chase carlos if unpaid", "cites bank issue", "conditioned_on"),
+    ("matias school sports thursday", "day uncertain", "refines"),
+    ("matias form signed", "day uncertain", "fulfils"),
+    ("yoshi thursday dance", "yoshi after-school activity", "refines"),
+    ("yoshi calendar slot", "yoshi after-school activity", "refines"),
 ]
 
 
@@ -212,7 +270,8 @@ def extract_claims(case_id: str, events: List[Dict]) -> List[ShadowClaim]:
 # 2. Relations
 # ---------------------------------------------------------------------------
 
-def propose_relations(case_id: str, claims: List[ShadowClaim]) -> List[ShadowRelation]:
+def propose_relations(case_id: str, claims: List[ShadowClaim],
+                      events: Optional[List[Dict]] = None) -> List[ShadowRelation]:
     rels: List[ShadowRelation] = []
     by_id = {c.claim_id: c for c in claims}
 
@@ -222,10 +281,29 @@ def propose_relations(case_id: str, claims: List[ShadowClaim]) -> List[ShadowRel
                 return c
         return None
 
+    def find_for(source: ShadowClaim, substr: str) -> Optional[ShadowClaim]:
+        """A.5: hint targets are ambiguous on messy evidence (matias-thu vs
+        yoshi-wed both contain 'day uncertain'). Prefer the candidate sharing
+        subjects, then rare tokens, with the source claim."""
+        cands = [c for c in claims
+                 if c.claim_id != source.claim_id and substr in _norm(c.content)]
+        if not cands:
+            return None
+        src_sub = set(source.subjects or [])
+        src_tok = _rare_tokens(source.content)
+
+        def rank(c: ShadowClaim) -> tuple:
+            return (len(src_sub & set(c.subjects or [])),
+                    len(src_tok & _rare_tokens(c.content)))
+        cands.sort(key=rank, reverse=True)
+        return cands[0]
+
     for from_hint, to_hint, rtype in _REL_HINTS:
         f = find(from_hint)
-        t = find(to_hint)
-        if f and t and f.claim_id != t.claim_id:
+        if not f:
+            continue
+        t = find_for(f, to_hint)
+        if t and f.claim_id != t.claim_id:
             assert rtype in RELATION_VOCAB
             rels.append(ShadowRelation(
                 relation_id=_sid(case_id, "rel", rtype, f.claim_id, t.claim_id),
@@ -278,11 +356,100 @@ def propose_relations(case_id: str, claims: List[ShadowClaim]) -> List[ShadowRel
                         formation="inferred", confidence=0.7,
                         effective_at=c.effective_at, discovered_at=c.discovered_at,
                     ))
+    # Yoshi/Matías day-shift identity is handled by the generic same_as pass
+    # below (shared rare token, source-diverse, disqualifier veto).
     # dedupe
     uniq: Dict[str, ShadowRelation] = {}
     for r in rels:
         uniq[r.relation_id] = r
-    return sorted(uniq.values(), key=lambda r: r.relation_id)
+    rels = sorted(uniq.values(), key=lambda r: r.relation_id)
+
+    # Generic same_as pass (A.5): two distinct claims sharing >=2 rare tokens
+    # from different source types are probably the same referent — unless a
+    # disqualifier pair (studio/cousin) vetoes, or they are already linked.
+    # same_as asserts referent identity, never lifecycle outcome.
+    if events is not None:
+        rels.extend(_same_as_pass(case_id, claims, rels, events))
+        uniq = {}
+        for r in rels:
+            uniq[r.relation_id] = r
+        rels = sorted(uniq.values(), key=lambda r: r.relation_id)
+    return rels
+
+
+_STOP_TOKENS = frozenset(
+    "that this with from have what when will send said thing more than still been "
+    "about user after also just told ever keep straight right sorry okay morning "
+    "yes definitely now today tonight tomorrow".split()
+)
+_DISQUALIFIERS = (frozenset({"studio", "cousin"}),)
+
+
+def _rare_tokens(content: str) -> frozenset:
+    toks = re.findall(r"[a-z0-9]{4,}", _norm(content))
+    return frozenset(t for t in toks if t not in _STOP_TOKENS)
+
+
+def _same_as_pass(case_id: str, claims: List[ShadowClaim],
+                  existing: List[ShadowRelation],
+                  events: List[Dict]) -> List[ShadowRelation]:
+    # A.5 precision revision: raw shared-token counting merged same-person /
+    # different-matter claims (carlos debt vs carlos bank-issue) and cross-kid
+    # pairs (yoshi vs matias via school/uncertain). Now: IDF-weighted shared
+    # score >= 2.0 AND a shared non-user subject. same_as asserts referent
+    # identity, never lifecycle outcome.
+    from collections import Counter
+    doc_tokens = [_rare_tokens(c.content) for c in claims]
+    df: Counter = Counter()
+    for toks in doc_tokens:
+        df.update(toks)
+
+    def weight(t: str) -> float:
+        d = df.get(t, 1)
+        if d <= 2:
+            return 1.0
+        if d <= 4:
+            return 0.5
+        return 0.25
+
+    linked = set()
+    terminal = set()
+    for r in existing:
+        linked.add(frozenset({r.from_id, r.to_id}))
+        # Lifecycle-terminal edges settle the matter; descriptive edges
+        # (refines/conditioned_on/...) leave referent identity open.
+        if r.rel_type in ("fulfils", "partially_fulfils", "resolves", "supersedes"):
+            terminal.add(frozenset({r.from_id, r.to_id}))
+    subj = {c.claim_id: set(c.subjects or []) - {"user"} for c in claims}
+    out: List[ShadowRelation] = []
+    for i, a in enumerate(claims):
+        for b in claims[i + 1:]:
+            lo, hi = sorted((a.claim_id, b.claim_id))
+            if frozenset({lo, hi}) in terminal:
+                continue
+            if not (subj[a.claim_id] & subj[b.claim_id]):
+                continue  # same person-name, different matter: refuse
+            shared = _rare_tokens(a.content) & _rare_tokens(b.content)
+            score = sum(weight(t) for t in shared)
+            if score < 2.0:
+                continue
+            union = _rare_tokens(a.content) | _rare_tokens(b.content)
+            if any(_veto_pair(a.content, b.content, d) for d in _DISQUALIFIERS if d <= union):
+                continue
+            out.append(ShadowRelation(
+                relation_id=_sid(case_id, "rel", "same_as", lo, hi),
+                rel_type="same_as", from_id=lo, to_id=hi,
+                evidence_refs=sorted(set(a.evidence_refs + b.evidence_refs)),
+                formation="inferred", confidence=0.7,
+                effective_at=b.effective_at, discovered_at=b.discovered_at,
+            ))
+    return out
+
+
+def _veto_pair(ca: str, cb: str, dis: frozenset) -> bool:
+    la, lb = _norm(ca), _norm(cb)
+    items = list(dis)
+    return ((items[0] in la and items[1] in lb) or (items[1] in la and items[0] in lb))
 
 
 # ---------------------------------------------------------------------------
@@ -295,13 +462,14 @@ def assign_roles(claims: List[ShadowClaim], relations: List[ShadowRelation]) -> 
     # Completion records in evidence ("cancelled ... myself", "photo sent",
     # "paid back") are assertional history, not live obligations.
     _DONE = ("cancelled", "photo sent", "paid back", "signed the contract",
-             "found", "replied yes")
+             "signed", "found", "replied yes", "finally messaged")
     roles: Dict[str, List[str]] = {}
     for c in claims:
         low = _norm(c.content)
         r: List[str] = ["assertional"]
         if any(k in low for k in ("owe", "payment", "promise", "pact", "confirm chairs", "remind", "pick mum",
-                                          "pickup", "cancel", "obligation", "send it friday", "send the remainder")):
+                                          "pickup", "cancel", "obligation", "send it friday", "send the remainder",
+                                          "come back", "give space")):
             r.append("obligation")
         if any(k in low for k in ("uncertain", "which friday", "pending", "follow-up", "keeps forgetting",
                                           "not sent", "open matter", "conditional", "unless")) or c.modality in ("intended", "conditional"):
@@ -331,6 +499,11 @@ def assign_roles(claims: List[ShadowClaim], relations: List[ShadowRelation]) -> 
 # ---------------------------------------------------------------------------
 
 _OBLIGOR_HINTS = [
+    ("chase carlos", "user", "user"),
+    ("come back", "sophie", "user"),
+    ("give you space", "elena", "kai"),
+    ("give space", "elena", "kai"),
+    ("school trip 18 paid", "user", "school"),
     ("isa handles", "isa", "user"),
     ("isa-owned", "isa", "user"),
     ("school-run split", "user+isa", "user+isa"),
@@ -516,6 +689,11 @@ def derive_moves(case_id: str, claims: List[ShadowClaim], roles: Dict[str, List[
         o = obl_by_claim.get(c.claim_id)
         attempts = [_internal_attempt(c.claim_id, c.content, observed, relations)]
         internally_done = attempts[0].outcome == "resolved"
+        linked = [r for r in relations
+                  if r.from_id == c.claim_id or r.to_id == c.claim_id]
+        linked_lifecycle = [r for r in linked if r.rel_type in (
+            "fulfils", "partially_fulfils", "resolves", "supersedes", "refines",
+            "reopens")]  # reopens also means the history is present to answer from
 
         kind: Optional[str] = None
         reason = "OPPORTUNITY"
@@ -534,8 +712,31 @@ def derive_moves(case_id: str, claims: List[ShadowClaim], roles: Dict[str, List[
             assessments.append(MatterAssessment(c.claim_id, r, "NO_MOVE_WARRANTED", [],
                                                 attempts, "somatic signal retained; restraint without suppression"))
             continue
-        if somatic and not somatic_over and len(c.evidence_refs) >= 3 and "wors" in low:
-            kind, reason = "WATCH", "MONITOR"  # persistent/worsening somatic -> internal watch
+        if somatic and not somatic_over and len(c.evidence_refs) >= 3 and not linked_lifecycle:
+            # Persistent multi-evidence somatic with no resolution: internal
+            # WATCH only (cf. real s4_e06 check-back). Never user-facing here.
+            mv = CandidateMove(
+                move_id=_sid(case_id, "move", "WATCH", c.claim_id), kind="WATCH",
+                reason="MONITOR", matter_id=c.claim_id, source_refs=list(c.evidence_refs),
+                support_strength=c.confidence, salience=salience, eligibility="eligible",
+                validity_window=c.effective_at, lifecycle="eligible",
+                owner="sophie", user_facing=False)
+            assessments.append(MatterAssessment(c.claim_id, r, "MOVE_ELIGIBLE", [mv],
+                                                attempts, "persistent somatic earns internal watch, not a question"))
+            moves.append(mv)
+            continue
+        if kind is None and c.modality == "question":
+            # A.5: a question answerable from history (linked lifecycle edge)
+            # is resolved by system attention — no user-facing move.
+            if linked_lifecycle:
+                attempts = [ResolutionAttempt(
+                    c.claim_id, "search_state", ["shadow_claims"], "resolved",
+                    f"answer present in history via {len(linked_lifecycle)} relation(s); no need to ask")]
+                assessments.append(MatterAssessment(c.claim_id, r, "NO_MOVE_WARRANTED",
+                                                    [], attempts, "question answered from history"))
+                continue
+            kind, reason, user_facing = "QUESTION", "CLARIFY", True
+            telemetry = "MOVE_ELIGIBLE"
 
         if kind is None and o is not None:
             # Amendment 2: third-party obligations never become self debt; they
@@ -590,9 +791,6 @@ def derive_moves(case_id: str, claims: List[ShadowClaim], roles: Dict[str, List[
                 else:
                     kind, reason, user_facing = "QUESTION", "CLARIFY", True
                     telemetry = "MOVE_ELIGIBLE"
-            elif "elif" in low:
-                kind, reason, user_facing = "FOLLOW_UP", "CHECK_BACK", True
-                telemetry = "MOVE_ELIGIBLE"
 
         # SA gate: a user-facing move whose internal attempt is unresolved but a
         # covering observed source exists stays held for one more internal pass,
@@ -659,14 +857,18 @@ def absence_check(case_id: str, label: str, expected: str,
 
 def run_case(case_id: str, events: List[Dict], observed_sources: List[str],
              user_tracking_ok: bool = True,
-             absence_probes: Optional[List[Dict]] = None) -> ShadowResult:
-    claims = extract_claims(case_id, events)
-    relations = propose_relations(case_id, claims)
+             absence_probes: Optional[List[Dict]] = None,
+             id_ns: Optional[str] = None) -> ShadowResult:
+    # id_ns pins stable shadow ids across sequential prefixes (A.5 revision
+    # diffs); defaults to the case id for one-shot runs.
+    ns = id_ns or case_id
+    claims = extract_claims(ns, events)
+    relations = propose_relations(ns, claims, events)
     roles = assign_roles(claims, relations)
-    obligations = build_obligations(case_id, claims, roles)
-    t2 = propose_t2(case_id, events, claims, roles)
+    obligations = build_obligations(ns, claims, roles)
+    t2 = propose_t2(ns, events, claims, roles)
     views = build_views(claims, roles, obligations)
-    moves, assessments = derive_moves(case_id, claims, roles, relations,
+    moves, assessments = derive_moves(ns, claims, roles, relations,
                                       obligations, t2, observed_sources,
                                       user_tracking_ok)
     res = ShadowResult(case_id=case_id, claims=claims, relations=relations,
@@ -682,3 +884,45 @@ def run_case(case_id: str, events: List[Dict], observed_sources: List[str],
         (res.expected_but_missing if out["finding"] == "expected_but_missing"
          else res.unknowns).append(out)
     return res
+
+
+def replay_sequential(case_id: str, events: List[Dict], observed_sources: List[str],
+                      user_tracking_ok: bool = True) -> List[ShadowResult]:
+    """A.5: run the shadow path over every event prefix. Each snapshot is
+    deterministic; revision is read off snapshot diffs (no new abstraction)."""
+    snaps: List[ShadowResult] = []
+    for i in range(1, len(events) + 1):
+        snaps.append(run_case(f"{case_id}@t{i:02d}", events[:i], observed_sources,
+                              user_tracking_ok, id_ns=case_id))
+    return snaps
+
+
+def diff_snapshots(prev: ShadowResult, cur: ShadowResult) -> Dict:
+    """Revision record between consecutive prefixes: new claims/relations,
+    evidence growth on existing relations, role and telemetry changes.
+    Original evidence refs are always preserved (append-only)."""
+    pc = {c.content: c for c in prev.claims}
+    cc = {c.content: c for c in cur.claims}
+    pr = {(r.rel_type, _rel_endpoints(prev, r)): r for r in prev.relations}
+    cr = {(r.rel_type, _rel_endpoints(cur, r)): r for r in cur.relations}
+    new_claims = sorted(set(cc) - set(pc))
+    new_relations = sorted(set(cr) - set(pr))
+    grown = []
+    for key in set(pr) & set(cr):
+        before = set(pr[key].evidence_refs)
+        after = set(cr[key].evidence_refs)
+        if after - before:
+            grown.append({"relation": key[0], "added_evidence": sorted(after - before)})
+    role_changes = []
+    for content in set(pc) & set(cc):
+        a = prev.roles.get(pc[content].claim_id, [])
+        b = cur.roles.get(cc[content].claim_id, [])
+        if a != b:
+            role_changes.append({"claim": content[:60], "before": a, "after": b})
+    return {"new_claims": new_claims, "new_relations": new_relations,
+            "evidence_grown": grown, "role_changes": role_changes}
+
+
+def _rel_endpoints(res: ShadowResult, r: ShadowRelation) -> tuple:
+    cmap = {c.claim_id: c.content for c in res.claims}
+    return (cmap.get(r.from_id, r.from_id), cmap.get(r.to_id, r.to_id))

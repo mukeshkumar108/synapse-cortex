@@ -1,0 +1,2718 @@
+{
+ "replays": [
+  {
+   "case": "a5_s1_full",
+   "title": "A.5 full Scenario 1 replay (14 events, sequential)",
+   "n_events": 14,
+   "final_table": {
+    "claims": 25,
+    "relations": 15,
+    "moves": 3,
+    "user_facing": 2,
+    "telemetry": {
+     "NO_MOVE_WARRANTED": 17,
+     "MOVE_HELD": 5,
+     "MOVE_ELIGIBLE": 3
+    }
+   },
+   "final": {
+    "case_id": "a5_s1_full@t14",
+    "claims": [
+     {
+      "claim_id": "003386081e7f",
+      "content": "carlos will send remainder after bank release",
+      "subjects": [
+       "carlos",
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e03"
+      ],
+      "modality": "promised",
+      "condition": "after bank releases transfer",
+      "formation": "explicit",
+      "confidence": 0.7,
+      "effective_at": "2026-09-28T10:14:00+01:00",
+      "discovered_at": "2026-09-28T10:14:00+01:00"
+     },
+     {
+      "claim_id": "036ac81daa8a",
+      "content": "venue chairs confirmation",
+      "subjects": [
+       "user",
+       "venue"
+      ],
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e05",
+       "s1_e07"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-28T08:07:00+01:00",
+      "discovered_at": "2026-09-28T08:07:00+01:00"
+     },
+     {
+      "claim_id": "1277973c4795",
+      "content": "user re-asks whether chairs were sorted",
+      "subjects": [
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e07"
+      ],
+      "modality": "question",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-29T08:18:00+01:00",
+      "discovered_at": "2026-09-29T08:18:00+01:00"
+     },
+     {
+      "claim_id": "1366b7a30e7f",
+      "content": "yoshi after-school activity (day uncertain, dance maybe)",
+      "subjects": [
+       "user",
+       "yoshi"
+      ],
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e06",
+       "s1_e12"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.6,
+      "effective_at": "2026-09-28T08:07:00+01:00",
+      "discovered_at": "2026-09-28T08:07:00+01:00"
+     },
+     {
+      "claim_id": "3e8fe2ccff3d",
+      "content": "chase paused tonight (user tired)",
+      "subjects": [
+       "user",
+       "carlos"
+      ],
+      "evidence_refs": [
+       "s1_e09"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00"
+     },
+     {
+      "claim_id": "417c95b330a5",
+      "content": "matias school sports thursday + clash with yoshi",
+      "subjects": [
+       "user",
+       "matias"
+      ],
+      "evidence_refs": [
+       "s1_e09"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00"
+     },
+     {
+      "claim_id": "42c8847ce33d",
+      "content": "carlos cites bank issue for delay",
+      "subjects": [
+       "carlos",
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e11"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.7,
+      "effective_at": "2026-09-30T16:18:00+01:00",
+      "discovered_at": "2026-09-30T16:18:00+01:00"
+     },
+     {
+      "claim_id": "4b7cd4ad4d6a",
+      "content": "carlos said friday (which friday uncertain)",
+      "subjects": [
+       "carlos",
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e01"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.4,
+      "effective_at": "2026-09-28T08:07:00+01:00",
+      "discovered_at": "2026-09-28T08:07:00+01:00"
+     },
+     {
+      "claim_id": "5a202a15c4bc",
+      "content": "partial payment Q1,500 received from carlos",
+      "subjects": [
+       "carlos",
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e03",
+       "s1_e04"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.9,
+      "effective_at": "2026-09-28T10:14:00+01:00",
+      "discovered_at": "2026-09-28T10:14:00+01:00"
+     },
+     {
+      "claim_id": "726ddfbbcbd2",
+      "content": "matias school sports item (friday?, day uncertain)",
+      "subjects": [
+       "user",
+       "matias"
+      ],
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e09",
+       "s1_e12"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.6,
+      "effective_at": "2026-09-28T08:07:00+01:00",
+      "discovered_at": "2026-09-28T08:07:00+01:00"
+     },
+     {
+      "claim_id": "81fa0e3a0825",
+      "content": "yoshi thursday dance confirmed (same after-school activity)",
+      "subjects": [
+       "user",
+       "yoshi"
+      ],
+      "evidence_refs": [
+       "s1_e09"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.85,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00"
+     },
+     {
+      "claim_id": "a159eeac905c",
+      "content": "school trip 18 paid to School Trips Ltd",
+      "subjects": [
+       "user",
+       "school"
+      ],
+      "evidence_refs": [
+       "s1_e13"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.9,
+      "effective_at": "2026-10-01T18:49:00+01:00",
+      "discovered_at": "2026-10-01T18:49:00+01:00"
+     },
+     {
+      "claim_id": "a3f16484c8c7",
+      "content": "no chase: bank issue, wait until tomorrow",
+      "subjects": [
+       "user",
+       "carlos"
+      ],
+      "evidence_refs": [
+       "s1_e11"
+      ],
+      "modality": "conditional",
+      "condition": "bank issue; until tomorrow",
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-30T16:18:00+01:00",
+      "discovered_at": "2026-09-30T16:18:00+01:00"
+     },
+     {
+      "claim_id": "a9f59153b7bb",
+      "content": "school trip money needed (amount/child uncertain)",
+      "subjects": [
+       "user",
+       "school"
+      ],
+      "evidence_refs": [
+       "s1_e12"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.55,
+      "effective_at": "2026-10-01T07:54:00+01:00",
+      "discovered_at": "2026-10-01T07:54:00+01:00"
+     },
+     {
+      "claim_id": "b1975f192c36",
+      "content": "user asks to be reminded / kept straight",
+      "subjects": [
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e05",
+       "s1_e10",
+       "s1_e12"
+      ],
+      "modality": "intended",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.7,
+      "effective_at": "2026-09-28T08:07:00+01:00",
+      "discovered_at": "2026-09-28T08:07:00+01:00"
+     },
+     {
+      "claim_id": "b522854b4516",
+      "content": "florist follow-up pending (colours not sent)",
+      "subjects": [
+       "user",
+       "florist"
+      ],
+      "evidence_refs": [
+       "s1_e05",
+       "s1_e14"
+      ],
+      "modality": "conditional",
+      "condition": "florist sends colours",
+      "formation": "explicit",
+      "confidence": 0.6,
+      "effective_at": "2026-09-28T13:41:00+01:00",
+      "discovered_at": "2026-09-28T13:41:00+01:00"
+     },
+     {
+      "claim_id": "bb5b78a89120",
+      "content": "carlos still has not paid the rest",
+      "subjects": [
+       "carlos",
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e07",
+       "s1_e14"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.85,
+      "effective_at": "2026-09-29T08:18:00+01:00",
+      "discovered_at": "2026-09-29T08:18:00+01:00"
+     },
+     {
+      "claim_id": "be735ad28f18",
+      "content": "chase carlos if unpaid by tomorrow",
+      "subjects": [
+       "user",
+       "carlos"
+      ],
+      "evidence_refs": [
+       "s1_e07",
+       "s1_e09"
+      ],
+      "modality": "conditional",
+      "condition": "if unpaid by tomorrow",
+      "formation": "explicit",
+      "confidence": 0.75,
+      "effective_at": "2026-09-29T08:18:00+01:00",
+      "discovered_at": "2026-09-29T08:18:00+01:00"
+     },
+     {
+      "claim_id": "bf6deac9334b",
+      "content": "carlos sent Q1,500, rest after bank releases",
+      "subjects": [
+       "carlos",
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e03"
+      ],
+      "modality": "promised",
+      "condition": "after bank releases transfer",
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-28T10:14:00+01:00",
+      "discovered_at": "2026-09-28T10:14:00+01:00"
+     },
+     {
+      "claim_id": "cfe31a92a6c5",
+      "content": "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)",
+      "subjects": [
+       "carlos",
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e09"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.6,
+      "effective_at": "2026-09-28T08:07:00+01:00",
+      "discovered_at": "2026-09-28T08:07:00+01:00"
+     },
+     {
+      "claim_id": "d017b320d7d5",
+      "content": "venue chairs confirmed: 120 chairs, done",
+      "subjects": [
+       "user",
+       "venue"
+      ],
+      "evidence_refs": [
+       "s1_e05"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.9,
+      "effective_at": "2026-09-28T13:41:00+01:00",
+      "discovered_at": "2026-09-28T13:41:00+01:00"
+     },
+     {
+      "claim_id": "d2f6d89327f8",
+      "content": "carlos remainder updated to 2,100 (consistent with 3,600-1,500)",
+      "subjects": [
+       "carlos",
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e09"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.75,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00"
+     },
+     {
+      "claim_id": "d39a518792b8",
+      "content": "cake vendor follow-up (user keeps forgetting)",
+      "subjects": [
+       "user"
+      ],
+      "evidence_refs": [
+       "s1_e01"
+      ],
+      "modality": "intended",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.6,
+      "effective_at": "2026-09-28T08:07:00+01:00",
+      "discovered_at": "2026-09-28T08:07:00+01:00"
+     },
+     {
+      "claim_id": "dc53b6b7ff27",
+      "content": "yoshi calendar slot thursday 16:30 (moved from wednesday)",
+      "subjects": [
+       "user",
+       "yoshi"
+      ],
+      "evidence_refs": [
+       "s1_e06"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.85,
+      "effective_at": "2026-09-28T17:55:00+01:00",
+      "discovered_at": "2026-09-28T17:55:00+01:00"
+     },
+     {
+      "claim_id": "dde8956e9199",
+      "content": "florist colours decided and sent (cream/yellow)",
+      "subjects": [
+       "user",
+       "florist"
+      ],
+      "evidence_refs": [
+       "s1_e09"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.9,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00"
+     }
+    ],
+    "relations": [
+     {
+      "relation_id": "010d0f5a74f5",
+      "rel_type": "conditioned_on",
+      "from_id": "be735ad28f18",
+      "to_id": "a3f16484c8c7",
+      "evidence_refs": [
+       "s1_e07",
+       "s1_e09",
+       "s1_e11"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T08:18:00+01:00",
+      "discovered_at": "2026-09-29T08:18:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "1baa83afa848",
+      "rel_type": "partially_fulfils",
+      "from_id": "5a202a15c4bc",
+      "to_id": "cfe31a92a6c5",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e03",
+       "s1_e04",
+       "s1_e09"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-28T10:14:00+01:00",
+      "discovered_at": "2026-09-28T10:14:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "21b2be3cbdd1",
+      "rel_type": "depends_on",
+      "from_id": "003386081e7f",
+      "to_id": "cfe31a92a6c5",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e03",
+       "s1_e09"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-28T10:14:00+01:00",
+      "discovered_at": "2026-09-28T10:14:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "3086f6f95bb6",
+      "rel_type": "resolves",
+      "from_id": "dde8956e9199",
+      "to_id": "b522854b4516",
+      "evidence_refs": [
+       "s1_e05",
+       "s1_e09",
+       "s1_e14"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "3580f69db46b",
+      "rel_type": "refines",
+      "from_id": "d2f6d89327f8",
+      "to_id": "cfe31a92a6c5",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e09"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "3f2bc4787ee2",
+      "rel_type": "conditioned_on",
+      "from_id": "be735ad28f18",
+      "to_id": "42c8847ce33d",
+      "evidence_refs": [
+       "s1_e07",
+       "s1_e09",
+       "s1_e11"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T08:18:00+01:00",
+      "discovered_at": "2026-09-29T08:18:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "5ee059060c44",
+      "rel_type": "same_as",
+      "from_id": "417c95b330a5",
+      "to_id": "726ddfbbcbd2",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e09",
+       "s1_e12"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-28T08:07:00+01:00",
+      "discovered_at": "2026-09-28T08:07:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "638ef53360f9",
+      "rel_type": "refines",
+      "from_id": "dc53b6b7ff27",
+      "to_id": "1366b7a30e7f",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e06",
+       "s1_e12"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-28T17:55:00+01:00",
+      "discovered_at": "2026-09-28T17:55:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "7477c88d29f1",
+      "rel_type": "fulfils",
+      "from_id": "a159eeac905c",
+      "to_id": "a9f59153b7bb",
+      "evidence_refs": [
+       "s1_e12",
+       "s1_e13"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-10-01T18:49:00+01:00",
+      "discovered_at": "2026-10-01T18:49:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "8eed6d021a2a",
+      "rel_type": "reopens",
+      "from_id": "1277973c4795",
+      "to_id": "036ac81daa8a",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e05",
+       "s1_e07"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T08:18:00+01:00",
+      "discovered_at": "2026-09-29T08:18:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "a2cf61450a30",
+      "rel_type": "same_as",
+      "from_id": "1366b7a30e7f",
+      "to_id": "81fa0e3a0825",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e06",
+       "s1_e09",
+       "s1_e12"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "a9f22bb2332b",
+      "rel_type": "refines",
+      "from_id": "417c95b330a5",
+      "to_id": "726ddfbbcbd2",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e09",
+       "s1_e12"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "cb45b4dc40c0",
+      "rel_type": "refines",
+      "from_id": "81fa0e3a0825",
+      "to_id": "1366b7a30e7f",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e06",
+       "s1_e09",
+       "s1_e12"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T18:32:00+01:00",
+      "discovered_at": "2026-09-29T18:32:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "d277d23cdd89",
+      "rel_type": "fulfils",
+      "from_id": "d017b320d7d5",
+      "to_id": "036ac81daa8a",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e05",
+       "s1_e07"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-28T13:41:00+01:00",
+      "discovered_at": "2026-09-28T13:41:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "f689b207a231",
+      "rel_type": "refines",
+      "from_id": "bb5b78a89120",
+      "to_id": "cfe31a92a6c5",
+      "evidence_refs": [
+       "s1_e01",
+       "s1_e07",
+       "s1_e09",
+       "s1_e14"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T08:18:00+01:00",
+      "discovered_at": "2026-09-29T08:18:00+01:00",
+      "status": "active"
+     }
+    ],
+    "roles": {
+     "003386081e7f": [
+      "assertional",
+      "predictive"
+     ],
+     "036ac81daa8a": [
+      "assertional"
+     ],
+     "1277973c4795": [
+      "assertional"
+     ],
+     "1366b7a30e7f": [
+      "assertional"
+     ],
+     "3e8fe2ccff3d": [
+      "assertional"
+     ],
+     "417c95b330a5": [
+      "assertional"
+     ],
+     "42c8847ce33d": [
+      "assertional"
+     ],
+     "4b7cd4ad4d6a": [
+      "assertional",
+      "unresolved"
+     ],
+     "5a202a15c4bc": [
+      "assertional",
+      "obligation"
+     ],
+     "726ddfbbcbd2": [
+      "assertional"
+     ],
+     "81fa0e3a0825": [
+      "assertional"
+     ],
+     "a159eeac905c": [
+      "assertional"
+     ],
+     "a3f16484c8c7": [
+      "assertional",
+      "unresolved"
+     ],
+     "a9f59153b7bb": [
+      "assertional"
+     ],
+     "b1975f192c36": [
+      "assertional",
+      "obligation",
+      "unresolved",
+      "attentional"
+     ],
+     "b522854b4516": [
+      "assertional",
+      "attentional"
+     ],
+     "bb5b78a89120": [
+      "assertional"
+     ],
+     "be735ad28f18": [
+      "assertional",
+      "unresolved"
+     ],
+     "bf6deac9334b": [
+      "assertional",
+      "predictive"
+     ],
+     "cfe31a92a6c5": [
+      "assertional"
+     ],
+     "d017b320d7d5": [
+      "assertional"
+     ],
+     "d2f6d89327f8": [
+      "assertional"
+     ],
+     "d39a518792b8": [
+      "assertional",
+      "unresolved",
+      "attentional"
+     ],
+     "dc53b6b7ff27": [
+      "assertional"
+     ],
+     "dde8956e9199": [
+      "assertional"
+     ]
+    },
+    "obligations": [
+     {
+      "frame_id": "1f1d592d9ac5",
+      "claim_id": "b1975f192c36",
+      "obligor": "user",
+      "beneficiary": "user",
+      "action": "user asks to be reminded / kept straight",
+      "condition": null,
+      "due": "2026-09-28T08:07:00+01:00",
+      "authority": "reported_statement",
+      "strength": "normal",
+      "modality": "intended"
+     },
+     {
+      "frame_id": "8b61ba957ae0",
+      "claim_id": "5a202a15c4bc",
+      "obligor": "carlos",
+      "beneficiary": "user",
+      "action": "partial payment Q1,500 received from carlos",
+      "condition": null,
+      "due": "2026-09-28T10:14:00+01:00",
+      "authority": "reported_statement",
+      "strength": "normal",
+      "modality": "stated"
+     }
+    ],
+    "t2": {
+     "means": [
+      "shadow reading: high_load, relief_trajectory over 14 evidence items"
+     ],
+     "unresolved": [
+      "carlos said friday (which friday uncertain)",
+      "no chase: bank issue, wait until tomorrow",
+      "user asks to be reminded / kept straight"
+     ],
+     "trajectory": "easing",
+     "easing": [],
+     "tensions": [],
+     "context_labels": [
+      "high_load",
+      "relief_trajectory"
+     ],
+     "context_weight": 0.15,
+     "evidence_refs": [
+      "s1_e01",
+      "s1_e02",
+      "s1_e03",
+      "s1_e04",
+      "s1_e05",
+      "s1_e06"
+     ]
+    },
+    "views": {
+     "todo": [
+      "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)",
+      "cake vendor follow-up (user keeps forgetting)",
+      "carlos cites bank issue for delay",
+      "carlos remainder updated to 2,100 (consistent with 3,600-1,500)",
+      "carlos said friday (which friday uncertain)",
+      "carlos sent Q1,500, rest after bank releases",
+      "carlos still has not paid the rest",
+      "carlos will send remainder after bank release",
+      "chase carlos if unpaid by tomorrow",
+      "chase paused tonight (user tired)",
+      "florist colours decided and sent (cream/yellow)",
+      "florist follow-up pending (colours not sent)",
+      "matias school sports item (friday?, day uncertain)",
+      "matias school sports thursday + clash with yoshi",
+      "no chase: bank issue, wait until tomorrow",
+      "partial payment Q1,500 received from carlos",
+      "school trip 18 paid to School Trips Ltd",
+      "school trip money needed (amount/child uncertain)",
+      "user asks to be reminded / kept straight",
+      "user re-asks whether chairs were sorted",
+      "venue chairs confirmation",
+      "venue chairs confirmed: 120 chairs, done",
+      "yoshi after-school activity (day uncertain, dance maybe)",
+      "yoshi calendar slot thursday 16:30 (moved from wednesday)",
+      "yoshi thursday dance confirmed (same after-school activity)"
+     ],
+     "reminder": [
+      "user asks to be reminded / kept straight"
+     ],
+     "open_matter": [
+      "cake vendor follow-up (user keeps forgetting)",
+      "carlos said friday (which friday uncertain)",
+      "chase carlos if unpaid by tomorrow",
+      "no chase: bank issue, wait until tomorrow",
+      "user asks to be reminded / kept straight"
+     ],
+     "worry": [],
+     "follow_up": [
+      "cake vendor follow-up (user keeps forgetting)",
+      "carlos remainder updated to 2,100 (consistent with 3,600-1,500)",
+      "carlos said friday (which friday uncertain)",
+      "carlos sent Q1,500, rest after bank releases",
+      "carlos will send remainder after bank release",
+      "chase carlos if unpaid by tomorrow",
+      "chase paused tonight (user tired)",
+      "florist colours decided and sent (cream/yellow)",
+      "florist follow-up pending (colours not sent)",
+      "no chase: bank issue, wait until tomorrow",
+      "user asks to be reminded / kept straight"
+     ],
+     "companion_obligation": [
+      "user owes user: user asks to be reminded / kept straight"
+     ]
+    },
+    "moves": [
+     {
+      "move_id": "26f8a1a8f54b",
+      "kind": "WATCH",
+      "reason": "MONITOR",
+      "matter_id": "5a202a15c4bc",
+      "source_refs": [
+       "s1_e03",
+       "s1_e04"
+      ],
+      "support_strength": 0.9,
+      "salience": 0.5,
+      "eligibility": "eligible",
+      "validity_window": "2026-09-28T10:14:00+01:00",
+      "lifecycle": "eligible",
+      "owner": "sophie",
+      "user_facing": false
+     },
+     {
+      "move_id": "37d756c2fa8a",
+      "kind": "FOLLOW_UP",
+      "reason": "CHECK_BACK",
+      "matter_id": "d39a518792b8",
+      "source_refs": [
+       "s1_e01"
+      ],
+      "support_strength": 0.6,
+      "salience": 0.6,
+      "eligibility": "eligible",
+      "validity_window": "2026-09-28T08:07:00+01:00",
+      "lifecycle": "eligible",
+      "owner": "sophie",
+      "user_facing": true
+     },
+     {
+      "move_id": "93682f8c5b40",
+      "kind": "REMIND",
+      "reason": "DUE",
+      "matter_id": "b1975f192c36",
+      "source_refs": [
+       "s1_e01",
+       "s1_e05",
+       "s1_e10",
+       "s1_e12"
+      ],
+      "support_strength": 0.7,
+      "salience": 0.9,
+      "eligibility": "eligible",
+      "validity_window": "2026-09-28T08:07:00+01:00",
+      "lifecycle": "eligible",
+      "owner": "sophie",
+      "user_facing": true
+     }
+    ],
+    "assessments": [
+     {
+      "matter_id": "003386081e7f",
+      "roles": [
+       "assertional",
+       "predictive"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "003386081e7f",
+        "strategy": "verify_feed",
+        "sources_checked": [
+         "bank_feed",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "feed reconciles part; remainder still outstanding"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "036ac81daa8a",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "036ac81daa8a",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "2 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "1277973c4795",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "1277973c4795",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "resolved",
+        "detail": "answer present in history via 1 relation(s); no need to ask"
+       }
+      ],
+      "note": "question answered from history"
+     },
+     {
+      "matter_id": "1366b7a30e7f",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "MOVE_HELD",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "1366b7a30e7f",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "3 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "3e8fe2ccff3d",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "3e8fe2ccff3d",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "417c95b330a5",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "417c95b330a5",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "2 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "42c8847ce33d",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "42c8847ce33d",
+        "strategy": "verify_feed",
+        "sources_checked": [
+         "bank_feed",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "feed reconciles part; remainder still outstanding"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "4b7cd4ad4d6a",
+      "roles": [
+       "assertional",
+       "unresolved"
+      ],
+      "telemetry": "MOVE_HELD",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "4b7cd4ad4d6a",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "5a202a15c4bc",
+      "roles": [
+       "assertional",
+       "obligation"
+      ],
+      "telemetry": "MOVE_ELIGIBLE",
+      "moves": [
+       {
+        "move_id": "26f8a1a8f54b",
+        "kind": "WATCH",
+        "reason": "MONITOR",
+        "matter_id": "5a202a15c4bc",
+        "source_refs": [
+         "s1_e03",
+         "s1_e04"
+        ],
+        "support_strength": 0.9,
+        "salience": 0.5,
+        "eligibility": "eligible",
+        "validity_window": "2026-09-28T10:14:00+01:00",
+        "lifecycle": "eligible",
+        "owner": "sophie",
+        "user_facing": false
+       }
+      ],
+      "resolution_attempts": [
+       {
+        "matter_id": "5a202a15c4bc",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": "third-party watch (no self debt)"
+     },
+     {
+      "matter_id": "726ddfbbcbd2",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "MOVE_HELD",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "726ddfbbcbd2",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "2 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "81fa0e3a0825",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "81fa0e3a0825",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "2 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "a159eeac905c",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "a159eeac905c",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "a3f16484c8c7",
+      "roles": [
+       "assertional",
+       "unresolved"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "a3f16484c8c7",
+        "strategy": "verify_feed",
+        "sources_checked": [
+         "bank_feed",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "feed reconciles part; remainder still outstanding"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "a9f59153b7bb",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "MOVE_HELD",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "a9f59153b7bb",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "b1975f192c36",
+      "roles": [
+       "assertional",
+       "obligation",
+       "unresolved",
+       "attentional"
+      ],
+      "telemetry": "MOVE_ELIGIBLE",
+      "moves": [
+       {
+        "move_id": "93682f8c5b40",
+        "kind": "REMIND",
+        "reason": "DUE",
+        "matter_id": "b1975f192c36",
+        "source_refs": [
+         "s1_e01",
+         "s1_e05",
+         "s1_e10",
+         "s1_e12"
+        ],
+        "support_strength": 0.7,
+        "salience": 0.9,
+        "eligibility": "eligible",
+        "validity_window": "2026-09-28T08:07:00+01:00",
+        "lifecycle": "eligible",
+        "owner": "sophie",
+        "user_facing": true
+       }
+      ],
+      "resolution_attempts": [
+       {
+        "matter_id": "b1975f192c36",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "b522854b4516",
+      "roles": [
+       "assertional",
+       "attentional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "b522854b4516",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "bb5b78a89120",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "bb5b78a89120",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "be735ad28f18",
+      "roles": [
+       "assertional",
+       "unresolved"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "be735ad28f18",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "bf6deac9334b",
+      "roles": [
+       "assertional",
+       "predictive"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "bf6deac9334b",
+        "strategy": "verify_feed",
+        "sources_checked": [
+         "bank_feed",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "feed reconciles part; remainder still outstanding"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "cfe31a92a6c5",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "MOVE_HELD",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "cfe31a92a6c5",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "4 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "d017b320d7d5",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "d017b320d7d5",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "d2f6d89327f8",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "d2f6d89327f8",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "d39a518792b8",
+      "roles": [
+       "assertional",
+       "unresolved",
+       "attentional"
+      ],
+      "telemetry": "MOVE_ELIGIBLE",
+      "moves": [
+       {
+        "move_id": "37d756c2fa8a",
+        "kind": "FOLLOW_UP",
+        "reason": "CHECK_BACK",
+        "matter_id": "d39a518792b8",
+        "source_refs": [
+         "s1_e01"
+        ],
+        "support_strength": 0.6,
+        "salience": 0.6,
+        "eligibility": "eligible",
+        "validity_window": "2026-09-28T08:07:00+01:00",
+        "lifecycle": "eligible",
+        "owner": "sophie",
+        "user_facing": true
+       }
+      ],
+      "resolution_attempts": [
+       {
+        "matter_id": "d39a518792b8",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "dc53b6b7ff27",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "dc53b6b7ff27",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "dde8956e9199",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "dde8956e9199",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "bank_feed",
+         "email",
+         "calendar",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     }
+    ],
+    "expected_but_missing": [],
+    "unknowns": []
+   },
+   "diffs": [
+    {
+     "new_claims": [
+      "carlos sent Q1,500, rest after bank releases",
+      "carlos will send remainder after bank release",
+      "partial payment Q1,500 received from carlos"
+     ],
+     "new_relations": [
+      [
+       "depends_on",
+       [
+        "carlos will send remainder after bank release",
+        "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)"
+       ]
+      ],
+      [
+       "partially_fulfils",
+       [
+        "partial payment Q1,500 received from carlos",
+        "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)"
+       ]
+      ]
+     ],
+     "evidence_grown": [],
+     "role_changes": [],
+     "step": "t02->03",
+     "event": "s1_e03"
+    },
+    {
+     "new_claims": [],
+     "new_relations": [],
+     "evidence_grown": [
+      {
+       "relation": "partially_fulfils",
+       "added_evidence": [
+        "s1_e04"
+       ]
+      }
+     ],
+     "role_changes": [],
+     "step": "t03->04",
+     "event": "s1_e04"
+    },
+    {
+     "new_claims": [
+      "florist follow-up pending (colours not sent)",
+      "venue chairs confirmed: 120 chairs, done"
+     ],
+     "new_relations": [
+      [
+       "fulfils",
+       [
+        "venue chairs confirmed: 120 chairs, done",
+        "venue chairs confirmation"
+       ]
+      ]
+     ],
+     "evidence_grown": [],
+     "role_changes": [],
+     "step": "t04->05",
+     "event": "s1_e05"
+    },
+    {
+     "new_claims": [
+      "yoshi calendar slot thursday 16:30 (moved from wednesday)"
+     ],
+     "new_relations": [
+      [
+       "refines",
+       [
+        "yoshi calendar slot thursday 16:30 (moved from wednesday)",
+        "yoshi after-school activity (day uncertain, dance maybe)"
+       ]
+      ]
+     ],
+     "evidence_grown": [],
+     "role_changes": [
+      {
+       "claim": "yoshi after-school activity (day uncertain, dance maybe)",
+       "before": [
+        "assertional",
+        "unresolved"
+       ],
+       "after": [
+        "assertional"
+       ]
+      }
+     ],
+     "step": "t05->06",
+     "event": "s1_e06"
+    },
+    {
+     "new_claims": [
+      "carlos still has not paid the rest",
+      "chase carlos if unpaid by tomorrow",
+      "user re-asks whether chairs were sorted"
+     ],
+     "new_relations": [
+      [
+       "refines",
+       [
+        "carlos still has not paid the rest",
+        "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)"
+       ]
+      ],
+      [
+       "reopens",
+       [
+        "user re-asks whether chairs were sorted",
+        "venue chairs confirmation"
+       ]
+      ]
+     ],
+     "evidence_grown": [
+      {
+       "relation": "fulfils",
+       "added_evidence": [
+        "s1_e07"
+       ]
+      }
+     ],
+     "role_changes": [
+      {
+       "claim": "amount owed by carlos (3,000 vs 3,600 incl delivery uncertai",
+       "before": [
+        "assertional",
+        "obligation",
+        "unresolved"
+       ],
+       "after": [
+        "assertional"
+       ]
+      }
+     ],
+     "step": "t06->07",
+     "event": "s1_e07"
+    },
+    {
+     "new_claims": [
+      "carlos remainder updated to 2,100 (consistent with 3,600-1,500)",
+      "chase paused tonight (user tired)",
+      "florist colours decided and sent (cream/yellow)",
+      "matias school sports thursday + clash with yoshi",
+      "yoshi thursday dance confirmed (same after-school activity)"
+     ],
+     "new_relations": [
+      [
+       "refines",
+       [
+        "carlos remainder updated to 2,100 (consistent with 3,600-1,500)",
+        "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)"
+       ]
+      ],
+      [
+       "refines",
+       [
+        "matias school sports thursday + clash with yoshi",
+        "matias school sports item (friday?, day uncertain)"
+       ]
+      ],
+      [
+       "refines",
+       [
+        "yoshi thursday dance confirmed (same after-school activity)",
+        "yoshi after-school activity (day uncertain, dance maybe)"
+       ]
+      ],
+      [
+       "resolves",
+       [
+        "florist colours decided and sent (cream/yellow)",
+        "florist follow-up pending (colours not sent)"
+       ]
+      ],
+      [
+       "same_as",
+       [
+        "matias school sports thursday + clash with yoshi",
+        "matias school sports item (friday?, day uncertain)"
+       ]
+      ],
+      [
+       "same_as",
+       [
+        "yoshi after-school activity (day uncertain, dance maybe)",
+        "yoshi thursday dance confirmed (same after-school activity)"
+       ]
+      ]
+     ],
+     "evidence_grown": [
+      {
+       "relation": "depends_on",
+       "added_evidence": [
+        "s1_e09"
+       ]
+      },
+      {
+       "relation": "partially_fulfils",
+       "added_evidence": [
+        "s1_e09"
+       ]
+      },
+      {
+       "relation": "refines",
+       "added_evidence": [
+        "s1_e09"
+       ]
+      }
+     ],
+     "role_changes": [
+      {
+       "claim": "matias school sports item (friday?, day uncertain)",
+       "before": [
+        "assertional",
+        "unresolved"
+       ],
+       "after": [
+        "assertional"
+       ]
+      },
+      {
+       "claim": "florist follow-up pending (colours not sent)",
+       "before": [
+        "assertional",
+        "unresolved",
+        "attentional"
+       ],
+       "after": [
+        "assertional",
+        "attentional"
+       ]
+      }
+     ],
+     "step": "t08->09",
+     "event": "s1_e09"
+    },
+    {
+     "new_claims": [
+      "carlos cites bank issue for delay",
+      "no chase: bank issue, wait until tomorrow"
+     ],
+     "new_relations": [
+      [
+       "conditioned_on",
+       [
+        "chase carlos if unpaid by tomorrow",
+        "carlos cites bank issue for delay"
+       ]
+      ],
+      [
+       "conditioned_on",
+       [
+        "chase carlos if unpaid by tomorrow",
+        "no chase: bank issue, wait until tomorrow"
+       ]
+      ]
+     ],
+     "evidence_grown": [],
+     "role_changes": [],
+     "step": "t10->11",
+     "event": "s1_e11"
+    },
+    {
+     "new_claims": [
+      "school trip money needed (amount/child uncertain)"
+     ],
+     "new_relations": [],
+     "evidence_grown": [
+      {
+       "relation": "refines",
+       "added_evidence": [
+        "s1_e12"
+       ]
+      },
+      {
+       "relation": "refines",
+       "added_evidence": [
+        "s1_e12"
+       ]
+      },
+      {
+       "relation": "refines",
+       "added_evidence": [
+        "s1_e12"
+       ]
+      },
+      {
+       "relation": "same_as",
+       "added_evidence": [
+        "s1_e12"
+       ]
+      },
+      {
+       "relation": "same_as",
+       "added_evidence": [
+        "s1_e12"
+       ]
+      }
+     ],
+     "role_changes": [],
+     "step": "t11->12",
+     "event": "s1_e12"
+    },
+    {
+     "new_claims": [
+      "school trip 18 paid to School Trips Ltd"
+     ],
+     "new_relations": [
+      [
+       "fulfils",
+       [
+        "school trip 18 paid to School Trips Ltd",
+        "school trip money needed (amount/child uncertain)"
+       ]
+      ]
+     ],
+     "evidence_grown": [],
+     "role_changes": [
+      {
+       "claim": "school trip money needed (amount/child uncertain)",
+       "before": [
+        "assertional",
+        "unresolved"
+       ],
+       "after": [
+        "assertional"
+       ]
+      }
+     ],
+     "step": "t12->13",
+     "event": "s1_e13"
+    },
+    {
+     "new_claims": [],
+     "new_relations": [],
+     "evidence_grown": [
+      {
+       "relation": "resolves",
+       "added_evidence": [
+        "s1_e14"
+       ]
+      },
+      {
+       "relation": "refines",
+       "added_evidence": [
+        "s1_e14"
+       ]
+      }
+     ],
+     "role_changes": [],
+     "step": "t13->14",
+     "event": "s1_e14"
+    }
+   ]
+  },
+  {
+   "case": "a5_s4_full",
+   "title": "A.5 full Scenario 4 replay (15 events, sequential)",
+   "n_events": 15,
+   "final_table": {
+    "claims": 10,
+    "relations": 3,
+    "moves": 2,
+    "user_facing": 1,
+    "telemetry": {
+     "MOVE_ELIGIBLE": 2,
+     "NO_MOVE_WARRANTED": 8
+    }
+   },
+   "final": {
+    "case_id": "a5_s4_full@t15",
+    "claims": [
+     {
+      "claim_id": "1e87e05e094f",
+      "content": "user asks to be reminded / kept straight",
+      "subjects": [
+       "user"
+      ],
+      "evidence_refs": [
+       "s4_e05"
+      ],
+      "modality": "intended",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T12:30:00+01:00",
+      "discovered_at": "2026-09-29T12:30:00+01:00"
+     },
+     {
+      "claim_id": "338a22655e49",
+      "content": "user says somatic issue is over / not a thing",
+      "subjects": [
+       "user"
+      ],
+      "evidence_refs": [
+       "s4_e10"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.85,
+      "effective_at": "2026-10-01T08:44:00+01:00",
+      "discovered_at": "2026-10-01T08:44:00+01:00"
+     },
+     {
+      "claim_id": "583d8f0264e0",
+      "content": "somatic issue improving",
+      "subjects": [
+       "user"
+      ],
+      "evidence_refs": [
+       "s4_e07"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.75,
+      "effective_at": "2026-09-29T19:49:00+01:00",
+      "discovered_at": "2026-09-29T19:49:00+01:00"
+     },
+     {
+      "claim_id": "8987613564bb",
+      "content": "neck pain/soreness report",
+      "subjects": [
+       "user"
+      ],
+      "evidence_refs": [
+       "s4_e01",
+       "s4_e02",
+       "s4_e04",
+       "s4_e06",
+       "s4_e07",
+       "s4_e10",
+       "s4_e11"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-28T07:52:00+01:00",
+      "discovered_at": "2026-09-28T07:52:00+01:00"
+     },
+     {
+      "claim_id": "978d2cbaaef2",
+      "content": "sophie will come back to boredom topic later this week",
+      "subjects": [
+       "sophie",
+       "user"
+      ],
+      "evidence_refs": [
+       "s4_e03"
+      ],
+      "modality": "promised",
+      "condition": "later this week",
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-28T21:03:00+01:00",
+      "discovered_at": "2026-09-28T21:03:00+01:00"
+     },
+     {
+      "claim_id": "9eaa494201a5",
+      "content": "elif started new job; user wishes they had messaged",
+      "subjects": [
+       "elif",
+       "user"
+      ],
+      "evidence_refs": [
+       "s4_e04",
+       "s4_e10",
+       "s4_e11"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.75,
+      "effective_at": "2026-09-29T08:15:00+01:00",
+      "discovered_at": "2026-09-29T08:15:00+01:00"
+     },
+     {
+      "claim_id": "bd322b716e4c",
+      "content": "relief expressed",
+      "subjects": [
+       "user"
+      ],
+      "evidence_refs": [
+       "s4_e09"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-30T17:30:00+01:00",
+      "discovered_at": "2026-09-30T17:30:00+01:00"
+     },
+     {
+      "claim_id": "c07798378f1c",
+      "content": "user finally messaged elif; she loves the new job",
+      "subjects": [
+       "user",
+       "elif"
+      ],
+      "evidence_refs": [
+       "s4_e10"
+      ],
+      "modality": "stated",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.9,
+      "effective_at": "2026-10-01T08:44:00+01:00",
+      "discovered_at": "2026-10-01T08:44:00+01:00"
+     },
+     {
+      "claim_id": "eee3e2e12078",
+      "content": "family surgery context",
+      "subjects": [
+       "family",
+       "user"
+      ],
+      "evidence_refs": [
+       "s4_e09"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.8,
+      "effective_at": "2026-09-30T17:30:00+01:00",
+      "discovered_at": "2026-09-30T17:30:00+01:00"
+     },
+     {
+      "claim_id": "fbb1ac22dea6",
+      "content": "matt health/surgery context",
+      "subjects": [
+       "matt",
+       "user"
+      ],
+      "evidence_refs": [
+       "s4_e01",
+       "s4_e06",
+       "s4_e07",
+       "s4_e09",
+       "s4_e11"
+      ],
+      "modality": "reported",
+      "condition": null,
+      "formation": "explicit",
+      "confidence": 0.75,
+      "effective_at": "2026-09-28T07:52:00+01:00",
+      "discovered_at": "2026-09-28T07:52:00+01:00"
+     }
+    ],
+    "relations": [
+     {
+      "relation_id": "0ff99f31db43",
+      "rel_type": "refines",
+      "from_id": "583d8f0264e0",
+      "to_id": "8987613564bb",
+      "evidence_refs": [
+       "s4_e01",
+       "s4_e02",
+       "s4_e04",
+       "s4_e06",
+       "s4_e07",
+       "s4_e10",
+       "s4_e11"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-09-29T19:49:00+01:00",
+      "discovered_at": "2026-09-29T19:49:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "4baaf6074f5c",
+      "rel_type": "resolves",
+      "from_id": "c07798378f1c",
+      "to_id": "9eaa494201a5",
+      "evidence_refs": [
+       "s4_e04",
+       "s4_e10",
+       "s4_e11"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-10-01T08:44:00+01:00",
+      "discovered_at": "2026-10-01T08:44:00+01:00",
+      "status": "active"
+     },
+     {
+      "relation_id": "54ebeb8a3074",
+      "rel_type": "resolves",
+      "from_id": "338a22655e49",
+      "to_id": "8987613564bb",
+      "evidence_refs": [
+       "s4_e01",
+       "s4_e02",
+       "s4_e04",
+       "s4_e06",
+       "s4_e07",
+       "s4_e10",
+       "s4_e11"
+      ],
+      "formation": "inferred",
+      "confidence": 0.7,
+      "effective_at": "2026-10-01T08:44:00+01:00",
+      "discovered_at": "2026-10-01T08:44:00+01:00",
+      "status": "active"
+     }
+    ],
+    "roles": {
+     "1e87e05e094f": [
+      "assertional",
+      "obligation",
+      "unresolved",
+      "attentional"
+     ],
+     "338a22655e49": [
+      "assertional"
+     ],
+     "583d8f0264e0": [
+      "assertional"
+     ],
+     "8987613564bb": [
+      "assertional",
+      "attentional"
+     ],
+     "978d2cbaaef2": [
+      "assertional",
+      "obligation"
+     ],
+     "9eaa494201a5": [
+      "assertional"
+     ],
+     "bd322b716e4c": [
+      "assertional",
+      "attentional"
+     ],
+     "c07798378f1c": [
+      "assertional"
+     ],
+     "eee3e2e12078": [
+      "assertional",
+      "predictive"
+     ],
+     "fbb1ac22dea6": [
+      "assertional",
+      "predictive"
+     ]
+    },
+    "obligations": [
+     {
+      "frame_id": "e675e232c759",
+      "claim_id": "1e87e05e094f",
+      "obligor": "user",
+      "beneficiary": "user",
+      "action": "user asks to be reminded / kept straight",
+      "condition": null,
+      "due": "2026-09-29T12:30:00+01:00",
+      "authority": "reported_statement",
+      "strength": "normal",
+      "modality": "intended"
+     },
+     {
+      "frame_id": "e79464a1cb00",
+      "claim_id": "978d2cbaaef2",
+      "obligor": "sophie",
+      "beneficiary": "user",
+      "action": "sophie will come back to boredom topic later this week",
+      "condition": "later this week",
+      "due": "2026-09-28T21:03:00+01:00",
+      "authority": "reported_statement",
+      "strength": "normal",
+      "modality": "promised"
+     }
+    ],
+    "t2": {
+     "means": [
+      "shadow reading: high_load, health_watch_present, family_health_context, relief_trajectory over 15 evidence items"
+     ],
+     "unresolved": [
+      "user asks to be reminded / kept straight"
+     ],
+     "trajectory": "easing",
+     "easing": [
+      "user says somatic issue is over / not a thing"
+     ],
+     "tensions": [],
+     "context_labels": [
+      "high_load",
+      "health_watch_present",
+      "family_health_context",
+      "relief_trajectory"
+     ],
+     "context_weight": 0.8,
+     "evidence_refs": [
+      "s4_e01",
+      "s4_e02",
+      "s4_e03",
+      "s4_e04",
+      "s4_e05",
+      "s4_e06"
+     ]
+    },
+    "views": {
+     "todo": [
+      "elif started new job; user wishes they had messaged",
+      "family surgery context",
+      "matt health/surgery context",
+      "relief expressed",
+      "somatic issue improving",
+      "sophie will come back to boredom topic later this week",
+      "user asks to be reminded / kept straight",
+      "user finally messaged elif; she loves the new job",
+      "user says somatic issue is over / not a thing"
+     ],
+     "reminder": [
+      "user asks to be reminded / kept straight"
+     ],
+     "open_matter": [
+      "user asks to be reminded / kept straight"
+     ],
+     "worry": [
+      "elif started new job; user wishes they had messaged",
+      "family surgery context",
+      "matt health/surgery context",
+      "neck pain/soreness report",
+      "user finally messaged elif; she loves the new job"
+     ],
+     "follow_up": [
+      "user asks to be reminded / kept straight"
+     ],
+     "companion_obligation": [
+      "sophie owes user: sophie will come back to boredom topic later this week",
+      "user owes user: user asks to be reminded / kept straight"
+     ]
+    },
+    "moves": [
+     {
+      "move_id": "41b54daca919",
+      "kind": "REMIND",
+      "reason": "DUE",
+      "matter_id": "1e87e05e094f",
+      "source_refs": [
+       "s4_e05"
+      ],
+      "support_strength": 0.7,
+      "salience": 0.6,
+      "eligibility": "eligible",
+      "validity_window": "2026-09-29T12:30:00+01:00",
+      "lifecycle": "eligible",
+      "owner": "sophie",
+      "user_facing": true
+     },
+     {
+      "move_id": "d0b8b5874e1e",
+      "kind": "ACT",
+      "reason": "FULFIL_OWN_PROMISE",
+      "matter_id": "978d2cbaaef2",
+      "source_refs": [
+       "s4_e03"
+      ],
+      "support_strength": 0.8,
+      "salience": 0.4,
+      "eligibility": "eligible",
+      "validity_window": "2026-09-28T21:03:00+01:00",
+      "lifecycle": "eligible",
+      "owner": "sophie",
+      "user_facing": false
+     }
+    ],
+    "assessments": [
+     {
+      "matter_id": "1e87e05e094f",
+      "roles": [
+       "assertional",
+       "obligation",
+       "unresolved",
+       "attentional"
+      ],
+      "telemetry": "MOVE_ELIGIBLE",
+      "moves": [
+       {
+        "move_id": "41b54daca919",
+        "kind": "REMIND",
+        "reason": "DUE",
+        "matter_id": "1e87e05e094f",
+        "source_refs": [
+         "s4_e05"
+        ],
+        "support_strength": 0.7,
+        "salience": 0.6,
+        "eligibility": "eligible",
+        "validity_window": "2026-09-29T12:30:00+01:00",
+        "lifecycle": "eligible",
+        "owner": "sophie",
+        "user_facing": true
+       }
+      ],
+      "resolution_attempts": [
+       {
+        "matter_id": "1e87e05e094f",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "338a22655e49",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "338a22655e49",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "conversation",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "583d8f0264e0",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "583d8f0264e0",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "conversation",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "8987613564bb",
+      "roles": [
+       "assertional",
+       "attentional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "8987613564bb",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "conversation",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "2 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "978d2cbaaef2",
+      "roles": [
+       "assertional",
+       "obligation"
+      ],
+      "telemetry": "MOVE_ELIGIBLE",
+      "moves": [
+       {
+        "move_id": "d0b8b5874e1e",
+        "kind": "ACT",
+        "reason": "FULFIL_OWN_PROMISE",
+        "matter_id": "978d2cbaaef2",
+        "source_refs": [
+         "s4_e03"
+        ],
+        "support_strength": 0.8,
+        "salience": 0.4,
+        "eligibility": "eligible",
+        "validity_window": "2026-09-28T21:03:00+01:00",
+        "lifecycle": "eligible",
+        "owner": "sophie",
+        "user_facing": false
+       }
+      ],
+      "resolution_attempts": [
+       {
+        "matter_id": "978d2cbaaef2",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "9eaa494201a5",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "9eaa494201a5",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "conversation",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "bd322b716e4c",
+      "roles": [
+       "assertional",
+       "attentional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "bd322b716e4c",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "c07798378f1c",
+      "roles": [
+       "assertional"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "c07798378f1c",
+        "strategy": "reconcile_sources",
+        "sources_checked": [
+         "conversation",
+         "shadow_claims"
+        ],
+        "outcome": "partial",
+        "detail": "1 lifecycle relation(s) already explain part of the matter"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "eee3e2e12078",
+      "roles": [
+       "assertional",
+       "predictive"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "eee3e2e12078",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     },
+     {
+      "matter_id": "fbb1ac22dea6",
+      "roles": [
+       "assertional",
+       "predictive"
+      ],
+      "telemetry": "NO_MOVE_WARRANTED",
+      "moves": [],
+      "resolution_attempts": [
+       {
+        "matter_id": "fbb1ac22dea6",
+        "strategy": "search_state",
+        "sources_checked": [
+         "shadow_claims"
+        ],
+        "outcome": "unresolved",
+        "detail": "no internal source finishes the job"
+       }
+      ],
+      "note": ""
+     }
+    ],
+    "expected_but_missing": [],
+    "unknowns": []
+   },
+   "diffs": [
+    {
+     "new_claims": [
+      "sophie will come back to boredom topic later this week"
+     ],
+     "new_relations": [],
+     "evidence_grown": [],
+     "role_changes": [],
+     "step": "t02->03",
+     "event": "s4_e03"
+    },
+    {
+     "new_claims": [
+      "elif started new job; user wishes they had messaged"
+     ],
+     "new_relations": [],
+     "evidence_grown": [],
+     "role_changes": [],
+     "step": "t03->04",
+     "event": "s4_e04"
+    },
+    {
+     "new_claims": [
+      "user asks to be reminded / kept straight"
+     ],
+     "new_relations": [],
+     "evidence_grown": [],
+     "role_changes": [],
+     "step": "t04->05",
+     "event": "s4_e05"
+    },
+    {
+     "new_claims": [
+      "somatic issue improving"
+     ],
+     "new_relations": [
+      [
+       "refines",
+       [
+        "somatic issue improving",
+        "neck pain/soreness report"
+       ]
+      ]
+     ],
+     "evidence_grown": [],
+     "role_changes": [],
+     "step": "t06->07",
+     "event": "s4_e07"
+    },
+    {
+     "new_claims": [
+      "family surgery context",
+      "relief expressed"
+     ],
+     "new_relations": [],
+     "evidence_grown": [],
+     "role_changes": [],
+     "step": "t08->09",
+     "event": "s4_e09"
+    },
+    {
+     "new_claims": [
+      "user finally messaged elif; she loves the new job",
+      "user says somatic issue is over / not a thing"
+     ],
+     "new_relations": [
+      [
+       "resolves",
+       [
+        "user finally messaged elif; she loves the new job",
+        "elif started new job; user wishes they had messaged"
+       ]
+      ],
+      [
+       "resolves",
+       [
+        "user says somatic issue is over / not a thing",
+        "neck pain/soreness report"
+       ]
+      ]
+     ],
+     "evidence_grown": [
+      {
+       "relation": "refines",
+       "added_evidence": [
+        "s4_e10"
+       ]
+      }
+     ],
+     "role_changes": [],
+     "step": "t09->10",
+     "event": "s4_e10"
+    },
+    {
+     "new_claims": [],
+     "new_relations": [],
+     "evidence_grown": [
+      {
+       "relation": "refines",
+       "added_evidence": [
+        "s4_e11"
+       ]
+      },
+      {
+       "relation": "resolves",
+       "added_evidence": [
+        "s4_e11"
+       ]
+      },
+      {
+       "relation": "resolves",
+       "added_evidence": [
+        "s4_e11"
+       ]
+      }
+     ],
+     "role_changes": [],
+     "step": "t10->11",
+     "event": "s4_e11"
+    }
+   ]
+  }
+ ]
+}

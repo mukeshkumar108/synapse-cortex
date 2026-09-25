@@ -47,7 +47,7 @@ def main() -> int:
         if spec.get("extra_claims"):
             from shadow_a.pipeline import (assign_roles, build_obligations, build_views, derive_moves,
                                            propose_relations, propose_t2)
-            res.relations = propose_relations(res.case_id, res.claims)
+            res.relations = propose_relations(res.case_id, res.claims, spec["events"])
             res.roles = assign_roles(res.claims, res.relations)
             res.obligations = build_obligations(res.case_id, res.claims, res.roles)
             res.t2 = propose_t2(res.case_id, spec["events"], res.claims, res.roles)
@@ -80,7 +80,50 @@ def main() -> int:
         print(f"{row['case']:20s} claims={row['claims']:2d} rels={row['relations']} "
               f"moves={row['moves']} user_facing={row['user_facing']} tel={row['telemetry']} "
               f"ebm={row['expected_but_missing']} unk={row['unknowns']}")
+
+    # A.5 sequential replays + revision diffs (shadow only, disposable).
+    from shadow_a.pipeline import diff_snapshots, replay_sequential  # noqa: E402
+    seq_out: dict = {"replays": []}
+    for spec in build_cases():
+        if not spec.get("sequential"):
+            continue
+        snaps = replay_sequential(spec["case_id"], spec["events"],
+                                  spec.get("observed_sources", []),
+                                  spec.get("user_tracking_ok", True))
+        diffs = []
+        for i in range(1, len(snaps)):
+            d = diff_snapshots(snaps[i - 1], snaps[i])
+            d["step"] = f"t{i:02d}->{i + 1:02d}"
+            d["event"] = spec["events"][i]["id"]
+            # keep diffs readable: only steps that changed something
+            if d["new_claims"] or d["new_relations"] or d["evidence_grown"] or d["role_changes"]:
+                diffs.append(d)
+        final = snaps[-1].to_dict()
+        seq_out["replays"].append({
+            "case": spec["case_id"], "title": spec["title"],
+            "n_events": len(spec["events"]),
+            "final_table": {
+                "claims": len(snaps[-1].claims), "relations": len(snaps[-1].relations),
+                "moves": len(snaps[-1].moves),
+                "user_facing": sum(1 for m in snaps[-1].moves if m.user_facing),
+                "telemetry": _tel(snaps[-1]),
+            },
+            "final": final,
+            "diffs": diffs,
+        })
+        print(f"sequential {spec['case_id']}: {len(snaps)} snapshots, "
+              f"{len(diffs)} changing steps")
+    seq_dest = dest.parent / "shadow_phase_a5_sequential.json"
+    seq_dest.write_text(json.dumps(seq_out, indent=1))
+    print(f"wrote {seq_dest}")
     return 0
+
+
+def _tel(res) -> dict:
+    tel: dict = {}
+    for a in res.assessments:
+        tel[a.telemetry] = tel.get(a.telemetry, 0) + 1
+    return tel
 
 
 if __name__ == "__main__":

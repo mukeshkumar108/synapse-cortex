@@ -111,5 +111,26 @@ def build_cases() -> List[Dict]:
                   "observability": {"source": "inbox", "window": "friday 00:00-23:59",
                                     "observed": False, "last_observed_at": None}},
              ]),
+        # --- A.5: full messy replays (all fixture events, in order) + RPD2 fragment
+        dict(case_id="a5_s1_full",
+             title="A.5 full Scenario 1 replay (14 events, sequential)",
+             events=list(s1),
+             observed_sources=["bank_feed", "email", "calendar"],
+             user_tracking_ok=True,
+             sequential=True),
+        dict(case_id="a5_s4_full",
+             title="A.5 full Scenario 4 replay (15 events, sequential)",
+             events=list(s4),
+             observed_sources=["conversation"],
+             user_tracking_ok=False,
+             sequential=True),
+        dict(case_id="a5_elena_fragment",
+             title="A.5 Elena msg-17 fragment (real RPD2 verbatim from tests/test_bilateral_state.py)",
+             events=[
+                 _ev("elena_m17", "I'll give you space. I'll be here.", role="assistant",
+                     sender="elena", ts="2026-09-22T02:21:19+01:00"),
+             ],
+             observed_sources=["conversation"],
+             user_tracking_ok=True),
     ]
     return cases
