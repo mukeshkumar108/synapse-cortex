@@ -132,3 +132,36 @@ Consumers (none re-decide; all apply budgets/policy around flags):
 3. test-starter posture vocabulary (7 postures) vs shared 4 vs runtime gears:
    mapping table needed before any consumer migration, or migrate
    mechanics first and map later?
+
+## 8. Destination correction (post-review, same day)
+
+The wording "RPD2 `jev.ts` stays the RPD2-domain instance" above describes
+current placement only and is WRONG as a destination. Corrected target:
+
+```text
+PRODUCT PROFILE (RPD2/Sophie/Bluum/healthcare)
+= voice/persona + policy + domain/question-pack config
+        ↓
+COMPANION RUNTIME
+= Jev/System-1 + modular compiler + attention/surfacing + bursting
++ routing + local session state + shared control mechanics
+        ↓
+CORTEX / shared state substrate
+        ↓
+ACTOR / foreground model
+```
+
+RPD2 is not a peer runtime. Its `jev.ts` is mined for the shared dispatcher
+plus the rpd2 question pack, then retired — never run alongside a second
+Jev. Same fate for its compiler, Control, Director, watchers, and initiative
+machinery: each is a source of reusable behaviour to absorb (mechanics) or
+preserve as profile content (persona, domains, ceilings, canon policy), never
+a permanent peer service. One Jev path: base questions + active product
+profile questions + state-dependent questions. No double routing.
+
+Consequences for the Cortex side built so far: `PRESSURE_POLICIES` in
+`session_workingset.py` and `product_profile.kind_priority` are two embryonic
+halves of the product-profile concept and must unify into one config (not a
+third copy); the proposed `jev_dispatcher.py` question packs ARE the profile
+mechanism; story/canon FACTS remain substrate state, never profile content —
+profile carries config, content, and policy, not truth.
