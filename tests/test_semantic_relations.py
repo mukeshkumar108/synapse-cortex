@@ -36,6 +36,7 @@ async def test_promote_fulfils_creates_claims_and_relation():
             db, workspace_id="ws-sem", rel_type="fulfils",
             from_text="User cancelled Freepik after approval",
             to_text="Cancel Freepik Friday",
+            source_key="honcho_message:m10#candidate:c1",
             evidence_refs=["honcho_message:m10#candidate:c1"],
             formation="inferred", confidence=0.9)
         assert row is not None
@@ -50,21 +51,64 @@ async def test_promote_fulfils_creates_claims_and_relation():
 
 @pytest.mark.asyncio
 async def test_promote_is_idempotent_and_appends_evidence():
+    # Same transition replayed AND new corroborating evidence for the same
+    # logical edge: one relation row, evidence unioned, occurrence rows kept.
     async with async_session_maker() as db:
         first = await promote_transition(
             db, workspace_id="ws-idem", rel_type="resolves",
             from_text="Found it in the loft", to_text="Grandad letter",
+            source_key="honcho_message:m1#candidate:c1",
             evidence_refs=["honcho_message:m1#candidate:c1"])
+        replay = await promote_transition(
+            db, workspace_id="ws-idem", rel_type="resolves",
+            from_text="Found it in the loft", to_text="Grandad letter",
+            source_key="honcho_message:m1#candidate:c1",
+            evidence_refs=["honcho_message:m1#candidate:c1"])
+        assert replay.id == first.id
         second = await promote_transition(
             db, workspace_id="ws-idem", rel_type="resolves",
             from_text="Found it in the loft", to_text="Grandad letter",
+            source_key="honcho_message:m2#candidate:c2",
             evidence_refs=["honcho_message:m2#candidate:c2"])
-        assert first.id == second.id
-        _, rels = await _counts(db, "ws-idem")
+        assert second.id == first.id
+        claims, rels = await _counts(db, "ws-idem")
         assert len(rels) == 1
+        assert len(claims) == 4  # two occurrences x two endpoints, never merged
         assert sorted(json.loads(rels[0].evidence_refs_json)) == [
             "honcho_message:m1#candidate:c1", "honcho_message:m2#candidate:c2"]
         assert rels[0].last_corroborated_at is not None
+
+
+@pytest.mark.asyncio
+async def test_identical_wording_different_speakers_stays_separate():
+    # ChatGPT's case: "I'll call you tomorrow" from Ashley vs Sophie.
+    from src.services.semantic_promotion import ensure_claim
+    async with async_session_maker() as db:
+        a = await ensure_claim(
+            db, workspace_id="ws-occ", content="I'll call you tomorrow",
+            source_key="honcho_message:m_ashley#candidate:c1",
+            evidence_refs=["honcho_message:m_ashley#candidate:c1"],
+            subjects=["ashley"])
+        b = await ensure_claim(
+            db, workspace_id="ws-occ", content="I'll call you tomorrow",
+            source_key="honcho_message:m_sophie#candidate:c1",
+            evidence_refs=["honcho_message:m_sophie#candidate:c1"],
+            subjects=["sophie"])
+        assert a.id != b.id
+        # Same wording, disjoint subjects: promotions must not merge edges.
+        r1 = await promote_transition(
+            db, workspace_id="ws-occ", rel_type="fulfils",
+            from_text="Called you today", to_text="I'll call you tomorrow",
+            source_key="honcho_message:m_ashley#candidate:c2",
+            evidence_refs=["honcho_message:m_ashley#candidate:c2"],
+            subjects_from=["ashley"], subjects_to=["user"])
+        r2 = await promote_transition(
+            db, workspace_id="ws-occ", rel_type="fulfils",
+            from_text="Called you today", to_text="I'll call you tomorrow",
+            source_key="honcho_message:m_sophie#candidate:c2",
+            evidence_refs=["honcho_message:m_sophie#candidate:c2"],
+            subjects_from=["sophie"], subjects_to=["user"])
+        assert r1.id != r2.id
 
 
 @pytest.mark.asyncio
@@ -72,13 +116,16 @@ async def test_unknown_rel_type_and_empty_content_rejected():
     async with async_session_maker() as db:
         assert await promote_transition(
             db, workspace_id="ws-reject", rel_type="emotionally_should_revisit",
-            from_text="a", to_text="b", evidence_refs=["m1"]) is None
+            from_text="a", to_text="b", source_key="m1",
+            evidence_refs=["m1"]) is None
         assert await promote_transition(
             db, workspace_id="ws-reject", rel_type="fulfils",
-            from_text="   ", to_text="b", evidence_refs=["m1"]) is None
+            from_text="   ", to_text="b", source_key="m1",
+            evidence_refs=["m1"]) is None
         assert await promote_transition(
             db, workspace_id="ws-reject", rel_type="fulfils",
-            from_text="same", to_text="  SAME  ", evidence_refs=["m1"]) is None
+            from_text="same", to_text="  SAME  ", source_key="m1",
+            evidence_refs=["m1"]) is None
         claims, rels = await _counts(db, "ws-reject")
         assert claims == [] and rels == []
 
@@ -127,6 +174,7 @@ async def test_supersedes_with_distinct_content_promotes():
             db, workspace_id="ws-sup2", rel_type="supersedes",
             from_text="Cancel Freepik Saturday",
             to_text="Cancel Freepik Friday",
+            source_key="honcho_message:m9#candidate:c1",
             evidence_refs=["honcho_message:m9#candidate:c1"])
         assert row is not None and row.rel_type == "supersedes"
 

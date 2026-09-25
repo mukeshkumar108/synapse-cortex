@@ -217,7 +217,10 @@ class LifecycleService:
                     await promote_transition(
                         db, workspace_id=workspace_id, rel_type=rel_type,
                         from_text=from_text, to_text=to_text,
+                        source_key=evidence,
                         evidence_refs=[evidence],
+                        subjects_from=[owner_peer_id] if owner_peer_id else [],
+                        subjects_to=[exp.subject_peer_id] if exp.subject_peer_id else [],
                         formation="inferred", confidence=0.9)
                 except Exception:
                     logger.exception(
@@ -628,7 +631,9 @@ class LifecycleService:
                 db, workspace_id=workspace_id, rel_type="resolves",
                 from_text=text,
                 to_text=f"{loop.title or ''} {loop.summary or ''}".strip() or "open loop",
+                source_key=f"answered_in_turn:{message_id}",
                 evidence_refs=[f"answered_in_turn:{message_id}"],
+                subjects_to=[loop.owner_peer_id] if loop.owner_peer_id else [],
                 formation="inferred", confidence=0.7)
         except Exception:
             logger.exception("semantic promotion failed for loop resolution")
@@ -682,7 +687,11 @@ class LifecycleService:
                 await promote_transition(
                     db, workspace_id=workspace_id, rel_type="fulfils",
                     from_text=candidate.observation or candidate.canonical_title or "",
-                    to_text=exp.title, evidence_refs=[evidence],
+                    to_text=exp.title, source_key=evidence,
+                    evidence_refs=[evidence],
+                    subjects_from=[candidate.actor_peer_id] if getattr(
+                        candidate, "actor_peer_id", None) else [],
+                    subjects_to=[exp.subject_peer_id] if exp.subject_peer_id else [],
                     formation="inferred", confidence=0.9)
             except Exception:
                 logger.exception("semantic promotion failed for entity-resolved fulfill")

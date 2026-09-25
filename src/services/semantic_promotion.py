@@ -7,13 +7,16 @@ Tiny by design:
   path; shadow telemetry flags the schema gap). DB errors propagate loudly in
   tests; call sites treat promotion as advisory (fail-open write) so turns
   never break because of it.
-- Idempotent: same (workspace, from, to, type) triple with status=active is
-  one row; re-promotion unions evidence refs and stamps last_corroborated_at.
-  Claims are (workspace, content_hash) idempotent with append-only evidence.
+- Idempotent per occurrence: same (workspace, content, source_key) is one
+  claim row; same active logical edge (workspace, content hashes, type,
+  subject keys) is one relation row. Re-promotion unions evidence refs and
+  stamps last_corroborated_at. Identical wording from different evidence
+  stays separate rows.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -63,20 +66,23 @@ async def ensure_claim(
     *,
     workspace_id: str,
     content: str,
+    source_key: str,
     evidence_refs: List[str],
+    subjects: Optional[List[str]] = None,
     formation: str = "inferred",
     confidence: float = 0.7,
     effective_at: Optional[datetime] = None,
     discovered_at: Optional[datetime] = None,
 ) -> Optional[SemanticClaim]:
-    """Get-or-create a claim row. Empty content returns None (never a row)."""
+    """Get-or-create an occurrence claim row. Empty content returns None."""
     clipped = _clip(content)
-    if not clipped:
+    if not clipped or not (source_key or "").strip():
         return None
     digest = content_hash_for(clipped)
     row = (await db.execute(select(SemanticClaim).where(
         SemanticClaim.honcho_workspace_id == workspace_id,
         SemanticClaim.content_hash == digest,
+        SemanticClaim.source_key == source_key,
     ))).scalar_one_or_none()
     if row is not None:
         merged = _union(row.evidence_refs_json, evidence_refs)
@@ -89,7 +95,9 @@ async def ensure_claim(
     row = SemanticClaim(
         honcho_workspace_id=workspace_id,
         content_hash=digest,
+        source_key=source_key,
         content=clipped,
+        subjects_json=json.dumps(list(dict.fromkeys(subjects or []))),
         evidence_refs_json=json.dumps(list(dict.fromkeys(evidence_refs))),
         formation=RelationFormation(formation) if formation in ("explicit", "inferred") else RelationFormation.INFERRED,
         confidence=confidence,
@@ -104,6 +112,7 @@ async def ensure_claim(
         row = (await db.execute(select(SemanticClaim).where(
             SemanticClaim.honcho_workspace_id == workspace_id,
             SemanticClaim.content_hash == digest,
+            SemanticClaim.source_key == source_key,
         ))).scalar_one()
         merged = _union(row.evidence_refs_json, evidence_refs)
         if merged != row.evidence_refs_json:
@@ -120,13 +129,18 @@ async def promote_transition(
     rel_type: str,
     from_text: str,
     to_text: str,
+    source_key: str,
     evidence_refs: List[str],
+    subjects_from: Optional[List[str]] = None,
+    subjects_to: Optional[List[str]] = None,
     formation: str = "inferred",
     confidence: float = 0.9,
     effective_at: Optional[datetime] = None,
 ) -> Optional[SemanticRelation]:
     """Persist one deterministic lifecycle edge. Returns the row, or None when
-    the input is outside the bounded vocabulary / empty (quarantine path)."""
+    the input is outside the bounded vocabulary / empty / self-edge
+    (quarantine path). source_key is the birth occurrence of this promotion
+    (usually the transition's own evidence ref)."""
     if rel_type not in RELATION_VOCAB:
         logger.warning("semantic promotion refused unknown rel_type=%r", rel_type)
         return None
@@ -139,19 +153,32 @@ async def promote_transition(
         return None
     from_claim = await ensure_claim(
         db, workspace_id=workspace_id, content=from_text,
-        evidence_refs=evidence_refs, formation=formation, confidence=confidence,
+        source_key=source_key,
+        evidence_refs=evidence_refs, subjects=subjects_from,
+        formation=formation, confidence=confidence,
         effective_at=effective_at)
     to_claim = await ensure_claim(
         db, workspace_id=workspace_id, content=to_text,
-        evidence_refs=evidence_refs, formation=formation, confidence=confidence,
+        source_key=source_key,
+        evidence_refs=evidence_refs, subjects=subjects_to,
+        formation=formation, confidence=confidence,
         effective_at=effective_at)
     if from_claim is None or to_claim is None:
         return None
+    from_hash = content_hash_for(from_text)
+    to_hash = content_hash_for(to_text)
+    if from_hash == to_hash:
+        logger.warning("semantic promotion refused self-edge")
+        return None
+    from_key = _subj_key(subjects_from)
+    to_key = _subj_key(subjects_to)
     existing = (await db.execute(select(SemanticRelation).where(
         SemanticRelation.honcho_workspace_id == workspace_id,
         SemanticRelation.rel_type == RelationType(rel_type),
-        SemanticRelation.from_claim_id == from_claim.id,
-        SemanticRelation.to_claim_id == to_claim.id,
+        SemanticRelation.from_content_hash == from_hash,
+        SemanticRelation.to_content_hash == to_hash,
+        SemanticRelation.from_subj_key == from_key,
+        SemanticRelation.to_subj_key == to_key,
         SemanticRelation.status == RelationStatus.ACTIVE,
     ))).scalar_one_or_none()
     now = _now_naive()
@@ -170,6 +197,10 @@ async def promote_transition(
         rel_type=RelationType(rel_type),
         from_claim_id=from_claim.id,
         to_claim_id=to_claim.id,
+        from_content_hash=from_hash,
+        to_content_hash=to_hash,
+        from_subj_key=from_key,
+        to_subj_key=to_key,
         evidence_refs_json=json.dumps(list(dict.fromkeys(evidence_refs))),
         formation=RelationFormation(formation) if formation in ("explicit", "inferred") else RelationFormation.INFERRED,
         confidence=confidence,
@@ -178,5 +209,33 @@ async def promote_transition(
         status=RelationStatus.ACTIVE,
     )
     db.add(row)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Lost a race on the logical edge: re-read the winner and merge.
+        await db.rollback()
+        winner = (await db.execute(select(SemanticRelation).where(
+            SemanticRelation.honcho_workspace_id == workspace_id,
+            SemanticRelation.rel_type == RelationType(rel_type),
+            SemanticRelation.from_content_hash == from_hash,
+            SemanticRelation.to_content_hash == to_hash,
+            SemanticRelation.from_subj_key == from_key,
+            SemanticRelation.to_subj_key == to_key,
+            SemanticRelation.status == RelationStatus.ACTIVE,
+        ))).scalar_one_or_none()
+        if winner is None:
+            raise
+        merged = _union(winner.evidence_refs_json, evidence_refs)
+        if merged != winner.evidence_refs_json:
+            winner.evidence_refs_json = merged
+            winner.last_corroborated_at = _now_naive()
+            winner.updated_at = _now_naive()
+            db.add(winner)
+            await db.commit()
+        return winner
     return row
+
+
+def _subj_key(subjects: Optional[List[str]]) -> str:
+    cleaned = sorted({s.strip().lower() for s in (subjects or []) if (s or "").strip()})
+    return hashlib.sha1(":".join(cleaned).encode()).hexdigest() if cleaned else ""
