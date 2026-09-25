@@ -285,3 +285,52 @@ async def test_background_sweep_route(async_client):
         "now": datetime.now(timezone.utc).isoformat()})
     assert r.status_code == 200, r.text
     assert r.json()["new"] == []
+
+
+def test_jev_flags_default_posture_with_local_fallback():
+    from src.services.turn_selection import select_for_turn
+    ws = {"sections": {"todo": [
+        {"kind": "expectation", "id": "e1", "title": "plain matter",
+         "signals": {"protective": False, "urgent": False, "actionable": True}}]},
+        "budgets": {"max_foreground_items": 3, "proactive_remaining": 2},
+        "mandatory_kinds": []}
+    local = select_for_turn(ws, turn_text="", initiated_by="scheduler")
+    assert local["posture"] == "LEAD"
+    assert local["reasons"]["posture_source"] == "local_derivation"
+    assert local["compiler_flags"]["gear"] is None
+    empty = select_for_turn(
+        {"sections": {}, "budgets": {}, "mandatory_kinds": []},
+        turn_text="", initiated_by="scheduler")
+    assert empty["posture"] == "HOLD"
+    flagged = select_for_turn(
+        ws, turn_text="", initiated_by="scheduler",
+        jev_flags={"gear": "repair", "initiative": "none",
+                   "reasoning_need": "deep", "domains": ["repair_presence"]})
+    assert flagged["posture"] == "REPAIR"
+    assert flagged["reasons"]["posture_source"] == "jev_flags"
+    assert flagged["compiler_flags"]["reasoning_need"] == "deep"
+    # Unknown gear values never override: local derivation stands.
+    weird = select_for_turn(ws, turn_text="", initiated_by="scheduler",
+                            jev_flags={"gear": "turbo"})
+    assert weird["posture"] == "LEAD"
+    assert weird["reasons"]["posture_source"] == "local_derivation"
+
+
+def test_semantic_reactivation_reopens_suppressed():
+    from src.services.turn_selection import select_for_turn
+    item = {"kind": "expectation", "id": "e9", "title": "Carlos debt thread",
+            "signals": {"protective": False, "urgent": False, "actionable": True}}
+    supp = [{"target_id": "e9", "topic_or_entity": "Carlos debt",
+             "reopen_condition": "new payment evidence", "reactivated": False}]
+    ws = {"sections": {"todo": [item], "suppressions_deferrals": supp},
+          "budgets": {"max_foreground_items": 3, "proactive_remaining": 2},
+          "mandatory_kinds": []}
+    out = select_for_turn(ws, turn_text="something else entirely",
+                          initiated_by="scheduler")
+    assert out["include"] == []
+    assert out["suppressed"][0]["suppress_reason"] == "suppressed:target"
+    supp[0]["reactivated"] = True
+    out2 = select_for_turn(ws, turn_text="something else entirely",
+                           initiated_by="scheduler")
+    assert len(out2["include"]) == 1
+    assert out2["include"][0]["select_reason"] == "reactivated_by_new_evidence"

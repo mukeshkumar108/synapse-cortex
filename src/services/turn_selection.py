@@ -105,15 +105,30 @@ _PRESSURE_RANK = {"must_resolve": 4, "priority": 3, "active": 2,
 
 def _suppressed(item: Dict[str, Any],
                 suppressions: List[Dict[str, Any]]) -> Optional[str]:
+    """Topic/ID restraint check. Returns a suppress reason, 'reactivated' when
+    the only matching entries were semantically revived by newer evidence on
+    the matter itself, or None when nothing matches."""
     item_id = str(item.get("id") or "")
     text_tokens = _tokens(_item_text(item))
+    matched_reactivated = False
     for supp in suppressions or []:
+        hit = False
         if supp.get("target_id") and str(supp["target_id"]) == item_id:
-            return "suppressed:target"
-        topic = str(supp.get("topic_or_entity") or "")
-        topic_tokens = {t for t in _tokens(topic) if len(t) >= 4}
-        if topic_tokens and topic_tokens & text_tokens:
-            return "suppressed:topic"
+            hit = True
+        else:
+            topic = str(supp.get("topic_or_entity") or "")
+            topic_tokens = {t for t in _tokens(topic) if len(t) >= 4}
+            if topic_tokens and topic_tokens & text_tokens:
+                hit = True
+        if not hit:
+            continue
+        if supp.get("reactivated"):
+            matched_reactivated = True
+            continue
+        return "suppressed:target" if supp.get("target_id") and str(
+            supp["target_id"]) == item_id else "suppressed:topic"
+    if matched_reactivated:
+        return "reactivated"
     return None
 
 
@@ -126,8 +141,15 @@ def select_for_turn(
     local_state: Optional[Dict[str, Any]] = None,
     now: Optional[datetime] = None,
     scene_time: Optional[str] = None,
+    jev_flags: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Select the minimal foreground bundle. See module docstring."""
+    """Select the minimal foreground bundle. See module docstring.
+
+    jev_flags (optional, additive): shared-dispatcher output {gear,
+    initiative, memory_scope, domains, reasoning_need, ...}. When present,
+    posture defaults to the dispatcher gear and flags ride through as
+    compiler_flags for prompt assemblers. When absent, posture is derived
+    locally exactly as before (offline-safe fallback)."""
     local_state = local_state or {}
     clock = effective_clock(now, scene_time)
     sections = working_set.get("sections", {}) or {}
@@ -198,9 +220,15 @@ def select_for_turn(
         # Suppressions restrain companion initiative, never the user's own
         # inquiry: a directly overlapping user turn pierces topic suppression.
         reason = None if (user_turn and overlap) else _suppressed(item, suppressions)
-        if reason is not None:
+        if reason == "reactivated":
+            # Semantic reactivation: new evidence on the matter itself revived
+            # it. Eligible again (budget still applies below), marked as such.
+            reactivated_matter = True
+        elif reason is not None:
             suppressed.append({**item, "suppress_reason": reason})
             continue
+        else:
+            reactivated_matter = False
         topic = _item_text(item).lower().strip()
         if topic in recent_topics and pressure not in ("must_resolve", "priority"):
             held.append({**item, "hold_reason": "recently_surfaced"})
@@ -215,6 +243,8 @@ def select_for_turn(
         elif user_turn and signals.get("protective") and protective_used < 1:
             wants_foreground, why_select = True, "protective_override"
             protective_used += 1
+        elif reactivated_matter:
+            wants_foreground, why_select = True, "reactivated_by_new_evidence"
         elif not user_turn and pressure in ("must_resolve", "priority", "opportunistic"):
             wants_foreground, why_select = True, f"proactive:{pressure}"
         elif not user_turn and pressure == "active":
@@ -256,12 +286,27 @@ def select_for_turn(
     else:
         posture = "HOLD"
 
+    flags = dict(jev_flags or {})
+    if flags.get("gear") in ("hold", "follow", "lead", "repair"):
+        # Shared-dispatcher gear defaults posture; local derivation above is
+        # the offline fallback. Budgets/arbitration are unaffected.
+        posture = {"hold": "HOLD", "follow": "FOLLOW",
+                   "lead": "LEAD", "repair": "REPAIR"}[flags["gear"]]
+
     return {
         "posture": posture,
         "initiated_by": initiated_by,
         "channel": channel,
         "clock": clock.isoformat(),
         "scene_time": scene_time,
+        "compiler_flags": {
+            "gear": str(flags.get("gear") or "").lower() or None,
+            "initiative": str(flags.get("initiative") or "").lower() or None,
+            "memory_scope": str(flags.get("memory_scope") or "").lower() or None,
+            "domains": [str(d) for d in (flags.get("domains") or [])],
+            "reasoning_need": str(flags.get("reasoning_need") or "").lower() or None,
+            "posture": posture,
+        },
         "include": foreground,
         "held": held,
         "suppressed": suppressed,
@@ -269,5 +314,7 @@ def select_for_turn(
         "reasons": {
             "user_first": user_turn,
             "protective_override_used": bool(protective_used),
+            "posture_source": "jev_flags" if flags.get("gear") in (
+                "hold", "follow", "lead", "repair") else "local_derivation",
         },
     }

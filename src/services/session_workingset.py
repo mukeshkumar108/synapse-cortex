@@ -234,10 +234,57 @@ async def _active_suppressions(db: AsyncSession, workspace_id: str,
             "target_id": s.target_id,
             "topic_or_entity": s.topic_or_entity,
             "reopen_condition": s.reopen_condition,
+            "surface_scope": s.surface_scope,
             "suppressed_until": (s.suppressed_until.isoformat()
                                  if s.suppressed_until else None),
+            "created_at": (s.created_at.isoformat() if s.created_at else None),
+            # Semantic reactivation (correction 3): counting owns cooldowns,
+            # but new evidence on the matter itself may legitimately revive it.
+            # A suppression with a reopen condition whose target row changed
+            # after the suppression is eligible again — the matter moved.
+            "reactivated": await _reactivated(db, s, now_utc),
         })
     return out
+
+
+async def _reactivated(db: AsyncSession, suppression, now_utc: datetime) -> bool:
+    """True when a reopenable suppression's target row is newer than the
+    suppression itself. Strong dismissals (all_surfaces, no reopen condition)
+    never reactivate. Topic-only suppressions have no row to compare."""
+    if not suppression.reopen_condition:
+        return False
+    if not suppression.target_id or suppression.target_type is None:
+        return False
+    target_type = str(getattr(suppression.target_type, "value",
+                              suppression.target_type) or "")
+    try:
+        from uuid import UUID
+        uid = UUID(str(suppression.target_id))
+    except (ValueError, TypeError, AttributeError):
+        return False
+    model = {"expectation": "Expectation", "open_loop": "OpenLoop",
+             "clarification": "ClarificationCandidate",
+             "attention": "AttentionCandidate"}.get(target_type)
+    if model is None:
+        return False
+    try:
+        modules = {"Expectation": "src.models.expectation",
+                   "OpenLoop": "src.models.open_loop",
+                   "ClarificationCandidate": "src.models.clarification",
+                   "AttentionCandidate": "src.models.attention_candidate"}
+        import importlib
+        cls = getattr(importlib.import_module(modules[model]), model)
+        row = await db.get(cls, uid)
+    except Exception as err:
+        logger.warning("reactivation lookup failed: %s", err)
+        return False
+    updated = getattr(row, "updated_at", None) if row is not None else None
+    if updated is None:
+        return False
+    updated_naive = updated.replace(tzinfo=None) if updated.tzinfo else updated
+    created = suppression.created_at
+    created_naive = created.replace(tzinfo=None) if created.tzinfo else created
+    return bool(updated_naive > created_naive)
 
 
 async def needs_refresh(
