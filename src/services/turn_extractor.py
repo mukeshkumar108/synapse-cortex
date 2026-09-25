@@ -931,6 +931,9 @@ open_loop_hint and expiry_phrase. Suppressions include suppression_hint with tar
 topic_or_entity, action_scope, raw_temporal_phrase, and direction (REQUIRED: refuse
 when the turn asks for LESS of something, allow when it grants or invites MORE).
 Missing direction fails the write; an invitation must never become a suppression.
+If the same turn both refuses AND invites the same topic, or direction is genuinely
+uncertain, set review_note explaining the conflict (a worklist signal for lifecycle
+review — it never blocks or retires anything by itself).
 Static descriptions use semantic_only.
 Health states, bodily facts, biographical facts, grief history and other settled past
 events are event-kind facts with holder attribution (actor_peer_id set to whose fact

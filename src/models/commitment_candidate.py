@@ -16,6 +16,7 @@ class CommitmentCandidateStatus(str, Enum):
     MATERIALIZED = "materialized"
     DISMISSED = "dismissed"
     EXPIRED = "expired"
+    VIOLATED = "violated"
 
 
 class CommitmentCandidateAuthority(str, Enum):
@@ -64,6 +65,13 @@ class CommitmentCandidate(SQLModel, table=True):
     source_message_id: str = Field(index=True, nullable=False)
     materialized_source_object_id: Optional[str] = Field(default=None, index=True)
     raw_temporal_phrase: Optional[str] = Field(default=None)
+    # When the promise was uttered (turn time at upsert). Due windows for
+    # relative phrases ground to this, never to evaluation time.
+    uttered_at: Optional[datetime] = Field(default=None)
+    # Where fulfilment/violation evidence lives when derived. A derived
+    # violation always names its evidence here; absence plus elapsed due
+    # condition is what makes the derivation possible without invention.
+    resolution_evidence: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 

@@ -27,6 +27,7 @@ from src.models.commitment_candidate import (
     CommitmentCandidateStatus,
     utc_now,
 )
+from src.models.operational_state import TurnStamp
 from src.schemas.candidate import ExtractionCandidate
 
 logger = logging.getLogger(__name__)
@@ -125,6 +126,21 @@ class CommitmentCandidateService:
             existing_canonical.evidence_verbatim = evidence or existing_canonical.evidence_verbatim
             existing_canonical.source_message_id = message_id
             existing_canonical.updated_at = _now_naive()
+            # Corroboration promotion: explicit authority or an explicit
+            # command/acceptance/resolution class on re-observation promotes
+            # ASK -> ACT. Repetition alone never promotes.
+            if existing_canonical.authority != CommitmentCandidateAuthority.ACT and (
+                candidate.authority == "act"
+                or (candidate.evidence_class or "") in (
+                    "explicit_command", "explicit_acceptance",
+                    "explicit_resolution", "explicit_modification",
+                )
+            ):
+                existing_canonical.authority = CommitmentCandidateAuthority.ACT
+                existing_canonical.resolution_evidence = (
+                    f"promoted:corroborated:{message_id}#"
+                    f"{candidate.candidate_key}"
+                )
             db.add(existing_canonical)
             await db.commit()
             return existing_canonical
@@ -147,6 +163,7 @@ class CommitmentCandidateService:
             status=CommitmentCandidateStatus.PENDING,
             source_message_id=message_id,
             raw_temporal_phrase=candidate.temporal_phrase,
+            uttered_at=(now.replace(tzinfo=None) if now.tzinfo else now),
         )
         db.add(row)
         try:
@@ -216,6 +233,27 @@ class CommitmentCandidateService:
         ).scalars().all()
         return list(rows)
 
+    async def list_actionable(
+        self,
+        db: AsyncSession,
+        *,
+        workspace_id: str,
+        owner_peer_id: str,
+        limit: int = 20,
+    ) -> List[CommitmentCandidate]:
+        """The ONLY read path future obligation machinery (due-state,
+        violation derivation, projection directives) may use.
+
+        Invariant: candidate readings (ASK) are never canonical commitments,
+        no matter how many accumulate. Only ACT rows — plus, once it exists,
+        corroboration promotion — count as authoritative. Proposal surfaces
+        (Sophie-noticed, curiosity) keep using list_pending without filter.
+        """
+        return await self.list_pending(
+            db, workspace_id=workspace_id, owner_peer_id=owner_peer_id,
+            authority=CommitmentCandidateAuthority.ACT, limit=limit,
+        )
+
     async def mark(
         self,
         db: AsyncSession,
@@ -247,3 +285,71 @@ class CommitmentCandidateService:
         await db.commit()
         await db.refresh(row)
         return row
+
+    async def evaluate_due(
+        self,
+        db: AsyncSession,
+        *,
+        workspace_id: str,
+        now: datetime,
+    ) -> List["UUID"]:
+        """Derive violations from elapsed due conditions. Reads ONLY
+        authoritative (ACT) pending rows: ASK-only rows can never violate,
+        no matter how many accumulate. A row becomes VIOLATED with named
+        evidence when its grounded due window has passed without fulfilment
+        evidence; nothing is ever silently fulfilled or discarded here."""
+        from uuid import UUID
+        from src.services.temporal_grounding import TemporalGrounding
+        now_naive = now.replace(tzinfo=None) if now.tzinfo else now
+        rows = (await db.execute(select(CommitmentCandidate).where(
+            CommitmentCandidate.honcho_workspace_id == workspace_id,
+            CommitmentCandidate.authority == CommitmentCandidateAuthority.ACT,
+            CommitmentCandidate.status == CommitmentCandidateStatus.PENDING,
+            CommitmentCandidate.raw_temporal_phrase.is_not(None),
+        ))).scalars().all()
+        violated: List["UUID"] = []
+        grounder = TemporalGrounding()
+        for row in rows:
+            # Anchor grounding to when the promise was uttered: the source
+            # turn's stamp, else the row's own uttered_at (assistant turns
+            # write no TurnStamps by design), else creation. "Tomorrow" said
+            # Tuesday is due Wednesday even if evaluated Friday.
+            anchor = None
+            turn_at = (await db.execute(select(TurnStamp).where(
+                TurnStamp.honcho_workspace_id == workspace_id,
+                TurnStamp.honcho_message_id == row.source_message_id,
+            ))).scalar_one_or_none()
+            if turn_at is not None:
+                anchor = turn_at.turn_at
+            elif getattr(row, "uttered_at", None) is not None:
+                anchor = row.uttered_at
+            else:
+                anchor = row.created_at
+            if anchor is not None and anchor.tzinfo is not None:
+                anchor = anchor.replace(tzinfo=None)
+            try:
+                win_start, win_end, deadline = grounder.ground_expression(
+                    raw_phrase=row.raw_temporal_phrase, now=anchor or now,
+                    timezone_str="UTC")
+            except Exception:
+                continue
+            due = deadline or win_end
+            if due is None:
+                continue
+            due_naive = due.replace(tzinfo=None) if due.tzinfo else due
+            if due_naive > now_naive:
+                continue
+            if row.resolution_evidence:
+                continue
+            row.status = CommitmentCandidateStatus.VIOLATED
+            row.resolution_evidence = (
+                f"violated:due {due_naive.isoformat()} passed without "
+                f"fulfilment evidence (evaluated {now_naive.isoformat()})"
+            )
+            row.updated_at = _now_naive()
+            db.add(row)
+            violated.append(row.id)
+        if violated:
+            await db.commit()
+            logger.info("Derived %d commitment violations", len(violated))
+        return violated

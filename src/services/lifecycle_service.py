@@ -555,6 +555,50 @@ class LifecycleService:
                 return expectations
         return []
 
+    async def close_answered_loops(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        message_id: str, text: str, now: datetime,
+    ) -> List[UUID]:
+        """Structural release: a later turn that takes up a loop's unfinished
+        matter resolves it, without requiring the original turn to have
+        emitted a completion object. Single strict winner (best token overlap
+        >= 0.5, strictly above runner-up, different message) or nothing —
+        ambiguous continuations stay open rather than close wrongly."""
+        loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == workspace_id,
+            OpenLoop.honcho_session_id == session_id,
+            OpenLoop.status == OpenLoopStatus.OPEN,
+            OpenLoop.honcho_message_id != message_id,
+        ))).scalars().all()
+        if not loops:
+            return []
+        turn_tokens = self._significant_tokens(text or "")
+        if not turn_tokens:
+            return []
+        scored = []
+        for loop in loops:
+            loop_tokens = self._significant_tokens(
+                f"{loop.title or ''} {loop.summary or ''}")
+            if not loop_tokens:
+                continue
+            overlap = len(turn_tokens & loop_tokens) / max(len(loop_tokens), 1)
+            scored.append((overlap, loop))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        # Same bar as the completion matcher: the strict-winner rule (must
+        # beat any runner-up outright) carries the safety, not the threshold.
+        if not scored or scored[0][0] < 0.34:
+            return []
+        if len(scored) > 1 and scored[1][0] >= scored[0][0]:
+            return []
+        loop = scored[0][1]
+        loop.status = OpenLoopStatus.RESOLVED
+        loop.resolution_evidence = f"answered_in_turn:{message_id}"
+        loop.updated_at = self._naive_utc(now)
+        db.add(loop)
+        await db.commit()
+        logger.info("Closed loop id=%s via later evidence %s", loop.id, message_id)
+        return [loop.id]
+
     async def _resolve_target_via_entity(
         self, db: AsyncSession, *, workspace_id: str, session_id: str,
         candidate: ExtractionCandidate, message_id: str, action: Optional[str],
@@ -643,8 +687,7 @@ class LifecycleService:
             return value.astimezone(timezone.utc).replace(tzinfo=None)
         return value
 
-    async def _resolve_open_loop_for_expectation(
-        self, db: AsyncSession, expectation_id: UUID, evidence: str
+    async def _resolve_open_loop_for_expectation(        self, db: AsyncSession, expectation_id: UUID, evidence: str
     ):
         stmt = select(OpenLoop).where(
             OpenLoop.expectation_id == expectation_id,
@@ -814,6 +857,8 @@ class LifecycleService:
             suppressed_until=suppressed_until,
             reopen_condition=hint.get("reopen_condition"),
             status=SuppressionStatus.ACTIVE,
+            review_note=(str(hint.get("review_note"))[:500]
+                         if isinstance(hint.get("review_note"), str) else None),
         )
         db.add(suppression)
         try:

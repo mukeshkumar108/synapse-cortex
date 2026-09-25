@@ -49,6 +49,9 @@ class Suppression(SQLModel, table=True):
     topic_or_entity: Optional[str] = Field(default=None, index=True)
     reason: str = Field(nullable=False)
     surface_scope: str = Field(default="all_surfaces", nullable=False, index=True)
+    # Review flag: model-judged direction/conflict notes. Worklist signal for
+    # lifecycle review only — never blocks, writes, or retires anything.
+    review_note: Optional[str] = Field(default=None)
     
     suppressed_until: Optional[datetime] = Field(default=None, index=True)
     reopen_condition: Optional[str] = Field(default=None)

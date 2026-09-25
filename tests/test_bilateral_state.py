@@ -234,3 +234,30 @@ async def test_assistant_turn_leaves_user_rows_untouched(async_client, monkeypat
             Expectation.honcho_workspace_id == "ws-asst"))).scalars().all()
         assert len(rows) == 1 and rows[0].outcome_state == OutcomeState.UNKNOWN
         assert rows[0].title == "User plan"
+
+
+@pytest.mark.asyncio
+async def test_only_act_rows_are_actionable():
+    """ASK/ACT authority invariant: candidate readings are never canonical.
+    Future obligation machinery must read via list_actionable (ACT only)."""
+    from src.db import async_session_maker
+    from src.models.commitment_candidate import CommitmentCandidateAuthority
+    from src.services.commitment_candidate_service import CommitmentCandidateService
+    from src.schemas.candidate import ExtractionCandidate
+    from datetime import datetime, timezone
+    async with async_session_maker() as db:
+        svc = CommitmentCandidateService()
+        for key, title, auth in (("c_ask", "Be here", "ask"),
+                               ("c_act", "Call tomorrow", "act")):
+            cand = ExtractionCandidate(
+                candidate_key=key, observation=title, raw_evidence=title,
+                canonical_title=title, operational_kind="commitment_candidate",
+                actor_peer_id="elena", evidence_class="character_promise",
+                authority=auth, confidence=0.9, extractor_version="test")
+            await svc.upsert_from_candidate(
+                db, workspace_id="ws-auth", session_id="s1", owner_peer_id="elena",
+                message_id="m1", candidate=cand,
+                now=datetime(2026, 9, 24, tzinfo=timezone.utc))
+        actionable = await svc.list_actionable(db, workspace_id="ws-auth", owner_peer_id="elena")
+        assert [r.authority for r in actionable] == [CommitmentCandidateAuthority.ACT]
+        assert len(actionable) == 1

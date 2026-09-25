@@ -324,6 +324,22 @@ async def ingest_turn_event(
     candidates, suppressed = suppress_materialized_duplicates(
         candidates, payload.materialized_actions
     )
+    # Structural release + due evaluation (deterministic maintenance). Runs
+    # even when this turn extracted nothing: later evidence closes loops
+    # and passes due conditions regardless of what the current turn says.
+    closed_loop_ids: list = []
+    violated_ids: list = []
+    try:
+        closed_loop_ids = await lifecycle_service.close_answered_loops(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            message_id=payload.honcho_message_id, text=payload.text, now=payload.now)
+    except Exception as err:
+        logger.warning("Loop release failed: %s", err)
+    try:
+        violated_ids = await commitment_candidate_service.evaluate_due(
+            db, workspace_id=payload.workspace_id, now=payload.now)
+    except Exception as err:
+        logger.warning("Due evaluation failed: %s", err)
     if not candidates:
         logger.info("No state candidates extracted from turn msg_id=%s", payload.honcho_message_id)
         return {
@@ -333,6 +349,8 @@ async def ingest_turn_event(
             "candidates_suppressed_by_reconciliation": len(suppressed),
             "extraction_backend": extraction_result.backend,
             "extraction_failure": extraction_result.failure,
+            "closed_loop_ids": [str(lid) for lid in closed_loop_ids],
+            "violated_commitment_ids": [str(vid) for vid in violated_ids],
             "narrow_shadow": narrow_shadow_summary,
             "context": {
                 "status": turn_context.get("status"),
@@ -606,6 +624,8 @@ async def ingest_turn_event(
             candidate=cand,
         )
 
+    # Structural release + due evaluation ran earlier (before the empty
+    # extraction early-return) so later evidence always gets its turn.
     return {
         "status": "accepted",
         "candidates_extracted": len(candidates),
@@ -614,6 +634,8 @@ async def ingest_turn_event(
         "expectations_created_count": len(expectations_created),
         "expectation_ids": [str(eid) for eid in expectations_created],
         "mutated_expectation_ids": [str(mid) for mid in mutated_ids],
+        "closed_loop_ids": [str(lid) for lid in closed_loop_ids],
+        "violated_commitment_ids": [str(vid) for vid in violated_ids],
         "honcho_message_id": payload.honcho_message_id,
         "extraction_backend": extraction_result.backend,
         "operational_mutations": operational_mutations,
