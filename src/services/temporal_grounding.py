@@ -58,8 +58,12 @@ class TemporalGrounding:
         local_today = local_now.date()
 
         if phrase == "now":
+            # Immediacy, not a deadline: "now" starts now and carries no
+            # window end. A synthesized +2h end previously became a hard due
+            # downstream (spurious violations on "let's do this" style turns).
+            # Callers needing a delivery horizon apply their own default.
             start = local_now.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
-            return start, start + timedelta(hours=2), None
+            return start, None, None
 
         if phrase in ("later", "later today"):
             start_local = local_now + timedelta(hours=1)

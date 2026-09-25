@@ -657,8 +657,38 @@ async def ingest_turn_event(
 
     # Structural release + due evaluation ran earlier (before the empty
     # extraction early-return) so later evidence always gets its turn.
+    # End-of-ingest factual rescue: zero-yield turns with high-confidence
+    # semantic_only candidates get one bounded judge call; accepted verdicts
+    # persist as facts via the idempotent writer. Fail-open.
+    factual_rescue_summary: dict = {"rescued": 0}
+    try:
+        from src.services.semantic_reconciliation import rescue_zero_yield_turn
+
+        def _yielded() -> bool:
+            if expectations_created or mutated_ids or closed_loop_ids or violated_ids:
+                return True
+            for mutation in operational_mutations:
+                if not isinstance(mutation, dict):
+                    continue
+                name = str(mutation.get("mutation") or "")
+                if not name or "duplicate" in name:
+                    continue
+                if name.endswith(("recorded", "upserted", "created")) or name.startswith(
+                    ("recurrence_", "occurrence_", "open_loop_")):
+                    return True
+            return False
+
+        factual_rescue_summary = await rescue_zero_yield_turn(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            message_id=payload.honcho_message_id, peer_id=payload.peer_id,
+            now=payload.now, candidates=candidates, had_durable_yield=_yielded(),
+        )
+    except Exception as err:
+        logger.warning("Factual rescue failed: %s", err)
+        factual_rescue_summary = {"rescued": 0, "error": str(err)[:200]}
     # Event-driven T2: revise when this turn durably changed state — any
-    # created/mutated/closed rows, or relations the semantic pass promoted.
+    # created/mutated/closed rows, relations the semantic pass promoted,
+    # or facts the rescue path persisted.
     try:
         from src.services.current_meaning_service import maybe_revise_after_turn
         t2_summary = await maybe_revise_after_turn(
@@ -669,7 +699,8 @@ async def ingest_turn_event(
                          or violated_ids or operational_mutations
                          or semantic_reconciliation_summary.get("promoted")
                          or semantic_reconciliation_summary.get("closed")
-                         or semantic_reconciliation_summary.get("judged")),
+                         or semantic_reconciliation_summary.get("judged")
+                         or factual_rescue_summary.get("rescued")),
         )
     except Exception as err:
         logger.warning("T2 revise failed: %s", err)
@@ -689,6 +720,7 @@ async def ingest_turn_event(
         "operational_mutations": operational_mutations,
         "narrow_shadow": narrow_shadow_summary,
         "semantic_reconciliation": semantic_reconciliation_summary,
+        "factual_rescue": factual_rescue_summary,
         "current_meaning": t2_summary,
         "context": {
             "status": turn_context.get("status"),

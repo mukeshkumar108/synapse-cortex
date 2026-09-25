@@ -196,3 +196,109 @@ async def reconcile_turn(
                         detail={**detail, "error": str(err)[:200]},
                         model=semantic_judge.judge_model_id())
     return result
+
+
+async def rescue_zero_yield_turn(
+    db: AsyncSession,
+    *,
+    workspace_id: str,
+    session_id: str,
+    message_id: str,
+    peer_id: str,
+    now: datetime,
+    candidates: List[Any],
+    had_durable_yield: bool,
+    adapter: Any = ...,
+) -> Dict[str, int]:
+    """End-of-ingest factual rescue; see _rescue_factual_claim. Called with
+    the turn's candidates once yield is known. Bounded: top-1 candidate,
+    one judge call, only on zero-yield turns."""
+    from src.services import semantic_judge
+    if adapter is ...:
+        adapter = semantic_judge._adapter()
+    if adapter is None:
+        return {"rescued": 0, "reason": "no_adapter"}
+    rescued = await _rescue_factual_claim(
+        db, workspace_id=workspace_id, session_id=session_id,
+        message_id=message_id, peer_id=peer_id, now=now,
+        candidates=candidates or [], had_durable_yield=had_durable_yield,
+        adapter=adapter)
+    return {"rescued": rescued}
+
+
+async def _rescue_factual_claim(
+    db: AsyncSession, *, workspace_id: str, session_id: str, message_id: str,
+    peer_id: str, now: datetime, candidates: List[Any],
+    had_durable_yield: bool, adapter: Any,
+) -> int:
+    """Bounded rescue for zero-yield turns: biographical disclosures the
+    extractor left as semantic_only would otherwise vanish despite high
+    confidence + verbatim evidence. At most ONE judge call, only when the
+    turn produced no durable rows. Accepted verdicts persist via the
+    existing idempotent fact writer — the model never writes directly."""
+    from src.services import semantic_judge
+    from src.services.persistence import save_fact_idempotent
+
+    if had_durable_yield:
+        return 0
+    # Stranded disclosures: semantic_only rows, plus recurring_intention rows
+    # (past-habitual "every day for three months" is biography, not a future
+    # recurrence — and when nothing durable was created, nothing was lost by
+    # asking). Judged over RAW evidence: factuality is a property of what was
+    # said, not of the extractor's gratitude framing.
+    stranded = [c for c in candidates
+                if getattr(c, "operational_kind", "") in (
+                    "semantic_only", "recurring_intention")
+                and float(getattr(c, "confidence", 0) or 0) >= 0.8
+                and ((getattr(c, "raw_evidence", "") or "").strip()
+                     or (getattr(c, "observation", "") or "").strip())]
+    if not stranded:
+        return 0
+    stranded.sort(key=lambda c: float(getattr(c, "confidence", 0) or 0),
+                  reverse=True)
+    rescued = 0
+    for cand in stranded[:2]:
+        text = (getattr(cand, "raw_evidence", "") or "").strip() \
+            or (getattr(cand, "observation", "") or "").strip()
+        item_key = f"factual:{getattr(cand, 'candidate_key', '?')}:{message_id}"
+        if await _marked(db, workspace_id, message_id, item_key):
+            continue
+        adjudication = await semantic_judge.adjudicate(
+            kind="factual_claim", earlier="candidate biographical disclosure",
+            later=text, adapter=adapter)
+        if not adjudication.accepted or not adjudication.evidence_span.strip() \
+                or adjudication.evidence_span.strip() not in text:
+            await _mark(db, workspace_id=workspace_id, session_id=session_id,
+                        message_id=message_id, item_key=item_key, status="rejected",
+                        detail={"kind": "factual_claim",
+                                "verdict": adjudication.verdict,
+                                "confidence": adjudication.confidence,
+                                "note": adjudication.note},
+                        model=semantic_judge.judge_model_id())
+            continue
+        try:
+            row, created = await save_fact_idempotent(db, {
+                "honcho_workspace_id": workspace_id,
+                "honcho_session_id": session_id,
+                "honcho_message_id": message_id,
+                "owner_peer_id": peer_id,
+                "candidate_key": f"{getattr(cand, 'candidate_key', 'rescued')}@semantic-rescue-v1",
+                "category": getattr(cand, "domain_tag", None) or "general",
+                "title": text[:280],
+                "evidence_verbatim": text[:2000],
+                "formation": "inferred",
+                "confidence": adjudication.confidence,
+            })
+        except Exception as err:
+            logger.warning("factual rescue persist failed: %s", err)
+            continue
+        await _mark(db, workspace_id=workspace_id, session_id=session_id,
+                    message_id=message_id, item_key=item_key, status="accepted",
+                    detail={"kind": "factual_claim", "fact_id": str(row.id),
+                            "created": created,
+                            "confidence": adjudication.confidence,
+                            "evidence_span": adjudication.evidence_span},
+                    model=semantic_judge.judge_model_id())
+        if created:
+            rescued += 1
+    return rescued

@@ -69,8 +69,9 @@ async def test_judge_rejects_non_verbatim_span():
 
 def test_question_kinds_bounded():
     assert set(QUESTION_KINDS) == {
-        "resolves", "fulfils", "partially_fulfils", "same_person", "accepts",
-        "eased", "supersedes", "undertaking", "revisit_worthy"}
+        "resolves", "fulfils", "partially_fulfils", "factual_claim",
+        "same_person", "accepts", "eased",
+        "supersedes", "undertaking", "revisit_worthy"}
 
 
 @pytest.mark.asyncio
@@ -236,3 +237,109 @@ async def test_fulfill_grounding_blocks_disconnected_claim(monkeypatch):
         CountingAdapter(), "Cousin Sam pickup confirmed for Wednesday")
     assert out2 != [] and state2 == OutcomeState.FULFILLED
     assert made["n"] == 0
+
+
+
+@pytest.mark.asyncio
+async def test_factual_rescue_persists_stranded_disclosure():
+    from datetime import datetime, timezone
+
+    from sqlmodel import select
+    from src.db import async_session_maker
+    from src.models.fact import Fact
+    from src.services.semantic_reconciliation import rescue_zero_yield_turn
+
+    class Cand:
+        operational_kind = "semantic_only"
+        confidence = 0.9
+        observation = "Kai sat with her dad daily for three months while he was dying"
+        raw_evidence = "You sat with my dad when he was dying, Kai. Three months."
+        candidate_key = "c_dad"
+        domain_tag = "family"
+
+    async with async_session_maker() as db:
+        # Yielding turns never trigger rescue.
+        out = await rescue_zero_yield_turn(
+            db, workspace_id="ws-rescue", session_id="s", message_id="m",
+            peer_id="isa", now=datetime.now(timezone.utc),
+            candidates=[Cand()], had_durable_yield=True,
+            adapter=FakeAdapter())
+        assert out["rescued"] == 0
+        # Zero-yield + accepting judge persists one fact via idempotent writer.
+        out2 = await rescue_zero_yield_turn(
+            db, workspace_id="ws-rescue", session_id="s", message_id="m",
+            peer_id="isa", now=datetime.now(timezone.utc),
+            candidates=[Cand()], had_durable_yield=False,
+            adapter=FakeAdapter())
+        assert out2["rescued"] == 1
+        facts = (await db.execute(select(Fact).where(
+            Fact.honcho_workspace_id == "ws-rescue"))).scalars().all()
+        assert len(facts) == 1
+        assert facts[0].owner_peer_id == "isa"
+        assert "dad" in facts[0].title.lower()
+        # Replay is idempotent: same message never re-judges.
+        out3 = await rescue_zero_yield_turn(
+            db, workspace_id="ws-rescue", session_id="s", message_id="m",
+            peer_id="isa", now=datetime.now(timezone.utc),
+            candidates=[Cand()], had_durable_yield=False,
+            adapter=FakeAdapter())
+        assert out3["rescued"] == 0
+
+
+@pytest.mark.asyncio
+async def test_factual_rescue_rejects_non_facts():
+    from datetime import datetime, timezone
+
+    from sqlmodel import select
+    from src.db import async_session_maker
+    from src.models.fact import Fact
+    from src.services.semantic_reconciliation import rescue_zero_yield_turn
+
+    class Cand:
+        operational_kind = "semantic_only"
+        confidence = 0.9
+        observation = "I will call you tomorrow maybe"
+        raw_evidence = "I will call you tomorrow maybe"
+        candidate_key = "c_maybe"
+        domain_tag = None
+
+    async with async_session_maker() as db:
+        out = await rescue_zero_yield_turn(
+            db, workspace_id="ws-rescue2", session_id="s", message_id="m",
+            peer_id="kai", now=datetime.now(timezone.utc),
+            candidates=[Cand()], had_durable_yield=False,
+            adapter=FakeAdapter(verdict="no", confidence=0.9))
+        assert out["rescued"] == 0
+        facts = (await db.execute(select(Fact).where(
+            Fact.honcho_workspace_id == "ws-rescue2"))).scalars().all()
+        assert facts == []
+
+
+@pytest.mark.asyncio
+async def test_factual_rescue_uses_raw_evidence_and_recurring_kind():
+    from datetime import datetime, timezone
+
+    from sqlmodel import select
+    from src.db import async_session_maker
+    from src.models.fact import Fact
+    from src.services.semantic_reconciliation import rescue_zero_yield_turn
+
+    class Cand:
+        operational_kind = "recurring_intention"
+        confidence = 0.9
+        observation = "Acknowledges consistent presence over three months"
+        raw_evidence = "You sat with my dad when he was dying, Kai"
+        candidate_key = "c_past"
+        domain_tag = "family"
+
+    async with async_session_maker() as db:
+        out = await rescue_zero_yield_turn(
+            db, workspace_id="ws-rescue3", session_id="s", message_id="m",
+            peer_id="isa", now=datetime.now(timezone.utc),
+            candidates=[Cand()], had_durable_yield=False,
+            adapter=FakeAdapter())
+        assert out["rescued"] == 1
+        facts = (await db.execute(select(Fact).where(
+            Fact.honcho_workspace_id == "ws-rescue3"))).scalars().all()
+        assert len(facts) == 1
+        assert "dad" in facts[0].evidence_verbatim.lower()

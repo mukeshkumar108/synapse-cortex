@@ -161,3 +161,31 @@ async def test_suppression_review_note_survives_as_worklist_signal(async_client,
             Suppression.honcho_workspace_id == WS))).scalars().all()
         assert len(rows) == 1 and rows[0].status == SuppressionStatus.ACTIVE
         assert rows[0].review_note is not None and "direction_conflict" in rows[0].review_note
+
+
+@pytest.mark.asyncio
+async def test_immediacy_without_deadline_never_violates():
+    """Regression (RPD2 Isa replay): raw_temporal_phrase 'now' carries no
+    window end, so evaluate_due must skip the row — immediacy is not a
+    deadline, and absence of fulfilment evidence is not breach evidence."""
+    from sqlmodel import select
+    from src.db import async_session_maker
+    from src.models.commitment_candidate import CommitmentCandidate
+
+    async with async_session_maker() as db:
+        db.add(CommitmentCandidate(
+            honcho_workspace_id="ws-now", honcho_session_id="s1",
+            owner_peer_id="isa", candidate_key="c_now", canonical_key="c_now",
+            title="Start new phase with partner",
+            evidence_verbatim="Okay. Let's do this.",
+            source_message_id="m36", authority="act",
+            raw_temporal_phrase="now",
+            uttered_at=datetime(2026, 9, 20, 21, 48)))
+        await db.commit()
+        violated = await CommitmentCandidateService().evaluate_due(
+            db, workspace_id="ws-now",
+            now=datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc))
+        assert violated == []
+        rows = (await db.execute(select(CommitmentCandidate).where(
+            CommitmentCandidate.honcho_workspace_id == "ws-now"))).scalars().all()
+        assert rows[0].status == CommitmentCandidateStatus.PENDING
