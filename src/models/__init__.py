@@ -8,6 +8,10 @@ from src.models.attention_candidate import AttentionCandidate, AttentionCandidat
 from src.models.operational_state import (RecurringIntention, RecurringOccurrence, CandidateReceipt, ObjectiveProgress,
     ExtractionTrace, OperationalStatus, OccurrenceStatus)
 from src.models.derived_signal import DerivedSignal, DerivedSignalKind
+from src.models.semantic import (
+    SemanticClaim, SemanticRelation, RelationType, RelationFormation,
+    RelationStatus, RELATION_VOCAB,
+)
 from src.models.current_meaning import CurrentMeaning
 from src.models.fact import Fact
 from src.models.identity import (
@@ -38,6 +42,8 @@ __all__ = [
     "RecurringIntention", "RecurringOccurrence", "CandidateReceipt", "ObjectiveProgress", "ExtractionTrace",
     "OperationalStatus", "OccurrenceStatus",
     "DerivedSignal", "DerivedSignalKind",
+    "SemanticClaim", "SemanticRelation", "RelationType", "RelationFormation",
+    "RelationStatus", "RELATION_VOCAB",
     "CurrentMeaning",
     "Fact",
     "Entity", "EntityAlias", "RelationshipEdge", "ModelEntry", "EntityLink", "TurnFrame",

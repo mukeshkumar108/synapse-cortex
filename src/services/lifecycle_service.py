@@ -18,6 +18,7 @@ from src.models.clarification import (
     ClarificationCandidate, ClarificationStatus, ClarificationType,
 )
 from src.schemas.candidate import ExtractionCandidate
+from src.services.semantic_promotion import promote_transition
 from src.services.temporal_grounding import TemporalGrounding
 
 logger = logging.getLogger(__name__)
@@ -145,6 +146,12 @@ class LifecycleService:
             candidate.observation, candidate.canonical_title,
             str(candidate.resolution_hint.get("evidence") or ""),
         ]))
+        # Phase-B promotion intent: recorded here, emitted post-commit below.
+        # Only predicates with distinct endpoint content are emitted:
+        # versioning supersession keeps identical titles (the v+1 row itself
+        # is the record), and CANCELLED / NOT_FULFILLED have no bounded
+        # predicate yet — both skipped, never force-fit.
+        pending_promotion = None
         if action == "cancel":
             exp.outcome_state = OutcomeState.CANCELLED
         elif action == "fulfill":
@@ -163,6 +170,11 @@ class LifecycleService:
                 return []
             else:
                 exp.outcome_state = OutcomeState.FULFILLED
+                pending_promotion = (
+                    "fulfils",
+                    candidate.observation or candidate.canonical_title or "",
+                    exp.title,
+                )
             if exp.outcome_state != OutcomeState.UNKNOWN:
                 await self._resolve_open_loop_for_expectation(db, exp.id, evidence)
         elif action == "did_not_occur":
@@ -198,6 +210,19 @@ class LifecycleService:
                 resolved=exp,
                 now=now,
             )
+            # Phase-B deterministic promotion (advisory, post-commit).
+            if pending_promotion is not None:
+                rel_type, from_text, to_text = pending_promotion
+                try:
+                    await promote_transition(
+                        db, workspace_id=workspace_id, rel_type=rel_type,
+                        from_text=from_text, to_text=to_text,
+                        evidence_refs=[evidence],
+                        formation="inferred", confidence=0.9)
+                except Exception:
+                    logger.exception(
+                        "semantic promotion failed for outcome %s",
+                        exp.outcome_state.value)
 
         return modified_ids
 
@@ -596,6 +621,17 @@ class LifecycleService:
         loop.updated_at = self._naive_utc(now)
         db.add(loop)
         await db.commit()
+        # Phase-B deterministic promotion (advisory, post-commit): semantic
+        # closure across vocabulary change, with its own provenance.
+        try:
+            await promote_transition(
+                db, workspace_id=workspace_id, rel_type="resolves",
+                from_text=text,
+                to_text=f"{loop.title or ''} {loop.summary or ''}".strip() or "open loop",
+                evidence_refs=[f"answered_in_turn:{message_id}"],
+                formation="inferred", confidence=0.7)
+        except Exception:
+            logger.exception("semantic promotion failed for loop resolution")
         logger.info("Closed loop id=%s via later evidence %s", loop.id, message_id)
         return [loop.id]
 
@@ -642,6 +678,14 @@ class LifecycleService:
         await db.commit()
         if action == "fulfill":
             await self._resolve_open_loop_for_expectation(db, exp.id, evidence)
+            try:
+                await promote_transition(
+                    db, workspace_id=workspace_id, rel_type="fulfils",
+                    from_text=candidate.observation or candidate.canonical_title or "",
+                    to_text=exp.title, evidence_refs=[evidence],
+                    formation="inferred", confidence=0.9)
+            except Exception:
+                logger.exception("semantic promotion failed for entity-resolved fulfill")
         logger.info("Entity-resolved %s for expectation id=%s", action, exp.id)
         return exp.id
 
