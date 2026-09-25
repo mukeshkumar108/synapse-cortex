@@ -6,8 +6,19 @@ deterministically from T0/T1 rows only — no model calls, no new state.
 Anything requiring interpretation (posture, stance, trajectory meaning) is
 listed as EVIDENCE with an explicit gap marker instead of invented.
 
+Amended T2b contract (no durable Account table; replace-not-accumulate):
+- as_of_turn, frame_scope, scene_or_session_ref, relationship/subject refs
+- trajectory, dominant_current_meaning (generalized, not rupture-specific)
+- active_interpretations[] (kind/scope, claim, evidence, since, confidence,
+  formation) — tension/repair/grief/decision-pressure/disclosure/uncertainty
+- easing_release[] (what changed + evidence)
+- salient expectation/loop refs, previous-snapshot delta
+  (activated/reframed/eased/released)
+- confidence PER CLAIM, never blanket; posture implications are OUT —
+  Control/Attention derives posture from this read, CurrentMeaning never
+  choreographs behaviour.
 Shape per checkpoint: trajectory, orientation, relevant expectations,
-unresolved foreground matters, released/backgrounded matters,
+unresolved foreground-relevant matters, released/backgrounded matters,
 posture-inputs (evidence only), confidence/evidence coverage, delta.
 """
 from datetime import datetime, timezone
