@@ -10,6 +10,9 @@ from src.models.operational_state import (RecurringIntention, RecurringOccurrenc
 from src.models.derived_signal import DerivedSignal, DerivedSignalKind
 from src.models.current_meaning import CurrentMeaning
 from src.models.fact import Fact
+from src.models.identity import (
+    Entity, EntityAlias, RelationshipEdge, ModelEntry, EntityLink, TurnFrame,
+)
 
 __all__ = [
     "Expectation",
@@ -37,4 +40,5 @@ __all__ = [
     "DerivedSignal", "DerivedSignalKind",
     "CurrentMeaning",
     "Fact",
+    "Entity", "EntityAlias", "RelationshipEdge", "ModelEntry", "EntityLink", "TurnFrame",
 ]

@@ -122,6 +122,17 @@ class LifecycleService:
         active_expectations = list(res.scalars().all())
         targets = self._resolve_targets(active_expectations, candidate)
         if len(targets) != 1:
+            # Resolve-before-clarify: a unique entity referent in the hint can
+            # narrow the field to the single UNKNOWN expectation linked to
+            # it, avoiding a question the evidence already answers.
+            resolved = await self._resolve_target_via_entity(
+                db, workspace_id=workspace_id, session_id=session_id,
+                candidate=candidate, message_id=message_id,
+                action=action, evidence=evidence,
+                active_expectations=active_expectations,
+            )
+            if resolved is not None:
+                return [resolved]
             await self._create_clarification(
                 db, workspace_id, session_id, message_id, candidate,
                 "Outcome or correction target is ambiguous",
@@ -537,6 +548,52 @@ class LifecycleService:
                 return expectations
         return []
 
+    async def _resolve_target_via_entity(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        candidate: ExtractionCandidate, message_id: str, action: Optional[str],
+        evidence: str, active_expectations: List[Expectation],
+    ) -> Optional[UUID]:
+        """Resolve-before-clarify: when the hint names a textual target, try
+        entity resolution first. A unique entity with exactly one linked
+        UNKNOWN expectation takes the fulfill/cancel directly, so a question
+        is asked only when evidence cannot answer it. Anything else falls
+        through to clarification. Correct/reschedule need replacement
+        machinery and are left to the clarification path."""
+        if action not in ("fulfill", "cancel"):
+            return None
+        hint = candidate.resolution_hint or {}
+        target_text = str(hint.get("target_text") or "").strip()
+        if not target_text:
+            return None
+        from src.models.identity import EntityLink
+        from src.services import entity_service
+        entity, status = await entity_service.resolve_mention(
+            db, workspace_id=workspace_id, session_id=session_id,
+            mention=target_text, frame=None, message_id=message_id)
+        if entity is None or status not in ("linked", "provisioned"):
+            return None
+        linked_ids = {
+            link.object_id for link in (await db.execute(select(EntityLink).where(
+                EntityLink.entity_id == entity.id,
+                EntityLink.object_type == "expectation",
+            ))).scalars().all()
+        }
+        options = [exp for exp in active_expectations if exp.id in linked_ids]
+        if len(options) != 1:
+            return None
+        exp = options[0]
+        exp.outcome_state = (
+            OutcomeState.CANCELLED if action == "cancel" else OutcomeState.FULFILLED
+        )
+        exp.resolution_evidence = evidence
+        exp.updated_at = self._naive_utc(datetime.now(timezone.utc))
+        db.add(exp)
+        await db.commit()
+        if action == "fulfill":
+            await self._resolve_open_loop_for_expectation(db, exp.id, evidence)
+        logger.info("Entity-resolved %s for expectation id=%s", action, exp.id)
+        return exp.id
+
     async def _create_clarification(
         self, db: AsyncSession, workspace_id: str, session_id: str,
         message_id: str, candidate: ExtractionCandidate, description: str,
@@ -667,8 +724,31 @@ class LifecycleService:
     ) -> Optional[Suppression]:
         if not candidate.suppression_hint:
             return None
+        hint = dict(candidate.suppression_hint)
+        if hint.get("ambiguous_target"):
+            await self._create_clarification(
+                db, workspace_id, session_id, message_id, candidate,
+                "Suppression target is ambiguous", [], owner_peer_id=owner_peer_id,
+            )
+            return None
+        # Direction gate: a suppression WRITE must prove its polarity. Turns
+        # that invite, permit or request MORE of a topic must never become
+        # suppressions (take-8: permission for emotional expression, pleas
+        # for authenticity). Missing/unknown direction fails closed.
+        # Ambiguous-target clarifications above are unaffected: they ask a
+        # question rather than writing a suppression.
+        direction = hint.get("direction")
+        if direction not in ("refuse", "allow"):
+            logger.warning("Suppression rejected: missing direction (msg=%s)", message_id)
+            return None
+        if direction == "allow" and hint.get("action") != "reopen":
+            # Invitation/permission phrasing with suppression scaffolding is a
+            # reopen at most, never a new suppression. Without an
+            # identifiable topic there is nothing to reopen: drop it.
+            if not hint.get("topic_or_entity"):
+                return None
+            hint["action"] = "reopen"
 
-        hint = candidate.suppression_hint
         if hint.get("ambiguous_target"):
             await self._create_clarification(
                 db, workspace_id, session_id, message_id, candidate,

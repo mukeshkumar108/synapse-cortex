@@ -158,3 +158,35 @@ async def save_fact_idempotent(session: AsyncSession, fact_data: dict) -> Tuple[
     await session.refresh(fact)
     logger.info("Created new fact id=%s for message_id=%s", fact.id, fact.honcho_message_id)
     return fact, True
+
+
+async def save_model_entry(session: AsyncSession, entry_data: dict) -> Tuple["ModelEntry", bool]:
+    """Idempotent Model-primitive write.
+
+    Durable beliefs about a person/relationship (fear, preference, tendency,
+    posture). Dedupe key is (workspace, message, normalized claim): the same
+    claim re-evidenced is one row. Revised by supersession, never
+    fulfilled/violated — no caller may route these rows into outcome
+    transitions.
+    """
+    from src.models.identity import ModelEntry
+    claim = str(entry_data.get("claim") or "").strip()
+    if not claim:
+        raise ValueError("model entry requires a claim")
+    existing = (await session.execute(select(ModelEntry).where(
+        ModelEntry.honcho_workspace_id == entry_data["honcho_workspace_id"],
+        ModelEntry.honcho_message_id == entry_data["honcho_message_id"],
+    ))).scalars().all()
+    for row in existing:
+        if row.claim.strip().lower() == claim.lower():
+            return row, False
+    entry = ModelEntry(**entry_data)
+    session.add(entry)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise
+    await session.refresh(entry)
+    logger.info("Created new model entry id=%s for message_id=%s", entry.id, entry.honcho_message_id)
+    return entry, True

@@ -269,6 +269,7 @@ class RuleBasedExtractorProvider(BaseExtractorProvider):
                 "target_type": "topic",
                 "topic_or_entity": reopen_match.group(1).strip(),
                 "reason": "user_explicit_reopen",
+                "direction": "allow",
             }
         elif suppression_match or bring_up_match:
             topic_target = re.sub(
@@ -278,6 +279,7 @@ class RuleBasedExtractorProvider(BaseExtractorProvider):
                 "target_type": "topic",
                 "topic_or_entity": topic_target,
                 "reason": f"User requested suppression: {clause}",
+                "direction": "refuse",
                 "raw_temporal_phrase": self._extract_temporal_phrase(lower_clause),
                 "reopen_condition": (
                     "user_mentions_topic" if re.search(r"\b(?:until i bring it up|unless i mention it)\b", lower_clause)
@@ -742,12 +744,18 @@ words. Concretely: always check the immediately preceding assistant/character tu
 a promise there ("I'll give you space", "I'll be here", "I'll reach out when X")
 is a commitment_candidate with that peer as actor even though the current turn is
 the user's. Do not mine deep history — only the live edge still open in this turn's context.
-Return JSON {{"observations": [...]}} with at most 8 items. Each item: description (plain
+Return JSON {{"observations": [...], "frame": ..., "frame_confidence": ...}} with at most 8 items. Each item: description (plain
 semantic English, need not be verbatim), evidence_text (verbatim supporting excerpt),
 source_start/source_end when confident, confidence 0..1, actor_peer_id, subject_refs array,
 temporal_language. description, evidence_text and confidence are REQUIRED on every item:
 confidence must always be a number 0..1 estimating how strongly the turn supports the
-observation — never omit it, never use a word. When one turn reports concrete progress/accomplishment AND says the larger
+observation — never omit it, never use a word. Top-level frame classifies THIS turn's
+speaking stance for identity scoping (not scene detection): "in_roleplay" when the
+sender speaks as a fictional persona or the turn carries roleplay stage directions;
+"creator_direct" when the sender steps out of role to speak as creator/narrator/director
+about the system or characters; "ambiguous" otherwise or whenever unsure. Prefer
+ambiguous over guessing. frame_confidence is REQUIRED 0..1 alongside frame.
+When one turn reports concrete progress/accomplishment AND says the larger
 goal remains unresolved (for example "sent three applications but still need to keep
 applying"), emit two observations: the progress event and the continuing objective. Do not
 collapse them. Do not assign operational types. Do not invent context.
@@ -760,6 +768,15 @@ really well" as resolution/outcome of that event or follow-up, not as a newly up
 {prior_prefix}USER TURN: {json.dumps(text)}
 PEER: {json.dumps(peer_id or 'user')}"""
             loose = self._chat_json(loose_prompt)
+            frame = loose.get("frame")
+            if frame not in ("in_roleplay", "creator_direct"):
+                frame = "ambiguous"
+            try:
+                frame_confidence = float(loose.get("frame_confidence") or 0)
+            except (TypeError, ValueError):
+                frame_confidence = 0.0
+            self.last_frame = frame
+            self.last_frame_confidence = min(max(frame_confidence, 0.0), 1.0)
             self.last_stage_metrics["loose"] = {
                 "latency_ms": round((time.perf_counter() - loose_started) * 1000, 1),
                 "usage": dict(self._last_call_usage),
@@ -797,11 +814,15 @@ PEER: {json.dumps(peer_id or 'user')}"""
 bounded operational proposals. Return JSON {{"candidates": [...]}}. operational_kind is
 REQUIRED on every candidate and is the primary classification — exactly one of:
 expectation, durable_objective, recurring_intention, progress, completion, cancellation,
-suppression, open_loop, event, commitment_candidate, semantic_only. Do NOT put these
+suppression, open_loop, event, commitment_candidate, model_claim, semantic_only. Do NOT put these
 words in expectation_type_hint. expectation_type_hint is used ONLY when operational_kind
 is expectation or durable_objective, and must then be exactly one of: user_intention,
 user_commitment, external_dependency, planned_event, expected_outcome,
-followup_invitation. A past action already finished is completion or event, never an
+followup_invitation. model_kind is REQUIRED when operational_kind is model_claim and
+must be exactly one of user, character, relationship: a durable belief about a person
+or relationship that reframes future turns (fear of abandonment, feeling unseen,
+character withdraws under pressure, trust increased after repair, values challenge).
+Momentary emotions and single actions are NOT model content. A past action already finished is completion or event, never an
 expectation. A fact about health, history or biography is event or semantic_only, never
 an expectation. Durability gate (apply before choosing any kind): understand the
 evidence first, then ask whether it warrants DURABLE structured state — would knowing
@@ -907,7 +928,10 @@ daily to Monday/Wednesday/Friday is a revised recurring_intention with cadence w
 days_of_week [0,2,4], so deterministic reconciliation can supersede the prior cadence.
 Cancellation/completion should include target_key/canonical_title. Time-bound follow-ups use
 open_loop_hint and expiry_phrase. Suppressions include suppression_hint with target_type,
-topic_or_entity, action_scope, raw_temporal_phrase. Static descriptions use semantic_only.
+topic_or_entity, action_scope, raw_temporal_phrase, and direction (REQUIRED: refuse
+when the turn asks for LESS of something, allow when it grants or invites MORE).
+Missing direction fails the write; an invitation must never become a suppression.
+Static descriptions use semantic_only.
 Health states, bodily facts, biographical facts, grief history and other settled past
 events are event-kind facts with holder attribution (actor_peer_id set to whose fact
 it is): they are evidence and user/character-model content, never expectations
@@ -955,7 +979,10 @@ are NEVER commitment_candidate — they use their proper lanes.
 Each candidate must include loose_observation_id, observation, raw_evidence, confidence,
 formation (exactly "explicit" when the current turn states the content outright,
 "inferred" when the content is derived, guessed, or read between the lines),
-canonical_title, actor_peer_id, subject_peer_id, temporal_phrase, expectation_type_hint,
+canonical_title, actor_peer_id, subject_peer_id, subject_refs (REQUIRED array of the
+named people, characters, places or projects this content is about, using their exact
+surface forms from the turn, e.g. ["Ashley", "Leo"]; empty array only when the content
+is about no named referent at all), temporal_phrase, expectation_type_hint,
 evidence_class, authority, cadence, interval_days, days_of_week, preferred_window,
 target_amount, target_unit, progress_amount, progress_unit, expiry_phrase, open_loop_hint,
 suppression_hint, resolution_hint, reminder_request. Use null/[] when absent. reminder_request
@@ -979,6 +1006,13 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     if raw.get(hint_field) is not None and not isinstance(raw.get(hint_field), dict):
                         raw[hint_field] = None
                         validation_notes.append(f"discarded_malformed_{hint_field}")
+                if raw.get("subject_refs") is None:
+                    raw["subject_refs"] = []
+                elif not isinstance(raw.get("subject_refs"), list):
+                    raw["subject_refs"] = []
+                    validation_notes.append("discarded_malformed_subject_refs")
+                else:
+                    raw["subject_refs"] = [s for s in raw["subject_refs"] if isinstance(s, str)][:8]
                 if raw.get("open_loop_hint") is not None and not isinstance(raw.get("open_loop_hint"), str):
                     hint_value = raw.get("open_loop_hint")
                     raw["open_loop_hint"] = (
@@ -996,6 +1030,9 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     }:
                         hint["target_type"] = "topic"
                         validation_notes.append("normalized_invalid_suppression_target_type")
+                    if hint.get("direction") not in {"refuse", "allow", None}:
+                        hint["direction"] = None
+                        validation_notes.append("normalized_invalid_suppression_direction")
                     if hint.get("action_scope") not in {
                         None, "all_surfaces", "followup_prompt", "outbound_contact"
                     }:
@@ -1054,12 +1091,22 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     raw.get("recurrence_semantic_type") in RecurrenceSemantics._VALID
                     and bool(raw.get("cadence") or raw.get("interval_days") or raw.get("days_of_week"))
                 )
+                if kind == "model_claim" and raw.get("model_kind") not in (
+                    "user", "character", "relationship",
+                ):
+                    # Model content without a declared subject class is
+                    # unroutable: drop to semantic_only rather than guessing
+                    # whose belief it is.
+                    raw["operational_kind"] = "semantic_only"
+                    kind = "semantic_only"
+                    validation_notes.append("dropped_model_claim_without_kind")
                 if kind is None and isinstance(raw.get("expectation_type_hint"), str) and raw.get(
                     "expectation_type_hint"
                 ) in {
                     "expectation", "durable_objective", "recurring_intention",
                     "progress", "completion", "cancellation", "suppression",
                     "open_loop", "event", "semantic_only", "commitment_candidate",
+                    "model_claim",
                 }:
                     # Demonstrated model habit: the kind taxonomy lands in the
                     # hint field with operational_kind left null. Adopt it as
@@ -1375,4 +1422,6 @@ class TurnExtractor:
             backend=getattr(self.provider, "last_backend", "rules"),
             model=getattr(self.provider, "model", None),
             failure=getattr(self.provider, "last_failure", None),
+            frame=getattr(self.provider, "last_frame", None),
+            frame_confidence=float(getattr(self.provider, "last_frame_confidence", 0.0) or 0.0),
         )

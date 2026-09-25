@@ -14,8 +14,9 @@ from src.services.expectation_shaper import ExpectationShaper
 from src.services.temporal_grounding import TemporalGrounding
 from src.models.operational_state import TurnStamp
 
-from src.services.persistence import save_expectation_idempotent, save_fact_idempotent
+from src.services.persistence import save_expectation_idempotent, save_fact_idempotent, save_model_entry
 from src.services.ownership import resolve_owner
+from src.services import entity_service
 from src.services.lifecycle_service import LifecycleService
 from src.services.object_lifecycle_service import ObjectLifecycleService
 from src.services.operational_state_service import OperationalStateService
@@ -256,6 +257,35 @@ async def ingest_turn_event(
         db, workspace_id=payload.workspace_id, session_id=payload.session_id,
         message_id=payload.honcho_message_id, result=extraction_result,
     )
+    # Turn speaking stance for identity scoping (Step 3A). One row per turn;
+    # replays are idempotent. Scene assembly (3D) consumes these later.
+    if extraction_result.frame:
+        from src.models.identity import TurnFrame
+        existing_frame = (await db.execute(select(ExtractionTrace).where(
+            ExtractionTrace.honcho_workspace_id == payload.workspace_id,
+            ExtractionTrace.honcho_message_id == payload.honcho_message_id,
+            ExtractionTrace.stage == "frame",
+        ))).scalar_one_or_none()
+        if existing_frame is None:
+            db.add(TurnFrame(
+                honcho_workspace_id=payload.workspace_id,
+                honcho_session_id=payload.session_id,
+                honcho_message_id=payload.honcho_message_id,
+                frame=extraction_result.frame,
+                confidence=extraction_result.frame_confidence,
+            ))
+            await db.execute(stamp_insert(ExtractionTrace).values(
+                honcho_workspace_id=payload.workspace_id,
+                honcho_session_id=payload.session_id,
+                honcho_message_id=payload.honcho_message_id,
+                stage="frame",
+                item_key="frame",
+                status="ok",
+                model=extraction_result.model,
+                detail_json=json.dumps({"frame": extraction_result.frame,
+                                        "confidence": extraction_result.frame_confidence}),
+            ))
+            await db.commit()
     # NARROW REAL-TIME CONTRACT (shadow mode). Non-destructive: runs the narrow
     # classifier alongside the current extractor, validates deterministically,
     # and traces the result. It NEVER mutates state or alters the existing
@@ -323,6 +353,29 @@ async def ingest_turn_event(
         if peer:
             evidence_peer_ids.add(peer)
 
+    # Naming assertions attach before per-row resolution ("his name is Leo"):
+    # the name becomes an alias of the recent role entity.
+    turn_frame = extraction_result.frame
+    try:
+        await entity_service.apply_naming_assertion(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            text=payload.text, message_id=payload.honcho_message_id)
+    except Exception as err:
+        logger.warning("Naming assertion failed: %s", err)
+
+    for cand in candidates:
+        row_owner = resolve_owner(payload.peer_id, cand.actor_peer_id, evidence_peer_ids)
+
+    async def _link_subjects(object_type: str, object_id) -> None:
+        try:
+            await entity_service.link_candidate_subjects(
+                db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                object_type=object_type, object_id=object_id,
+                refs=getattr(cand, "subject_refs", None),
+                frame=turn_frame, message_id=payload.honcho_message_id)
+        except Exception as err:
+            logger.warning("Subject linking failed: %s", err)
+
     for cand in candidates:
         row_owner = resolve_owner(payload.peer_id, cand.actor_peer_id, evidence_peer_ids)
         if cand.clarification_hint:
@@ -347,6 +400,8 @@ async def ingest_turn_event(
                 "authority": candidate_row.authority.value if candidate_row else None,
                 "canonical_key": candidate_row.canonical_key if candidate_row else None,
             })
+            if candidate_row is not None:
+                await _link_subjects("commitment", candidate_row.id)
             continue
 
         if (cand.resolution_hint or {}).get("target_kind") in ("attention", "open_loop", "clarification"):
@@ -429,6 +484,42 @@ async def ingest_turn_event(
                     "mutation": "fact_recorded" if fact_created else "fact_duplicate",
                     "id": str(fact_row.id),
                 })
+                await _link_subjects("fact", fact_row.id)
+            shaped_data = None
+            existing_objective = None
+            expectation_record_id = None
+        elif cand.operational_kind == "model_claim":
+            # User/Character/Relationship Model primitive: durable interpretive
+            # belief with evidence trail. Revised by supersession, never
+            # fulfilled or violated — no outcome routing touches these rows.
+            model_subject_id = None
+            if cand.model_kind in ("user", "character", "relationship"):
+                for ref in (getattr(cand, "subject_refs", None) or [])[:8]:
+                    if not isinstance(ref, str) or not ref.strip():
+                        continue
+                    ent, status = await entity_service.resolve_mention(
+                        db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                        mention=ref, frame=turn_frame, message_id=payload.honcho_message_id)
+                    if ent is not None and status in ("linked", "provisioned"):
+                        model_subject_id = ent.id
+                        break
+                entry, entry_created = await save_model_entry(db, {
+                    "honcho_workspace_id": payload.workspace_id,
+                    "honcho_session_id": payload.session_id,
+                    "honcho_message_id": payload.honcho_message_id,
+                    "owner_peer_id": row_owner,
+                    "subject_entity_id": model_subject_id,
+                    "model_kind": cand.model_kind,
+                    "claim": (cand.observation or "")[:2000],
+                    "evidence_verbatim": (cand.raw_evidence or cand.observation or "")[:2000],
+                    "formation": cand.formation or "explicit",
+                    "confidence": cand.confidence,
+                })
+                operational_mutations.append({
+                    "mutation": "model_entry_recorded" if entry_created else "model_entry_duplicate",
+                    "id": str(entry.id),
+                })
+                await _link_subjects("model_entry", entry.id)
             shaped_data = None
             existing_objective = None
             expectation_record_id = None
@@ -476,6 +567,7 @@ async def ingest_turn_event(
             if created:
                 expectations_created.append(exp_model.id)
                 expectation_record_id = exp_model.id
+                await _link_subjects("expectation", exp_model.id)
                 # Belief reconciliation: the new expectation is the current
                 # belief about its plan; stale sibling UNKNOWN rows describing
                 # the same plan are superseded onto it (preserved as evidence).

@@ -36,6 +36,7 @@ class ExtractionCandidate(BaseModel):
     observation: str = Field(..., description="Extracted observation text snippet")
     actor_peer_id: Optional[str] = Field(default=None, description="Actor performing or initiating the action")
     subject_peer_id: Optional[str] = Field(default=None, description="Subject peer context e.g. mukesh")
+    subject_refs: List[str] = Field(default_factory=list, description="Named referents for entity linking")
     semantic_type: Optional[str] = Field(default=None, description="Internal semantic hint")
     expectation_type_hint: Optional[str] = Field(default=None, description="Hint for expectation classification")
     temporal_phrase: Optional[str] = Field(default=None, description="Extracted raw temporal phrase e.g. tonight")
@@ -65,8 +66,12 @@ class ExtractionCandidate(BaseModel):
     operational_kind: Optional[Literal[
         "expectation", "durable_objective", "recurring_intention", "progress",
         "completion", "cancellation", "suppression", "open_loop", "event",
-        "semantic_only", "commitment_candidate",
+        "semantic_only", "commitment_candidate", "model_claim",
     ]] = None
+    model_kind: Optional[Literal["user", "character", "relationship"]] = Field(
+        default=None,
+        description="For model_claim only: whose durable belief this is. Required; missing drops the row.",
+    )
     # Commitment-candidate vocabulary (Phase 2). Evidence class is a semantic
     # category, not a numeric confidence; authority decides who may act.
     evidence_class: Optional[Literal[
@@ -133,3 +138,5 @@ class ExtractionResult(BaseModel):
     backend: str
     model: Optional[str] = None
     failure: Optional[str] = None
+    frame: Optional[str] = Field(default=None, description="Turn speaking stance: in_roleplay/creator_direct/ambiguous")
+    frame_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
