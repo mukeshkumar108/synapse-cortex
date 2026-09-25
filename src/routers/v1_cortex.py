@@ -413,6 +413,93 @@ async def run_background_sweep(
         owner_peer_id=req.peer_id, now=req.now, timezone_str=req.timezone)
 
 
+class SceneReportRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    owner_peer_id: str = ""
+    message_id: str = ""
+    detections: Dict[str, Any] = Field(default_factory=dict)
+    source: str = "model_inferred"
+    confidence: float = 0.7
+    epoch_event: Optional[Dict[str, str]] = None
+
+
+class SceneEpochRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    action: str = "status"
+    reason: str = ""
+
+
+@router.post("/scene/report")
+async def report_scene_detections(
+    req: SceneReportRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Async scene reconcile: Jev detections applied to authoritative truth
+    by deterministic authority rules. Optionally closes/opens an epoch in
+    the same call (minimal sync payload only). Fail-open, never blocks."""
+    from src.services.scene_state import close_epoch, report_detections
+    try:
+        scene = await report_detections(
+            db, workspace_id=req.workspace_id, session_id=req.session_id,
+            detections=req.detections or {}, source=req.source,
+            confidence=req.confidence)
+        epoch_result = None
+        if (req.epoch_event or {}).get("type") in ("session", "scene"):
+            epoch_result = await close_epoch(
+                db, workspace_id=req.workspace_id, session_id=req.session_id,
+                reason=str((req.epoch_event or {}).get("reason") or "epoch_event"))
+        return {"scene": scene, "epoch": epoch_result}
+    except Exception as err:
+        logger.warning("scene report failed: %s", err)
+        return {"scene": None, "epoch": None, "error": str(err)[:200]}
+
+
+@router.post("/scene/epoch")
+async def manage_scene_epoch(
+    req: SceneEpochRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Explicit epoch open/close/status. Close writes snapshot reference +
+    carried matter IDs only; richer consolidation is async and separate."""
+    from src.services.scene_state import close_epoch, get_active_scene
+    import json as _json
+    if req.action == "close":
+        try:
+            return await close_epoch(
+                db, workspace_id=req.workspace_id, session_id=req.session_id,
+                reason=req.reason or "explicit_close")
+        except Exception as err:
+            logger.warning("epoch close failed: %s", err)
+            return {"error": str(err)[:200]}
+    row = await get_active_scene(
+        db, workspace_id=req.workspace_id, session_id=req.session_id)
+    if row is None:
+        return {"epoch_id": None, "fields": {}}
+    return {"epoch_id": row.epoch_id,
+            "fields": _json.loads(row.fields_json or "{}"),
+            "carried": _json.loads(row.carried_matter_ids_json or "[]")}
+
+
+@router.get("/scene/active")
+async def get_active_scene_state(
+    workspace_id: str,
+    session_id: str,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Runtime cache priming: current authoritative scene. Poll rarely;
+    per-turn selection runs local."""
+    from src.services.scene_state import get_active_scene
+    import json as _json
+    row = await get_active_scene(
+        db, workspace_id=workspace_id, session_id=session_id)
+    if row is None:
+        return {"epoch_id": None, "fields": {}}
+    return {"epoch_id": row.epoch_id,
+            "fields": _json.loads(row.fields_json or "{}")}
+
+
 async def _compile_session_handover(
     req: WorkingSetRequest,
     db: AsyncSession,

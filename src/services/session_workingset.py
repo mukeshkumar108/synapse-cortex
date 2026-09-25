@@ -133,11 +133,14 @@ async def compile_session_working_set(
         db, workspace_id=workspace_id, session_id=session_id,
         owner_peer_id=owner_peer_id, now=now)
     suppressions = await _active_suppressions(db, workspace_id, now)
+    authoritative_scene = await _authoritative_scene(
+        db, workspace_id, session_id)
     fingerprint = await _source_fingerprint(db, workspace_id, session_id)
     contacts = await _contacts_today(db, workspace_id, owner_peer_id or "", now)
 
     if scene:
-        sections = _compose_scene(views, moves, suppressions, scene=scene)
+        sections = _compose_scene(views, moves, suppressions,
+                                  authoritative_scene, scene=scene)
         composition = "scene"
     else:
         sections = _compose_session(views, moves, suppressions)
@@ -190,12 +193,14 @@ def _compose_session(views: Dict[str, List[Dict[str, Any]]],
 
 def _compose_scene(views: Dict[str, List[Dict[str, Any]]],
                    moves: Dict[str, Any],
-                   suppressions: List[Dict[str, Any]], *,
+                   suppressions: List[Dict[str, Any]],
+                   authoritative_scene: Dict[str, Any], *,
                    scene: Dict[str, Any]) -> Dict[str, Any]:
     eligible = [m for m in moves.get("moves", [])
                 if m.get("telemetry") == "MOVE_ELIGIBLE"]
     return {
         "scene_anchor": scene,
+        "authoritative_scene": authoritative_scene,
         "character_state": views.get("relationship_context", [])[:6],
         "relationship_meaning": views.get("relationship_context", [])[:3],
         "salient_history": views.get("conversation_opportunity", [])[:4],
@@ -285,6 +290,24 @@ async def _reactivated(db: AsyncSession, suppression, now_utc: datetime) -> bool
     created = suppression.created_at
     created_naive = created.replace(tzinfo=None) if created.tzinfo else created
     return bool(updated_naive > created_naive)
+
+
+async def _authoritative_scene(db: AsyncSession, workspace_id: str,
+                               session_id: str) -> Dict[str, Any]:
+    from src.services.scene_state import get_active_scene
+    import json as _json
+    try:
+        row = await get_active_scene(db, workspace_id, session_id)
+    except Exception as err:
+        logger.warning("authoritative scene read failed: %s", err)
+        return {"epoch_id": None, "fields": {}}
+    if row is None:
+        return {"epoch_id": None, "fields": {}}
+    try:
+        fields = _json.loads(row.fields_json or "{}")
+    except (ValueError, TypeError):
+        fields = {}
+    return {"epoch_id": row.epoch_id, "fields": fields}
 
 
 async def needs_refresh(

@@ -12,6 +12,7 @@ from src.models.semantic import (
     SemanticClaim, SemanticRelation, RelationType, RelationFormation,
     RelationStatus, RELATION_VOCAB,
 )
+from src.models.scene import CurrentScene, SceneEpoch, AUTHORITY_RANK
 from src.models.current_meaning import CurrentMeaning
 from src.models.fact import Fact
 from src.models.identity import (
@@ -44,6 +45,7 @@ __all__ = [
     "DerivedSignal", "DerivedSignalKind",
     "SemanticClaim", "SemanticRelation", "RelationType", "RelationFormation",
     "RelationStatus", "RELATION_VOCAB",
+    "CurrentScene", "SceneEpoch", "AUTHORITY_RANK",
     "CurrentMeaning",
     "Fact",
     "Entity", "EntityAlias", "RelationshipEdge", "ModelEntry", "EntityLink", "TurnFrame",
