@@ -1,0 +1,4077 @@
+{
+ "cases": [
+  {
+   "case_id": "c1_carlos_partial",
+   "claims": [
+    {
+     "claim_id": "0957af6cf26f",
+     "content": "partial payment Q1,500 received from carlos",
+     "subjects": [
+      "carlos",
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e03",
+      "s1_e04"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.9,
+     "effective_at": "2026-09-28T10:14:00+01:00",
+     "discovered_at": "2026-09-28T10:14:00+01:00"
+    },
+    {
+     "claim_id": "34dfec3e8708",
+     "content": "carlos said friday (which friday uncertain)",
+     "subjects": [
+      "carlos",
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e01"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.4,
+     "effective_at": "2026-09-28T08:07:00+01:00",
+     "discovered_at": "2026-09-28T08:07:00+01:00"
+    },
+    {
+     "claim_id": "35eb5adf2b29",
+     "content": "venue chairs confirmation",
+     "subjects": [
+      "user",
+      "venue"
+     ],
+     "evidence_refs": [
+      "s1_e01",
+      "s1_e07"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-28T08:07:00+01:00",
+     "discovered_at": "2026-09-28T08:07:00+01:00"
+    },
+    {
+     "claim_id": "5c06b5607fb8",
+     "content": "cake vendor follow-up (user keeps forgetting)",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e01"
+     ],
+     "modality": "intended",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.6,
+     "effective_at": "2026-09-28T08:07:00+01:00",
+     "discovered_at": "2026-09-28T08:07:00+01:00"
+    },
+    {
+     "claim_id": "7126d8d09e16",
+     "content": "carlos sent Q1,500, rest after bank releases",
+     "subjects": [
+      "carlos",
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e03"
+     ],
+     "modality": "promised",
+     "condition": "after bank releases transfer",
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-28T10:14:00+01:00",
+     "discovered_at": "2026-09-28T10:14:00+01:00"
+    },
+    {
+     "claim_id": "8a3167434142",
+     "content": "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)",
+     "subjects": [
+      "carlos",
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e01",
+      "s1_e09"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.6,
+     "effective_at": "2026-09-28T08:07:00+01:00",
+     "discovered_at": "2026-09-28T08:07:00+01:00"
+    },
+    {
+     "claim_id": "a2cbd1ec14b7",
+     "content": "user asks to be reminded / kept straight",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e01"
+     ],
+     "modality": "intended",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T08:07:00+01:00",
+     "discovered_at": "2026-09-28T08:07:00+01:00"
+    },
+    {
+     "claim_id": "acabed9339a4",
+     "content": "carlos will send remainder after bank release",
+     "subjects": [
+      "carlos",
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e03"
+     ],
+     "modality": "promised",
+     "condition": "after bank releases transfer",
+     "formation": "explicit",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T10:14:00+01:00",
+     "discovered_at": "2026-09-28T10:14:00+01:00"
+    }
+   ],
+   "relations": [
+    {
+     "relation_id": "0ed4150a9130",
+     "rel_type": "partially_fulfils",
+     "from_id": "0957af6cf26f",
+     "to_id": "8a3167434142",
+     "evidence_refs": [
+      "s1_e01",
+      "s1_e03",
+      "s1_e04",
+      "s1_e09"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T10:14:00+01:00",
+     "discovered_at": "2026-09-28T10:14:00+01:00",
+     "status": "active"
+    },
+    {
+     "relation_id": "ead4969c6009",
+     "rel_type": "depends_on",
+     "from_id": "acabed9339a4",
+     "to_id": "8a3167434142",
+     "evidence_refs": [
+      "s1_e01",
+      "s1_e03",
+      "s1_e09"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T10:14:00+01:00",
+     "discovered_at": "2026-09-28T10:14:00+01:00",
+     "status": "active"
+    }
+   ],
+   "roles": {
+    "0957af6cf26f": [
+     "assertional",
+     "obligation"
+    ],
+    "34dfec3e8708": [
+     "assertional",
+     "unresolved"
+    ],
+    "35eb5adf2b29": [
+     "assertional"
+    ],
+    "5c06b5607fb8": [
+     "assertional",
+     "unresolved",
+     "attentional"
+    ],
+    "7126d8d09e16": [
+     "assertional",
+     "predictive"
+    ],
+    "8a3167434142": [
+     "assertional",
+     "obligation",
+     "unresolved"
+    ],
+    "a2cbd1ec14b7": [
+     "assertional",
+     "obligation",
+     "unresolved",
+     "attentional"
+    ],
+    "acabed9339a4": [
+     "assertional",
+     "predictive"
+    ]
+   },
+   "obligations": [
+    {
+     "frame_id": "5e64e675d559",
+     "claim_id": "a2cbd1ec14b7",
+     "obligor": "user",
+     "beneficiary": "user",
+     "action": "user asks to be reminded / kept straight",
+     "condition": null,
+     "due": "2026-09-28T08:07:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "intended"
+    },
+    {
+     "frame_id": "756683ea6e28",
+     "claim_id": "8a3167434142",
+     "obligor": "carlos",
+     "beneficiary": "user",
+     "action": "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)",
+     "condition": null,
+     "due": "2026-09-28T08:07:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "reported"
+    },
+    {
+     "frame_id": "a07a004e88ca",
+     "claim_id": "0957af6cf26f",
+     "obligor": "carlos",
+     "beneficiary": "user",
+     "action": "partial payment Q1,500 received from carlos",
+     "condition": null,
+     "due": "2026-09-28T10:14:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "stated"
+    }
+   ],
+   "t2": {
+    "means": [
+     "shadow reading: high_load over 5 evidence items"
+    ],
+    "unresolved": [
+     "carlos said friday (which friday uncertain)",
+     "cake vendor follow-up (user keeps forgetting)",
+     "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)"
+    ],
+    "trajectory": "steady",
+    "easing": [],
+    "tensions": [],
+    "context_labels": [
+     "high_load"
+    ],
+    "context_weight": 0.35,
+    "evidence_refs": [
+     "s1_e01",
+     "s1_e03",
+     "s1_e04",
+     "s1_e07",
+     "s1_e09"
+    ]
+   },
+   "views": {
+    "todo": [
+     "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)",
+     "cake vendor follow-up (user keeps forgetting)",
+     "carlos said friday (which friday uncertain)",
+     "carlos sent Q1,500, rest after bank releases",
+     "carlos will send remainder after bank release",
+     "partial payment Q1,500 received from carlos",
+     "user asks to be reminded / kept straight",
+     "venue chairs confirmation"
+    ],
+    "reminder": [
+     "user asks to be reminded / kept straight"
+    ],
+    "open_matter": [
+     "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)",
+     "cake vendor follow-up (user keeps forgetting)",
+     "carlos said friday (which friday uncertain)",
+     "user asks to be reminded / kept straight"
+    ],
+    "worry": [],
+    "follow_up": [
+     "amount owed by carlos (3,000 vs 3,600 incl delivery uncertain)",
+     "cake vendor follow-up (user keeps forgetting)",
+     "carlos said friday (which friday uncertain)",
+     "carlos sent Q1,500, rest after bank releases",
+     "carlos will send remainder after bank release",
+     "user asks to be reminded / kept straight"
+    ],
+    "companion_obligation": [
+     "user owes user: user asks to be reminded / kept straight"
+    ]
+   },
+   "moves": [
+    {
+     "move_id": "0cef4a95836d",
+     "kind": "FOLLOW_UP",
+     "reason": "CHECK_BACK",
+     "matter_id": "5c06b5607fb8",
+     "source_refs": [
+      "s1_e01"
+     ],
+     "support_strength": 0.6,
+     "salience": 0.6,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:07:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": true
+    },
+    {
+     "move_id": "44a4e040f897",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "8a3167434142",
+     "source_refs": [
+      "s1_e01",
+      "s1_e09"
+     ],
+     "support_strength": 0.6,
+     "salience": 0.7,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:07:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "96b265992cd5",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "0957af6cf26f",
+     "source_refs": [
+      "s1_e03",
+      "s1_e04"
+     ],
+     "support_strength": 0.9,
+     "salience": 0.5,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T10:14:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "a3f9631ae15e",
+     "kind": "REMIND",
+     "reason": "DUE",
+     "matter_id": "a2cbd1ec14b7",
+     "source_refs": [
+      "s1_e01"
+     ],
+     "support_strength": 0.7,
+     "salience": 0.6,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:07:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": true
+    }
+   ],
+   "assessments": [
+    {
+     "matter_id": "0957af6cf26f",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "96b265992cd5",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "0957af6cf26f",
+       "source_refs": [
+        "s1_e03",
+        "s1_e04"
+       ],
+       "support_strength": 0.9,
+       "salience": 0.5,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T10:14:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "0957af6cf26f",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "bank_feed",
+        "email",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": "third-party watch (no self debt)"
+    },
+    {
+     "matter_id": "34dfec3e8708",
+     "roles": [
+      "assertional",
+      "unresolved"
+     ],
+     "telemetry": "MOVE_HELD",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "34dfec3e8708",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "35eb5adf2b29",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "35eb5adf2b29",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "5c06b5607fb8",
+     "roles": [
+      "assertional",
+      "unresolved",
+      "attentional"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "0cef4a95836d",
+       "kind": "FOLLOW_UP",
+       "reason": "CHECK_BACK",
+       "matter_id": "5c06b5607fb8",
+       "source_refs": [
+        "s1_e01"
+       ],
+       "support_strength": 0.6,
+       "salience": 0.6,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:07:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": true
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "5c06b5607fb8",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "7126d8d09e16",
+     "roles": [
+      "assertional",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "7126d8d09e16",
+       "strategy": "verify_feed",
+       "sources_checked": [
+        "bank_feed",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "feed reconciles part; remainder still outstanding"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "8a3167434142",
+     "roles": [
+      "assertional",
+      "obligation",
+      "unresolved"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "44a4e040f897",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "8a3167434142",
+       "source_refs": [
+        "s1_e01",
+        "s1_e09"
+       ],
+       "support_strength": 0.6,
+       "salience": 0.7,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:07:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "8a3167434142",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "bank_feed",
+        "email",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "2 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": "third-party watch (no self debt)"
+    },
+    {
+     "matter_id": "a2cbd1ec14b7",
+     "roles": [
+      "assertional",
+      "obligation",
+      "unresolved",
+      "attentional"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "a3f9631ae15e",
+       "kind": "REMIND",
+       "reason": "DUE",
+       "matter_id": "a2cbd1ec14b7",
+       "source_refs": [
+        "s1_e01"
+       ],
+       "support_strength": 0.7,
+       "salience": 0.6,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:07:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": true
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "a2cbd1ec14b7",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "acabed9339a4",
+     "roles": [
+      "assertional",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "acabed9339a4",
+       "strategy": "verify_feed",
+       "sources_checked": [
+        "bank_feed",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "feed reconciles part; remainder still outstanding"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "expected_but_missing": [],
+   "unknowns": [],
+   "title": "Carlos partial payment / delayed chase"
+  },
+  {
+   "case_id": "c2_freepik_reschedule",
+   "claims": [
+    {
+     "claim_id": "08ab65bf852c",
+     "content": "user cancelled freepik themselves after client approval",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s2_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.9,
+     "effective_at": "2026-10-03T14:22:00+01:00",
+     "discovered_at": "2026-10-03T14:22:00+01:00"
+    },
+    {
+     "claim_id": "63814dcf0863",
+     "content": "auntie photo/letter matter",
+     "subjects": [
+      "user",
+      "auntie"
+     ],
+     "evidence_refs": [
+      "s2_e03",
+      "s2_e07",
+      "s2_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-29T07:42:00+01:00",
+     "discovered_at": "2026-09-29T07:42:00+01:00"
+    },
+    {
+     "claim_id": "bb23401bc072",
+     "content": "client has not approved graphics yet",
+     "subjects": [
+      "client",
+      "user"
+     ],
+     "evidence_refs": [
+      "s2_e09"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.7,
+     "effective_at": "2026-10-02T08:07:00+01:00",
+     "discovered_at": "2026-10-02T08:07:00+01:00"
+    },
+    {
+     "claim_id": "ce1b4de6fca6",
+     "content": "freepik annual renews saturday; cancel friday morning (still needed for job)",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s2_e07",
+      "s2_e09",
+      "s2_e10"
+     ],
+     "modality": "conditional",
+     "condition": "still needed for job until friday",
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-30T09:46:00+01:00",
+     "discovered_at": "2026-09-30T09:46:00+01:00"
+    },
+    {
+     "claim_id": "df8c2430feee",
+     "content": "grandad original letter found in loft, photo sent",
+     "subjects": [
+      "user",
+      "auntie"
+     ],
+     "evidence_refs": [
+      "s2_e07",
+      "s2_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.85,
+     "effective_at": "2026-09-30T09:46:00+01:00",
+     "discovered_at": "2026-09-30T09:46:00+01:00"
+    },
+    {
+     "claim_id": "e71c7cb82275",
+     "content": "freepik cancellation pushed to tomorrow afternoon unless told otherwise",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s2_e09"
+     ],
+     "modality": "conditional",
+     "condition": "unless user says otherwise; client approval pending",
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-10-02T08:07:00+01:00",
+     "discovered_at": "2026-10-02T08:07:00+01:00"
+    },
+    {
+     "claim_id": "e8368788bbeb",
+     "content": "client approved graphics",
+     "subjects": [
+      "client",
+      "user"
+     ],
+     "evidence_refs": [
+      "s2_e10"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.85,
+     "effective_at": "2026-10-03T14:22:00+01:00",
+     "discovered_at": "2026-10-03T14:22:00+01:00"
+    },
+    {
+     "claim_id": "f5f5e06af606",
+     "content": "grandad original letter for auntie",
+     "subjects": [
+      "user",
+      "auntie"
+     ],
+     "evidence_refs": [
+      "s2_e03",
+      "s2_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-29T07:42:00+01:00",
+     "discovered_at": "2026-09-29T07:42:00+01:00"
+    }
+   ],
+   "relations": [
+    {
+     "relation_id": "146213b55386",
+     "rel_type": "supersedes",
+     "from_id": "08ab65bf852c",
+     "to_id": "ce1b4de6fca6",
+     "evidence_refs": [
+      "s2_e07",
+      "s2_e09",
+      "s2_e10"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-10-03T14:22:00+01:00",
+     "discovered_at": "2026-10-03T14:22:00+01:00",
+     "status": "active"
+    },
+    {
+     "relation_id": "a8ceeab70b91",
+     "rel_type": "supersedes",
+     "from_id": "e71c7cb82275",
+     "to_id": "ce1b4de6fca6",
+     "evidence_refs": [
+      "s2_e07",
+      "s2_e09",
+      "s2_e10"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-10-02T08:07:00+01:00",
+     "discovered_at": "2026-10-02T08:07:00+01:00",
+     "status": "active"
+    }
+   ],
+   "roles": {
+    "08ab65bf852c": [
+     "assertional"
+    ],
+    "63814dcf0863": [
+     "assertional"
+    ],
+    "bb23401bc072": [
+     "assertional"
+    ],
+    "ce1b4de6fca6": [
+     "assertional",
+     "unresolved",
+     "predictive"
+    ],
+    "df8c2430feee": [
+     "assertional"
+    ],
+    "e71c7cb82275": [
+     "assertional",
+     "obligation",
+     "unresolved"
+    ],
+    "e8368788bbeb": [
+     "assertional"
+    ],
+    "f5f5e06af606": [
+     "assertional"
+    ]
+   },
+   "obligations": [
+    {
+     "frame_id": "21ad07d357f9",
+     "claim_id": "e71c7cb82275",
+     "obligor": "user",
+     "beneficiary": "user",
+     "action": "freepik cancellation pushed to tomorrow afternoon unless told otherwise",
+     "condition": "unless user says otherwise; client approval pending",
+     "due": "2026-10-02T08:07:00+01:00",
+     "authority": "explicit_command",
+     "strength": "normal",
+     "modality": "conditional"
+    }
+   ],
+   "t2": {
+    "means": [
+     "shadow reading: relief_trajectory over 4 evidence items"
+    ],
+    "unresolved": [
+     "freepik annual renews saturday; cancel friday morning (still needed for job)",
+     "freepik cancellation pushed to tomorrow afternoon unless told otherwise"
+    ],
+    "trajectory": "steady",
+    "easing": [],
+    "tensions": [],
+    "context_labels": [
+     "relief_trajectory"
+    ],
+    "context_weight": 0.0,
+    "evidence_refs": [
+     "s2_e03",
+     "s2_e07",
+     "s2_e09",
+     "s2_e10"
+    ]
+   },
+   "views": {
+    "todo": [
+     "auntie photo/letter matter",
+     "client approved graphics",
+     "client has not approved graphics yet",
+     "freepik annual renews saturday; cancel friday morning (still needed for job)",
+     "freepik cancellation pushed to tomorrow afternoon unless told otherwise",
+     "grandad original letter for auntie",
+     "grandad original letter found in loft, photo sent",
+     "user cancelled freepik themselves after client approval"
+    ],
+    "reminder": [
+     "freepik annual renews saturday; cancel friday morning (still needed for job)"
+    ],
+    "open_matter": [
+     "freepik annual renews saturday; cancel friday morning (still needed for job)",
+     "freepik cancellation pushed to tomorrow afternoon unless told otherwise"
+    ],
+    "worry": [
+     "auntie photo/letter matter",
+     "grandad original letter for auntie",
+     "grandad original letter found in loft, photo sent"
+    ],
+    "follow_up": [
+     "freepik annual renews saturday; cancel friday morning (still needed for job)",
+     "freepik cancellation pushed to tomorrow afternoon unless told otherwise"
+    ],
+    "companion_obligation": [
+     "user owes user: freepik cancellation pushed to tomorrow afternoon unless told otherwise"
+    ]
+   },
+   "moves": [
+    {
+     "move_id": "decd1b88ee50",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "e71c7cb82275",
+     "source_refs": [
+      "s2_e09"
+     ],
+     "support_strength": 0.75,
+     "salience": 0.6,
+     "eligibility": "eligible",
+     "validity_window": "2026-10-02T08:07:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    }
+   ],
+   "assessments": [
+    {
+     "matter_id": "08ab65bf852c",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "08ab65bf852c",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "63814dcf0863",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "63814dcf0863",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "bb23401bc072",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "bb23401bc072",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "ce1b4de6fca6",
+     "roles": [
+      "assertional",
+      "unresolved",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "ce1b4de6fca6",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "2 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "df8c2430feee",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "df8c2430feee",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "e71c7cb82275",
+     "roles": [
+      "assertional",
+      "obligation",
+      "unresolved"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "decd1b88ee50",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "e71c7cb82275",
+       "source_refs": [
+        "s2_e09"
+       ],
+       "support_strength": 0.75,
+       "salience": 0.6,
+       "eligibility": "eligible",
+       "validity_window": "2026-10-02T08:07:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "e71c7cb82275",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "e8368788bbeb",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "e8368788bbeb",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "f5f5e06af606",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "f5f5e06af606",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "expected_but_missing": [],
+   "unknowns": [],
+   "title": "Freepik cancellation + reschedule"
+  },
+  {
+   "case_id": "c3_isa_pact",
+   "claims": [
+    {
+     "claim_id": "10a05325869c",
+     "content": "romantic wrapper around pact talks",
+     "subjects": [
+      "user",
+      "isa"
+     ],
+     "evidence_refs": [
+      "isa_e01",
+      "isa_e02"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00"
+    },
+    {
+     "claim_id": "1eced80feb7a",
+     "content": "mornings term of pact",
+     "subjects": [
+      "user",
+      "isa"
+     ],
+     "evidence_refs": [
+      "isa_e01",
+      "isa_e02",
+      "isa_e03"
+     ],
+     "modality": "promised",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00"
+    },
+    {
+     "claim_id": "29cde32fcd7c",
+     "content": "review-sunday term of pact",
+     "subjects": [
+      "user",
+      "isa"
+     ],
+     "evidence_refs": [
+      "isa_e01"
+     ],
+     "modality": "promised",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00"
+    },
+    {
+     "claim_id": "8b3506916eac",
+     "content": "school-run split term of pact",
+     "subjects": [
+      "user",
+      "isa"
+     ],
+     "evidence_refs": [
+      "isa_e01",
+      "isa_e03"
+     ],
+     "modality": "promised",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00"
+    },
+    {
+     "claim_id": "dec29c90d0c5",
+     "content": "bilateral pact terms as negotiated",
+     "subjects": [
+      "user",
+      "isa"
+     ],
+     "evidence_refs": [
+      "isa_e01"
+     ],
+     "modality": "promised",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00"
+    }
+   ],
+   "relations": [
+    {
+     "relation_id": "065ffedb778e",
+     "rel_type": "part_of",
+     "from_id": "29cde32fcd7c",
+     "to_id": "dec29c90d0c5",
+     "evidence_refs": [
+      "isa_e01"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00",
+     "status": "active"
+    },
+    {
+     "relation_id": "4817b8f9429a",
+     "rel_type": "part_of",
+     "from_id": "8b3506916eac",
+     "to_id": "dec29c90d0c5",
+     "evidence_refs": [
+      "isa_e01",
+      "isa_e03"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00",
+     "status": "active"
+    },
+    {
+     "relation_id": "a8d1313e47de",
+     "rel_type": "part_of",
+     "from_id": "1eced80feb7a",
+     "to_id": "dec29c90d0c5",
+     "evidence_refs": [
+      "isa_e01",
+      "isa_e02",
+      "isa_e03"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00",
+     "status": "active"
+    },
+    {
+     "relation_id": "ba02a6639f88",
+     "rel_type": "part_of",
+     "from_id": "10a05325869c",
+     "to_id": "dec29c90d0c5",
+     "evidence_refs": [
+      "isa_e01",
+      "isa_e02"
+     ],
+     "formation": "inferred",
+     "confidence": 0.75,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00",
+     "status": "active"
+    }
+   ],
+   "roles": {
+    "10a05325869c": [
+     "assertional",
+     "obligation"
+    ],
+    "1eced80feb7a": [
+     "assertional",
+     "obligation"
+    ],
+    "29cde32fcd7c": [
+     "assertional",
+     "obligation"
+    ],
+    "8b3506916eac": [
+     "assertional",
+     "obligation"
+    ],
+    "dec29c90d0c5": [
+     "assertional",
+     "obligation"
+    ]
+   },
+   "obligations": [
+    {
+     "frame_id": "07939a4bc5cd",
+     "claim_id": "1eced80feb7a",
+     "obligor": "user",
+     "beneficiary": "user+isa",
+     "action": "mornings term of pact",
+     "condition": null,
+     "due": "2026-09-28T08:00:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "promised"
+    },
+    {
+     "frame_id": "7ee0c180b030",
+     "claim_id": "29cde32fcd7c",
+     "obligor": "user+isa",
+     "beneficiary": "user+isa",
+     "action": "review-sunday term of pact",
+     "condition": null,
+     "due": "2026-09-28T08:00:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "promised"
+    },
+    {
+     "frame_id": "83ae3c87d7d8",
+     "claim_id": "8b3506916eac",
+     "obligor": "user+isa",
+     "beneficiary": "user+isa",
+     "action": "school-run split term of pact",
+     "condition": null,
+     "due": "2026-09-28T08:00:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "promised"
+    },
+    {
+     "frame_id": "86997907ecd0",
+     "claim_id": "10a05325869c",
+     "obligor": "user+isa",
+     "beneficiary": "user+isa",
+     "action": "romantic wrapper around pact talks",
+     "condition": null,
+     "due": "2026-09-28T08:00:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "stated"
+    },
+    {
+     "frame_id": "88c31c507c8b",
+     "claim_id": "dec29c90d0c5",
+     "obligor": "user+isa",
+     "beneficiary": "user+isa",
+     "action": "bilateral pact terms as negotiated",
+     "condition": null,
+     "due": "2026-09-28T08:00:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "promised"
+    }
+   ],
+   "t2": {
+    "means": [
+     "shadow reading: ordinary_ops over 3 evidence items"
+    ],
+    "unresolved": [],
+    "trajectory": "steady",
+    "easing": [],
+    "tensions": [],
+    "context_labels": [
+     "ordinary_ops"
+    ],
+    "context_weight": 0.0,
+    "evidence_refs": [
+     "isa_e01",
+     "isa_e02",
+     "isa_e03"
+    ]
+   },
+   "views": {
+    "todo": [
+     "bilateral pact terms as negotiated",
+     "mornings term of pact",
+     "review-sunday term of pact",
+     "romantic wrapper around pact talks",
+     "school-run split term of pact"
+    ],
+    "reminder": [],
+    "open_matter": [],
+    "worry": [],
+    "follow_up": [],
+    "companion_obligation": [
+     "user owes user+isa: mornings term of pact"
+    ]
+   },
+   "moves": [
+    {
+     "move_id": "1effb00c6990",
+     "kind": "ACT",
+     "reason": "FULFIL_OWN_PROMISE",
+     "matter_id": "dec29c90d0c5",
+     "source_refs": [
+      "isa_e01"
+     ],
+     "support_strength": 0.8,
+     "salience": 0.4,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:00:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "589b04eb551a",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "29cde32fcd7c",
+     "source_refs": [
+      "isa_e01"
+     ],
+     "support_strength": 0.75,
+     "salience": 0.4,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:00:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "8a7edce0216c",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "1eced80feb7a",
+     "source_refs": [
+      "isa_e01",
+      "isa_e02",
+      "isa_e03"
+     ],
+     "support_strength": 0.75,
+     "salience": 0.6,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:00:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "8d9cdd501aff",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "8b3506916eac",
+     "source_refs": [
+      "isa_e01",
+      "isa_e03"
+     ],
+     "support_strength": 0.75,
+     "salience": 0.5,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:00:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "ceb8bb5b908b",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "10a05325869c",
+     "source_refs": [
+      "isa_e01",
+      "isa_e02"
+     ],
+     "support_strength": 0.7,
+     "salience": 0.5,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:00:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    }
+   ],
+   "assessments": [
+    {
+     "matter_id": "10a05325869c",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "ceb8bb5b908b",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "10a05325869c",
+       "source_refs": [
+        "isa_e01",
+        "isa_e02"
+       ],
+       "support_strength": 0.7,
+       "salience": 0.5,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:00:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "10a05325869c",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "1eced80feb7a",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "8a7edce0216c",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "1eced80feb7a",
+       "source_refs": [
+        "isa_e01",
+        "isa_e02",
+        "isa_e03"
+       ],
+       "support_strength": 0.75,
+       "salience": 0.6,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:00:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "1eced80feb7a",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "29cde32fcd7c",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "589b04eb551a",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "29cde32fcd7c",
+       "source_refs": [
+        "isa_e01"
+       ],
+       "support_strength": 0.75,
+       "salience": 0.4,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:00:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "29cde32fcd7c",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "8b3506916eac",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "8d9cdd501aff",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "8b3506916eac",
+       "source_refs": [
+        "isa_e01",
+        "isa_e03"
+       ],
+       "support_strength": 0.75,
+       "salience": 0.5,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:00:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "8b3506916eac",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "dec29c90d0c5",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "1effb00c6990",
+       "kind": "ACT",
+       "reason": "FULFIL_OWN_PROMISE",
+       "matter_id": "dec29c90d0c5",
+       "source_refs": [
+        "isa_e01"
+       ],
+       "support_strength": 0.8,
+       "salience": 0.4,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:00:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "dec29c90d0c5",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "expected_but_missing": [],
+   "unknowns": [],
+   "title": "Isa multi-turn pact (RECONSTRUCTED from failure description)"
+  },
+  {
+   "case_id": "c4_two_sams",
+   "claims": [
+    {
+     "claim_id": "0df8d416d0e1",
+     "content": "studio sam obligation/statement",
+     "subjects": [
+      "studio_sam",
+      "user"
+     ],
+     "evidence_refs": [
+      "s3_e01",
+      "s3_e06"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T11:32:00+01:00",
+     "discovered_at": "2026-09-28T11:32:00+01:00"
+    },
+    {
+     "claim_id": "25a84acd9442",
+     "content": "studio contract state as discussed",
+     "subjects": [
+      "studio_sam",
+      "user"
+     ],
+     "evidence_refs": [
+      "s3_e01",
+      "s3_e05",
+      "s3_e06"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.65,
+     "effective_at": "2026-09-28T11:32:00+01:00",
+     "discovered_at": "2026-09-28T11:32:00+01:00"
+    },
+    {
+     "claim_id": "3c25f3a66618",
+     "content": "cousin sam confirms pickup",
+     "subjects": [
+      "cousin_sam",
+      "user"
+     ],
+     "evidence_refs": [
+      "s3_e09"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.85,
+     "effective_at": "2026-09-30T18:40:00+01:00",
+     "discovered_at": "2026-09-30T18:40:00+01:00"
+    },
+    {
+     "claim_id": "4e8cc2bc2588",
+     "content": "cousin sam picks mum up",
+     "subjects": [
+      "cousin_sam",
+      "user"
+     ],
+     "evidence_refs": [
+      "s3_e01"
+     ],
+     "modality": "promised",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-28T11:32:00+01:00",
+     "discovered_at": "2026-09-28T11:32:00+01:00"
+    },
+    {
+     "claim_id": "8a4b39902d83",
+     "content": "user asks to be reminded / kept straight",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s3_e01"
+     ],
+     "modality": "intended",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T11:32:00+01:00",
+     "discovered_at": "2026-09-28T11:32:00+01:00"
+    },
+    {
+     "claim_id": "bf4b2364e9c5",
+     "content": "cousin sam pickup obligation",
+     "subjects": [
+      "cousin_sam",
+      "user"
+     ],
+     "evidence_refs": [
+      "s3_e01",
+      "s3_e09"
+     ],
+     "modality": "promised",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-28T11:32:00+01:00",
+     "discovered_at": "2026-09-28T11:32:00+01:00"
+    }
+   ],
+   "relations": [
+    {
+     "relation_id": "bdc99e529910",
+     "rel_type": "blocks",
+     "from_id": "0df8d416d0e1",
+     "to_id": "bf4b2364e9c5",
+     "evidence_refs": [
+      "s3_e01",
+      "s3_e06",
+      "s3_e09"
+     ],
+     "formation": "inferred",
+     "confidence": 0.9,
+     "effective_at": "2026-09-28T11:32:00+01:00",
+     "discovered_at": "2026-09-28T11:32:00+01:00",
+     "status": "active"
+    }
+   ],
+   "roles": {
+    "0df8d416d0e1": [
+     "assertional",
+     "obligation"
+    ],
+    "25a84acd9442": [
+     "assertional"
+    ],
+    "3c25f3a66618": [
+     "assertional",
+     "obligation",
+     "predictive"
+    ],
+    "4e8cc2bc2588": [
+     "assertional"
+    ],
+    "8a4b39902d83": [
+     "assertional",
+     "obligation",
+     "unresolved",
+     "attentional"
+    ],
+    "bf4b2364e9c5": [
+     "assertional",
+     "obligation",
+     "predictive"
+    ]
+   },
+   "obligations": [
+    {
+     "frame_id": "6d6b00b0ff6d",
+     "claim_id": "0df8d416d0e1",
+     "obligor": "studio_sam",
+     "beneficiary": "user",
+     "action": "studio sam obligation/statement",
+     "condition": null,
+     "due": "2026-09-28T11:32:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "reported"
+    },
+    {
+     "frame_id": "974a1ed524b5",
+     "claim_id": "3c25f3a66618",
+     "obligor": "cousin_sam",
+     "beneficiary": "user",
+     "action": "cousin sam confirms pickup",
+     "condition": null,
+     "due": "2026-09-30T18:40:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "reported"
+    },
+    {
+     "frame_id": "b372a3ab60ad",
+     "claim_id": "bf4b2364e9c5",
+     "obligor": "cousin_sam",
+     "beneficiary": "user",
+     "action": "cousin sam pickup obligation",
+     "condition": null,
+     "due": "2026-09-28T11:32:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "promised"
+    },
+    {
+     "frame_id": "d9e54532d0ca",
+     "claim_id": "8a4b39902d83",
+     "obligor": "user",
+     "beneficiary": "user",
+     "action": "user asks to be reminded / kept straight",
+     "condition": null,
+     "due": "2026-09-28T11:32:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "intended"
+    }
+   ],
+   "t2": {
+    "means": [
+     "shadow reading: ordinary_ops over 6 evidence items"
+    ],
+    "unresolved": [
+     "user asks to be reminded / kept straight"
+    ],
+    "trajectory": "steady",
+    "easing": [],
+    "tensions": [],
+    "context_labels": [
+     "ordinary_ops"
+    ],
+    "context_weight": 0.0,
+    "evidence_refs": [
+     "s3_e01",
+     "s3_e05",
+     "s3_e06",
+     "s3_e08",
+     "s3_e09",
+     "s3_e10"
+    ]
+   },
+   "views": {
+    "todo": [
+     "cousin sam confirms pickup",
+     "cousin sam picks mum up",
+     "cousin sam pickup obligation",
+     "studio contract state as discussed",
+     "studio sam obligation/statement",
+     "user asks to be reminded / kept straight"
+    ],
+    "reminder": [
+     "user asks to be reminded / kept straight"
+    ],
+    "open_matter": [
+     "user asks to be reminded / kept straight"
+    ],
+    "worry": [],
+    "follow_up": [
+     "user asks to be reminded / kept straight"
+    ],
+    "companion_obligation": [
+     "user owes user: user asks to be reminded / kept straight"
+    ]
+   },
+   "moves": [
+    {
+     "move_id": "1b19c2ac139e",
+     "kind": "REMIND",
+     "reason": "DUE",
+     "matter_id": "8a4b39902d83",
+     "source_refs": [
+      "s3_e01"
+     ],
+     "support_strength": 0.7,
+     "salience": 0.6,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T11:32:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": true
+    },
+    {
+     "move_id": "3792e15a6b38",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "0df8d416d0e1",
+     "source_refs": [
+      "s3_e01",
+      "s3_e06"
+     ],
+     "support_strength": 0.7,
+     "salience": 0.5,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T11:32:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "956de1669a6f",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "bf4b2364e9c5",
+     "source_refs": [
+      "s3_e01",
+      "s3_e09"
+     ],
+     "support_strength": 0.8,
+     "salience": 0.5,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T11:32:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "c9064fa633ea",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "3c25f3a66618",
+     "source_refs": [
+      "s3_e09"
+     ],
+     "support_strength": 0.85,
+     "salience": 0.4,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-30T18:40:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    }
+   ],
+   "assessments": [
+    {
+     "matter_id": "0df8d416d0e1",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "3792e15a6b38",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "0df8d416d0e1",
+       "source_refs": [
+        "s3_e01",
+        "s3_e06"
+       ],
+       "support_strength": 0.7,
+       "salience": 0.5,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T11:32:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "0df8d416d0e1",
+       "strategy": "search_honcho",
+       "sources_checked": [
+        "sms",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "cross-source identity evidence available"
+      }
+     ],
+     "note": "third-party watch (no self debt)"
+    },
+    {
+     "matter_id": "25a84acd9442",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "25a84acd9442",
+       "strategy": "search_honcho",
+       "sources_checked": [
+        "email",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "external source holds newer state"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "3c25f3a66618",
+     "roles": [
+      "assertional",
+      "obligation",
+      "predictive"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "c9064fa633ea",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "3c25f3a66618",
+       "source_refs": [
+        "s3_e09"
+       ],
+       "support_strength": 0.85,
+       "salience": 0.4,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-30T18:40:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "3c25f3a66618",
+       "strategy": "search_honcho",
+       "sources_checked": [
+        "sms",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "cross-source identity evidence available"
+      }
+     ],
+     "note": "third-party watch (no self debt)"
+    },
+    {
+     "matter_id": "4e8cc2bc2588",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "4e8cc2bc2588",
+       "strategy": "search_honcho",
+       "sources_checked": [
+        "sms",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "cross-source identity evidence available"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "8a4b39902d83",
+     "roles": [
+      "assertional",
+      "obligation",
+      "unresolved",
+      "attentional"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "1b19c2ac139e",
+       "kind": "REMIND",
+       "reason": "DUE",
+       "matter_id": "8a4b39902d83",
+       "source_refs": [
+        "s3_e01"
+       ],
+       "support_strength": 0.7,
+       "salience": 0.6,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T11:32:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": true
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "8a4b39902d83",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "bf4b2364e9c5",
+     "roles": [
+      "assertional",
+      "obligation",
+      "predictive"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "956de1669a6f",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "bf4b2364e9c5",
+       "source_refs": [
+        "s3_e01",
+        "s3_e09"
+       ],
+       "support_strength": 0.8,
+       "salience": 0.5,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T11:32:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "bf4b2364e9c5",
+       "strategy": "search_honcho",
+       "sources_checked": [
+        "sms",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "cross-source identity evidence available"
+      }
+     ],
+     "note": "third-party watch (no self debt)"
+    }
+   ],
+   "expected_but_missing": [],
+   "unknowns": [],
+   "title": "Studio Sam vs Cousin Sam"
+  },
+  {
+   "case_id": "c5_neck_elif",
+   "claims": [
+    {
+     "claim_id": "2587123dbcec",
+     "content": "somatic issue improving",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e07"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-29T19:49:00+01:00",
+     "discovered_at": "2026-09-29T19:49:00+01:00"
+    },
+    {
+     "claim_id": "30fc8f281010",
+     "content": "matt health/surgery context",
+     "subjects": [
+      "matt",
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e01",
+      "s4_e07"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-28T07:52:00+01:00",
+     "discovered_at": "2026-09-28T07:52:00+01:00"
+    },
+    {
+     "claim_id": "63be70d59c9c",
+     "content": "neck pain/soreness report",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e01",
+      "s4_e02",
+      "s4_e04",
+      "s4_e07",
+      "s4_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-28T07:52:00+01:00",
+     "discovered_at": "2026-09-28T07:52:00+01:00"
+    },
+    {
+     "claim_id": "f07691c539da",
+     "content": "elif started new job; user wishes they had messaged",
+     "subjects": [
+      "elif",
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e04",
+      "s4_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-29T08:15:00+01:00",
+     "discovered_at": "2026-09-29T08:15:00+01:00"
+    },
+    {
+     "claim_id": "f0a50227aaff",
+     "content": "user says somatic issue is over / not a thing",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.85,
+     "effective_at": "2026-10-01T08:44:00+01:00",
+     "discovered_at": "2026-10-01T08:44:00+01:00"
+    }
+   ],
+   "relations": [
+    {
+     "relation_id": "3aa7ad9f2342",
+     "rel_type": "resolves",
+     "from_id": "f0a50227aaff",
+     "to_id": "63be70d59c9c",
+     "evidence_refs": [
+      "s4_e01",
+      "s4_e02",
+      "s4_e04",
+      "s4_e07",
+      "s4_e10"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-10-01T08:44:00+01:00",
+     "discovered_at": "2026-10-01T08:44:00+01:00",
+     "status": "active"
+    },
+    {
+     "relation_id": "417d338f45ec",
+     "rel_type": "refines",
+     "from_id": "2587123dbcec",
+     "to_id": "63be70d59c9c",
+     "evidence_refs": [
+      "s4_e01",
+      "s4_e02",
+      "s4_e04",
+      "s4_e07",
+      "s4_e10"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-09-29T19:49:00+01:00",
+     "discovered_at": "2026-09-29T19:49:00+01:00",
+     "status": "active"
+    }
+   ],
+   "roles": {
+    "2587123dbcec": [
+     "assertional"
+    ],
+    "30fc8f281010": [
+     "assertional",
+     "predictive"
+    ],
+    "63be70d59c9c": [
+     "assertional",
+     "attentional"
+    ],
+    "f07691c539da": [
+     "assertional"
+    ],
+    "f0a50227aaff": [
+     "assertional"
+    ]
+   },
+   "obligations": [],
+   "t2": {
+    "means": [
+     "shadow reading: high_load, health_watch_present, family_health_context, relief_trajectory over 5 evidence items"
+    ],
+    "unresolved": [],
+    "trajectory": "easing",
+    "easing": [
+     "user says somatic issue is over / not a thing"
+    ],
+    "tensions": [],
+    "context_labels": [
+     "high_load",
+     "health_watch_present",
+     "family_health_context",
+     "relief_trajectory"
+    ],
+    "context_weight": 0.8,
+    "evidence_refs": [
+     "s4_e01",
+     "s4_e02",
+     "s4_e04",
+     "s4_e07",
+     "s4_e10"
+    ]
+   },
+   "views": {
+    "todo": [
+     "elif started new job; user wishes they had messaged",
+     "matt health/surgery context",
+     "somatic issue improving",
+     "user says somatic issue is over / not a thing"
+    ],
+    "reminder": [],
+    "open_matter": [],
+    "worry": [
+     "elif started new job; user wishes they had messaged",
+     "matt health/surgery context",
+     "neck pain/soreness report"
+    ],
+    "follow_up": [],
+    "companion_obligation": []
+   },
+   "moves": [
+    {
+     "move_id": "8f3f0f5d5dcd",
+     "kind": "FOLLOW_UP",
+     "reason": "CHECK_BACK",
+     "matter_id": "f07691c539da",
+     "source_refs": [
+      "s4_e04",
+      "s4_e10"
+     ],
+     "support_strength": 0.75,
+     "salience": 0.5,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-29T08:15:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": true
+    }
+   ],
+   "assessments": [
+    {
+     "matter_id": "2587123dbcec",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "2587123dbcec",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "30fc8f281010",
+     "roles": [
+      "assertional",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "30fc8f281010",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "63be70d59c9c",
+     "roles": [
+      "assertional",
+      "attentional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "63be70d59c9c",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "2 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "f07691c539da",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "8f3f0f5d5dcd",
+       "kind": "FOLLOW_UP",
+       "reason": "CHECK_BACK",
+       "matter_id": "f07691c539da",
+       "source_refs": [
+        "s4_e04",
+        "s4_e10"
+       ],
+       "support_strength": 0.75,
+       "salience": 0.5,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-29T08:15:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": true
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "f07691c539da",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "f0a50227aaff",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "f0a50227aaff",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "expected_but_missing": [],
+   "unknowns": [],
+   "title": "Neck vs headache vs Elif restraint"
+  },
+  {
+   "case_id": "c6_surgery_context",
+   "claims": [
+    {
+     "claim_id": "2d803b98c7d1",
+     "content": "neck pain/soreness report",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e07",
+      "s4_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-29T19:49:00+01:00",
+     "discovered_at": "2026-09-29T19:49:00+01:00"
+    },
+    {
+     "claim_id": "35240bc8dde5",
+     "content": "relief expressed",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e09"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-30T17:30:00+01:00",
+     "discovered_at": "2026-09-30T17:30:00+01:00"
+    },
+    {
+     "claim_id": "6b7cecb881a6",
+     "content": "somatic issue improving",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e07"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-29T19:49:00+01:00",
+     "discovered_at": "2026-09-29T19:49:00+01:00"
+    },
+    {
+     "claim_id": "6ef9ed22e0cc",
+     "content": "family surgery context",
+     "subjects": [
+      "family",
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e09",
+      "dad_e01"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-30T17:30:00+01:00",
+     "discovered_at": "2026-09-30T17:30:00+01:00"
+    },
+    {
+     "claim_id": "98322ea3ae3f",
+     "content": "matt health/surgery context",
+     "subjects": [
+      "matt",
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e07",
+      "s4_e09"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-29T19:49:00+01:00",
+     "discovered_at": "2026-09-29T19:49:00+01:00"
+    },
+    {
+     "claim_id": "c9b0e8b15d70",
+     "content": "user says somatic issue is over / not a thing",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.85,
+     "effective_at": "2026-10-01T08:44:00+01:00",
+     "discovered_at": "2026-10-01T08:44:00+01:00"
+    },
+    {
+     "claim_id": "f71adc7d2b05",
+     "content": "dad surgery context",
+     "subjects": [
+      "dad",
+      "user"
+     ],
+     "evidence_refs": [
+      "dad_e01"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-30T08:00:00+01:00",
+     "discovered_at": "2026-09-30T08:00:00+01:00"
+    },
+    {
+     "claim_id": "ffc2969aaf6e",
+     "content": "elif started new job; user wishes they had messaged",
+     "subjects": [
+      "elif",
+      "user"
+     ],
+     "evidence_refs": [
+      "s4_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-10-01T08:44:00+01:00",
+     "discovered_at": "2026-10-01T08:44:00+01:00"
+    }
+   ],
+   "relations": [
+    {
+     "relation_id": "3389e07ee8b8",
+     "rel_type": "resolves",
+     "from_id": "c9b0e8b15d70",
+     "to_id": "2d803b98c7d1",
+     "evidence_refs": [
+      "s4_e07",
+      "s4_e10"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-10-01T08:44:00+01:00",
+     "discovered_at": "2026-10-01T08:44:00+01:00",
+     "status": "active"
+    },
+    {
+     "relation_id": "f690ae7675ce",
+     "rel_type": "refines",
+     "from_id": "6b7cecb881a6",
+     "to_id": "2d803b98c7d1",
+     "evidence_refs": [
+      "s4_e07",
+      "s4_e10"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-09-29T19:49:00+01:00",
+     "discovered_at": "2026-09-29T19:49:00+01:00",
+     "status": "active"
+    }
+   ],
+   "roles": {
+    "2d803b98c7d1": [
+     "assertional",
+     "attentional"
+    ],
+    "35240bc8dde5": [
+     "assertional",
+     "attentional"
+    ],
+    "6b7cecb881a6": [
+     "assertional"
+    ],
+    "6ef9ed22e0cc": [
+     "assertional",
+     "predictive"
+    ],
+    "98322ea3ae3f": [
+     "assertional",
+     "predictive"
+    ],
+    "c9b0e8b15d70": [
+     "assertional"
+    ],
+    "f71adc7d2b05": [
+     "assertional",
+     "predictive"
+    ],
+    "ffc2969aaf6e": [
+     "assertional"
+    ]
+   },
+   "obligations": [],
+   "t2": {
+    "means": [
+     "shadow reading: health_watch_present, family_health_context over 4 evidence items"
+    ],
+    "unresolved": [],
+    "trajectory": "steady",
+    "easing": [
+     "user says somatic issue is over / not a thing"
+    ],
+    "tensions": [],
+    "context_labels": [
+     "health_watch_present",
+     "family_health_context"
+    ],
+    "context_weight": 0.3,
+    "evidence_refs": [
+     "s4_e07",
+     "s4_e09",
+     "s4_e10",
+     "dad_e01"
+    ]
+   },
+   "views": {
+    "todo": [
+     "dad surgery context",
+     "elif started new job; user wishes they had messaged",
+     "family surgery context",
+     "matt health/surgery context",
+     "relief expressed",
+     "somatic issue improving",
+     "user says somatic issue is over / not a thing"
+    ],
+    "reminder": [],
+    "open_matter": [],
+    "worry": [
+     "dad surgery context",
+     "elif started new job; user wishes they had messaged",
+     "family surgery context",
+     "matt health/surgery context",
+     "neck pain/soreness report"
+    ],
+    "follow_up": [],
+    "companion_obligation": []
+   },
+   "moves": [
+    {
+     "move_id": "a4c933239d2e",
+     "kind": "FOLLOW_UP",
+     "reason": "CHECK_BACK",
+     "matter_id": "ffc2969aaf6e",
+     "source_refs": [
+      "s4_e10"
+     ],
+     "support_strength": 0.75,
+     "salience": 0.4,
+     "eligibility": "eligible",
+     "validity_window": "2026-10-01T08:44:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": true
+    }
+   ],
+   "assessments": [
+    {
+     "matter_id": "2d803b98c7d1",
+     "roles": [
+      "assertional",
+      "attentional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "2d803b98c7d1",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "2 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": "somatic signal retained; restraint without suppression"
+    },
+    {
+     "matter_id": "35240bc8dde5",
+     "roles": [
+      "assertional",
+      "attentional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "35240bc8dde5",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "6b7cecb881a6",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "6b7cecb881a6",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "6ef9ed22e0cc",
+     "roles": [
+      "assertional",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "6ef9ed22e0cc",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "98322ea3ae3f",
+     "roles": [
+      "assertional",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "98322ea3ae3f",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "c9b0e8b15d70",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "c9b0e8b15d70",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "f71adc7d2b05",
+     "roles": [
+      "assertional",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "f71adc7d2b05",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "ffc2969aaf6e",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "a4c933239d2e",
+       "kind": "FOLLOW_UP",
+       "reason": "CHECK_BACK",
+       "matter_id": "ffc2969aaf6e",
+       "source_refs": [
+        "s4_e10"
+       ],
+       "support_strength": 0.75,
+       "salience": 0.4,
+       "eligibility": "eligible",
+       "validity_window": "2026-10-01T08:44:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": true
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "ffc2969aaf6e",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "expected_but_missing": [],
+   "unknowns": [],
+   "title": "Dad/Matt surgery contextual modulation (fixture Matt + RECONSTRUCTED Dad probe)"
+  },
+  {
+   "case_id": "c7_third_party",
+   "claims": [
+    {
+     "claim_id": "27457a9ab60c",
+     "content": "carlos will send remainder after bank release",
+     "subjects": [
+      "carlos",
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e03"
+     ],
+     "modality": "promised",
+     "condition": "after bank releases transfer",
+     "formation": "explicit",
+     "confidence": 0.7,
+     "effective_at": "2026-09-28T10:14:00+01:00",
+     "discovered_at": "2026-09-28T10:14:00+01:00"
+    },
+    {
+     "claim_id": "4d2a719983e0",
+     "content": "marko-owned statement/obligation",
+     "subjects": [
+      "marko"
+     ],
+     "evidence_refs": [
+      "mk_e01"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.6,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00"
+    },
+    {
+     "claim_id": "5992ffdfa351",
+     "content": "ashley-owned statement/obligation",
+     "subjects": [
+      "ashley",
+      "user"
+     ],
+     "evidence_refs": [
+      "mk_e02"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.6,
+     "effective_at": "2026-09-28T08:00:00+01:00",
+     "discovered_at": "2026-09-28T08:00:00+01:00"
+    },
+    {
+     "claim_id": "b27be79b32f6",
+     "content": "carlos sent Q1,500, rest after bank releases",
+     "subjects": [
+      "carlos",
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e03"
+     ],
+     "modality": "promised",
+     "condition": "after bank releases transfer",
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-28T10:14:00+01:00",
+     "discovered_at": "2026-09-28T10:14:00+01:00"
+    },
+    {
+     "claim_id": "cbcca93c27b6",
+     "content": "partial payment Q1,500 received from carlos",
+     "subjects": [
+      "carlos",
+      "user"
+     ],
+     "evidence_refs": [
+      "s1_e03"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.9,
+     "effective_at": "2026-09-28T10:14:00+01:00",
+     "discovered_at": "2026-09-28T10:14:00+01:00"
+    }
+   ],
+   "relations": [],
+   "roles": {
+    "27457a9ab60c": [
+     "assertional",
+     "predictive"
+    ],
+    "4d2a719983e0": [
+     "assertional",
+     "obligation"
+    ],
+    "5992ffdfa351": [
+     "assertional",
+     "obligation"
+    ],
+    "b27be79b32f6": [
+     "assertional",
+     "predictive"
+    ],
+    "cbcca93c27b6": [
+     "assertional",
+     "obligation"
+    ]
+   },
+   "obligations": [
+    {
+     "frame_id": "0152b218483e",
+     "claim_id": "cbcca93c27b6",
+     "obligor": "carlos",
+     "beneficiary": "user",
+     "action": "partial payment Q1,500 received from carlos",
+     "condition": null,
+     "due": "2026-09-28T10:14:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "stated"
+    },
+    {
+     "frame_id": "1d4d65690a5d",
+     "claim_id": "5992ffdfa351",
+     "obligor": "ashley",
+     "beneficiary": "user",
+     "action": "ashley-owned statement/obligation",
+     "condition": null,
+     "due": "2026-09-28T08:00:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "reported"
+    },
+    {
+     "frame_id": "4a2a4efd8d93",
+     "claim_id": "4d2a719983e0",
+     "obligor": "marko",
+     "beneficiary": "isa",
+     "action": "marko-owned statement/obligation",
+     "condition": null,
+     "due": "2026-09-28T08:00:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "reported"
+    }
+   ],
+   "t2": {
+    "means": [
+     "shadow reading: ordinary_ops over 3 evidence items"
+    ],
+    "unresolved": [],
+    "trajectory": "steady",
+    "easing": [],
+    "tensions": [],
+    "context_labels": [
+     "ordinary_ops"
+    ],
+    "context_weight": 0.0,
+    "evidence_refs": [
+     "s1_e03",
+     "mk_e01",
+     "mk_e02"
+    ]
+   },
+   "views": {
+    "todo": [
+     "ashley-owned statement/obligation",
+     "carlos sent Q1,500, rest after bank releases",
+     "carlos will send remainder after bank release",
+     "partial payment Q1,500 received from carlos"
+    ],
+    "reminder": [],
+    "open_matter": [],
+    "worry": [],
+    "follow_up": [
+     "carlos sent Q1,500, rest after bank releases",
+     "carlos will send remainder after bank release"
+    ],
+    "companion_obligation": []
+   },
+   "moves": [
+    {
+     "move_id": "85004ca1e840",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "4d2a719983e0",
+     "source_refs": [
+      "mk_e01"
+     ],
+     "support_strength": 0.6,
+     "salience": 0.4,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:00:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "a7dcb14a8382",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "cbcca93c27b6",
+     "source_refs": [
+      "s1_e03"
+     ],
+     "support_strength": 0.9,
+     "salience": 0.4,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T10:14:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    },
+    {
+     "move_id": "cdc233298eec",
+     "kind": "WATCH",
+     "reason": "MONITOR",
+     "matter_id": "5992ffdfa351",
+     "source_refs": [
+      "mk_e02"
+     ],
+     "support_strength": 0.6,
+     "salience": 0.4,
+     "eligibility": "eligible",
+     "validity_window": "2026-09-28T08:00:00+01:00",
+     "lifecycle": "eligible",
+     "owner": "sophie",
+     "user_facing": false
+    }
+   ],
+   "assessments": [
+    {
+     "matter_id": "27457a9ab60c",
+     "roles": [
+      "assertional",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "27457a9ab60c",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "4d2a719983e0",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "85004ca1e840",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "4d2a719983e0",
+       "source_refs": [
+        "mk_e01"
+       ],
+       "support_strength": 0.6,
+       "salience": 0.4,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:00:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "4d2a719983e0",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": "third-party watch (no self debt)"
+    },
+    {
+     "matter_id": "5992ffdfa351",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "cdc233298eec",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "5992ffdfa351",
+       "source_refs": [
+        "mk_e02"
+       ],
+       "support_strength": 0.6,
+       "salience": 0.4,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T08:00:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "5992ffdfa351",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": "third-party watch (no self debt)"
+    },
+    {
+     "matter_id": "b27be79b32f6",
+     "roles": [
+      "assertional",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "b27be79b32f6",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "cbcca93c27b6",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_ELIGIBLE",
+     "moves": [
+      {
+       "move_id": "a7dcb14a8382",
+       "kind": "WATCH",
+       "reason": "MONITOR",
+       "matter_id": "cbcca93c27b6",
+       "source_refs": [
+        "s1_e03"
+       ],
+       "support_strength": 0.9,
+       "salience": 0.4,
+       "eligibility": "eligible",
+       "validity_window": "2026-09-28T10:14:00+01:00",
+       "lifecycle": "eligible",
+       "owner": "sophie",
+       "user_facing": false
+      }
+     ],
+     "resolution_attempts": [
+      {
+       "matter_id": "cbcca93c27b6",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": "third-party watch (no self debt)"
+    }
+   ],
+   "expected_but_missing": [],
+   "unknowns": [],
+   "title": "Ashley/Marko third-party ownership (RECONSTRUCTED Marko + fixture Ashley/Carlos)"
+  },
+  {
+   "case_id": "c8_stale_loop_vocab",
+   "claims": [
+    {
+     "claim_id": "09e16d4d153e",
+     "content": "grandad original letter found in loft, photo sent",
+     "subjects": [
+      "user",
+      "auntie"
+     ],
+     "evidence_refs": [
+      "s2_e07",
+      "s2_e10",
+      "sl_e01"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.85,
+     "effective_at": "2026-09-30T09:46:00+01:00",
+     "discovered_at": "2026-09-30T09:46:00+01:00"
+    },
+    {
+     "claim_id": "15720d087cea",
+     "content": "user cancelled freepik themselves after client approval",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s2_e10"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.9,
+     "effective_at": "2026-10-03T14:22:00+01:00",
+     "discovered_at": "2026-10-03T14:22:00+01:00"
+    },
+    {
+     "claim_id": "a69e62b33c86",
+     "content": "grandad original letter for auntie",
+     "subjects": [
+      "user",
+      "auntie"
+     ],
+     "evidence_refs": [
+      "s2_e10",
+      "sl_e01"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-10-03T14:22:00+01:00",
+     "discovered_at": "2026-10-03T14:22:00+01:00"
+    },
+    {
+     "claim_id": "c6a4cd0666ef",
+     "content": "freepik annual renews saturday; cancel friday morning (still needed for job)",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "s2_e07",
+      "s2_e10"
+     ],
+     "modality": "conditional",
+     "condition": "still needed for job until friday",
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-09-30T09:46:00+01:00",
+     "discovered_at": "2026-09-30T09:46:00+01:00"
+    },
+    {
+     "claim_id": "e4e5077d8f0d",
+     "content": "same matter restated in different words",
+     "subjects": [
+      "user"
+     ],
+     "evidence_refs": [
+      "sl_e01"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.7,
+     "effective_at": "2026-10-03T10:00:00+01:00",
+     "discovered_at": "2026-10-03T10:00:00+01:00"
+    },
+    {
+     "claim_id": "eddf6b9c3428",
+     "content": "auntie photo/letter matter",
+     "subjects": [
+      "user",
+      "auntie"
+     ],
+     "evidence_refs": [
+      "s2_e06",
+      "s2_e07",
+      "s2_e10",
+      "sl_e01"
+     ],
+     "modality": "stated",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.75,
+     "effective_at": "2026-09-30T09:28:00+01:00",
+     "discovered_at": "2026-09-30T09:28:00+01:00"
+    },
+    {
+     "claim_id": "ee117fb17650",
+     "content": "client approved graphics",
+     "subjects": [
+      "client",
+      "user"
+     ],
+     "evidence_refs": [
+      "s2_e10"
+     ],
+     "modality": "reported",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.85,
+     "effective_at": "2026-10-03T14:22:00+01:00",
+     "discovered_at": "2026-10-03T14:22:00+01:00"
+    },
+    {
+     "claim_id": "terme79eb2141d3d",
+     "content": "open matter: grandad original letter for auntie",
+     "subjects": [
+      "user",
+      "isa"
+     ],
+     "evidence_refs": [
+      "s2_e06"
+     ],
+     "modality": "promised",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": null,
+     "discovered_at": null
+    }
+   ],
+   "relations": [
+    {
+     "relation_id": "3f99e13b40a2",
+     "rel_type": "refines",
+     "from_id": "e4e5077d8f0d",
+     "to_id": "09e16d4d153e",
+     "evidence_refs": [
+      "s2_e07",
+      "s2_e10",
+      "sl_e01"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-10-03T10:00:00+01:00",
+     "discovered_at": "2026-10-03T10:00:00+01:00",
+     "status": "active"
+    },
+    {
+     "relation_id": "d421b78d4003",
+     "rel_type": "refines",
+     "from_id": "e4e5077d8f0d",
+     "to_id": "terme79eb2141d3d",
+     "evidence_refs": [
+      "s2_e06",
+      "sl_e01"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-10-03T10:00:00+01:00",
+     "discovered_at": "2026-10-03T10:00:00+01:00",
+     "status": "active"
+    },
+    {
+     "relation_id": "e6122db2d213",
+     "rel_type": "supersedes",
+     "from_id": "15720d087cea",
+     "to_id": "c6a4cd0666ef",
+     "evidence_refs": [
+      "s2_e07",
+      "s2_e10"
+     ],
+     "formation": "inferred",
+     "confidence": 0.7,
+     "effective_at": "2026-10-03T14:22:00+01:00",
+     "discovered_at": "2026-10-03T14:22:00+01:00",
+     "status": "active"
+    }
+   ],
+   "roles": {
+    "09e16d4d153e": [
+     "assertional"
+    ],
+    "15720d087cea": [
+     "assertional"
+    ],
+    "a69e62b33c86": [
+     "assertional"
+    ],
+    "c6a4cd0666ef": [
+     "assertional",
+     "unresolved",
+     "predictive"
+    ],
+    "e4e5077d8f0d": [
+     "assertional"
+    ],
+    "eddf6b9c3428": [
+     "assertional"
+    ],
+    "ee117fb17650": [
+     "assertional"
+    ],
+    "terme79eb2141d3d": [
+     "assertional"
+    ]
+   },
+   "obligations": [],
+   "t2": {
+    "means": [
+     "shadow reading: ordinary_ops over 4 evidence items"
+    ],
+    "unresolved": [
+     "freepik annual renews saturday; cancel friday morning (still needed for job)"
+    ],
+    "trajectory": "steady",
+    "easing": [],
+    "tensions": [],
+    "context_labels": [
+     "ordinary_ops"
+    ],
+    "context_weight": 0.0,
+    "evidence_refs": [
+     "s2_e06",
+     "s2_e07",
+     "s2_e10",
+     "sl_e01"
+    ]
+   },
+   "views": {
+    "todo": [
+     "auntie photo/letter matter",
+     "client approved graphics",
+     "freepik annual renews saturday; cancel friday morning (still needed for job)",
+     "grandad original letter for auntie",
+     "grandad original letter found in loft, photo sent",
+     "open matter: grandad original letter for auntie",
+     "same matter restated in different words",
+     "user cancelled freepik themselves after client approval"
+    ],
+    "reminder": [
+     "freepik annual renews saturday; cancel friday morning (still needed for job)"
+    ],
+    "open_matter": [
+     "freepik annual renews saturday; cancel friday morning (still needed for job)"
+    ],
+    "worry": [
+     "auntie photo/letter matter",
+     "grandad original letter for auntie",
+     "grandad original letter found in loft, photo sent",
+     "open matter: grandad original letter for auntie",
+     "same matter restated in different words"
+    ],
+    "follow_up": [
+     "freepik annual renews saturday; cancel friday morning (still needed for job)"
+    ],
+    "companion_obligation": []
+   },
+   "moves": [],
+   "assessments": [
+    {
+     "matter_id": "09e16d4d153e",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "09e16d4d153e",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "15720d087cea",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "15720d087cea",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "a69e62b33c86",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "a69e62b33c86",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "c6a4cd0666ef",
+     "roles": [
+      "assertional",
+      "unresolved",
+      "predictive"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "c6a4cd0666ef",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "e4e5077d8f0d",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "e4e5077d8f0d",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "2 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "eddf6b9c3428",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "eddf6b9c3428",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "ee117fb17650",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "ee117fb17650",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "matter_id": "terme79eb2141d3d",
+     "roles": [
+      "assertional"
+     ],
+     "telemetry": "NO_MOVE_WARRANTED",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "terme79eb2141d3d",
+       "strategy": "reconcile_sources",
+       "sources_checked": [
+        "conversation",
+        "shadow_claims"
+       ],
+       "outcome": "partial",
+       "detail": "1 lifecycle relation(s) already explain part of the matter"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "expected_but_missing": [],
+   "unknowns": [],
+   "title": "Stale Open Loop resolved by different vocabulary (RECONSTRUCTED bridge on s2 pattern)"
+  },
+  {
+   "case_id": "c9_observability",
+   "claims": [
+    {
+     "claim_id": "6464dd834cdd",
+     "content": "sam said he would send it friday",
+     "subjects": [
+      "sam",
+      "user"
+     ],
+     "evidence_refs": [
+      "ob_e01"
+     ],
+     "modality": "promised",
+     "condition": null,
+     "formation": "explicit",
+     "confidence": 0.8,
+     "effective_at": "2026-10-02T09:00:00+01:00",
+     "discovered_at": "2026-10-02T09:00:00+01:00"
+    }
+   ],
+   "relations": [],
+   "roles": {
+    "6464dd834cdd": [
+     "assertional",
+     "obligation"
+    ]
+   },
+   "obligations": [
+    {
+     "frame_id": "9654bebd1689",
+     "claim_id": "6464dd834cdd",
+     "obligor": "sam",
+     "beneficiary": "user",
+     "action": "sam said he would send it friday",
+     "condition": null,
+     "due": "2026-10-02T09:00:00+01:00",
+     "authority": "reported_statement",
+     "strength": "normal",
+     "modality": "promised"
+    }
+   ],
+   "t2": {
+    "means": [
+     "shadow reading: ordinary_ops over 1 evidence items"
+    ],
+    "unresolved": [],
+    "trajectory": "steady",
+    "easing": [],
+    "tensions": [],
+    "context_labels": [
+     "ordinary_ops"
+    ],
+    "context_weight": 0.0,
+    "evidence_refs": [
+     "ob_e01"
+    ]
+   },
+   "views": {
+    "todo": [
+     "sam said he would send it friday"
+    ],
+    "reminder": [],
+    "open_matter": [],
+    "worry": [],
+    "follow_up": [],
+    "companion_obligation": []
+   },
+   "moves": [],
+   "assessments": [
+    {
+     "matter_id": "6464dd834cdd",
+     "roles": [
+      "assertional",
+      "obligation"
+     ],
+     "telemetry": "MOVE_HELD",
+     "moves": [],
+     "resolution_attempts": [
+      {
+       "matter_id": "6464dd834cdd",
+       "strategy": "search_state",
+       "sources_checked": [
+        "shadow_claims"
+       ],
+       "outcome": "unresolved",
+       "detail": "no internal source finishes the job"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "expected_but_missing": [
+    {
+     "label": "friday receipt, inbox observed all friday",
+     "expected": "sam sends it friday",
+     "finding": "expected_but_missing",
+     "source": "inbox",
+     "window": "friday 00:00-23:59"
+    }
+   ],
+   "unknowns": [
+    {
+     "label": "friday receipt, inbox never checked",
+     "expected": "sam sends it friday",
+     "finding": "UNKNOWN",
+     "source": "inbox",
+     "window": "friday 00:00-23:59",
+     "reason": "source not observed; lack of evidence is not negative evidence"
+    }
+   ],
+   "title": "Expected external event absent: observed vs unobserved"
+  }
+ ],
+ "table": [
+  {
+   "case": "c1_carlos_partial",
+   "title": "Carlos partial payment / delayed chase",
+   "claims": 8,
+   "relations": 2,
+   "moves": 4,
+   "user_facing": 2,
+   "telemetry": {
+    "MOVE_ELIGIBLE": 4,
+    "MOVE_HELD": 1,
+    "NO_MOVE_WARRANTED": 3
+   },
+   "expected_but_missing": 0,
+   "unknowns": 0
+  },
+  {
+   "case": "c2_freepik_reschedule",
+   "title": "Freepik cancellation + reschedule",
+   "claims": 8,
+   "relations": 2,
+   "moves": 1,
+   "user_facing": 0,
+   "telemetry": {
+    "NO_MOVE_WARRANTED": 7,
+    "MOVE_ELIGIBLE": 1
+   },
+   "expected_but_missing": 0,
+   "unknowns": 0
+  },
+  {
+   "case": "c3_isa_pact",
+   "title": "Isa multi-turn pact (RECONSTRUCTED from failure description)",
+   "claims": 5,
+   "relations": 4,
+   "moves": 5,
+   "user_facing": 0,
+   "telemetry": {
+    "MOVE_ELIGIBLE": 5
+   },
+   "expected_but_missing": 0,
+   "unknowns": 0
+  },
+  {
+   "case": "c4_two_sams",
+   "title": "Studio Sam vs Cousin Sam",
+   "claims": 6,
+   "relations": 1,
+   "moves": 4,
+   "user_facing": 1,
+   "telemetry": {
+    "MOVE_ELIGIBLE": 4,
+    "NO_MOVE_WARRANTED": 2
+   },
+   "expected_but_missing": 0,
+   "unknowns": 0
+  },
+  {
+   "case": "c5_neck_elif",
+   "title": "Neck vs headache vs Elif restraint",
+   "claims": 5,
+   "relations": 2,
+   "moves": 1,
+   "user_facing": 1,
+   "telemetry": {
+    "NO_MOVE_WARRANTED": 4,
+    "MOVE_ELIGIBLE": 1
+   },
+   "expected_but_missing": 0,
+   "unknowns": 0
+  },
+  {
+   "case": "c6_surgery_context",
+   "title": "Dad/Matt surgery contextual modulation (fixture Matt + RECONSTRUCTED Dad probe)",
+   "claims": 8,
+   "relations": 2,
+   "moves": 1,
+   "user_facing": 1,
+   "telemetry": {
+    "NO_MOVE_WARRANTED": 7,
+    "MOVE_ELIGIBLE": 1
+   },
+   "expected_but_missing": 0,
+   "unknowns": 0
+  },
+  {
+   "case": "c7_third_party",
+   "title": "Ashley/Marko third-party ownership (RECONSTRUCTED Marko + fixture Ashley/Carlos)",
+   "claims": 5,
+   "relations": 0,
+   "moves": 3,
+   "user_facing": 0,
+   "telemetry": {
+    "NO_MOVE_WARRANTED": 2,
+    "MOVE_ELIGIBLE": 3
+   },
+   "expected_but_missing": 0,
+   "unknowns": 0
+  },
+  {
+   "case": "c8_stale_loop_vocab",
+   "title": "Stale Open Loop resolved by different vocabulary (RECONSTRUCTED bridge on s2 pattern)",
+   "claims": 8,
+   "relations": 3,
+   "moves": 0,
+   "user_facing": 0,
+   "telemetry": {
+    "NO_MOVE_WARRANTED": 8
+   },
+   "expected_but_missing": 0,
+   "unknowns": 0
+  },
+  {
+   "case": "c9_observability",
+   "title": "Expected external event absent: observed vs unobserved",
+   "claims": 1,
+   "relations": 0,
+   "moves": 0,
+   "user_facing": 0,
+   "telemetry": {
+    "MOVE_HELD": 1
+   },
+   "expected_but_missing": 1,
+   "unknowns": 1
+  }
+ ]
+}
