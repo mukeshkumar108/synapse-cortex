@@ -1,0 +1,368 @@
+{
+  "scenario_id": "scenario_2",
+  "mode": "model",
+  "baseline_type": "semantic_baseline",
+  "provider": "model",
+  "model": "google/gemini-2.5-flash-lite",
+  "external_model_calls": true,
+  "timestamp": "2026-09-25T10:37:12.428972+00:00",
+  "checkpoints": [
+    {
+      "event_id": "s2_e02",
+      "label": "Monday 21:11 - After initial brain dump & Sophie offer",
+      "counts": {
+        "expectations": 0,
+        "commitments": 1,
+        "stored_ask": 1,
+        "surfaced_shelf": 1,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "c519c172-df08-4e1e-a376-739c36e32ee7",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "help make sure subscription doesn't slip",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "actionable_commitments_count": 0,
+        "subscription_loop_status": "open_with_missing_details"
+      }
+    },
+    {
+      "event_id": "s2_e05",
+      "label": "Tuesday 13:03 - After Auntie email & loft deferral",
+      "counts": {
+        "expectations": 1,
+        "commitments": 1,
+        "stored_ask": 1,
+        "surfaced_shelf": 1,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 1,
+        "facts": 1,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "66608210-ebe2-4501-aa98-83cdf1d770a0",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.CANCELLED",
+          "title": "The user will look for the original document in Dad's old folder in the loft",
+          "summary": "User intends: The user will look for the original document in Dad's old folder in the loft (tonight)",
+          "source_system": null
+        }
+      ],
+      "commitments": [
+        {
+          "id": "c519c172-df08-4e1e-a376-739c36e32ee7",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "help make sure subscription doesn't slip",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "0125ad7c-7008-469a-9ee6-226bb0fecb1d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "original insurance letter"
+        },
+        {
+          "id": "11f5f6e7-9d7a-46a7-8d4e-5b82dba0ae8b",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "look for original document in the loft"
+        }
+      ],
+      "entities": [
+        {
+          "id": "88a51ab0-b01c-469c-afc6-1d5331cfb03d",
+          "name": "Grandad",
+          "type": "person",
+          "aliases": [
+            "grandad"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "auntie_phone_call_expectation": "resolved_called_first",
+        "course_application_status": "cancelled_abandoned",
+        "running_status": "dismissed",
+        "loft_search_due": "weekend"
+      }
+    },
+    {
+      "event_id": "s2_e07",
+      "label": "Wednesday 09:46 - Subscription identified as Freepik",
+      "counts": {
+        "expectations": 1,
+        "commitments": 1,
+        "stored_ask": 1,
+        "surfaced_shelf": 1,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 1,
+        "facts": 1,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "66608210-ebe2-4501-aa98-83cdf1d770a0",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.CANCELLED",
+          "title": "The user will look for the original document in Dad's old folder in the loft",
+          "summary": "User intends: The user will look for the original document in Dad's old folder in the loft (tonight)",
+          "source_system": null
+        }
+      ],
+      "commitments": [
+        {
+          "id": "c519c172-df08-4e1e-a376-739c36e32ee7",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "help make sure subscription doesn't slip",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "0125ad7c-7008-469a-9ee6-226bb0fecb1d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "original insurance letter"
+        },
+        {
+          "id": "11f5f6e7-9d7a-46a7-8d4e-5b82dba0ae8b",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "look for original document in the loft"
+        }
+      ],
+      "entities": [
+        {
+          "id": "88a51ab0-b01c-469c-afc6-1d5331cfb03d",
+          "name": "Grandad",
+          "type": "person",
+          "aliases": [
+            "grandad"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "subscription_entity": "Freepik",
+        "renewal_date": "Saturday 2026-10-03",
+        "reminder_requested_for": "Friday morning 2026-10-02"
+      }
+    },
+    {
+      "event_id": "s2_e09",
+      "label": "Friday 08:07 - Cancellation reminder deferred",
+      "counts": {
+        "expectations": 1,
+        "commitments": 1,
+        "stored_ask": 1,
+        "surfaced_shelf": 1,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 1,
+        "clarifications": 1,
+        "facts": 1,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "66608210-ebe2-4501-aa98-83cdf1d770a0",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.CANCELLED",
+          "title": "The user will look for the original document in Dad's old folder in the loft",
+          "summary": "User intends: The user will look for the original document in Dad's old folder in the loft (tonight)",
+          "source_system": null
+        }
+      ],
+      "commitments": [
+        {
+          "id": "c519c172-df08-4e1e-a376-739c36e32ee7",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "help make sure subscription doesn't slip",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "0125ad7c-7008-469a-9ee6-226bb0fecb1d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "original insurance letter"
+        },
+        {
+          "id": "11f5f6e7-9d7a-46a7-8d4e-5b82dba0ae8b",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "look for original document in the loft"
+        }
+      ],
+      "entities": [
+        {
+          "id": "88a51ab0-b01c-469c-afc6-1d5331cfb03d",
+          "name": "Grandad",
+          "type": "person",
+          "aliases": [
+            "grandad"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "freepik_reminder_deferred_to": "Saturday afternoon 2026-10-03",
+        "cancellation_executed": false
+      }
+    },
+    {
+      "event_id": "s2_e10",
+      "label": "Saturday 14:22 - Saturday closeout",
+      "counts": {
+        "expectations": 1,
+        "commitments": 1,
+        "stored_ask": 1,
+        "surfaced_shelf": 1,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 1,
+        "clarifications": 1,
+        "facts": 1,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "66608210-ebe2-4501-aa98-83cdf1d770a0",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.CANCELLED",
+          "title": "The user will look for the original document in Dad's old folder in the loft",
+          "summary": "User intends: The user will look for the original document in Dad's old folder in the loft (tonight)",
+          "source_system": null
+        }
+      ],
+      "commitments": [
+        {
+          "id": "c519c172-df08-4e1e-a376-739c36e32ee7",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "help make sure subscription doesn't slip",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "0125ad7c-7008-469a-9ee6-226bb0fecb1d",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "original insurance letter"
+        },
+        {
+          "id": "11f5f6e7-9d7a-46a7-8d4e-5b82dba0ae8b",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "look for original document in the loft"
+        }
+      ],
+      "entities": [
+        {
+          "id": "88a51ab0-b01c-469c-afc6-1d5331cfb03d",
+          "name": "Grandad",
+          "type": "person",
+          "aliases": [
+            "grandad"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "freepik_status": "cancelled_by_user_closed",
+        "grandad_letter_status": "found_sent_closed",
+        "active_open_loops_count": 0
+      }
+    }
+  ],
+  "trap_evaluations": [
+    {
+      "trap_id": "trap-i should pro",
+      "trigger_text": "I should probably apply for that course",
+      "prohibited": [
+        "actionable_commitment"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trap_id": "trap-i might go r",
+      "trigger_text": "I might go running in the morning if I wake up early",
+      "prohibited": [
+        "actionable_commitment",
+        "durable_expectation"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trap_id": "trap-there\u2019s a pa",
+      "trigger_text": "there\u2019s a parcel downstairs I\u2019ve ignored for two days",
+      "prohibited": [
+        "open_loop",
+        "actionable_commitment"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trap_id": "trap-i remembered",
+      "trigger_text": "I remembered the subscription \u2014 it\u2019s Notion, no, sorry, it\u2019s that stock-photo thing. Envato maybe?",
+      "prohibited": [
+        "definitive_entity_fact:Notion",
+        "definitive_entity_fact:Envato"
+      ],
+      "passed": true,
+      "violations_found": []
+    }
+  ],
+  "summary": {
+    "scenario_id": "scenario_2",
+    "mode": "model",
+    "baseline_type": "semantic_baseline",
+    "provider": "model",
+    "model": "google/gemini-2.5-flash-lite",
+    "external_model_calls": true,
+    "total_checkpoints": 5,
+    "traps_evaluated": 4,
+    "traps_passed": 4,
+    "trap_defense_interpretation": "Semantic baseline evaluation against active model state generation.",
+    "final_state_counts": {
+      "expectations": 1,
+      "commitments": 1,
+      "stored_ask": 1,
+      "surfaced_shelf": 1,
+      "open_loops": 2,
+      "current_meaning": 0,
+      "attention_candidates": 0,
+      "suppressions": 1,
+      "clarifications": 1,
+      "facts": 1,
+      "entities": 1,
+      "models": 0
+    }
+  }
+}

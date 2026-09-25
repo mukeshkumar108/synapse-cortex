@@ -34,38 +34,52 @@ To ensure evaluation validity, fixtures are split into separate files:
 - **ORACLE (`scenario_*_oracle.json`):** Contains hidden evaluator truth, expected state transitions, false-positive traps, expected release/closure conditions, and Dual Aperture gear expectations (`HOLD` / `ENRICH` / `LEAD` / `ATTEND` / `SILENCE`).
 **The oracle is NEVER injected into Cortex or Honcho.** It is loaded exclusively by the evaluation assertion layer.
 
-## 5. How to Run
+## 5. Execution Modes & CLI Usage
 
-From the root of `synapse-cortex`:
+The benchmark runner supports two explicit execution modes:
 
-### Run all four scenarios:
+### Mode A: Model / Semantic Baseline (`--mode model`)
+Exercises real model-led turn extraction via LLM (`google/gemini-2.5-flash-lite` via OpenRouter or configured model).
+- **Loud Preflight Enforcement:** Requires valid API credentials (`OPENROUTER_API_KEY`, `OPENAI_API_KEY`, or `XAI_API_KEY`). Executes an active connectivity probe and fails with exit code 1 if credentials are missing or invalid.
+- **No Silent Fallback:** Invariants guarantee that model mode never silently downgrades to rule-based extraction.
+- **Outputs Directory:** Saved separately under `evals/sophie_longitudinal/raw_outputs/model/`.
+
 ```bash
-./.venv/bin/python evals/sophie_longitudinal/runner.py --scenario all
+# Run all four scenarios with the model extractor:
+./.venv/bin/python evals/sophie_longitudinal/runner.py --mode model --scenario all
+
+# Run a single scenario (supports numeric aliases 1, 2, 3, 4 as well as scenario_1..4):
+./.venv/bin/python evals/sophie_longitudinal/runner.py --mode model --scenario 1
+./.venv/bin/python evals/sophie_longitudinal/runner.py --mode model --scenario scenario_2
 ```
 
-### Run a single scenario:
+### Mode B: Rules / Determinism Floor (`--mode rules`)
+Exercises deterministic, offline rule-based extraction.
+- **Labeling & Intent:** Serves strictly as a structural regression baseline and determinism floor.
+- **Trap Interpretation:** Trap passes in this mode are explicitly labeled as structural floor checks only, NOT as semantic evidence of conversational restraint (since an empty/minimal extractor cannot false-positive).
+- **Outputs Directory:** Saved separately under `evals/sophie_longitudinal/raw_outputs/rules/`.
+
 ```bash
-# Scenario 1 (Ashley Event Ops)
-./.venv/bin/python evals/sophie_longitudinal/runner.py --scenario scenario_1
+# Run all four scenarios with the rules extractor:
+./.venv/bin/python evals/sophie_longitudinal/runner.py --mode rules --scenario all
 
-# Scenario 2 (Ordinary Plans & Half-Intentions)
-./.venv/bin/python evals/sophie_longitudinal/runner.py --scenario scenario_2
-
-# Scenario 3 (Multi-source Conflict & Disambiguation)
-./.venv/bin/python evals/sophie_longitudinal/runner.py --scenario scenario_3
-
-# Scenario 4 (Health, Worry & Personality Texture)
-./.venv/bin/python evals/sophie_longitudinal/runner.py --scenario scenario_4
+# Run a single scenario:
+./.venv/bin/python evals/sophie_longitudinal/runner.py --mode rules --scenario 1
 ```
 
-### Options:
-- `--provider {rules,model}`: Set the extraction provider (default: `rules`).
-- `--db <path>`: Override the temporary SQLite database path.
+### CLI Arguments Summary:
+- `--scenario {1, 2, 3, 4, scenario_1, scenario_2, scenario_3, scenario_4, all}`: Target scenario(s) to execute (default: `all`).
+- `--mode {rules, model}`: Selects execution mode (default: `rules`).
+- `--provider {rules, model}`: Alias for `--mode`.
 
 ## 6. Output Artifacts
 
-Running the harness generates:
-1. **Raw Markdown Checkpoints (`evals/sophie_longitudinal/raw_outputs/<scenario>_raw_checkpoints.md`):** Complete structured state dumps at each checkpoint matching canonical RPD2 replay formatting:
+Running the harness populates partitioned output directories:
+- `evals/sophie_longitudinal/raw_outputs/rules/`
+- `evals/sophie_longitudinal/raw_outputs/model/`
+
+Each directory contains:
+1. **Raw Markdown Checkpoints (`<scenario>_raw_checkpoints.md`):** Complete structured state dumps at each checkpoint matching canonical RPD2 replay formatting:
    - Active Expectations
    - Commitments (ACT vs. ASK authority)
    - Proposal Exposure (stored ASK vs. surfaced shelf + skipped reasons)
@@ -75,7 +89,7 @@ Running the harness generates:
    - Entities, Aliases & Links
    - Model Entries & Turn Frames
    - What Changed Since Last Checkpoint
-2. **Evaluation Summary JSON (`evals/sophie_longitudinal/raw_outputs/<scenario>_summary.json`):** Programmatic checkpoint metrics and false-positive trap defense results.
+2. **Evaluation Summary JSON (`<scenario>_summary.json`):** Programmatic checkpoint metrics, exact provider/model metadata, external call flags, final state counts, and false-positive trap defense evaluations.
 
 ## 7. Multi-Source Evidence Architecture
 

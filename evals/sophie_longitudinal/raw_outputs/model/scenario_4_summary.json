@@ -1,0 +1,697 @@
+{
+  "scenario_id": "scenario_4",
+  "mode": "model",
+  "baseline_type": "semantic_baseline",
+  "provider": "model",
+  "model": "google/gemini-2.5-flash-lite",
+  "external_model_calls": true,
+  "timestamp": "2026-09-25T10:38:14.079222+00:00",
+  "checkpoints": [
+    {
+      "event_id": "s4_e01",
+      "label": "Monday 07:52 - Initial brain dump",
+      "counts": {
+        "expectations": 0,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 1,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 2,
+        "entities": 2,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "renew parking permit",
+          "class": "implicit_self_commitment"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "share podcast thoughts"
+        }
+      ],
+      "entities": [
+        {
+          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "name": "Priya",
+          "type": "person",
+          "aliases": [
+            "priya"
+          ]
+        },
+        {
+          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "name": "Matt",
+          "type": "person",
+          "aliases": [
+            "matt"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "health_signal_noted": "neck sore",
+        "worry_signal_noted": "Matt gallbladder hospital",
+        "headache_watch_candidate": false
+      }
+    },
+    {
+      "event_id": "s4_e02",
+      "label": "Monday 14:41 - Monday afternoon neck check",
+      "counts": {
+        "expectations": 0,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 1,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 2,
+        "entities": 2,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "renew parking permit",
+          "class": "implicit_self_commitment"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "share podcast thoughts"
+        }
+      ],
+      "entities": [
+        {
+          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "name": "Priya",
+          "type": "person",
+          "aliases": [
+            "priya"
+          ]
+        },
+        {
+          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "name": "Matt",
+          "type": "person",
+          "aliases": [
+            "matt"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "proactive_check_now": false,
+        "restraint": "wait_for_multi_day_pattern"
+      }
+    },
+    {
+      "event_id": "s4_e03",
+      "label": "Monday 21:03 - Sophie commitment to return to podcast",
+      "counts": {
+        "expectations": 0,
+        "commitments": 2,
+        "stored_ask": 1,
+        "surfaced_shelf": 1,
+        "open_loops": 1,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 2,
+        "entities": 2,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "renew parking permit",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Return to topic",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "share podcast thoughts"
+        }
+      ],
+      "entities": [
+        {
+          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "name": "Priya",
+          "type": "person",
+          "aliases": [
+            "priya"
+          ]
+        },
+        {
+          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "name": "Matt",
+          "type": "person",
+          "aliases": [
+            "matt"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "sophie_promise_created": true,
+        "sophie_promise_topic": "podcast / attention and boredom"
+      }
+    },
+    {
+      "event_id": "s4_e05",
+      "label": "Tuesday 12:30 - Parking permit self-correction & food shop standing request",
+      "counts": {
+        "expectations": 0,
+        "commitments": 2,
+        "stored_ask": 1,
+        "surfaced_shelf": 1,
+        "open_loops": 1,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 2,
+        "entities": 2,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "renew parking permit",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Return to topic",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "share podcast thoughts"
+        }
+      ],
+      "entities": [
+        {
+          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "name": "Priya",
+          "type": "person",
+          "aliases": [
+            "priya"
+          ]
+        },
+        {
+          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "name": "Matt",
+          "type": "person",
+          "aliases": [
+            "matt"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "permit_superseded_date": "2026-09-30",
+        "recurring_obligation_registered": "food shop Saturday evening"
+      }
+    },
+    {
+      "event_id": "s4_e07",
+      "label": "Tuesday 19:49 - Tuesday evening proactive check on neck & Matt",
+      "counts": {
+        "expectations": 0,
+        "commitments": 2,
+        "stored_ask": 1,
+        "surfaced_shelf": 1,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 2,
+        "entities": 2,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "renew parking permit",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Return to topic",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "share podcast thoughts"
+        },
+        {
+          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "news about Matt"
+        }
+      ],
+      "entities": [
+        {
+          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "name": "Priya",
+          "type": "person",
+          "aliases": [
+            "priya"
+          ]
+        },
+        {
+          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "name": "Matt",
+          "type": "person",
+          "aliases": [
+            "matt"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "proactive_check_executed": true,
+        "signals_checked": [
+          "neck",
+          "Matt"
+        ]
+      }
+    },
+    {
+      "event_id": "s4_e09",
+      "label": "Wednesday 17:30 - Matt surgery update received",
+      "counts": {
+        "expectations": 0,
+        "commitments": 2,
+        "stored_ask": 1,
+        "surfaced_shelf": 1,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 1,
+        "facts": 2,
+        "entities": 2,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "renew parking permit",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Return to topic",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "share podcast thoughts"
+        },
+        {
+          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "news about Matt"
+        }
+      ],
+      "entities": [
+        {
+          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "name": "Priya",
+          "type": "person",
+          "aliases": [
+            "priya"
+          ]
+        },
+        {
+          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "name": "Matt",
+          "type": "person",
+          "aliases": [
+            "matt"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "matt_status": "out_of_surgery_resting_dormant",
+        "priya_lunch_debt_open": true
+      }
+    },
+    {
+      "event_id": "s4_e11",
+      "label": "Thursday 20:15 - Thursday warm closeout & neck released",
+      "counts": {
+        "expectations": 0,
+        "commitments": 3,
+        "stored_ask": 2,
+        "surfaced_shelf": 2,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 1,
+        "clarifications": 3,
+        "facts": 3,
+        "entities": 3,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "renew parking permit",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Return to topic",
+          "class": "character_promise"
+        },
+        {
+          "id": "8eddb03a-7882-4466-ad48-84218d415634",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Leave the neck alone",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "share podcast thoughts"
+        },
+        {
+          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "news about Matt"
+        }
+      ],
+      "entities": [
+        {
+          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "name": "Priya",
+          "type": "person",
+          "aliases": [
+            "priya"
+          ]
+        },
+        {
+          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "name": "Matt",
+          "type": "person",
+          "aliases": [
+            "matt"
+          ]
+        },
+        {
+          "id": "03cd36a3-be42-471f-b22e-237dc98a7558",
+          "name": "Elif",
+          "type": "person",
+          "aliases": [
+            "elif"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "neck_watch_status": "fully_released_closed",
+        "priya_lunch_debt_status": "closed",
+        "elif_status": "closed"
+      }
+    },
+    {
+      "event_id": "s4_e13",
+      "label": "Friday 09:35 - Sophie promise unprompted fulfillment",
+      "counts": {
+        "expectations": 0,
+        "commitments": 3,
+        "stored_ask": 2,
+        "surfaced_shelf": 2,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 1,
+        "clarifications": 3,
+        "facts": 3,
+        "entities": 3,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "renew parking permit",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Return to topic",
+          "class": "character_promise"
+        },
+        {
+          "id": "8eddb03a-7882-4466-ad48-84218d415634",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Leave the neck alone",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "share podcast thoughts"
+        },
+        {
+          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "news about Matt"
+        }
+      ],
+      "entities": [
+        {
+          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "name": "Priya",
+          "type": "person",
+          "aliases": [
+            "priya"
+          ]
+        },
+        {
+          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "name": "Matt",
+          "type": "person",
+          "aliases": [
+            "matt"
+          ]
+        },
+        {
+          "id": "03cd36a3-be42-471f-b22e-237dc98a7558",
+          "name": "Elif",
+          "type": "person",
+          "aliases": [
+            "elif"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "sophie_promise_status": "fulfilled_unprompted",
+        "gear_used": "LEAD"
+      }
+    },
+    {
+      "event_id": "s4_e15",
+      "label": "Saturday 18:44 - Recurring weekly food shop reminder",
+      "counts": {
+        "expectations": 0,
+        "commitments": 3,
+        "stored_ask": 2,
+        "surfaced_shelf": 2,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 1,
+        "clarifications": 3,
+        "facts": 3,
+        "entities": 3,
+        "models": 0
+      },
+      "expectations": [],
+      "commitments": [
+        {
+          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "renew parking permit",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Return to topic",
+          "class": "character_promise"
+        },
+        {
+          "id": "8eddb03a-7882-4466-ad48-84218d415634",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ASK",
+          "title": "Leave the neck alone",
+          "class": "character_promise"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "share podcast thoughts"
+        },
+        {
+          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "news about Matt"
+        }
+      ],
+      "entities": [
+        {
+          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "name": "Priya",
+          "type": "person",
+          "aliases": [
+            "priya"
+          ]
+        },
+        {
+          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "name": "Matt",
+          "type": "person",
+          "aliases": [
+            "matt"
+          ]
+        },
+        {
+          "id": "03cd36a3-be42-471f-b22e-237dc98a7558",
+          "name": "Elif",
+          "type": "person",
+          "aliases": [
+            "elif"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "food_shop_reminder_fired": true,
+        "recurring_schedule_survives": true
+      }
+    }
+  ],
+  "trap_evaluations": [
+    {
+      "trap_id": "trap-head's a bit",
+      "trigger_text": "head's a bit sore today too, probably just tired",
+      "prohibited": [
+        "persistent_watch_candidate",
+        "health_condition_tracker"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trap_id": "trap-wish i'd rem",
+      "trigger_text": "wish I'd remembered to message her",
+      "prohibited": [
+        "open_loop",
+        "actionable_commitment",
+        "proactive_check_in_prompt"
+      ],
+      "passed": true,
+      "violations_found": []
+    }
+  ],
+  "summary": {
+    "scenario_id": "scenario_4",
+    "mode": "model",
+    "baseline_type": "semantic_baseline",
+    "provider": "model",
+    "model": "google/gemini-2.5-flash-lite",
+    "external_model_calls": true,
+    "total_checkpoints": 9,
+    "traps_evaluated": 2,
+    "traps_passed": 2,
+    "trap_defense_interpretation": "Semantic baseline evaluation against active model state generation.",
+    "final_state_counts": {
+      "expectations": 0,
+      "commitments": 3,
+      "stored_ask": 2,
+      "surfaced_shelf": 2,
+      "open_loops": 2,
+      "current_meaning": 0,
+      "attention_candidates": 0,
+      "suppressions": 1,
+      "clarifications": 3,
+      "facts": 3,
+      "entities": 3,
+      "models": 0
+    }
+  }
+}

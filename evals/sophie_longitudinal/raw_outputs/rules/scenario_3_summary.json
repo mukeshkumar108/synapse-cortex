@@ -1,0 +1,530 @@
+{
+  "scenario_id": "scenario_3",
+  "mode": "rules",
+  "baseline_type": "determinism_floor",
+  "provider": "rules",
+  "model": null,
+  "external_model_calls": false,
+  "timestamp": "2026-09-25T10:27:30.066730+00:00",
+  "checkpoints": [
+    {
+      "event_id": "s3_e05",
+      "label": "Monday 21:43 - Monday night multi-source reconciliation",
+      "counts": {
+        "expectations": 2,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 1,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 1,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Sam from the studio said he\u2019d send the revised contract",
+          "summary": "Expected from another: Sam from the studio said he\u2019d send the revised contract (today)",
+          "source_system": null
+        },
+        {
+          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
+          "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [
+        {
+          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
+        }
+      ],
+      "entities": [],
+      "deterministic_expectations": {
+        "entity_separation": "Studio Sam != Cousin Sam",
+        "dentist_status": "Friday 09:20 active, Thursday superseded",
+        "lucy_payment_status": "unconfirmed_pending_user_verification"
+      }
+    },
+    {
+      "event_id": "s3_e07",
+      "label": "Tuesday 16:55 - Studio Sam contract content approved",
+      "counts": {
+        "expectations": 3,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 1,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 2,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Sam from the studio said he\u2019d send the revised contract",
+          "summary": "Expected from another: Sam from the studio said he\u2019d send the revised contract (today)",
+          "source_system": null
+        },
+        {
+          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
+          "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
+          "source_system": null
+        },
+        {
+          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Send the final signature copy",
+          "summary": "User intends: Send the final signature copy (tomorrow)",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [
+        {
+          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
+        }
+      ],
+      "entities": [],
+      "deterministic_expectations": {
+        "contract_status": "content_approved_awaiting_final_signature_copy"
+      }
+    },
+    {
+      "event_id": "s3_e09",
+      "label": "Wednesday 18:40 - Cousin Sam check & Lucy payment confirmed",
+      "counts": {
+        "expectations": 5,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 1,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 3,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Sam from the studio said he\u2019d send the revised contract",
+          "summary": "Expected from another: Sam from the studio said he\u2019d send the revised contract (today)",
+          "source_system": null
+        },
+        {
+          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
+          "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
+          "source_system": null
+        },
+        {
+          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Send the final signature copy",
+          "summary": "User intends: Send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "4f3b9e56-adc8-4679-b46c-b38282e316e6",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "I have a feeling I was meant to check something about Mum",
+          "summary": "Planned event: I have a feeling I was meant to check something about Mum (tonight)",
+          "source_system": null
+        },
+        {
+          "id": "55639ea1-4a87-4679-8991-a1973290b68b",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "He said yes he\u2019s still picking her up at 3",
+          "summary": "Expected from another: He said yes he\u2019s still picking her up at 3 (tomorrow)",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [
+        {
+          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
+        }
+      ],
+      "entities": [],
+      "deterministic_expectations": {
+        "lucy_payment_closed": true,
+        "cousin_sam_check_fulfilled": true,
+        "pickup_scheduled_for": "Thursday 15:00"
+      }
+    },
+    {
+      "event_id": "s3_e11",
+      "label": "Thursday 22:06 - Mum pickup indirect closure",
+      "counts": {
+        "expectations": 7,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 1,
+        "current_meaning": 0,
+        "attention_candidates": 1,
+        "suppressions": 0,
+        "clarifications": 3,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Sam from the studio said he\u2019d send the revised contract",
+          "summary": "Expected from another: Sam from the studio said he\u2019d send the revised contract (today)",
+          "source_system": null
+        },
+        {
+          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
+          "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
+          "source_system": null
+        },
+        {
+          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Send the final signature copy",
+          "summary": "User intends: Send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "4f3b9e56-adc8-4679-b46c-b38282e316e6",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "I have a feeling I was meant to check something about Mum",
+          "summary": "Planned event: I have a feeling I was meant to check something about Mum (tonight)",
+          "source_system": null
+        },
+        {
+          "id": "55639ea1-4a87-4679-8991-a1973290b68b",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "He said yes he\u2019s still picking her up at 3",
+          "summary": "Expected from another: He said yes he\u2019s still picking her up at 3 (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "9a96165f-c0a3-4b00-b30d-b3fc1551213a",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Mum pickup \u2014 Sam",
+          "summary": "Mum pickup \u2014 Sam",
+          "source_system": "google_calendar"
+        },
+        {
+          "id": "229e2ee7-c19a-4f07-abed-442db8723759",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Dentist",
+          "summary": "Planned event: Dentist (tomorrow morning)",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [
+        {
+          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
+        }
+      ],
+      "entities": [],
+      "deterministic_expectations": {
+        "mum_pickup_status": "completed_corroborated",
+        "contract_status": "pending_final_copy"
+      }
+    },
+    {
+      "event_id": "s3_e13",
+      "label": "Friday 08:02 - Contract reminder requested & Sam disambiguation",
+      "counts": {
+        "expectations": 8,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 1,
+        "suppressions": 0,
+        "clarifications": 3,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Sam from the studio said he\u2019d send the revised contract",
+          "summary": "Expected from another: Sam from the studio said he\u2019d send the revised contract (today)",
+          "source_system": null
+        },
+        {
+          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
+          "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
+          "source_system": null
+        },
+        {
+          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Send the final signature copy",
+          "summary": "User intends: Send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "4f3b9e56-adc8-4679-b46c-b38282e316e6",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "I have a feeling I was meant to check something about Mum",
+          "summary": "Planned event: I have a feeling I was meant to check something about Mum (tonight)",
+          "source_system": null
+        },
+        {
+          "id": "55639ea1-4a87-4679-8991-a1973290b68b",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "He said yes he\u2019s still picking her up at 3",
+          "summary": "Expected from another: He said yes he\u2019s still picking her up at 3 (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "9a96165f-c0a3-4b00-b30d-b3fc1551213a",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Mum pickup \u2014 Sam",
+          "summary": "Mum pickup \u2014 Sam",
+          "source_system": "google_calendar"
+        },
+        {
+          "id": "229e2ee7-c19a-4f07-abed-442db8723759",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Dentist",
+          "summary": "Planned event: Dentist (tomorrow morning)",
+          "source_system": null
+        },
+        {
+          "id": "7db81ed6-73b0-488c-b38e-be6dc8049368",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget",
+          "summary": "User intends: I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget (this afternoon)",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [
+        {
+          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
+          "status": "OpenLoopStatus.EXPIRED",
+          "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
+        },
+        {
+          "id": "d69b17f9-afe1-48ec-831a-14a6790f7ea5",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Follow-up on: I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget"
+        }
+      ],
+      "entities": [],
+      "deterministic_expectations": {
+        "active_reminder_expectation": "remind about contract Friday afternoon",
+        "current_frame_sam_binding": "Studio Sam"
+      }
+    },
+    {
+      "event_id": "s3_e14",
+      "label": "Friday 15:47 - Contract signed by user, final closeout",
+      "counts": {
+        "expectations": 8,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 2,
+        "current_meaning": 0,
+        "attention_candidates": 1,
+        "suppressions": 0,
+        "clarifications": 3,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "4c83452d-eb4f-480a-bf33-1bb51ed1e100",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Sam from the studio said he\u2019d send the revised contract",
+          "summary": "Expected from another: Sam from the studio said he\u2019d send the revised contract (today)",
+          "source_system": null
+        },
+        {
+          "id": "f312942d-baf2-4ffd-b586-072b54f08391",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20",
+          "summary": "Planned event: Your appointment on Thursday 10:00 has been rescheduled to Friday 09:20 (thursday)",
+          "source_system": null
+        },
+        {
+          "id": "e133139b-c2e7-44a5-a3fd-95215c9145a2",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Send the final signature copy",
+          "summary": "User intends: Send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "4f3b9e56-adc8-4679-b46c-b38282e316e6",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "I have a feeling I was meant to check something about Mum",
+          "summary": "Planned event: I have a feeling I was meant to check something about Mum (tonight)",
+          "source_system": null
+        },
+        {
+          "id": "55639ea1-4a87-4679-8991-a1973290b68b",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "He said yes he\u2019s still picking her up at 3",
+          "summary": "Expected from another: He said yes he\u2019s still picking her up at 3 (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "9a96165f-c0a3-4b00-b30d-b3fc1551213a",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Mum pickup \u2014 Sam",
+          "summary": "Mum pickup \u2014 Sam",
+          "source_system": "google_calendar"
+        },
+        {
+          "id": "229e2ee7-c19a-4f07-abed-442db8723759",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Dentist",
+          "summary": "Planned event: Dentist (tomorrow morning)",
+          "source_system": null
+        },
+        {
+          "id": "7db81ed6-73b0-488c-b38e-be6dc8049368",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget",
+          "summary": "User intends: I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget (this afternoon)",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [
+        {
+          "id": "508d03ed-ac58-4301-826b-c41681d761d7",
+          "status": "OpenLoopStatus.EXPIRED",
+          "title": "Follow-up on: Sam \u2014 my cousin Sam, not studio Sam \u2014 is supposed to pick Mum up Thursday but he\u2019s useless so remind me to check Wednesday evening"
+        },
+        {
+          "id": "d69b17f9-afe1-48ec-831a-14a6790f7ea5",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Follow-up on: I\u2019m literally leaving for the dentist, remind me about the contract this afternoon because I will forget"
+        }
+      ],
+      "entities": [],
+      "deterministic_expectations": {
+        "contract_obligation_status": "fulfilled_closed_no_violation",
+        "active_open_loops_count": 0
+      }
+    }
+  ],
+  "trap_evaluations": [
+    {
+      "trap_id": "trap-incoming \u00a324",
+      "trigger_text": "Incoming \u00a3240 from L. HARGREAVES",
+      "prohibited": [
+        "auto_mark_lucy_paid_on_monday"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trap_id": "trap-i replied \u2018l",
+      "trigger_text": "I replied \u2018looks good to me, go ahead\u2019",
+      "prohibited": [
+        "mark_contract_signed_and_fully_executed"
+      ],
+      "passed": true,
+      "violations_found": []
+    }
+  ],
+  "summary": {
+    "scenario_id": "scenario_3",
+    "mode": "rules",
+    "baseline_type": "determinism_floor",
+    "provider": "rules",
+    "model": null,
+    "external_model_calls": false,
+    "total_checkpoints": 6,
+    "traps_evaluated": 2,
+    "traps_passed": 2,
+    "trap_defense_interpretation": "Structural determinism floor only. Trap passes do NOT constitute semantic evidence (empty extractor cannot false-positive).",
+    "final_state_counts": {
+      "expectations": 8,
+      "commitments": 0,
+      "stored_ask": 0,
+      "surfaced_shelf": 0,
+      "open_loops": 2,
+      "current_meaning": 0,
+      "attention_candidates": 1,
+      "suppressions": 0,
+      "clarifications": 3,
+      "facts": 0,
+      "entities": 0,
+      "models": 0
+    }
+  }
+}

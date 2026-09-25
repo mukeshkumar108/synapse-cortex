@@ -1,7 +1,11 @@
 {
   "scenario_id": "scenario_4",
+  "mode": "rules",
+  "baseline_type": "determinism_floor",
   "provider": "rules",
-  "timestamp": "2026-09-25T09:54:38.200592+00:00",
+  "model": null,
+  "external_model_calls": false,
+  "timestamp": "2026-09-25T10:27:30.835376+00:00",
   "checkpoints": [
     {
       "event_id": "s4_e01",
@@ -86,7 +90,7 @@
       "event_id": "s4_e05",
       "label": "Tuesday 12:30 - Parking permit self-correction & food shop standing request",
       "counts": {
-        "expectations": 0,
+        "expectations": 1,
         "commitments": 0,
         "stored_ask": 0,
         "surfaced_shelf": 0,
@@ -99,7 +103,16 @@
         "entities": 0,
         "models": 0
       },
-      "expectations": [],
+      "expectations": [
+        {
+          "id": "b5aa28ad-0e2d-4686-bbad-5aff53778715",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her",
+          "summary": "User intends: Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her (monday)",
+          "source_system": null
+        }
+      ],
       "commitments": [],
       "open_loops": [],
       "entities": [],
@@ -112,7 +125,7 @@
       "event_id": "s4_e07",
       "label": "Tuesday 19:49 - Tuesday evening proactive check on neck & Matt",
       "counts": {
-        "expectations": 0,
+        "expectations": 1,
         "commitments": 0,
         "stored_ask": 0,
         "surfaced_shelf": 0,
@@ -125,7 +138,16 @@
         "entities": 0,
         "models": 0
       },
-      "expectations": [],
+      "expectations": [
+        {
+          "id": "b5aa28ad-0e2d-4686-bbad-5aff53778715",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her",
+          "summary": "User intends: Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her (monday)",
+          "source_system": null
+        }
+      ],
       "commitments": [],
       "open_loops": [],
       "entities": [],
@@ -141,7 +163,7 @@
       "event_id": "s4_e09",
       "label": "Wednesday 17:30 - Matt surgery update received",
       "counts": {
-        "expectations": 0,
+        "expectations": 1,
         "commitments": 0,
         "stored_ask": 0,
         "surfaced_shelf": 0,
@@ -154,7 +176,16 @@
         "entities": 0,
         "models": 0
       },
-      "expectations": [],
+      "expectations": [
+        {
+          "id": "b5aa28ad-0e2d-4686-bbad-5aff53778715",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her",
+          "summary": "User intends: Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her (monday)",
+          "source_system": null
+        }
+      ],
       "commitments": [],
       "open_loops": [],
       "entities": [],
@@ -167,7 +198,7 @@
       "event_id": "s4_e11",
       "label": "Thursday 20:15 - Thursday warm closeout & neck released",
       "counts": {
-        "expectations": 0,
+        "expectations": 1,
         "commitments": 0,
         "stored_ask": 0,
         "surfaced_shelf": 0,
@@ -180,7 +211,16 @@
         "entities": 0,
         "models": 0
       },
-      "expectations": [],
+      "expectations": [
+        {
+          "id": "b5aa28ad-0e2d-4686-bbad-5aff53778715",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her",
+          "summary": "User intends: Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her (monday)",
+          "source_system": null
+        }
+      ],
       "commitments": [],
       "open_loops": [],
       "entities": [],
@@ -194,7 +234,7 @@
       "event_id": "s4_e13",
       "label": "Friday 09:35 - Sophie promise unprompted fulfillment",
       "counts": {
-        "expectations": 0,
+        "expectations": 1,
         "commitments": 0,
         "stored_ask": 0,
         "surfaced_shelf": 0,
@@ -207,7 +247,16 @@
         "entities": 0,
         "models": 0
       },
-      "expectations": [],
+      "expectations": [
+        {
+          "id": "b5aa28ad-0e2d-4686-bbad-5aff53778715",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her",
+          "summary": "User intends: Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her (monday)",
+          "source_system": null
+        }
+      ],
       "commitments": [],
       "open_loops": [],
       "entities": [],
@@ -220,7 +269,7 @@
       "event_id": "s4_e15",
       "label": "Saturday 18:44 - Recurring weekly food shop reminder",
       "counts": {
-        "expectations": 0,
+        "expectations": 1,
         "commitments": 0,
         "stored_ask": 0,
         "surfaced_shelf": 0,
@@ -233,7 +282,16 @@
         "entities": 0,
         "models": 0
       },
-      "expectations": [],
+      "expectations": [
+        {
+          "id": "b5aa28ad-0e2d-4686-bbad-5aff53778715",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her",
+          "summary": "User intends: Also forgot to say yesterday \u2014 my niece Elif started her new job Monday, wish I'd remembered to message her (monday)",
+          "source_system": null
+        }
+      ],
       "commitments": [],
       "open_loops": [],
       "entities": [],
@@ -245,6 +303,7 @@
   ],
   "trap_evaluations": [
     {
+      "trap_id": "trap-head's a bit",
       "trigger_text": "head's a bit sore today too, probably just tired",
       "prohibited": [
         "persistent_watch_candidate",
@@ -254,6 +313,7 @@
       "violations_found": []
     },
     {
+      "trap_id": "trap-wish i'd rem",
       "trigger_text": "wish I'd remembered to message her",
       "prohibited": [
         "open_loop",
@@ -265,8 +325,29 @@
     }
   ],
   "summary": {
+    "scenario_id": "scenario_4",
+    "mode": "rules",
+    "baseline_type": "determinism_floor",
+    "provider": "rules",
+    "model": null,
+    "external_model_calls": false,
     "total_checkpoints": 9,
     "traps_evaluated": 2,
-    "traps_passed": 2
+    "traps_passed": 2,
+    "trap_defense_interpretation": "Structural determinism floor only. Trap passes do NOT constitute semantic evidence (empty extractor cannot false-positive).",
+    "final_state_counts": {
+      "expectations": 1,
+      "commitments": 0,
+      "stored_ask": 0,
+      "surfaced_shelf": 0,
+      "open_loops": 0,
+      "current_meaning": 0,
+      "attention_candidates": 0,
+      "suppressions": 0,
+      "clarifications": 0,
+      "facts": 0,
+      "entities": 0,
+      "models": 0
+    }
   }
 }

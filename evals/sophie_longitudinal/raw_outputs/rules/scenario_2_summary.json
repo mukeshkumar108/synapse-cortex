@@ -1,0 +1,289 @@
+{
+  "scenario_id": "scenario_2",
+  "mode": "rules",
+  "baseline_type": "determinism_floor",
+  "provider": "rules",
+  "model": null,
+  "external_model_calls": false,
+  "timestamp": "2026-09-25T10:27:29.582209+00:00",
+  "checkpoints": [
+    {
+      "event_id": "s2_e02",
+      "label": "Monday 21:11 - After initial brain dump & Sophie offer",
+      "counts": {
+        "expectations": 1,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
+          "summary": "User intends: Mum wants me to call Auntie tomorrow about something to do with the house (tomorrow)",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "actionable_commitments_count": 0,
+        "subscription_loop_status": "open_with_missing_details"
+      }
+    },
+    {
+      "event_id": "s2_e05",
+      "label": "Tuesday 13:03 - After Auntie email & loft deferral",
+      "counts": {
+        "expectations": 2,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
+          "summary": "User intends: Mum wants me to call Auntie tomorrow about something to do with the house (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "95adf1f0-3bbf-4dd7-82b6-f14c634d437b",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "She said she\u2019ll send me a photo",
+          "summary": "Expected from another: She said she\u2019ll send me a photo",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "auntie_phone_call_expectation": "resolved_called_first",
+        "course_application_status": "cancelled_abandoned",
+        "running_status": "dismissed",
+        "loft_search_due": "weekend"
+      }
+    },
+    {
+      "event_id": "s2_e07",
+      "label": "Wednesday 09:46 - Subscription identified as Freepik",
+      "counts": {
+        "expectations": 2,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
+          "summary": "User intends: Mum wants me to call Auntie tomorrow about something to do with the house (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "95adf1f0-3bbf-4dd7-82b6-f14c634d437b",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "She said she\u2019ll send me a photo",
+          "summary": "Expected from another: She said she\u2019ll send me a photo",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "subscription_entity": "Freepik",
+        "renewal_date": "Saturday 2026-10-03",
+        "reminder_requested_for": "Friday morning 2026-10-02"
+      }
+    },
+    {
+      "event_id": "s2_e09",
+      "label": "Friday 08:07 - Cancellation reminder deferred",
+      "counts": {
+        "expectations": 2,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
+          "summary": "User intends: Mum wants me to call Auntie tomorrow about something to do with the house (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "95adf1f0-3bbf-4dd7-82b6-f14c634d437b",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "She said she\u2019ll send me a photo",
+          "summary": "Expected from another: She said she\u2019ll send me a photo",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "freepik_reminder_deferred_to": "Saturday afternoon 2026-10-03",
+        "cancellation_executed": false
+      }
+    },
+    {
+      "event_id": "s2_e10",
+      "label": "Saturday 14:22 - Saturday closeout",
+      "counts": {
+        "expectations": 2,
+        "commitments": 0,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 0,
+        "current_meaning": 0,
+        "attention_candidates": 0,
+        "suppressions": 0,
+        "clarifications": 0,
+        "facts": 0,
+        "entities": 0,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "9a03aa49-74a0-40c2-b383-f9f0702aeec6",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Mum wants me to call Auntie tomorrow about something to do with the house",
+          "summary": "User intends: Mum wants me to call Auntie tomorrow about something to do with the house (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "95adf1f0-3bbf-4dd7-82b6-f14c634d437b",
+          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "She said she\u2019ll send me a photo",
+          "summary": "Expected from another: She said she\u2019ll send me a photo",
+          "source_system": null
+        }
+      ],
+      "commitments": [],
+      "open_loops": [],
+      "entities": [],
+      "deterministic_expectations": {
+        "freepik_status": "cancelled_by_user_closed",
+        "grandad_letter_status": "found_sent_closed",
+        "active_open_loops_count": 0
+      }
+    }
+  ],
+  "trap_evaluations": [
+    {
+      "trap_id": "trap-i should pro",
+      "trigger_text": "I should probably apply for that course",
+      "prohibited": [
+        "actionable_commitment"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trap_id": "trap-i might go r",
+      "trigger_text": "I might go running in the morning if I wake up early",
+      "prohibited": [
+        "actionable_commitment",
+        "durable_expectation"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trap_id": "trap-there\u2019s a pa",
+      "trigger_text": "there\u2019s a parcel downstairs I\u2019ve ignored for two days",
+      "prohibited": [
+        "open_loop",
+        "actionable_commitment"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trap_id": "trap-i remembered",
+      "trigger_text": "I remembered the subscription \u2014 it\u2019s Notion, no, sorry, it\u2019s that stock-photo thing. Envato maybe?",
+      "prohibited": [
+        "definitive_entity_fact:Notion",
+        "definitive_entity_fact:Envato"
+      ],
+      "passed": true,
+      "violations_found": []
+    }
+  ],
+  "summary": {
+    "scenario_id": "scenario_2",
+    "mode": "rules",
+    "baseline_type": "determinism_floor",
+    "provider": "rules",
+    "model": null,
+    "external_model_calls": false,
+    "total_checkpoints": 5,
+    "traps_evaluated": 4,
+    "traps_passed": 4,
+    "trap_defense_interpretation": "Structural determinism floor only. Trap passes do NOT constitute semantic evidence (empty extractor cannot false-positive).",
+    "final_state_counts": {
+      "expectations": 2,
+      "commitments": 0,
+      "stored_ask": 0,
+      "surfaced_shelf": 0,
+      "open_loops": 0,
+      "current_meaning": 0,
+      "attention_candidates": 0,
+      "suppressions": 0,
+      "clarifications": 0,
+      "facts": 0,
+      "entities": 0,
+      "models": 0
+    }
+  }
+}
