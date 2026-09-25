@@ -173,11 +173,15 @@ class LifecycleService:
             )
             exp.outcome_state = OutcomeState.SUPERSEDED
             exp.superseded_by_id = replacement.id
+            exp.resolution_evidence = (
+                f"superseded:revised_by_replacement:{replacement.id}"
+            )
             await self._supersede_open_loops(db, exp.id, evidence)
         else:
             return []
 
-        exp.resolution_evidence = evidence
+        if not exp.resolution_evidence:
+            exp.resolution_evidence = evidence
         exp.updated_at = self._naive_utc(now)
         db.add(exp)
         modified_ids.append(exp.id)
@@ -315,6 +319,9 @@ class LifecycleService:
                 continue
             row.outcome_state = OutcomeState.SUPERSEDED
             row.superseded_by_id = expectation.id
+            row.resolution_evidence = (
+                f"superseded:same_plan_replacement:{expectation.id}"
+            )
             row.updated_at = self._naive_utc(now)
             db.add(row)
             modified.append(row.id)

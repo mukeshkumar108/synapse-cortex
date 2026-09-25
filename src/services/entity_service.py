@@ -242,3 +242,31 @@ async def revise_edge(
     await db.commit()
     await db.refresh(new_edge)
     return new_edge
+
+
+async def get_or_create_edge(
+    db: AsyncSession, *, workspace_id: str, from_entity_id,
+    to_entity_id, role: str, message_id: str | None = None,
+    confidence: float = 0.8,
+) -> tuple:
+    """Idempotent relationship edge: same (from, to, active role) returns the
+    existing row; a different role for the same pair should use revise_edge."""
+    from src.models.identity import RelationshipEdge
+    existing = (await db.execute(select(RelationshipEdge).where(
+        RelationshipEdge.honcho_workspace_id == workspace_id,
+        RelationshipEdge.from_entity_id == from_entity_id,
+        RelationshipEdge.to_entity_id == to_entity_id,
+        RelationshipEdge.role == role,
+        RelationshipEdge.end_at.is_(None),
+    ))).scalar_one_or_none()
+    if existing is not None:
+        return existing, False
+    edge = RelationshipEdge(
+        honcho_workspace_id=workspace_id, from_entity_id=from_entity_id,
+        to_entity_id=to_entity_id, role=role,
+        provenance_message_id=message_id, confidence=confidence,
+    )
+    db.add(edge)
+    await db.commit()
+    await db.refresh(edge)
+    return edge, True

@@ -136,3 +136,34 @@ async def test_churn_titles_do_not_supersede():
         assert changed == []
         await db.refresh(old)
         assert old.outcome_state == OutcomeState.UNKNOWN
+
+
+def test_sweeper_shaped_goal_without_hint_is_rejected_not_defaulted():
+    """Closeout fixture 3 (part 1): background-lane content with no explicit
+    type must never become USER_INTENTION. Any writer (hot or sweeper) that
+    cannot name the type produces no row."""
+    from src.services.expectation_shaper import ExpectationShaper
+    from src.schemas.candidate import ExtractionCandidate
+    cand = ExtractionCandidate(
+        candidate_key="c_sweep", observation="User wants a divorce",
+        raw_evidence="fight about divorce", canonical_title="divorce",
+        operational_kind="expectation", expectation_type_hint=None,
+        temporal_phrase=None, confidence=0.9, extractor_version="sweeper-v1")
+    assert ExpectationShaper().shape_expectation(cand, "kai") is None
+
+
+def test_sweeper_shaped_goal_with_hint_passes_with_formation():
+    """Closeout fixture 3 (part 2): properly typed background content flows
+    through the same gates with formation preserved."""
+    from src.services.expectation_shaper import ExpectationShaper
+    from src.schemas.candidate import ExtractionCandidate
+    cand = ExtractionCandidate(
+        candidate_key="c_sweep2", observation="User will call the doctor tomorrow",
+        raw_evidence="call the doctor tomorrow", canonical_title="Call doctor",
+        operational_kind="expectation", expectation_type_hint="user_intention",
+        temporal_phrase="tomorrow", confidence=0.9, formation="inferred",
+        extractor_version="sweeper-v1")
+    shaped = ExpectationShaper().shape_expectation(cand, "kai")
+    assert shaped is not None
+    assert shaped["formation"] == "inferred"
+    assert shaped["expectation_type"].value == "user_intention"

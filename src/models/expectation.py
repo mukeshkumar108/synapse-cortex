@@ -115,5 +115,10 @@ class Expectation(SQLModel, table=True):
     # write formation="inferred" with holder=companion; the column accepts
     # both from the start so no rework is needed when that cognition arrives.
     formation: str = Field(default="explicit", nullable=False, index=True)
+    # Effective dating: created_at is discovered_at (when Cortex learned it).
+    # effective_at is when the state became true/relevant (grounded window or
+    # message time; backdated on retrospective correction, never rewriting
+    # created_at).
+    effective_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)

@@ -1100,6 +1100,15 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     raw["operational_kind"] = "semantic_only"
                     kind = "semantic_only"
                     validation_notes.append("dropped_model_claim_without_kind")
+                if kind == "model_claim" and raw.get("model_kind") in (
+                    "character", "relationship",
+                ) and not raw.get("subject_refs"):
+                    # A claim about someone/thing specific must name its
+                    # subject; subject-less character/relationship rows are how
+                    # user material gets mislabeled (take-9).
+                    raw["operational_kind"] = "semantic_only"
+                    kind = "semantic_only"
+                    validation_notes.append("dropped_model_claim_without_subject")
                 if kind is None and isinstance(raw.get("expectation_type_hint"), str) and raw.get(
                     "expectation_type_hint"
                 ) in {

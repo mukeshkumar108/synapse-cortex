@@ -557,6 +557,7 @@ async def ingest_turn_event(
                 "hard_deadline_at": hard_deadline,
                 "extraction_confidence": shaped_data["confidence"],
                 "formation": shaped_data.get("formation") or "explicit",
+                "effective_at": win_start or _naive_utc(payload.now),
                 # Semantic reminder proposal from the interpreter (validated
                 # downstream against a grounded window); never raw-text regex.
                 "reminder_requested": cand.reminder_request,  # None = model omitted: deterministic default applies at persistence

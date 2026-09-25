@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.honcho_client import HonchoClient
 from src.services.persistence import save_expectation_idempotent
+from src.services.commitment_candidate_service import CommitmentCandidateService
 from src.services.turn_extractor import LLMExtractorProvider, _find_normalized
 
 logger = logging.getLogger(__name__)
@@ -218,31 +219,95 @@ class SweeperService:
                 )
                 return
         if c["kind"] in ("goal", "strategy", "sophie_promise", "blocker"):
-            record = {
-                "honcho_workspace_id": workspace_id,
-                "honcho_session_id": c.get("evidence_session_id"),
-                "honcho_message_id": c["evidence_id"],
-                "owner_peer_id": peer_id,
-                "candidate_key": f"sweep:{c['kind']}:{c['title'][:80]}",
-                "extractor_version": SWEEPER_VERSION,
-                "source_start": None, "source_end": None,
-                "subject_peer_id": peer_id,
-                "expectation_type": "USER_INTENTION",
-                "title": c["title"][:200],
-                "summary": (c.get("summary") or c["evidence_text"])[:1000],
-                "raw_temporal_phrase": None,
-                "anchor_timezone": "UTC",
-                "expected_window_start": None,
-                "expected_window_end": None,
-                "hard_deadline_at": None,
-                "extraction_confidence": c["confidence"],
-                "reminder_requested": False,
-            }
-            exp_model, was_created = await save_expectation_idempotent(
-                db, record, grounding_now=now,
-            )
-            if was_created:
-                created["expectations"].append(str(exp_model.id))
+            # One canonical write contract: background items pass through the
+            # same shaper and gates as the hot path — never hardcoded types.
+            # The background lane sees less context, so its bar is stricter:
+            # dateless goals are aspirations for hot-path handling (full
+            # context), not background expectations; only dated, confident
+            # items pass. formation is always inferred here.
+            from src.schemas.candidate import ExtractionCandidate
+            from src.services.expectation_shaper import ExpectationShaper
+            if c["kind"] == "sophie_promise":
+                cand = ExtractionCandidate(
+                    candidate_key=f"sweep:{c['kind']}:{c['title'][:80]}",
+                    observation=c["title"],
+                    operational_kind="commitment_candidate",
+                    canonical_title=c["title"],
+                    confidence=c["confidence"],
+                    extractor_version=SWEEPER_VERSION,
+                    raw_evidence=c["evidence_text"],
+                    evidence_class="implicit_self_commitment",
+                    authority="ask",
+                    formation="inferred",
+                )
+                row = await CommitmentCandidateService().upsert_from_candidate(
+                    db, workspace_id=workspace_id,
+                    session_id=c.get("evidence_session_id") or "",
+                    owner_peer_id=peer_id, message_id=c["evidence_id"],
+                    candidate=cand, now=now,
+                )
+                created.setdefault("commitments", []).append(
+                    {"title": c["title"], "id": str(row.id) if row else None})
+                return
+            if c["kind"] == "blocker":
+                c = {**c, "kind": "open_loop", "title": c["title"]}
+            if (c.get("kind") == "open_loop"):
+                pass  # handled by the open_loop branch below
+            elif c["confidence"] < 0.8 or not (c.get("temporal_phrase") or "").strip():
+                created["rejected"].append({
+                    "title": c["title"],
+                    "notes": ["background_bar: dated (>=0.8 confidence + explicit temporal scope) required; dateless goals belong to hot-path handling"],
+                })
+                return
+            else:
+                cand = ExtractionCandidate(
+                    candidate_key=f"sweep:{c['kind']}:{c['title'][:80]}",
+                    observation=c["title"],
+                    operational_kind="durable_objective",
+                    expectation_type_hint="user_intention",
+                    canonical_title=c["title"],
+                    temporal_phrase=(c.get("temporal_phrase") or "").strip(),
+                    confidence=c["confidence"],
+                    extractor_version=SWEEPER_VERSION,
+                    raw_evidence=c["evidence_text"],
+                    formation="inferred",
+                )
+                shaped = ExpectationShaper().shape_expectation(cand, peer_id)
+                if not shaped:
+                    created["rejected"].append({
+                        "title": c["title"], "notes": ["background_bar: shaper rejected"]})
+                    return
+                from src.services.temporal_grounding import TemporalGrounding
+                win_start, win_end, hard_deadline = TemporalGrounding().ground_expression(
+                    raw_phrase=shaped.get("raw_temporal_phrase"), now=now, timezone_str="UTC")
+                record = {
+                    "honcho_workspace_id": workspace_id,
+                    "honcho_session_id": c.get("evidence_session_id"),
+                    "honcho_message_id": c["evidence_id"],
+                    "owner_peer_id": peer_id,
+                    "candidate_key": f"sweep:{c['kind']}:{c['title'][:80]}",
+                    "extractor_version": SWEEPER_VERSION,
+                    "source_start": None, "source_end": None,
+                    "subject_peer_id": peer_id,
+                    "expectation_type": shaped["expectation_type"],
+                    "title": shaped["title"][:200],
+                    "summary": shaped["summary"][:1000],
+                    "raw_temporal_phrase": shaped.get("raw_temporal_phrase"),
+                    "anchor_timezone": "UTC",
+                    "expected_window_start": win_start,
+                    "expected_window_end": win_end,
+                    "hard_deadline_at": hard_deadline,
+                    "effective_at": win_start or now,
+                    "extraction_confidence": shaped["confidence"],
+                    "formation": "inferred",
+                    "reminder_requested": False,
+                }
+                exp_model, was_created = await save_expectation_idempotent(
+                    db, record, grounding_now=now,
+                )
+                if was_created:
+                    created["expectations"].append(str(exp_model.id))
+            return
         elif c["kind"] == "open_loop":
             from src.schemas.candidate import ExtractionCandidate
             from src.services.lifecycle_service import LifecycleService
