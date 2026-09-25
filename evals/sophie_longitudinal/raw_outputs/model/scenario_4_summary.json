@@ -5,7 +5,7 @@
   "provider": "model",
   "model": "google/gemini-2.5-flash-lite",
   "external_model_calls": true,
-  "timestamp": "2026-09-25T10:38:14.079222+00:00",
+  "timestamp": "2026-09-25T10:56:57.604741+00:00",
   "checkpoints": [
     {
       "event_id": "s4_e01",
@@ -27,7 +27,7 @@
       "expectations": [],
       "commitments": [
         {
-          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "id": "9af6f69b-2fc4-4c38-b186-9bce75c888ab",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "renew parking permit",
@@ -36,14 +36,14 @@
       ],
       "open_loops": [
         {
-          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "id": "41b11071-b67f-44e2-bf01-eb168279b2d9",
           "status": "OpenLoopStatus.OPEN",
           "title": "share podcast thoughts"
         }
       ],
       "entities": [
         {
-          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "id": "c110ec73-4495-46eb-8eb2-a58f9e928a5b",
           "name": "Priya",
           "type": "person",
           "aliases": [
@@ -51,7 +51,7 @@
           ]
         },
         {
-          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "id": "d14892ec-9b92-436b-be08-53f77772d9dd",
           "name": "Matt",
           "type": "person",
           "aliases": [
@@ -77,7 +77,7 @@
         "current_meaning": 0,
         "attention_candidates": 0,
         "suppressions": 0,
-        "clarifications": 0,
+        "clarifications": 1,
         "facts": 2,
         "entities": 2,
         "models": 0
@@ -85,7 +85,7 @@
       "expectations": [],
       "commitments": [
         {
-          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "id": "9af6f69b-2fc4-4c38-b186-9bce75c888ab",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "renew parking permit",
@@ -94,14 +94,14 @@
       ],
       "open_loops": [
         {
-          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "id": "41b11071-b67f-44e2-bf01-eb168279b2d9",
           "status": "OpenLoopStatus.OPEN",
           "title": "share podcast thoughts"
         }
       ],
       "entities": [
         {
-          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "id": "c110ec73-4495-46eb-8eb2-a58f9e928a5b",
           "name": "Priya",
           "type": "person",
           "aliases": [
@@ -109,7 +109,7 @@
           ]
         },
         {
-          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "id": "d14892ec-9b92-436b-be08-53f77772d9dd",
           "name": "Matt",
           "type": "person",
           "aliases": [
@@ -134,7 +134,7 @@
         "current_meaning": 0,
         "attention_candidates": 0,
         "suppressions": 0,
-        "clarifications": 0,
+        "clarifications": 1,
         "facts": 2,
         "entities": 2,
         "models": 0
@@ -142,14 +142,14 @@
       "expectations": [],
       "commitments": [
         {
-          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "id": "9af6f69b-2fc4-4c38-b186-9bce75c888ab",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "renew parking permit",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "id": "ba39ac9a-2871-4380-93a0-b0d179f7ef19",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Return to topic",
@@ -158,14 +158,14 @@
       ],
       "open_loops": [
         {
-          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "id": "41b11071-b67f-44e2-bf01-eb168279b2d9",
           "status": "OpenLoopStatus.OPEN",
           "title": "share podcast thoughts"
         }
       ],
       "entities": [
         {
-          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "id": "c110ec73-4495-46eb-8eb2-a58f9e928a5b",
           "name": "Priya",
           "type": "person",
           "aliases": [
@@ -173,7 +173,7 @@
           ]
         },
         {
-          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "id": "d14892ec-9b92-436b-be08-53f77772d9dd",
           "name": "Matt",
           "type": "person",
           "aliases": [
@@ -198,7 +198,7 @@
         "current_meaning": 0,
         "attention_candidates": 0,
         "suppressions": 0,
-        "clarifications": 0,
+        "clarifications": 1,
         "facts": 2,
         "entities": 2,
         "models": 0
@@ -206,14 +206,14 @@
       "expectations": [],
       "commitments": [
         {
-          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "id": "9af6f69b-2fc4-4c38-b186-9bce75c888ab",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "renew parking permit",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "id": "ba39ac9a-2871-4380-93a0-b0d179f7ef19",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Return to topic",
@@ -222,14 +222,14 @@
       ],
       "open_loops": [
         {
-          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "id": "41b11071-b67f-44e2-bf01-eb168279b2d9",
           "status": "OpenLoopStatus.OPEN",
           "title": "share podcast thoughts"
         }
       ],
       "entities": [
         {
-          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "id": "c110ec73-4495-46eb-8eb2-a58f9e928a5b",
           "name": "Priya",
           "type": "person",
           "aliases": [
@@ -237,7 +237,7 @@
           ]
         },
         {
-          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "id": "d14892ec-9b92-436b-be08-53f77772d9dd",
           "name": "Matt",
           "type": "person",
           "aliases": [
@@ -262,7 +262,7 @@
         "current_meaning": 0,
         "attention_candidates": 0,
         "suppressions": 0,
-        "clarifications": 0,
+        "clarifications": 1,
         "facts": 2,
         "entities": 2,
         "models": 0
@@ -270,14 +270,14 @@
       "expectations": [],
       "commitments": [
         {
-          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "id": "9af6f69b-2fc4-4c38-b186-9bce75c888ab",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "renew parking permit",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "id": "ba39ac9a-2871-4380-93a0-b0d179f7ef19",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Return to topic",
@@ -286,19 +286,19 @@
       ],
       "open_loops": [
         {
-          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "id": "41b11071-b67f-44e2-bf01-eb168279b2d9",
           "status": "OpenLoopStatus.OPEN",
           "title": "share podcast thoughts"
         },
         {
-          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "id": "b8dd7138-5a3b-4b7a-9668-1059b0c2992c",
           "status": "OpenLoopStatus.OPEN",
           "title": "news about Matt"
         }
       ],
       "entities": [
         {
-          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "id": "c110ec73-4495-46eb-8eb2-a58f9e928a5b",
           "name": "Priya",
           "type": "person",
           "aliases": [
@@ -306,7 +306,7 @@
           ]
         },
         {
-          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "id": "d14892ec-9b92-436b-be08-53f77772d9dd",
           "name": "Matt",
           "type": "person",
           "aliases": [
@@ -327,7 +327,7 @@
       "label": "Wednesday 17:30 - Matt surgery update received",
       "counts": {
         "expectations": 0,
-        "commitments": 2,
+        "commitments": 3,
         "stored_ask": 1,
         "surfaced_shelf": 1,
         "open_loops": 2,
@@ -342,35 +342,42 @@
       "expectations": [],
       "commitments": [
         {
-          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "id": "9af6f69b-2fc4-4c38-b186-9bce75c888ab",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "renew parking permit",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "id": "ba39ac9a-2871-4380-93a0-b0d179f7ef19",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Return to topic",
           "class": "character_promise"
+        },
+        {
+          "id": "61c2e079-7450-45d0-9c0c-96fdf0c2575e",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "Pay Priya back for lunch",
+          "class": "implicit_self_commitment"
         }
       ],
       "open_loops": [
         {
-          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "id": "41b11071-b67f-44e2-bf01-eb168279b2d9",
           "status": "OpenLoopStatus.OPEN",
           "title": "share podcast thoughts"
         },
         {
-          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "id": "b8dd7138-5a3b-4b7a-9668-1059b0c2992c",
           "status": "OpenLoopStatus.OPEN",
           "title": "news about Matt"
         }
       ],
       "entities": [
         {
-          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "id": "c110ec73-4495-46eb-8eb2-a58f9e928a5b",
           "name": "Priya",
           "type": "person",
           "aliases": [
@@ -378,7 +385,7 @@
           ]
         },
         {
-          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "id": "d14892ec-9b92-436b-be08-53f77772d9dd",
           "name": "Matt",
           "type": "person",
           "aliases": [
@@ -396,36 +403,43 @@
       "label": "Thursday 20:15 - Thursday warm closeout & neck released",
       "counts": {
         "expectations": 0,
-        "commitments": 3,
+        "commitments": 4,
         "stored_ask": 2,
         "surfaced_shelf": 2,
         "open_loops": 2,
         "current_meaning": 0,
         "attention_candidates": 0,
-        "suppressions": 1,
-        "clarifications": 3,
-        "facts": 3,
-        "entities": 3,
+        "suppressions": 0,
+        "clarifications": 4,
+        "facts": 2,
+        "entities": 2,
         "models": 0
       },
       "expectations": [],
       "commitments": [
         {
-          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "id": "9af6f69b-2fc4-4c38-b186-9bce75c888ab",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "renew parking permit",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "id": "ba39ac9a-2871-4380-93a0-b0d179f7ef19",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Return to topic",
           "class": "character_promise"
         },
         {
-          "id": "8eddb03a-7882-4466-ad48-84218d415634",
+          "id": "61c2e079-7450-45d0-9c0c-96fdf0c2575e",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "Pay Priya back for lunch",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "c388cb15-514e-4af4-ba45-5968ab89577b",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Leave the neck alone",
@@ -434,19 +448,19 @@
       ],
       "open_loops": [
         {
-          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "id": "41b11071-b67f-44e2-bf01-eb168279b2d9",
           "status": "OpenLoopStatus.OPEN",
           "title": "share podcast thoughts"
         },
         {
-          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "id": "b8dd7138-5a3b-4b7a-9668-1059b0c2992c",
           "status": "OpenLoopStatus.OPEN",
           "title": "news about Matt"
         }
       ],
       "entities": [
         {
-          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "id": "c110ec73-4495-46eb-8eb2-a58f9e928a5b",
           "name": "Priya",
           "type": "person",
           "aliases": [
@@ -454,19 +468,11 @@
           ]
         },
         {
-          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "id": "d14892ec-9b92-436b-be08-53f77772d9dd",
           "name": "Matt",
           "type": "person",
           "aliases": [
             "matt"
-          ]
-        },
-        {
-          "id": "03cd36a3-be42-471f-b22e-237dc98a7558",
-          "name": "Elif",
-          "type": "person",
-          "aliases": [
-            "elif"
           ]
         }
       ],
@@ -481,36 +487,43 @@
       "label": "Friday 09:35 - Sophie promise unprompted fulfillment",
       "counts": {
         "expectations": 0,
-        "commitments": 3,
+        "commitments": 4,
         "stored_ask": 2,
         "surfaced_shelf": 2,
-        "open_loops": 2,
+        "open_loops": 3,
         "current_meaning": 0,
         "attention_candidates": 0,
-        "suppressions": 1,
-        "clarifications": 3,
-        "facts": 3,
-        "entities": 3,
+        "suppressions": 0,
+        "clarifications": 5,
+        "facts": 2,
+        "entities": 2,
         "models": 0
       },
       "expectations": [],
       "commitments": [
         {
-          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "id": "9af6f69b-2fc4-4c38-b186-9bce75c888ab",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "renew parking permit",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "id": "ba39ac9a-2871-4380-93a0-b0d179f7ef19",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Return to topic",
           "class": "character_promise"
         },
         {
-          "id": "8eddb03a-7882-4466-ad48-84218d415634",
+          "id": "61c2e079-7450-45d0-9c0c-96fdf0c2575e",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "Pay Priya back for lunch",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "c388cb15-514e-4af4-ba45-5968ab89577b",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Leave the neck alone",
@@ -519,19 +532,24 @@
       ],
       "open_loops": [
         {
-          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "id": "41b11071-b67f-44e2-bf01-eb168279b2d9",
           "status": "OpenLoopStatus.OPEN",
           "title": "share podcast thoughts"
         },
         {
-          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "id": "b8dd7138-5a3b-4b7a-9668-1059b0c2992c",
           "status": "OpenLoopStatus.OPEN",
           "title": "news about Matt"
+        },
+        {
+          "id": "49b27bb6-40f7-46d4-9231-0d9bf00d4eac",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "continue discussion"
         }
       ],
       "entities": [
         {
-          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "id": "c110ec73-4495-46eb-8eb2-a58f9e928a5b",
           "name": "Priya",
           "type": "person",
           "aliases": [
@@ -539,19 +557,11 @@
           ]
         },
         {
-          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "id": "d14892ec-9b92-436b-be08-53f77772d9dd",
           "name": "Matt",
           "type": "person",
           "aliases": [
             "matt"
-          ]
-        },
-        {
-          "id": "03cd36a3-be42-471f-b22e-237dc98a7558",
-          "name": "Elif",
-          "type": "person",
-          "aliases": [
-            "elif"
           ]
         }
       ],
@@ -565,36 +575,43 @@
       "label": "Saturday 18:44 - Recurring weekly food shop reminder",
       "counts": {
         "expectations": 0,
-        "commitments": 3,
+        "commitments": 4,
         "stored_ask": 2,
         "surfaced_shelf": 2,
-        "open_loops": 2,
+        "open_loops": 3,
         "current_meaning": 0,
         "attention_candidates": 0,
-        "suppressions": 1,
-        "clarifications": 3,
-        "facts": 3,
-        "entities": 3,
+        "suppressions": 0,
+        "clarifications": 5,
+        "facts": 2,
+        "entities": 2,
         "models": 0
       },
       "expectations": [],
       "commitments": [
         {
-          "id": "f70dd0cd-6f02-49c3-afbc-268c4db3e89c",
+          "id": "9af6f69b-2fc4-4c38-b186-9bce75c888ab",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ACT",
           "title": "renew parking permit",
           "class": "implicit_self_commitment"
         },
         {
-          "id": "0c56eaca-de4e-4e06-b0d0-0504ae4b3422",
+          "id": "ba39ac9a-2871-4380-93a0-b0d179f7ef19",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Return to topic",
           "class": "character_promise"
         },
         {
-          "id": "8eddb03a-7882-4466-ad48-84218d415634",
+          "id": "61c2e079-7450-45d0-9c0c-96fdf0c2575e",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "Pay Priya back for lunch",
+          "class": "implicit_self_commitment"
+        },
+        {
+          "id": "c388cb15-514e-4af4-ba45-5968ab89577b",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "Leave the neck alone",
@@ -603,19 +620,24 @@
       ],
       "open_loops": [
         {
-          "id": "7919c508-99bc-4a6b-9844-00fb19ee5f9d",
+          "id": "41b11071-b67f-44e2-bf01-eb168279b2d9",
           "status": "OpenLoopStatus.OPEN",
           "title": "share podcast thoughts"
         },
         {
-          "id": "ff039351-ef1d-49dd-9c38-b4a92fb0f510",
+          "id": "b8dd7138-5a3b-4b7a-9668-1059b0c2992c",
           "status": "OpenLoopStatus.OPEN",
           "title": "news about Matt"
+        },
+        {
+          "id": "49b27bb6-40f7-46d4-9231-0d9bf00d4eac",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "continue discussion"
         }
       ],
       "entities": [
         {
-          "id": "140f7285-0ba9-4fb1-ad17-e782af5a2fc3",
+          "id": "c110ec73-4495-46eb-8eb2-a58f9e928a5b",
           "name": "Priya",
           "type": "person",
           "aliases": [
@@ -623,19 +645,11 @@
           ]
         },
         {
-          "id": "0f66db61-bc57-4a44-88ac-30e2de05ea3a",
+          "id": "d14892ec-9b92-436b-be08-53f77772d9dd",
           "name": "Matt",
           "type": "person",
           "aliases": [
             "matt"
-          ]
-        },
-        {
-          "id": "03cd36a3-be42-471f-b22e-237dc98a7558",
-          "name": "Elif",
-          "type": "person",
-          "aliases": [
-            "elif"
           ]
         }
       ],
@@ -681,16 +695,16 @@
     "trap_defense_interpretation": "Semantic baseline evaluation against active model state generation.",
     "final_state_counts": {
       "expectations": 0,
-      "commitments": 3,
+      "commitments": 4,
       "stored_ask": 2,
       "surfaced_shelf": 2,
-      "open_loops": 2,
+      "open_loops": 3,
       "current_meaning": 0,
       "attention_candidates": 0,
-      "suppressions": 1,
-      "clarifications": 3,
-      "facts": 3,
-      "entities": 3,
+      "suppressions": 0,
+      "clarifications": 5,
+      "facts": 2,
+      "entities": 2,
       "models": 0
     }
   }
