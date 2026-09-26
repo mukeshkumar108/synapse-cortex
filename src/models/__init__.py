@@ -5,6 +5,10 @@ from src.models.clarification import ClarificationCandidate, ClarificationType, 
 from src.models.epistemic import EpistemicAnnotation, EpistemicProvenance
 from src.models.domain_annotation import DomainAnnotation, DomainTag, CategoryTag
 from src.models.attention_candidate import AttentionCandidate, AttentionCandidateKind, AttentionCandidateStatus
+from src.models.commitment_candidate import (
+    CommitmentCandidate, CommitmentCandidateStatus, CommitmentCandidateAuthority,
+)
+from src.models.work_item import WorkItem, WorkOwner, WorkStatus
 from src.models.operational_state import (RecurringIntention, RecurringOccurrence, CandidateReceipt, ObjectiveProgress,
     ExtractionTrace, OperationalStatus, OccurrenceStatus)
 from src.models.derived_signal import DerivedSignal, DerivedSignalKind
@@ -40,6 +44,12 @@ __all__ = [
     "AttentionCandidate",
     "AttentionCandidateKind",
     "AttentionCandidateStatus",
+    "CommitmentCandidate",
+    "CommitmentCandidateStatus",
+    "CommitmentCandidateAuthority",
+    "WorkItem",
+    "WorkOwner",
+    "WorkStatus",
     "RecurringIntention", "RecurringOccurrence", "CandidateReceipt", "ObjectiveProgress", "ExtractionTrace",
     "OperationalStatus", "OccurrenceStatus",
     "DerivedSignal", "DerivedSignalKind",
