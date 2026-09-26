@@ -29,6 +29,7 @@ from src.models.commitment_candidate import (
 )
 from src.models.operational_state import TurnStamp
 from src.schemas.candidate import ExtractionCandidate
+from src.services.ownership import is_external_counterparty
 
 logger = logging.getLogger(__name__)
 
@@ -74,17 +75,6 @@ def canonical_key_for(title: str) -> str:
     if not content:
         content = sorted({_fold(w) for w in _WORD_RE.findall(title.lower())}) or ["unknown"]
     return hashlib.sha1(":".join(content).encode()).hexdigest()
-
-
-def _is_external_counterparty(owner_peer_id: str) -> bool:
-    """Return whether ownership provenance identifies a non-user sender.
-
-    External feeds preserve their speaker identity as ``external:<sender>``.
-    Extractor labels are model-derived, but this provenance is supplied by the
-    ingest adapter and is therefore the authoritative boundary for whether a
-    promise can become a user/companion action.
-    """
-    return owner_peer_id.strip().casefold().startswith("external:")
 
 
 def _is_reported_counterparty(
@@ -136,7 +126,7 @@ class CommitmentCandidateService:
             or ""
         ).strip()[:2000]
         is_counterparty = (
-            _is_external_counterparty(owner_peer_id)
+            is_external_counterparty(owner_peer_id)
             or candidate.evidence_class == "counterparty_promise"
             or _is_reported_counterparty(
                 candidate, owner_peer_id=owner_peer_id, evidence=evidence

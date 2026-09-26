@@ -27,3 +27,17 @@ def resolve_owner(
     if actor == sender_peer_id or actor in set(known_peer_ids or ()):
         return actor
     return sender_peer_id
+
+
+def is_external_counterparty(owner_peer_id: str) -> bool:
+    """Return whether resolved ownership identifies a non-user sender.
+
+    External feeds preserve their speaker identity as ``external:<sender>``.
+    Extractor labels (types, hints, categories) are model-derived and
+    fallible; this provenance is supplied by the ingest adapter at the turn
+    boundary, so it is the authoritative signal for whether a row may be
+    minted as user/companion-owned action state (a commitment the user/
+    companion is bound to, or an expectation asserting the user/companion as
+    the acting party) versus longitudinal evidence about a third party.
+    """
+    return (owner_peer_id or "").strip().casefold().startswith("external:")

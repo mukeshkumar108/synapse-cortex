@@ -2,6 +2,18 @@ import re
 from typing import Any, Dict, Optional
 from src.models.expectation import ExpectationType
 from src.schemas.candidate import ExtractionCandidate
+from src.services.ownership import is_external_counterparty
+
+# Types that assert the user (or companion) as the acting party. Ownership
+# authority forecloses these when the resolved owner is a non-user external
+# sender — the same commitment-sink boundary (CommitmentCandidateService)
+# applied to the expectation layer, so an external counterparty's own
+# first-person promise ("I'll send it tomorrow") cannot be minted as
+# ExpectationType.USER_INTENTION just because the extractor's free-text
+# hint said so.
+_ACTOR_ASSERTING_TYPES = frozenset({
+    ExpectationType.USER_INTENTION, ExpectationType.USER_COMMITMENT,
+})
 
 
 # Pseudo-temporal markers the model emits for "happening now / ongoing /
@@ -43,7 +55,8 @@ class ExpectationShaper:
     """
 
     def shape_expectation(
-        self, candidate: ExtractionCandidate, subject_peer_id: str
+        self, candidate: ExtractionCandidate, subject_peer_id: str,
+        *, owner_peer_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         # High-precision rejection rules (evaluated FIRST)
         if candidate.operational_kind == "semantic_only":
@@ -93,6 +106,23 @@ class ExpectationShaper:
                 return None
         if expectation_type is None:
             return None
+
+        # Ownership authority overrides the extractor's self-reported
+        # category: resolved owner provenance (ingest-adapter-supplied,
+        # never keyword-matched) is trusted over free-text classification.
+        # A row owned by a non-user external sender cannot assert the user
+        # or companion as the acting party, regardless of how the extractor
+        # phrased or hinted it. Reported third-party speech within the
+        # user's own turn is already routed to EXTERNAL_DEPENDENCY above;
+        # this covers the direct-first-person case (the external sender's
+        # own message/email/etc.), which is not "reported speech".
+        resolved_owner = owner_peer_id or candidate.actor_peer_id or subject_peer_id
+        if (
+            expectation_type in _ACTOR_ASSERTING_TYPES
+            and resolved_owner
+            and is_external_counterparty(resolved_owner)
+        ):
+            expectation_type = ExpectationType.EXTERNAL_DEPENDENCY
 
         if (
             expectation_type

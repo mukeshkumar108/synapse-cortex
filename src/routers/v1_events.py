@@ -579,7 +579,7 @@ async def ingest_turn_event(
                     db, workspace_id=payload.workspace_id, session_id=payload.session_id,
                     candidate=cand, peer_id=payload.peer_id,
                 )
-            shaped_data = None if (is_replacement_event or special_lifecycle or existing_objective) else expectation_shaper.shape_expectation(cand, payload.peer_id)
+            shaped_data = None if (is_replacement_event or special_lifecycle or existing_objective) else expectation_shaper.shape_expectation(cand, payload.peer_id, owner_peer_id=row_owner)
             expectation_record_id = existing_objective.id if existing_objective else None
         if shaped_data:
             raw_phrase = shaped_data.get("raw_temporal_phrase")
