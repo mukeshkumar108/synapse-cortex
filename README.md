@@ -8,10 +8,13 @@
 > Product intent outranks current architecture. Architecture is disposable.
 > Do not infer product requirements from existing code. Auditor/model proposals
 > are hypotheses until checked against canon and evidence.
-> If any of the three files above is missing from your checkout: STOP. Do not
-> substitute older docs or create replacements — report branch/HEAD instead.
-> Work from `/Users/mukeshkumar/play/`; do not clone fresh or overwrite
-> another agent's work unless explicitly authorised.
+> If any of the three files above is missing: STOP — report branch/HEAD and
+> which check failed. Otherwise verify canon content baseline `6ae9df9` is an
+> ancestor of your HEAD (`git merge-base --is-ancestor 6ae9df9 HEAD`); HEAD
+> being ahead is normal. STOP only if baseline is not an ancestor. Do not
+> substitute older docs or create replacements. Work from
+> `/Users/mukeshkumar/play/` on `main`; do not clone fresh, switch branches,
+> or overwrite another agent's work unless explicitly authorised.
 
 Companion State & JIT Context Compiler Sidecar for **Honcho** & **Sophie**.
 

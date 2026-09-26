@@ -4,15 +4,25 @@
 > No essays. Canonical docs live here (single copy — never fork):
 > `docs/COMPANION_NORTH_STAR.md` → `docs/COMPANION_CANON.md` → this file.
 
-## Canonical baseline (update on every shared-state commit)
+## Canonical baseline (minimum trusted content — NOT a HEAD pin)
 
-- `synapse-cortex: 6ae9df9` (2026-09-26 — programme centre first commit)
-- Every task starts from this SHA. Verify before work; mismatch = STOP.
+- `synapse-cortex` CANON CONTENT BASELINE: `6ae9df9` (2026-09-26 — programme
+  centre first commit holding North Star / Canon / BLITZ).
+- Agents do NOT require current HEAD to equal `6ae9df9`. Legitimate descendant
+  commits are expected. Verify with: `git merge-base --is-ancestor 6ae9df9 HEAD`.
+- Report current HEAD separately in every handoff. STOP only if: canonical files
+  are missing; `6ae9df9` is not an ancestor of HEAD; the repo/workspace is not
+  the authorised one; or unexpected state makes continuing unsafe.
+- Authorised local blitz execution branch is `main`. Do NOT instruct agents to
+  switch to or check out other branches in the shared dirty workspace.
+  `blitz/hot-path` and `blitz/behaviour` remain logical workstream names only.
 
 ## Agent bootstrap — hard requirement
 
 Work from the existing canonical local checkout. Do NOT clone a fresh copy
 unless explicitly instructed. Canonical workspace: `/Users/mukeshkumar/play/`.
+Remain on the current authorised branch (`main`); do not switch branches unless
+explicitly authorised.
 
 Before doing any work, verify these files exist:
 
@@ -20,11 +30,16 @@ Before doing any work, verify these files exist:
 - `synapse-cortex/docs/COMPANION_CANON.md`
 - `synapse-cortex/BLITZ.md`
 
-If ANY are missing: STOP. Do not substitute older docs. Do not infer product
-intent. Do not create replacements. Report the missing file plus current git
-branch/HEAD. Before modifying code report: repo, branch, HEAD, working-tree
-status, canonical-doc existence. Do not reset, checkout, rebase, clone, pull,
-or overwrite another agent's work unless explicitly authorised.
+Then verify the content baseline is an ancestor of your HEAD:
+
+- `git -C synapse-cortex merge-base --is-ancestor 6ae9df9 HEAD`
+
+If ANY file is missing, or the baseline is not an ancestor, or the
+repo/workspace is not the authorised one: STOP. Do not substitute older docs.
+Do not infer product intent. Do not create replacements. Report branch, HEAD,
+and which check failed. Before modifying code report: repo, branch, HEAD,
+working-tree status, canonical-doc existence. Do not reset, checkout, rebase,
+clone, pull, or overwrite another agent's work unless explicitly authorised.
 
 ## Read first
 
