@@ -6,7 +6,7 @@
 
 ## Canonical baseline (update on every shared-state commit)
 
-- `synapse-cortex: <pending first commit>`
+- `synapse-cortex: 6ae9df9` (2026-09-26 — programme centre first commit)
 - Every task starts from this SHA. Verify before work; mismatch = STOP.
 
 ## Agent bootstrap — hard requirement
