@@ -59,6 +59,31 @@ MAX_TURN_CHARS = 4000
 MAX_HISTORY_ITEMS = 6
 MAX_HISTORY_CHARS_EACH = 700
 
+QUIET_TURN_MAX_CHARS = int(os.getenv("MEANING_QUIET_GATE_MAX_CHARS", "24"))
+_QUIET_TURN_TOKENS = {
+    "ok", "okay", "k", "kk", "fine", "sure", "cool", "nice", "great",
+    "thanks", "thank you", "thx", "ty", "yep", "yeah", "yea", "yes",
+    "no", "nope", "lol", "lmao", "haha", "hah", "hehe", "hmm", "hm",
+    "right", "true", "got it", "gotcha", "good", "sounds good", "np",
+}
+
+
+def is_quiet_turn(turn_text: str) -> bool:
+    """Conservative pre-interpreter gate. True only for a turn that carries
+    no plausible new meaning: empty, or a short closed-set acknowledgment
+    with no question and no content beyond it. False negatives (skipping a
+    turn that DID revise meaning) are the dangerous error here, so this
+    never infers from length alone or from punctuation beyond '?' — only an
+    exact match (after trimming trailing punctuation) against a known
+    filler/acknowledgment token qualifies."""
+    stripped = " ".join(str(turn_text or "").split()).strip()
+    if not stripped:
+        return True
+    if len(stripped) > QUIET_TURN_MAX_CHARS or "?" in stripped:
+        return False
+    normalized = stripped.strip(".!,;: ").lower()
+    return normalized in _QUIET_TURN_TOKENS
+
 
 def _loads_list(raw: Any) -> List[str]:
     try:

@@ -39,6 +39,68 @@ async def test_first_write_without_model_fails_closed(async_client):
     assert body["revision"] is None
 
 
+@pytest.mark.parametrize("turn_text", ["", "  ", "ok", "Ok.", "thanks!", "lol", "sure,", "np"])
+def test_is_quiet_turn_matches_pure_filler(turn_text):
+    assert cm.is_quiet_turn(turn_text) is True
+
+
+@pytest.mark.parametrize(
+    "turn_text",
+    [
+        "ok but what time",
+        "ok?",
+        "you cancelled our walk and I am still hurt about it",
+        "thanks for remembering my dad's surgery date",
+        "okaaaaaaaaaaaaaaaaaaaaaaaaaaaaaay",  # over the char cap
+    ],
+)
+def test_is_quiet_turn_does_not_match_substantive_text(turn_text):
+    assert cm.is_quiet_turn(turn_text) is False
+
+
+async def test_quiet_turn_gate_skips_interpreter_before_model_call(async_client, monkeypatch):
+    """The gate must short-circuit BEFORE run_interpreter is invoked at all
+    — not just discard its result — otherwise it saves nothing."""
+    called = {"n": 0}
+
+    async def _boom(*args, **kwargs):
+        called["n"] += 1
+        raise AssertionError("run_interpreter must not be called for a quiet turn")
+
+    monkeypatch.setattr(cm, "run_interpreter", _boom)
+    resp = await async_client.post(
+        "/v1/cortex/current-meaning/revise-sync",
+        json=revise_payload(turn_text="ok", message_id="m-quiet"),
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert called["n"] == 0
+    assert body["foreground_authority"] == "unknown_omitted_due_to_interpretation_failure"
+    assert body["trace"]["reason"] == "quiet_turn_gate_skip"
+
+
+async def test_quiet_turn_gate_disabled_by_flag(async_client, monkeypatch):
+    """MEANING_QUIET_GATE_ENABLED=0 restores the prior every-turn behavior
+    (reversibility contract)."""
+    import os as _os
+
+    monkeypatch.setenv("MEANING_QUIET_GATE_ENABLED", "0")
+    called = {"n": 0}
+
+    async def _unavailable(*args, **kwargs):
+        called["n"] += 1
+        return None
+
+    monkeypatch.setattr(cm, "run_interpreter", _unavailable)
+    resp = await async_client.post(
+        "/v1/cortex/current-meaning/revise-sync",
+        json=revise_payload(turn_text="ok", message_id="m-quiet-off"),
+    )
+    assert resp.status_code == 200
+    assert called["n"] == 1
+    assert resp.json()["trace"].get("reason") == "interpreter_unavailable"
+
+
 async def test_active_read_empty_scope(async_client):
     resp = await async_client.get(
         "/v1/cortex/current-meaning/active",

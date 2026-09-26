@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from typing import Any, Dict, List, Literal, Optional
 from datetime import datetime, timezone
@@ -981,6 +982,21 @@ async def revise_current_meaning_sync(
         content = str(item.get("content") or "")[:700]
         if content.strip():
             history.append({"role": role, "content": content})
+
+    quiet_gate_enabled = os.getenv("MEANING_QUIET_GATE_ENABLED", "1").strip().lower() not in (
+        "0", "false", "off", "no",
+    )
+    if quiet_gate_enabled and _cm.is_quiet_turn(req.turn_text):
+        # Wake-triggered, not mandatory: a turn carrying no plausible new
+        # meaning (pure acknowledgment/filler) skips the model interpreter
+        # entirely. Same fail-closed omission semantics as interpreter
+        # unavailability so the foreground never renders a stale/uncertain
+        # [CURRENT MEANING] module on a quiet turn. Reversible via
+        # MEANING_QUIET_GATE_ENABLED=0.
+        return unchanged_outcome(
+            "unknown_omitted_due_to_interpretation_failure",
+            {"reason": "quiet_turn_gate_skip", "latency_ms": 0.0},
+        )
 
     adapter = get_agenda_adapter()
     started = time.perf_counter()
