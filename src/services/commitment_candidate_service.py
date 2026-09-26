@@ -33,6 +33,11 @@ from src.schemas.candidate import ExtractionCandidate
 logger = logging.getLogger(__name__)
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
+_REPORTED_FUTURE_RE = re.compile(
+    r"\b(?:said|says|told|promised|confirmed)\b.{0,100}"
+    r"\b(?:he|she|they)\s*(?:['’]d|would|will)\b",
+    re.IGNORECASE,
+)
 _STOPWORDS = {
     "about", "after", "again", "also", "been", "could", "from", "have",
     "into", "just", "that", "their", "them", "then", "there", "they",
@@ -71,6 +76,41 @@ def canonical_key_for(title: str) -> str:
     return hashlib.sha1(":".join(content).encode()).hexdigest()
 
 
+def _is_external_counterparty(owner_peer_id: str) -> bool:
+    """Return whether ownership provenance identifies a non-user sender.
+
+    External feeds preserve their speaker identity as ``external:<sender>``.
+    Extractor labels are model-derived, but this provenance is supplied by the
+    ingest adapter and is therefore the authoritative boundary for whether a
+    promise can become a user/companion action.
+    """
+    return owner_peer_id.strip().casefold().startswith("external:")
+
+
+def _is_reported_counterparty(
+    candidate: ExtractionCandidate, *, owner_peer_id: str, evidence: str
+) -> bool:
+    """Recognise a promise attributed to a third party in a user's turn.
+
+    Ownership intentionally refuses unknown actor ids and falls back to the
+    sender. At this boundary the original actor attribution is still present,
+    so a reported third-party promise can remain evidence without inheriting
+    the sender's action authority. Known companion promises are unaffected:
+    their resolved owner matches the attributed actor.
+    """
+    actor = (candidate.actor_peer_id or "").strip().casefold()
+    owner = owner_peer_id.strip().casefold()
+    actor_is_distinct = actor not in {
+        "", owner, "user", "assistant", "system", "unknown", "nobody"
+    }
+    reported = bool(
+        candidate.is_reported_speech
+        or candidate.epistemic_provenance == "reported_statement"
+        or _REPORTED_FUTURE_RE.search(evidence)
+    )
+    return actor_is_distinct and reported
+
+
 class CommitmentCandidateService:
     async def upsert_from_candidate(
         self,
@@ -95,6 +135,13 @@ class CommitmentCandidateService:
             or candidate.observation
             or ""
         ).strip()[:2000]
+        is_counterparty = (
+            _is_external_counterparty(owner_peer_id)
+            or candidate.evidence_class == "counterparty_promise"
+            or _is_reported_counterparty(
+                candidate, owner_peer_id=owner_peer_id, evidence=evidence
+            )
+        )
 
         existing_canonical = (
             await db.execute(
@@ -116,8 +163,18 @@ class CommitmentCandidateService:
             # re-proposed after the user dismissed it.
             if existing_canonical.status == CommitmentCandidateStatus.DISMISSED:
                 return None
+            # External first-person language belongs to the external sender,
+            # not to the user or companion. Keep the evidence longitudinally
+            # visible as an ASK candidate, but never let extractor output or a
+            # later corroboration pass promote it into our actionable lane.
+            if is_counterparty:
+                existing_canonical.evidence_class = "counterparty_promise"
+                existing_canonical.authority = CommitmentCandidateAuthority.ASK
             # Replay/redelivery of the same observation: idempotent no-op.
             if existing_canonical.candidate_key == candidate_key:
+                if is_counterparty:
+                    db.add(existing_canonical)
+                    await db.commit()
                 return existing_canonical
             if existing_canonical.status == CommitmentCandidateStatus.MATERIALIZED:
                 return None
@@ -129,11 +186,15 @@ class CommitmentCandidateService:
             # Corroboration promotion: explicit authority or an explicit
             # command/acceptance/resolution class on re-observation promotes
             # ASK -> ACT. Repetition alone never promotes.
-            if existing_canonical.authority != CommitmentCandidateAuthority.ACT and (
-                candidate.authority == "act"
-                or (candidate.evidence_class or "") in (
-                    "explicit_command", "explicit_acceptance",
-                    "explicit_resolution", "explicit_modification",
+            if (
+                not is_counterparty
+                and existing_canonical.authority != CommitmentCandidateAuthority.ACT
+                and (
+                    candidate.authority == "act"
+                    or (candidate.evidence_class or "") in (
+                        "explicit_command", "explicit_acceptance",
+                        "explicit_resolution", "explicit_modification",
+                    )
                 )
             ):
                 existing_canonical.authority = CommitmentCandidateAuthority.ACT
@@ -154,9 +215,15 @@ class CommitmentCandidateService:
             title=title[:280],
             notes=(candidate.observation or None) if candidate.observation != title else None,
             evidence_verbatim=evidence or title,
-            evidence_class=(candidate.evidence_class or "implicit_self_commitment"),
+            evidence_class=(
+                "counterparty_promise"
+                if is_counterparty
+                else (candidate.evidence_class or "implicit_self_commitment")
+            ),
             authority=(
-                CommitmentCandidateAuthority(candidate.authority)
+                CommitmentCandidateAuthority.ASK
+                if is_counterparty
+                else CommitmentCandidateAuthority(candidate.authority)
                 if candidate.authority in ("act", "ask")
                 else CommitmentCandidateAuthority.ASK
             ),

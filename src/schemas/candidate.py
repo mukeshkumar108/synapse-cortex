@@ -78,7 +78,7 @@ class ExtractionCandidate(BaseModel):
         "explicit_command", "explicit_acceptance", "explicit_resolution",
         "explicit_modification", "implicit_self_commitment",
         "sophie_proposed_user_accepted", "sophie_proposed_soft_acceptance",
-        "vague_self_talk", "character_promise",
+        "vague_self_talk", "character_promise", "counterparty_promise",
     ]] = None
     authority: Optional[Literal["act", "ask"]] = None
     canonical_title: Optional[str] = None

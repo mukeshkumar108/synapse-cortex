@@ -1074,7 +1074,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     "explicit_resolution", "explicit_modification",
                     "implicit_self_commitment", "sophie_proposed_user_accepted",
                     "sophie_proposed_soft_acceptance", "vague_self_talk",
-                    "character_promise",
+                    "character_promise", "counterparty_promise",
                 ):
                     # A model-invented class (e.g. relational wording) must not
                     # nuke the turn; the lane,hints still route. Relational
@@ -1267,7 +1267,7 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                         "explicit_command", "explicit_acceptance", "explicit_resolution",
                         "explicit_modification", "implicit_self_commitment",
                         "sophie_proposed_user_accepted", "sophie_proposed_soft_acceptance",
-                        "vague_self_talk", "character_promise",
+                        "vague_self_talk", "character_promise", "counterparty_promise",
                     ):
                         raw["evidence_class"] = "implicit_self_commitment"
                         validation_notes.append("defaulted_invalid_evidence_class")
