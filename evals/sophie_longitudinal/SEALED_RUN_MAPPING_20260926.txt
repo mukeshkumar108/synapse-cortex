@@ -1,0 +1,7 @@
+# SEALED — run identity mapping (DO NOT share with judge)
+
+Packet: evals/sophie_longitudinal/raw_outputs/blind_judging_20260926/
+- RUN-A = CURRENT HEAD (synapse-cortex 705f5a6, run 2026-09-26, model google/gemini-2.5-flash-lite)
+- RUN-B = FROZEN BASELINE (synapse-cortex 44a89d1 outputs from 2026-09-25, same model)
+
+Unblind only after Gemini returns its evaluation.
