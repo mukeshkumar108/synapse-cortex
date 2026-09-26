@@ -31,6 +31,39 @@ Required/duplicates as verified on one ordinary Sophie `reply_only` turn:
   callback/advance/close plans); local config routing, not Cortex `/route`.
 - Meaning timeout: code default 1.5s; production tuned to 12s per deploy record.
 
+## Track B sessions 2–4 verified additions (fold-in 2026-09-26 — VERIFIED facts)
+
+Source: `docs/TRACK_B_CURRENT_HEAD_HOT_PATH_2026-09-26.md` Sessions 2–4
+(harnesses with focused regression suites; no production flags added).
+
+- `candidates/query` safely default-disabled with parity: deterministic 50ms
+  candidate delay removed from first-wave barrier (end-to-end reduction >30ms
+  required and met); focused runtime suite 38 passed; delivery-receipt enqueue
+  was already a no-op (no `candidate_refs` populated). Classification: inert
+  plumbing removal, NOT a behaviour change.
+- Handshake retained: session-entry harness (handover held fixed, entry context
+  fixed) showed prompt/routing parity WITHOUT handshake except four uniquely
+  populated contract fields — `daypart`, `live` (live_threads), `avoidSurface`,
+  `memoryRefs` — unconsumed by current Sophie prompt but unique returned context
+  for non-prompt/future callers. Removal fails strict parity: RETAIN.
+- Attention→handover projection reuse proved equivalent in harness: normal vs
+  captured-packet preview arms identical (handover projection, agenda/admission,
+  durable state clean) excluding `metrics.cortex_ms`; 26→8 SQL statements,
+  19.1→5.05ms request time. Request params (`turn_text`, `message_id`,
+  `director_hints.product`) validated downstream-only, not packet-invalidating.
+- Status: VALIDATED OPTIMISATION / NOT AUTHORISED FOR IMPLEMENTATION YET.
+  Blocked at transport/deployment semantics (separate HTTP requests/transactions,
+  possibly processes; no packet-bearing contract; process-local cache raises
+  race/eviction/identity/multi-worker questions). Revisit only with an explicitly
+  authorized cross-request contract; no implicit cache. Next smallest bounded cut
+  per Track B: delete default-off candidates plumbing (done above), NOT packet
+  combination.
+- Attention read-side mutations verified as exactly three classes (seeded read):
+  suppression ACTIVE→EXPIRED; daily RecurringOccurrence creation; over-age
+  clarification PENDING→DISMISSED. Surface eligibility reads only. Neither preview
+  arm altered these. Any future combination must preserve the mutation-bearing
+  attention read alongside preview's rollback/no-write contract.
+
 ## Runtime / perception / selection
 
 | # | Mechanism | Where | Live? | Proposed | Why (one line) |

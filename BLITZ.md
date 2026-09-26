@@ -104,6 +104,7 @@ proven companion behaviour.
 - 2026-09-26 — North Star + Canon + Blitz are the three canonical docs (single copy here).
 - 2026-09-26 — Reconciliation before ambient; watch-eligibility before any all-vs-all matching.
 - 2026-09-26 — Track A first pass delivered (inventory + corpus manifest + constitution sources); filenames per assignment (`BLITZ_MECHANISM_INVENTORY.md`, `BLITZ_REGRESSION_CORPUS.md`, `PRODUCT_CONSTITUTION_SOURCES.md`); Track B hot-path facts folded into inventory.
+- 2026-09-26 — Corpus C2–C5 approved/frozen; C1 stays PRIVATE_FIXTURE / NEEDS LOCATION (not blocking). `docs/GEMINI_EVAL_PACKET.md` created (E1–E6, result/interpretation split, runnable-vs-transcript-only per item; no scoring framework — Gemini's job). Track B sessions 2–4 folded: candidates default-off with parity; handshake retained (daypart/live/avoidSurface/memoryRefs unique); projection reuse VALIDATED OPTIMISATION / NOT AUTHORISED FOR IMPLEMENTATION; read-mutations verified as 3 classes.
 
 ## Open questions (genuine undecided only)
 
@@ -132,10 +133,7 @@ OUT-OF-SCOPE FINDINGS
 EXACT NEXT STEP
 ```
 
-## Regression corpus (frozen transcripts/evals — Spark to manifest)
+## Regression corpus (frozen — see `docs/GEMINI_EVAL_PACKET.md` for item sheets)
 
-- Isa 2026-09-26 transcript (bad arc — regression reference).
-- Elena good moments (to enumerate).
-- Sophie longitudinal blind eval baseline.
-- Retrieval probes with known answers.
-- Morning / re-entry examples.
+- C1 Isa 2026-09-26 transcript (bad arc): PRIVATE_FIXTURE / NEEDS LOCATION — not blocking.
+- C2–C5 APPROVED/FROZEN: Elena/RPD2 wins, Sophie longitudinal blind baseline, retrieval probes, re-entry/morning, mechanism evals (Condition-C, union-selector, subtraction, hybrid, poisoned), keyword/scene-loop negatives.
