@@ -1,5 +1,18 @@
 # synapse-cortex
 
+> COMPANION PROGRAMME — READ FIRST.
+> Before modifying companion behaviour, memory, runtime, retrieval, or architecture:
+> 1. `docs/COMPANION_NORTH_STAR.md`
+> 2. `docs/COMPANION_CANON.md`
+> 3. `BLITZ.md` (repo root)
+> Product intent outranks current architecture. Architecture is disposable.
+> Do not infer product requirements from existing code. Auditor/model proposals
+> are hypotheses until checked against canon and evidence.
+> If any of the three files above is missing from your checkout: STOP. Do not
+> substitute older docs or create replacements — report branch/HEAD instead.
+> Work from `/Users/mukeshkumar/play/`; do not clone fresh or overwrite
+> another agent's work unless explicitly authorised.
+
 Companion State & JIT Context Compiler Sidecar for **Honcho** & **Sophie**.
 
 ## Architecture Overview

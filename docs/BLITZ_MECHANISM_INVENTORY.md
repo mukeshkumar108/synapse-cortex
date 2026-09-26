@@ -1,0 +1,86 @@
+# Track A — Behavioural Machinery Inventory (PROPOSED, not decided)
+
+> Owner: Spark. Status: draft 2026-09-26. Every row is a proposal for the
+> programme lead + product owner to confirm. Classes: KEEP / DELETE / DORMANT /
+> EXPERIMENT / DUPLICATE / UNKNOWN. Live-scale: live / shadow / dormant /
+> eval-only / dead (per-row in "Live?" column). Products affected, original
+> problem, evidence, owner/caller and overlap inline in "Why" or tables below.
+> Do not infer product intent from code.
+
+## Track B verified current-head facts (2026-09-26, committed HEADs — fold-in, not proposal)
+
+Source: `docs/TRACK_B_CURRENT_HEAD_HOT_PATH_2026-09-26.md` (ash-ai `447164b`,
+companion-runtime `351ed35`, synapse-cortex `6da210f`; uncommitted excluded).
+Required/duplicates as verified on one ordinary Sophie `reply_only` turn:
+
+- Duplicate Cortex packet compilation: same `compile_attention_packet` runs 3× on
+  new sessions (attention + handshake + handover/preview) and 2× on continuing
+  sessions. Verified: §5/§8 of Track B doc.
+- `handover/preview` is the normal foreground Cortex surface (tiny
+  owed/scene/patterns/avoid/clarifications/available); broad packet is fallback.
+- `candidates/query` fetched but inert to foreground (decision-record only).
+- `current-meaning/revise-sync` live, durable, state-mutating; rendered only on
+  `active` authority (fail-closed omission otherwise).
+- Cortex `/route` and `session-working-set`/`working-set-v1` dormant on this path;
+  app daily packet + `Chat.sessionRouting` + `CompanionUserState` act as the
+  persisted session state instead.
+- Attention packet has read-side mutations (suppression expiry, daily occurrence
+  creation, surface eligibility) — not a pure read.
+- Honcho compiler (10s) + targeted retrieval (12s) run every turn even when
+  `select_prompt_modules` later omits the packet (rendered only on
+  callback/advance/close plans); local config routing, not Cortex `/route`.
+- Meaning timeout: code default 1.5s; production tuned to 12s per deploy record.
+
+## Runtime / perception / selection
+
+| # | Mechanism | Where | Live? | Proposed | Why (one line) |
+|---|---|---|---|---|---|
+| 1 | Dual Aperture (HOLD/ENRICH/LEAD/ATTEND) | `companion-runtime/companion_core/policy/conversational_agency.py`, `turn_executor.py` | Yes (Sophie) | DUPLICATE* | Same universal as Navigator/Director (trajectory→move); *duplicate pending proof — do not delete until Track C maps overlap. |
+| 2 | Gears + tenure (base/mid/frontier, 2-turn min) | `companion-runtime/.../conversational_agency.py:117-131`, `turn_executor.py` | Yes | EXPERIMENT | Model-tier routing, not behaviour; keep iff it changes outcomes vs single strong model. |
+| 3 | Epistemic classifier (gemini-lite, 340 tok) | `companion-runtime/.../epistemic_policy.py` | Yes, per turn | KEEP | Cheap intent/act gate; proven pattern (classifier bakeoffs). |
+| 4 | Memory compiler + Honcho packet (threshold 0.65) | `companion-runtime/adapters/honcho/client.py:151-484` | Yes, per turn | KEEP | Only semantic-recall path; needs bakeoff vs representation/context before any replacement. |
+| 5 | Jev bus (8 signals, wake-only) | `rpd2/lib/ai/jev.ts`; `companion-runtime/docs/JEV_DISPATCHER_2026-09-25.md`, `policy/jev_dispatcher.py` | RPD2 live; Runtime dispatched, default off | KEEP | Cheapest perception; wire all 8 signals to consumers instead of rupture-only. |
+| 6 | Perception gate (wake-only, behaviour-neutral) | `companion-runtime/.../perception_gate.py` | Shipped, shadow | KEEP | −47% calls proven in shadow; graduate behind flag. |
+| 7 | Navigator (open-loop next-option) | `rpd2/lib/ai/trajectory-observer.ts:309` | Yes (RPD2 bg) | DUPLICATE* | See #1. Ledger-only, kernel-blind — lens or merge, don't keep as-is. |
+| 8 | Trajectory observer (direction+rupture+guards) | `rpd2/lib/ai/trajectory-observer.ts:147,366` | Yes (RPD2 bg) | DUPLICATE* | See #1. Kernel-blind fast loop is the puppet source; lens required if kept. |
+| 9 | Interaction observer (semantic deltas) | `rpd2/lib/ai/interaction-observer.ts:264` | Gated (rupture-open/substantive) | EXPERIMENT | Covers novel phrasing TYPO/STT cases; keep iff it fires where deterministic signals miss. |
+| 10 | Director select/none + moves bank (17) | `rpd2/lib/ai/director.ts`, `moves.ts` | Yes (RPD2) | EXPERIMENT | Union-schema commitment proven (3/9→9/9); move *content* is product-owned. |
+| 11 | Overlays + stance registry (≤280ch, ≤3) + caps/backoffs | `test-starter/.../overlaySelector.ts`; `companion-runtime/.../overlay_selector.py` | Test-starter proven; Runtime additive | KEEP | Only anti-nag system with receipts; caps are hypotheses, mechanism is keep. |
+| 12 | SessionMode (session_one ~20 / invited_discovery ~8) + beliefs (≤3) | `companion-runtime/.../session_mode.py`, `profiles/sophie_beliefs.*` | Yes | KEEP | Explicit granted authority; beliefs fenced as stances not evidence. |
+
+## Cortex state / packets (all in `synapse-cortex/src/`)
+
+| # | Mechanism | Live? | Proposed | Why |
+|---|---|---|---|---|
+| 13 | Turn extractor (rules vs LLM loose+shape) + shaper + temporal grounding | Per-turn ingest | KEEP | Only lifecycle writer; narrow cutover pending credits+soak. |
+| 14 | Narrow realtime gate + shadow trace | Flag-gated | EXPERIMENT | Bakeoff winner 0.929; graduate after full matrix + 7-day soak. |
+| 15 | Sweeper Lane-2 (peer_search ×5 + synthesis) + 300s/10-turn/24h triggers | Debounced in-process | EXPERIMENT | Catches Lane-1 misses; make durable (cron) or accept loss on restart. |
+| 16 | `attention-packet` + `handover/preview` + `candidates/query` + `handshake` + `revise-sync` (5-call fan-out) | Per-turn fetch | DUPLICATE | Replace with session snapshot + turn query; fan-out is the dumping source. |
+| 17 | `/working-set`, `/session-working-set`, agenda snapshot (3.5h) | Exposed, unused by ordinary path | DORMANT | Keep snapshot; wire or retire HOT branch per convergence map. |
+| 18 | CurrentMeaning + revise-sync (fail-closed) | LIVE (ledger) | KEEP | Only now-meaning holder; 0-row baseline incident resolved by deploy. |
+| 19 | Release/backgrounding-v1, first-beat, sustain/yield | LIVE | KEEP | Parity-graduated; backgrounding + sustain/yield proven. |
+| 20 | Semantic relations/claims, 9-kind judge, 11 views | Pending validation | EXPERIMENT | Validate live before any consumer. |
+| 21 | Easing full loop, subtraction, executability, write screens, initiative pin/sustain | Queued, not started | UNKNOWN | Do not claim; port iff behaviour cut demands. |
+| 22 | Initiative tick/complete + reminders/due (exactly-once) + proactive log | Cron-driven | KEEP | Only exactly-once proactivity; clock owner undecided (open question). |
+| 23 | Scene CurrentScene/epochs + runtime regex derivation | Both live, split | DUPLICATE | One truth (Cortex authority, runtime detects); unify or keep drifting. |
+
+## Honcho reads (all fail-open)
+
+| # | Mechanism | Live? | Proposed | Why |
+|---|---|---|---|---|
+| 24 | recent/search/summaries/conclusions-list (Cortex) + compiler packet (Runtime) | Per-turn | KEEP | Only semantic evidence; bakeoff vs representation/context/query before change. |
+| 25 | representation / session.context / conclusions/query / peer.chat(depth) / cards / Dream | Unused by us | EXPERIMENT | Latent power we're paying for; test, don't assume. |
+
+## Orphans (writers without consumers — wire or retire, no third option)
+
+Epistemic/domain annotations, WorkItem external checks, streaming receipts
+(`effect=null`), outbox `createdAt` (uses delivery `now`), `same_as` writer,
+`restated`, source-coverage telemetry. Refs: `audit-current-code-2026-09-24/REPORT.md:122-131`.
+
+## Outright dead (keep dead)
+
+Graphiti/FalkorDB, monolith user model, 6-pass verbatim prompts, fictional
+clocks/offscreen-sim/gifts, per-fetish taxonomy, keyword-as-authority, local
+Shadow Judge per-turn, summary-spine-as-truth, per-message ingest, live
+startbrief blocking, lexical goodbye triggers, TTS caps, filler clips without
+tool signal.
