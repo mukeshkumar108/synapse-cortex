@@ -530,3 +530,115 @@ async def test_live_trivia_restrained(async_client, monkeypatch, model):
     assert {"e1", "e2", "e3"} <= covered, f"every turn discarded explicitly: {c}"
     _record("trivia", model, "all incidental, nothing persisted", b, c, "C-preserves-B")
     print(f"\n[TRIVIA/{model}] C-preserves-B latency={result.latency_s}s")
+
+# ── GRADUATION PROOF: endpoint apply mode end-to-end ─────────────────────────
+
+@needs_key
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", [GEMINI])
+async def test_live_apply_creates_missing_carlos_matter(async_client, monkeypatch, model):
+    """A completed conversation is submitted; the missing debt matter becomes
+    a durable ASK row with consolidation provenance. Nothing else appears."""
+    monkeypatch.setenv("SESSION_CONSOLIDATION_APPLY", "1")
+    transcript = [
+        {"message_id": "e1", "speaker": "ashley",
+         "text": "Carlos still owes me the remaining balance, about twenty one hundred."},
+        {"message_id": "e2", "speaker": "ashley", "text": "Did that ever come through?"},
+        {"message_id": "e3", "speaker": "bank_feed",
+         "text": "Incoming payment of nineteen hundred from Carlos."},
+    ]
+    r = await async_client.post(
+        "/v1/sessions/consolidate",
+        json={"workspace_id": "ws-grad-carlos", "session_id": "s real-session",
+              "mode": "apply", "user_peer_id": "ashley",
+              "transcript": transcript})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "apply", body
+    assert body["error"] == "", body
+    assert "run_id" in body and body["run_id"]
+    applied_kinds = [a["op"] for a in body["applied"]]
+    assert "new_matter" in applied_kinds, f"missing matter must be created: {body}"
+    assert not [a for a in body["applied"] if a["op"] not in
+                ("new_matter", "affirm_matter", "incidental", "attend", "uncertainty",
+                 "partial_fulfilment")], f"only safe tiers may apply: {body}"
+    async with async_session_maker() as db:
+        commits = (await db.execute(select(CommitmentCandidate).where(
+            CommitmentCandidate.honcho_workspace_id == "ws-grad-carlos"))).scalars().all()
+        loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == "ws-grad-carlos"))).scalars().all()
+        from src.models.consolidation import ConsolidationRun
+        runs = (await db.execute(select(ConsolidationRun).where(
+            ConsolidationRun.honcho_workspace_id == "ws-grad-carlos"))).scalars().all()
+    rows = [c for c in commits if "carlos" in (c.title or "").lower()] + \
+           [l for l in loops if "carlos" in (l.title or "").lower()]
+    assert rows, "durable Carlos state must exist after apply"
+    assert all("consolidation:" in (getattr(x, "source_message_id", "") or "")
+               or getattr(x, "honcho_message_id", "") == "consolidation:s real-session"
+               for x in rows), "provenance must cite the consolidation run"
+    assert len(runs) == 1 and runs[0].mode == "apply" and runs[0].applied_count >= 1
+    print(f"\n[GRAD-CARLOS] applied={applied_kinds} run={body['run_id'][:8]}")
+
+
+@needs_key
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", [GEMINI])
+async def test_live_apply_resolves_chairs_without_resurrection(async_client, monkeypatch, model):
+    monkeypatch.setenv("SESSION_CONSOLIDATION_APPLY", "1")
+    ws = "ws-grad-chairs"
+    await _seed_loop(ws, "session-1", "seed1", "Confirm headcount with venue")
+    r = await async_client.post(
+        "/v1/sessions/consolidate",
+        json={"workspace_id": ws, "session_id": "session-1",
+              "mode": "apply", "user_peer_id": "ashley",
+              "transcript": [
+                  {"message_id": "e1", "speaker": "ashley",
+                   "text": "The chairs. I told the venue yes, 120 chairs, so that's done."},
+                  {"message_id": "e2", "speaker": "ashley",
+                   "text": "Did I ever sort the chairs?"}]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "apply" and body["error"] == "", body
+    assert [a for a in body["applied"] if a["op"] == "resolve_matter"], \
+        f"completion must apply: {body}"
+    assert not [a for a in body["applied"] if a["op"] == "new_matter"], \
+        "retrospective question must not become a row"
+    async with async_session_maker() as db:
+        loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == ws))).scalars().all()
+    assert len(loops) == 1 and loops[0].status == OpenLoopStatus.RESOLVED
+    assert "consolidation:" in (loops[0].resolution_evidence or "")
+    print(f"\n[GRAD-CHAIRS] resolved, loops={len(loops)}")
+
+
+@needs_key
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", [GEMINI])
+async def test_live_apply_trivia_persists_nothing(async_client, monkeypatch, model):
+    monkeypatch.setenv("SESSION_CONSOLIDATION_APPLY", "1")
+    ws = "ws-grad-trivia"
+    r = await async_client.post(
+        "/v1/sessions/consolidate",
+        json={"workspace_id": ws, "session_id": "s",
+              "mode": "apply", "user_peer_id": "ashley",
+              "transcript": [
+                  {"message_id": "e1", "speaker": "ashley",
+                   "text": "Not sure whether I'll get lunch there."},
+                  {"message_id": "e2", "speaker": "ashley",
+                   "text": "That joke about the seagull still makes me laugh."}]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "apply" and body["error"] == "", body
+    assert body["applied"] == [] or all(
+        a["op"] == "incidental" for a in body["applied"]), \
+        f"trivial session must persist nothing: {body}"
+    async with async_session_maker() as db:
+        loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == ws))).scalars().all()
+        commits = (await db.execute(select(CommitmentCandidate).where(
+            CommitmentCandidate.honcho_workspace_id == ws))).scalars().all()
+        atts = (await db.execute(select(AttentionCandidate).where(
+            AttentionCandidate.honcho_workspace_id == ws))).scalars().all()
+    assert loops == [] and commits == [] and atts == [], \
+        "apply mode must not mint state from trivia"
+    print("\n[GRAD-TRIVIA] nothing persisted")

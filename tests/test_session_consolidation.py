@@ -760,8 +760,8 @@ async def test_consolidate_endpoint_shadow_shape(async_client, monkeypatch):
     from src.services import semantic_judge
     monkeypatch.setattr(semantic_judge, "_adapter", lambda: _SessionStub(
         lambda prompt: {"session_summary": "endpoint check",
-                        "ops": [{"op": "incidental", "message_ids": ["m1"],
-                                 "confidence": 0.9, "rationale": "smoke"}]}))
+                        "matters": [],
+                        "incidental_mids": ["m1"]}))
     r = await async_client.post(
         "/v1/sessions/consolidate",
         json={"workspace_id": "ws-cons-http", "session_id": "session-1",
@@ -771,4 +771,6 @@ async def test_consolidate_endpoint_shadow_shape(async_client, monkeypatch):
     body = r.json()
     assert body["status"] == "shadow"
     assert body["accepted"] == [{"op": "incidental", "data": {"message_ids": ["m1"]},
-                                "confidence": 0.9, "rationale": "smoke"}]
+                                "confidence": 0.9, "rationale": "model-marked incidental"}]
+    assert body["applied"] == [] and body["deferred"] == []
+    assert "run_id" in body
