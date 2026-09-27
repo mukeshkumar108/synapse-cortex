@@ -34,5 +34,15 @@ per-run `.sqlite` files as isolated targets (runner refuses to overwrite);
 
 ## Backup status
 
-- No safe preserved *database snapshot* of the source corpora exists locally — only the JSON exports above. The live source DBs remain authoritative; if they are ever decommissioned, take full dumps first. **Flagged.**
-- Current dev DB (`synapse_cortex.db`, Aug 29, stale) needs no backup for this release: migration 0031 is purely additive (new table + indexes, no data reinterpretation). Production deploy should still snapshot before migrating, per normal practice.
+- 2026-09-27 full database backups (pg_dump custom format, restorable):
+  `replay-private/backups/test-starter.20260927.dump` (13 tables incl.
+  Message/Memory/Session) and `replay-private/backups/rpd2-bk.20260927.dump`
+  (21 tables) — taken directly from the live source DBs, verified via
+  `pg_restore --list`. Plus local dev copies
+  (`synapse_cortex.db.20260927`, near-empty — 1 expectation row;
+  `test_rem.db.20260927`, empty).
+- The "no local snapshot" flag is now CLEARED for these two sources as of
+  2026-09-27. Re-take after any major product-data milestone; dumps are cheap.
+- Current dev DB needs no backup for this release: migration 0031 is purely
+  additive (new table + indexes, no data reinterpretation). Production deploy
+  should still snapshot before migrating, per normal practice.
