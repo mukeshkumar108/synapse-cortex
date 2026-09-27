@@ -173,6 +173,7 @@ async def _apply_op(db: Any, op: Any, *, workspace_id: str, session_id: str,
         title = str(data.get("title") or "")[:280]
         matter_kind = str(data.get("matter_kind") or "watch")
         owner = str(data.get("owner") or "user")
+        subjects = [str(s) for s in (data.get("subjects") or [])[:4] if str(s).strip()]
         if not title or conf < CREATE_CONFIDENCE:
             return {"op": kind, "reason": "below_create_threshold", "data": data}
         key = _stable_key(workspace_id, session_id, "new", matter_kind, title)
@@ -191,7 +192,7 @@ async def _apply_op(db: Any, op: Any, *, workspace_id: str, session_id: str,
                 candidate_key=key, observation=title, raw_evidence=evidence_text,
                 canonical_title=title, operational_kind="commitment_candidate",
                 evidence_class="implicit_self_commitment", authority="ask",
-                subject_refs=[], confidence=min(1.0, conf),
+                subject_refs=subjects, confidence=min(1.0, conf),
                 formation="inferred", extractor_version=EXTRACTOR_VERSION)
             # ASK authority: a proposal, never an actionable violation source.
             row = await commitments.upsert_from_candidate(
@@ -200,6 +201,17 @@ async def _apply_op(db: Any, op: Any, *, workspace_id: str, session_id: str,
                 candidate=cand, now=now)
             if row is None:
                 return {"op": kind, "reason": "creation_guard_refused", "data": data}
+            if subjects:
+                # Parity with the turn-ingest router, which links commitment
+                # subjects after upsert (upsert itself never links).
+                try:
+                    from src.services import entity_service
+                    await entity_service.link_candidate_subjects(
+                        db, workspace_id=workspace_id, session_id=session_id,
+                        object_type="commitment", object_id=row.id,
+                        refs=subjects, frame=None, message_id=message_id)
+                except Exception as err:
+                    logger.warning("consolidation subject linking failed: %s", err)
             if str(data.get("status") or "") == "partial":
                 await _record_partial(
                     db, workspace_id=workspace_id, evidence_text=evidence_text,
@@ -211,7 +223,7 @@ async def _apply_op(db: Any, op: Any, *, workspace_id: str, session_id: str,
         cand = ExtractionCandidate(
             candidate_key=key, observation=title, raw_evidence=evidence_text,
             canonical_title=title, open_loop_hint=title,
-            operational_kind="open_loop", subject_refs=[],
+            operational_kind="open_loop", subject_refs=subjects,
             confidence=min(1.0, conf), formation="inferred",
             extractor_version=EXTRACTOR_VERSION)
         row = await lifecycle.create_open_loop_if_needed(

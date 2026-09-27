@@ -80,6 +80,22 @@ def test_validate_new_matter_with_spans_and_owner():
     assert validated["matters"][0]["owner"] == "external:carlos"
 
 
+def test_subjects_validated_capped_and_passed_through():
+    entry = _matter(basis="new", matter_id="", title="Matt waiting",
+                    subjects=["Matt", "  ", 7, "x" * 50, "a", "b", "c"])
+    raw = {"session_summary": "s", "matters": [entry]}
+    v, r = validate_reconstruction(raw, snapshot=_snap(), transcript=T, provisional_ids=set())
+    assert r == []
+    assert v["matters"][0]["subjects"] == ["Matt", "x" * 40, "a", "b"], \
+        "cap at 4, drop empties/non-strings, truncate overlong"
+    ops, _ = translate_to_ops(
+        {"matters": v["matters"], "uncertainties": [], "attentions": [],
+         "suppressions": [], "incidental_mids": [], "provisional_review": []},
+        start_by_id={}, pid_to_uuid={})
+    assert ops[0].op == "new_matter"
+    assert ops[0].data["subjects"] == ["Matt", "x" * 40, "a", "b"]
+
+
 def test_basis_existing_without_id_coerces_to_new():
     entry = _matter(basis="new", matter_id="",
                     title="Carlos owes £2,100", owner="user",

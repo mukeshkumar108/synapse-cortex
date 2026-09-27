@@ -49,6 +49,8 @@ MAX_TURNS = 40
 MAX_MATTERS = 20
 MAX_PROPOSED = 24
 MATTER_TITLE_CAP = 160
+MAX_SUBJECTS = 4
+SUBJECT_CAP = 40
 
 MATTER_KINDS = ("obligation", "watch", "uncertainty", "event", "expectation")
 # "redundant": this start-state row should not survive (junk, duplicate, or
@@ -131,7 +133,13 @@ def build_reconstruction_prompt(snapshot: StartSnapshot,
         "",
         "Propose the post-session state. matters[]: every durable matter that should hold",
         "after this session (both continued and newly established), each with pid (m1, m2, ...),",
-        "kind obligation|watch|uncertainty|event|expectation (use exactly one of these words),",
+        "kind obligation|watch|uncertainty|event|expectation (use exactly one of these words):",
+        "obligation = an action owed by someone; watch = an ongoing trajectory or outcome worth",
+        "carrying because it plausibly matters later (pain, recovery, waiting, an important",
+        "uncertain event) — NOT a one-off description, which belongs in incidental_mids;",
+        "uncertainty = an open question with no action; event = something that happened;",
+        "expectation = a future belief about what will happen.",
+        "title, status open|resolved|partial|uncertain|redundant,",
         "title, status open|resolved|partial|uncertain|redundant,",
         "owner: 'user' when the matter belongs to the user speaking in the evidence;",
         "'external:<name>' ONLY when that party speaks in the evidence as 'external:<name>';",
@@ -146,6 +154,8 @@ def build_reconstruction_prompt(snapshot: StartSnapshot,
         "especially generic question-shaped rows ('inquire about...', 'follow up on...',",
         "'check whether...') with no supporting evidence: a row whose title could describe",
         "almost any conversation is not a matter and must be marked redundant, not affirmed.",
+        "subjects: the people or named entities the matter is about, using words from the evidence",
+        "(e.g. [\"Matt\"]); empty list when none. Subjects let later evidence reattach to this thread.",
         "follow_up (natural future attention, if any),",
         "evidence{message_ids[], spans[{message_id, span}] with VERBATIM spans — evidence holds ONLY",
         "these two keys}, confidence (0..1), rationale (one line). confidence and rationale are",
@@ -340,6 +350,21 @@ def validate_reconstruction(raw: Any, *, snapshot: StartSnapshot,
         if same and same == pid:
             rejected.append({"where": where, "reason": "same_as_self"})
             continue
+        subjects = entry.get("subjects")
+        if subjects is None:
+            subjects = []
+        if not isinstance(subjects, list):
+            rejected.append({"where": where, "reason": "bad_subjects"})
+            continue
+        clean_subjects: List[str] = []
+        for s in subjects:
+            if len(clean_subjects) >= MAX_SUBJECTS:
+                break
+            if not isinstance(s, str):
+                continue
+            name = s.strip()[:SUBJECT_CAP]
+            if name and name not in clean_subjects:
+                clean_subjects.append(name)
         sup_by = str(entry.get("superseded_by_pid") or "").strip()
         if sup_by and sup_by == pid:
             rejected.append({"where": where, "reason": "superseded_by_self"})
@@ -356,6 +381,7 @@ def validate_reconstruction(raw: Any, *, snapshot: StartSnapshot,
                      "matter_id": mid, "via": via, "remainder": remainder[:280],
                      "same_as_pid": same, "superseded_by_pid": sup_by,
                      "repaired_basis": repaired_basis,
+                     "subjects": clean_subjects,
                      "follow_up": str(entry.get("follow_up") or "")[:280],
                      "evidence": {"message_ids": mids, "spans": spans},
                      "confidence": conf,
@@ -573,7 +599,8 @@ def translate_to_ops(validated: dict, *, start_by_id: Dict[str, SnapshotMatter],
                                        confidence=conf, rationale=rat))
         else:
             data = {"title": m["title"], "matter_kind": m["kind"],
-                    "evidence": ev, "owner": m["owner"]}
+                    "evidence": ev, "owner": m["owner"],
+                    "subjects": list(m.get("subjects") or [])}
             if m["status"] == "partial":
                 # Establishment with partiality: the remainder is the point
                 # (e.g. a newly established debt already partly paid). Carry
@@ -727,6 +754,8 @@ async def reconstruct_session(
                         "via": {"type": "string"},
                         "remainder": {"type": "string"},
                         "same_as_pid": {"type": "string"},
+                        "subjects": {"type": "array",
+                                     "items": {"type": "string"}},
                         "follow_up": {"type": "string"},
                         "confidence": {"type": "number"},
                         "rationale": {"type": "string"},

@@ -194,6 +194,42 @@ async def test_apply_never_touches_other_workspaces():
 
 
 @pytest.mark.asyncio
+async def test_new_watch_links_subjects_matt_links_neck_skips():
+    from src.models.identity import EntityLink
+    async with async_session_maker() as db:
+        result = _Result([
+            _op("new_matter", {
+                "title": "Waiting for news on Matt", "matter_kind": "watch",
+                "owner": "user", "subjects": ["Matt"],
+                "evidence": {"message_ids": ["e1"],
+                             "spans": [{"message_id": "e1",
+                                        "span": "waiting"}]}}),
+            _op("new_matter", {
+                "title": "Neck pain and poor sleep", "matter_kind": "watch",
+                "owner": "user", "subjects": ["neck"],
+                "evidence": {"message_ids": ["e1"],
+                             "spans": [{"message_id": "e1",
+                                        "span": "neck"}]}}),
+        ])
+        report = await apply_reconstruction(
+            db, workspace_id=WS, session_id="s", result=result,
+            user_peer_id="ashley")
+    assert len(report["applied"]) == 2
+    async with async_session_maker() as db:
+        loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == WS))).scalars().all()
+        links = (await db.execute(select(EntityLink).where(
+            EntityLink.honcho_workspace_id == WS))).scalars().all()
+    by_title = {l.title: l for l in loops}
+    matt_links = [x for x in links
+                  if str(x.object_id) == str(by_title["Waiting for news on Matt"].id)]
+    neck_links = [x for x in links
+                  if str(x.object_id) == str(by_title["Neck pain and poor sleep"].id)]
+    assert len(matt_links) == 1, "proper-name subjects must link for later reattachment"
+    assert neck_links == [], "bare-topic subjects skip gracefully, watch still created"
+
+
+@pytest.mark.asyncio
 async def test_endpoint_flag_off_degrades_to_shadow(async_client, monkeypatch):
     from src.services import semantic_judge
 
