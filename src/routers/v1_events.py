@@ -367,6 +367,43 @@ async def ingest_turn_event(
         semantic_reconciliation_summary = {"error": str(err)[:200]}
     if not candidates:
         logger.info("No state candidates extracted from turn msg_id=%s", payload.honcho_message_id)
+        # Live-boundary turn interpretation (Track E): a pure reference
+        # ("How's he doing?") contains no NEW state, so the new-state
+        # extractor correctly emits nothing — but the turn still needs
+        # interpretation against EXISTING state. One bounded semantic
+        # judgement over (raw utterance + live matters); code owns routing
+        # and mutation, the model owns meaning. Fail-open: any failure
+        # preserves today's silent-hold behaviour exactly.
+        interp_summary: dict = {"interpreted": False}
+        try:
+            from src.services.turn_interpretation import (
+                already_interpreted,
+                apply_interpretation,
+                fetch_live_matters,
+                interpret_turn,
+                interpretation_enabled,
+            )
+            if interpretation_enabled() and not await already_interpreted(
+                db, workspace_id=payload.workspace_id,
+                message_id=payload.honcho_message_id,
+            ):
+                live_matters = await fetch_live_matters(
+                    db, workspace_id=payload.workspace_id,
+                    session_id=payload.session_id)
+                interp = await interpret_turn(payload.text, live_matters)
+                if interp is not None:
+                    interp_summary = await apply_interpretation(
+                        db, workspace_id=payload.workspace_id,
+                        session_id=payload.session_id,
+                        message_id=payload.honcho_message_id,
+                        peer_id=payload.peer_id, text=payload.text,
+                        now=payload.now, interp=interp,
+                        matters=live_matters)
+                    interp_summary["interpreted"] = True
+        except Exception as err:
+            logger.warning("Turn interpretation failed (fail-open): %s", err)
+            interp_summary = {"interpreted": False,
+                              "error": str(err)[:200]}
         try:
             from src.services.current_meaning_service import maybe_revise_after_turn
             t2_summary = await maybe_revise_after_turn(
@@ -376,7 +413,8 @@ async def ingest_turn_event(
                 mutated=bool(closed_loop_ids or violated_ids
                              or semantic_reconciliation_summary.get("promoted")
                              or semantic_reconciliation_summary.get("closed")
-                             or semantic_reconciliation_summary.get("judged")),
+                             or semantic_reconciliation_summary.get("judged")
+                             or interp_summary.get("mutated")),
             )
         except Exception as err:
             logger.warning("T2 revise failed: %s", err)
@@ -392,6 +430,7 @@ async def ingest_turn_event(
             "violated_commitment_ids": [str(vid) for vid in violated_ids],
             "narrow_shadow": narrow_shadow_summary,
             "semantic_reconciliation": semantic_reconciliation_summary,
+            "turn_interpretation": interp_summary,
             "current_meaning": t2_summary,
             "context": {
                 "status": turn_context.get("status"),

@@ -1174,6 +1174,17 @@ class LifecycleService:
         """
         from src.services.ownership import is_deictic_shorthand, is_interrogative
 
+        # Interpreter-originated NEW candidates already carry the entry
+        # decision (reference-vs-new, made with this same live set in view).
+        # Re-running the hold here would second-guess a semantic judgement
+        # with a shape heuristic — the wrong direction. Prevention guards
+        # above (entity reuse, settled history) still apply.
+        try:
+            from src.services.turn_interpretation import INTERPRETER_VERSION
+            if (candidate.extractor_version or "") == INTERPRETER_VERSION:
+                return None, False
+        except Exception:
+            pass
         if not (is_interrogative(matter_text)
                 or is_deictic_shorthand(matter_text)):
             return None, False
