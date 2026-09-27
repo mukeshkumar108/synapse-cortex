@@ -940,6 +940,82 @@ class LifecycleService:
             return None, entities
         return scored[0][1], entities
 
+    async def _already_resolved_elsewhere(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        owner_peer_id: Optional[str], matter_text: str,
+    ) -> Optional[str]:
+        """Retrospective-question guard (Problem A: "Did I ever sort the
+        chairs?" must not resurrect an already-completed matter as a new
+        OPEN loop, even though "chairs" has no resolvable subject entity for
+        `_find_reusable_open_loop` to key off).
+
+        No existing judge-kind is a perfect grammatical fit ("resolves" is
+        phrased earlier-matter/later-evidence, not question/history), but
+        semantically it is the right question — "does this already-settled
+        matter answer/settle what's being asked" — reused here rather than
+        adding a new kind. Lexical overlap is used only to retrieve a
+        bounded candidate set of already-resolved rows (cheap prefilter,
+        never sole authority); the judge's confirmed verdict is what
+        actually decides. Fails OPEN (creates the loop as normal) when no
+        adapter is available or nothing is confirmed — this check only ever
+        prevents a new row, it never mutates the resolved row it finds, so
+        failing open costs at most a duplicate loop, not a data-integrity
+        risk.
+        """
+        matter_tokens = self._significant_tokens(matter_text)
+        if not matter_tokens:
+            return None
+        try:
+            from src.services import semantic_judge
+            adapter = semantic_judge._adapter()
+        except Exception:
+            adapter = None
+        if adapter is None:
+            return None
+
+        from src.models.commitment_candidate import CommitmentCandidate, CommitmentCandidateStatus
+        candidates: List[Tuple[str, str]] = []
+        if owner_peer_id:
+            rows = (await db.execute(select(CommitmentCandidate).where(
+                CommitmentCandidate.honcho_workspace_id == workspace_id,
+                CommitmentCandidate.owner_peer_id == owner_peer_id,
+                CommitmentCandidate.status == CommitmentCandidateStatus.FULFILLED,
+            ).order_by(CommitmentCandidate.updated_at.desc()).limit(10))).scalars().all()
+            for row in rows:
+                candidates.append((
+                    f"commitment:{row.id}",
+                    f"{row.title} {row.evidence_verbatim or ''}".strip(),
+                ))
+        loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == workspace_id,
+            OpenLoop.honcho_session_id == session_id,
+            OpenLoop.status == OpenLoopStatus.RESOLVED,
+        ).order_by(OpenLoop.updated_at.desc()).limit(10))).scalars().all()
+        for loop in loops:
+            candidates.append((f"open_loop:{loop.id}", f"{loop.title} {loop.summary or ''}".strip()))
+        if not candidates:
+            return None
+
+        scored = []
+        for label, text in candidates:
+            shared = self._significant_tokens(text) & matter_tokens
+            if shared:
+                scored.append((len(shared), label, text))
+        if not scored:
+            return None
+        scored.sort(key=lambda item: item[0], reverse=True)
+        for _, label, text in scored[:3]:
+            try:
+                result = await semantic_judge.adjudicate(
+                    kind="resolves", earlier=matter_text,
+                    later=f"Already completed: {text}", adapter=adapter)
+            except Exception as err:
+                logger.warning("retrospective resolution judge failed: %s", err)
+                continue
+            if result.accepted and result.evidence_span.strip():
+                return f"already_resolved:{label}"
+        return None
+
     async def create_open_loop_if_needed(
         self,
         db: AsyncSession,
@@ -973,6 +1049,17 @@ class LifecycleService:
             candidate=candidate, message_id=message_id, frame=frame,
             matter_text=matter_text,
         )
+        if reusable is None:
+            already_resolved = await self._already_resolved_elsewhere(
+                db, workspace_id=workspace_id, session_id=session_id,
+                owner_peer_id=owner_peer_id, matter_text=matter_text,
+            )
+            if already_resolved is not None:
+                logger.info(
+                    "Skipped new OpenLoop for message_id=%s: %s answers it",
+                    message_id, already_resolved,
+                )
+                return None
         if reusable is not None:
             reusable.updated_at = self._naive_utc(now or datetime.now(timezone.utc))
             if expectation_id is not None and reusable.expectation_id is None:

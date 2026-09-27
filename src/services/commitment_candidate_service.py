@@ -39,6 +39,22 @@ _REPORTED_FUTURE_RE = re.compile(
     r"\b(?:he|she|they)\s*(?:['’]d|would|will)\b",
     re.IGNORECASE,
 )
+# Deterministic floor for granting ACT authority to an "implicit self
+# commitment" reading: the evidence must contain the sender speaking of
+# their OWN future action, not a third party's ("Sam said he'd send it",
+# "Andree needs the school money") wrongly inferred into the sender's own
+# obligation. This mirrors the same modal-verb self-reference family already
+# used elsewhere in this codebase (expectation title cleaning, counterparty
+# reported-future detection) — a narrow grammatical-attribution check, not a
+# semantic-identity/merge decision.
+_FIRST_PERSON_COMMITMENT_RE = re.compile(
+    r"\bi(?:'m| am| have| need| should| must| will| promise|'ll|'d|'ve)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_first_person_commitment_marker(text: str) -> bool:
+    return bool(_FIRST_PERSON_COMMITMENT_RE.search(text or ""))
 _STOPWORDS = {
     "about", "after", "again", "also", "been", "could", "from", "have",
     "into", "just", "that", "their", "them", "then", "there", "they",
@@ -132,6 +148,27 @@ class CommitmentCandidateService:
                 candidate, owner_peer_id=owner_peer_id, evidence=evidence
             )
         )
+        # Authority floor for an "implicit self commitment" reading: no
+        # existing semantic-judge question actually asks "who is the actor
+        # of this commitment" (the closest, "undertaking", asks genuineness
+        # vs joke/hypothetical, not attribution) — this is a narrow
+        # grammatical-attribution check, not a semantic-identity decision,
+        # so a deterministic floor is the right tool, not a mis-fit judge
+        # call. Fails CLOSED to ASK (the safer state: ACT is what can later
+        # VIOLATE) when the evidence contains no first-person commitment
+        # marker at all — catching both third-party reported promises the
+        # counterparty check's actor-distinctness gate can miss (no
+        # attributed actor_peer_id at all) and reported third-party NEEDS
+        # with no promise language whatsoever ("Andree ... needs the school
+        # money", no promise by anyone, let alone the sender).
+        resolved_model_authority = candidate.authority if candidate.authority in ("act", "ask") else None
+        if (
+            not is_counterparty
+            and resolved_model_authority == "act"
+            and (candidate.evidence_class or "implicit_self_commitment") == "implicit_self_commitment"
+            and not _has_first_person_commitment_marker(evidence)
+        ):
+            resolved_model_authority = "ask"
 
         existing_canonical = (
             await db.execute(
@@ -180,7 +217,7 @@ class CommitmentCandidateService:
                 not is_counterparty
                 and existing_canonical.authority != CommitmentCandidateAuthority.ACT
                 and (
-                    candidate.authority == "act"
+                    resolved_model_authority == "act"
                     or (candidate.evidence_class or "") in (
                         "explicit_command", "explicit_acceptance",
                         "explicit_resolution", "explicit_modification",
@@ -213,8 +250,8 @@ class CommitmentCandidateService:
             authority=(
                 CommitmentCandidateAuthority.ASK
                 if is_counterparty
-                else CommitmentCandidateAuthority(candidate.authority)
-                if candidate.authority in ("act", "ask")
+                else CommitmentCandidateAuthority(resolved_model_authority)
+                if resolved_model_authority in ("act", "ask")
                 else CommitmentCandidateAuthority.ASK
             ),
             status=CommitmentCandidateStatus.PENDING,
@@ -342,6 +379,151 @@ class CommitmentCandidateService:
         await db.commit()
         await db.refresh(row)
         return row
+
+    async def try_fulfill(
+        self,
+        db: AsyncSession,
+        *,
+        workspace_id: str,
+        session_id: str,
+        candidate: ExtractionCandidate,
+        message_id: str,
+        now: datetime,
+    ) -> Optional["UUID"]:
+        """Consume completion evidence for a PENDING ACT commitment — the
+        primitive that was entirely missing before this fix (evaluate_due
+        was previously the ONLY way out of PENDING other than dismiss/
+        expire/materialize, so "I told the venue yes, so that's done" could
+        never do anything but wait to VIOLATE).
+
+        Deliberately owner-agnostic in its search, matching the existing,
+        already-shipped pattern for Expectation outcome mutations
+        (`handle_outcome_mutations`'s generic branch, `_resolve_targets`):
+        completion evidence legitimately arrives from a different sender
+        than the commitment's owner (a bank/payment feed closing a user's
+        own obligation, an external party's own follow-up), so scoping the
+        search to the CURRENT message's sender would silently miss exactly
+        the cross-source evidence this exists to handle.
+
+        Structured-first, lexical-as-prefilter-only, matching the required
+        posture: an explicit target_id is trusted directly; otherwise
+        `_significant_tokens` overlap is used only to retrieve and rank
+        candidates (never as sole authority) — a strong deterministic
+        overlap proceeds directly (same bar as `_fulfill_grounded`'s
+        existing precedent), a weaker one is confirmed by the existing
+        `semantic_judge` "fulfils" question, and anything left ambiguous
+        (no clear single winner, or the judge is unavailable/unconvinced)
+        is left PENDING rather than guessed — plausible-but-uncertain holds
+        provisionally instead of forcing a decision, and never becomes a
+        clarification question (uncertainty here is not consequential
+        enough to interrogate the user over)."""
+        from uuid import UUID as _UUID
+        from src.services.lifecycle_service import LifecycleService
+
+        if not candidate.resolution_hint:
+            return None
+        hint = candidate.resolution_hint
+        if hint.get("action") != "fulfill":
+            return None
+        if candidate.is_hypothetical or candidate.is_quoted:
+            return None
+        evidence_text = " ".join(filter(None, [candidate.raw_evidence, candidate.observation]))
+        if LifecycleService._has_marker(evidence_text, LifecycleService.COUNTERFACTUAL_MARKERS):
+            return None
+        if LifecycleService._has_marker(evidence_text, LifecycleService.NEGATIVE_OUTCOME_MARKERS):
+            return None
+
+        rows = (await db.execute(select(CommitmentCandidate).where(
+            CommitmentCandidate.honcho_workspace_id == workspace_id,
+            CommitmentCandidate.honcho_session_id == session_id,
+            CommitmentCandidate.status == CommitmentCandidateStatus.PENDING,
+            CommitmentCandidate.authority == CommitmentCandidateAuthority.ACT,
+        ))).scalars().all()
+        if not rows:
+            return None
+
+        target_id = hint.get("target_id")
+        if target_id:
+            try:
+                target_uuid = _UUID(str(target_id))
+            except (TypeError, ValueError):
+                target_uuid = None
+            if target_uuid is not None:
+                for row in rows:
+                    if row.id == target_uuid:
+                        await self._fulfill_row(db, row, message_id=message_id, candidate=candidate,
+                                                evidence_note="target_id")
+                        return row.id
+            return None
+
+        scored = []
+        for row in rows:
+            shared = LifecycleService._significant_tokens(evidence_text) & LifecycleService._significant_tokens(row.title)
+            if shared:
+                scored.append((len(shared), row))
+        if not scored:
+            return None
+        scored.sort(key=lambda item: item[0], reverse=True)
+        strong = [item for item in scored if item[0] >= 2]
+        if len(strong) == 1 and len(scored) == 1:
+            # Sole lexical candidate overall: no competing matter shares even
+            # one significant token, so row selection cannot misfire onto a
+            # vocabulary neighbour ("school trip payment" vs "school trip
+            # permission form"). Any competition at all routes to judged
+            # confirmation below; ambiguity stays PENDING, never guessed.
+            await self._fulfill_row(db, strong[0][1], message_id=message_id, candidate=candidate,
+                                    evidence_note="deterministic-overlap")
+            return strong[0][1].id
+        # Otherwise (several strong, or one strong with weak competition):
+        # selection among vocabulary neighbours is a semantic decision, not
+        # a counting one — fall through to judged confirmation, which
+        # requires a single confirmed winner and fails safe to PENDING.
+        if len(strong) > 1:
+            # Two-plus commitments both look strongly like the same
+            # evidence: an ambiguous match is worse than a missed one.
+            # Keep the cheap early exit (no judge calls spent); the judged
+            # path below handles at most one strong winner with competition.
+            return None
+
+        # Weak lexical retrieval only (overlap==1): cheap prefilter results,
+        # not authority — confirm with the existing semantic judge before
+        # acting, and only when it names a single, unambiguous winner.
+        try:
+            from src.services import semantic_judge
+            adapter = semantic_judge._adapter()
+        except Exception:
+            adapter = None
+        if adapter is None:
+            return None
+        confirmed = []
+        for _, row in scored[:3]:
+            try:
+                result = await semantic_judge.adjudicate(
+                    kind="fulfils", earlier=row.title, later=evidence_text, adapter=adapter)
+            except Exception as err:
+                logger.warning("commitment fulfilment judge failed: %s", err)
+                continue
+            if result.accepted and result.evidence_span.strip() \
+                    and result.evidence_span.strip() in evidence_text:
+                confirmed.append(row)
+        if len(confirmed) == 1:
+            await self._fulfill_row(db, confirmed[0], message_id=message_id, candidate=candidate,
+                                    evidence_note="judged")
+            return confirmed[0].id
+        return None
+
+    async def _fulfill_row(
+        self, db: AsyncSession, row: CommitmentCandidate, *, message_id: str,
+        candidate: ExtractionCandidate, evidence_note: str,
+    ) -> None:
+        row.status = CommitmentCandidateStatus.FULFILLED
+        row.resolution_evidence = (
+            f"fulfilled:{evidence_note}:{message_id}#candidate:{candidate.candidate_key}"
+        )
+        row.updated_at = _now_naive()
+        db.add(row)
+        await db.commit()
+        logger.info("Fulfilled CommitmentCandidate id=%s via %s", row.id, evidence_note)
 
     async def evaluate_due(
         self,

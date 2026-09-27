@@ -274,3 +274,81 @@ async def test_no_subject_refs_never_reuses_via_title_alone(async_client, monkey
     )
     loops = await _open_loops(ws)
     assert len(loops) == 2, [l.title for l in loops]
+
+
+# ── Retrospective-question resurrection guard (Problem A: chairs) ──────────
+
+class _FakeResolvesAdapter:
+    """Canned 'yes' verdict; evidence_span parsed verbatim from LATER, same
+    shape as tests/test_semantic_pipeline.py's FakeAdapter."""
+
+    def __init__(self, verdict="yes", confidence=0.85):
+        self.verdict = verdict
+        self.confidence = confidence
+
+    async def generate_structured(self, *, system, prompt, model_id, **kw):
+        later = prompt.split("LATER:\n", 1)[1] if "LATER:\n" in prompt else ""
+        for stop in ("\nCONTEXT:", "\nRules:"):
+            if stop in later:
+                later = later.split(stop)[0]
+                break
+        return {"verdict": self.verdict, "confidence": self.confidence,
+                "evidence_span": later.strip()[:40], "rationale": "test"}
+
+
+@pytest.mark.asyncio
+async def test_retrospective_question_does_not_resurrect_fulfilled_commitment(
+    async_client, monkeypatch,
+):
+    """'Did I ever sort the chairs?' must not resurrect the (unrelated-
+    entity, so the OpenLoop entity-match path can't help here) already-
+    completed commitment as a new OPEN loop, when a semantic-judge adapter
+    is available to confirm history already answers it."""
+    from src.services import semantic_judge
+    from src.models.commitment_candidate import (
+        CommitmentCandidate, CommitmentCandidateStatus, CommitmentCandidateAuthority,
+    )
+    from src.db import async_session_maker
+
+    ws = "ws-matter-chairs-retrospective"
+    async with async_session_maker() as db:
+        db.add(CommitmentCandidate(
+            honcho_workspace_id=ws, honcho_session_id="session-1",
+            owner_peer_id="ashley", candidate_key="k1", canonical_key="ck1",
+            title="confirm chairs with venue",
+            evidence_verbatim="I told the venue yes, 120 chairs, so that's done.",
+            evidence_class="implicit_self_commitment",
+            authority=CommitmentCandidateAuthority.ACT,
+            status=CommitmentCandidateStatus.FULFILLED,
+            source_message_id="m0",
+        ))
+        await db.commit()
+
+    monkeypatch.setattr(semantic_judge, "_adapter", lambda: _FakeResolvesAdapter())
+    await _send_turn(
+        async_client, monkeypatch, workspace_id=ws, sender="ashley", message_id="m1",
+        candidate=_loop_candidate(
+            key="c1", hint="Sort the chairs", title="Sort the chairs", refs=[]),
+        text="Did I ever sort the chairs?",
+    )
+    loops = await _open_loops(ws)
+    assert loops == [], [l.title for l in loops]
+
+
+@pytest.mark.asyncio
+async def test_retrospective_question_fails_open_without_judge_adapter(
+    async_client, monkeypatch,
+):
+    """Documented limitation: without a configured judge adapter (the
+    default in this test environment and in any deployment without one
+    wired), this guard fails open and creates the loop as before — it never
+    blocks core functionality on judge availability."""
+    ws = "ws-matter-chairs-no-adapter"
+    await _send_turn(
+        async_client, monkeypatch, workspace_id=ws, sender="ashley", message_id="m1",
+        candidate=_loop_candidate(
+            key="c1", hint="Sort the chairs", title="Sort the chairs", refs=[]),
+        text="Did I ever sort the chairs?",
+    )
+    loops = await _open_loops(ws)
+    assert len(loops) == 1

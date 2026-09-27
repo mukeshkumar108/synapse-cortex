@@ -495,6 +495,18 @@ async def ingest_turn_event(
             )
         mutated_ids.extend(mutated)
 
+        # A2. Commitment-candidate fulfilment: a separate sink from
+        # Expectation, so outcome mutations above never reach it. Runs
+        # regardless of special_lifecycle (recurring/progress candidates are
+        # not fulfilment evidence and simply won't match anything).
+        try:
+            await commitment_candidate_service.try_fulfill(
+                db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                candidate=cand, message_id=payload.honcho_message_id, now=payload.now,
+            )
+        except Exception as err:
+            logger.warning("Commitment fulfilment check failed: %s", err)
+
         # B. Suppressions
         await lifecycle_service.create_suppression_if_needed(
             db=db,

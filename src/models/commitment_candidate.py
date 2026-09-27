@@ -17,6 +17,11 @@ class CommitmentCandidateStatus(str, Enum):
     DISMISSED = "dismissed"
     EXPIRED = "expired"
     VIOLATED = "violated"
+    # Parity with Expectation.OutcomeState.FULFILLED: a genuinely missing
+    # terminal state before this fix — nothing could ever mark a candidate
+    # done from later conversational/external evidence, so it could only
+    # ever expire or (once due) VIOLATE, regardless of what happened after.
+    FULFILLED = "fulfilled"
 
 
 class CommitmentCandidateAuthority(str, Enum):
