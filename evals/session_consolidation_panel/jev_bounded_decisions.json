@@ -1,0 +1,272 @@
+{
+ "chairs": {
+  "truth": "Explicit completion ('told the venue yes, 120 chairs, done') must resolve; retrospective 'did I ever sort the chairs?' must not resurrect or violate.",
+  "result": {
+   "http": 200,
+   "s": 0.51,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.94,
+    "matter_completed": 0.83,
+    "same_vs_different": 0.62,
+    "partial_vs_full": 0.52,
+    "reference_grounded": 0.82,
+    "ambiguity_present": 0.39,
+    "ownership_external": 0.36,
+    "contradiction_present": 0.5
+   }
+  }
+ },
+ "carlos": {
+  "truth": "Carlos (external) owes \u00a32,100; later \u00a31,000 arrives; 'did that ever come through?' refers to Carlos; remainder \u00a31,100 survives; no duplicate matter.",
+  "result": {
+   "http": 200,
+   "s": 0.32,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.96,
+    "matter_completed": 0.59,
+    "same_vs_different": 0.82,
+    "partial_vs_full": 0.92,
+    "reference_grounded": 0.88,
+    "ambiguity_present": 0.41,
+    "ownership_external": 0.77,
+    "contradiction_present": 0.5
+   }
+  }
+ },
+ "school": {
+  "truth": "Pending school payment + outgoing bank evidence for it + separate school trip permission form. Payment evidence closes payment only; form stays live; no lexical-neighbour closure.",
+  "result": {
+   "http": 200,
+   "s": 0.35,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.96,
+    "matter_completed": 0.8,
+    "same_vs_different": 0.33,
+    "partial_vs_full": 0.44,
+    "reference_grounded": 0.7,
+    "ambiguity_present": 0.19,
+    "ownership_external": 0.33,
+    "contradiction_present": 0.08
+   }
+  }
+ },
+ "sam": {
+  "truth": "Studio Sam (external contractor) vs cousin Sam (family) stay distinct; verbal 'looks good' from Studio Sam is not final written execution.",
+  "result": {
+   "http": 200,
+   "s": 0.44,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.96,
+    "matter_completed": 0.28,
+    "same_vs_different": 0.3,
+    "partial_vs_full": 0.82,
+    "reference_grounded": 0.81,
+    "ambiguity_present": 0.54,
+    "ownership_external": 0.62,
+    "contradiction_present": 0.27
+   }
+  }
+ },
+ "freepik": {
+  "truth": "Freepik client work deferred at their request; external dependency; do-not-nag suppression respected; no failure minted; no clutter rows.",
+  "result": {
+   "http": 200,
+   "s": 0.41,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.94,
+    "matter_completed": 0.62,
+    "same_vs_different": 0.88,
+    "partial_vs_full": 0.41,
+    "reference_grounded": 0.85,
+    "ambiguity_present": 0.18,
+    "ownership_external": 0.72,
+    "contradiction_present": 0.25
+   }
+  }
+ },
+ "matt": {
+  "truth": "Waiting \u2192 surgery success \u2192 recovery \u2192 later fever is a NEW phase; original waiting releases; success persists; original question must not resurrect.",
+  "result": {
+   "http": 200,
+   "s": 0.51,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.96,
+    "matter_completed": 0.82,
+    "same_vs_different": 0.57,
+    "partial_vs_full": 0.35,
+    "reference_grounded": 0.65,
+    "ambiguity_present": 0.23,
+    "ownership_external": 0.48,
+    "contradiction_present": 0.29
+   }
+  }
+ },
+ "meeting": {
+  "truth": "'Performance review tomorrow, nervous' is meaningful upcoming state; details may stay unknown; future attention allowed; must not invent details or interrogate.",
+  "result": {
+   "http": 200,
+   "s": 0.41,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.9,
+    "matter_completed": 0.16,
+    "same_vs_different": 0.51,
+    "partial_vs_full": 0.15,
+    "reference_grounded": 0.3,
+    "ambiguity_present": 0.26,
+    "ownership_external": 0.35,
+    "contradiction_present": 0.07
+   }
+  }
+ },
+ "lunch": {
+  "truth": "'Not sure whether I'll get lunch there' is incidental; must not become durable longitudinal matter.",
+  "result": {
+   "http": 200,
+   "s": 0.42,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.56,
+    "matter_completed": 0.13,
+    "same_vs_different": 0.47,
+    "partial_vs_full": 0.17,
+    "reference_grounded": 0.24,
+    "ambiguity_present": 0.61,
+    "ownership_external": 0.2,
+    "contradiction_present": 0.14
+   }
+  }
+ },
+ "neck": {
+  "truth": "User established the neck topic is to be left alone; no active obligation may exist whose effect is resurfacing it.",
+  "result": {
+   "http": 200,
+   "s": 0.42,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.66,
+    "matter_completed": 0.16,
+    "same_vs_different": 0.5,
+    "partial_vs_full": 0.49,
+    "reference_grounded": 0.59,
+    "ambiguity_present": 0.15,
+    "ownership_external": 0.28,
+    "contradiction_present": 0.61
+   }
+  }
+ },
+ "entityless": {
+  "truth": "References ('What happened with the paperwork?', 'Did that ever come through?', 'How is he doing?', Spanish/deictic) resolve where context grounds them, hold where ambiguous, never mint question-shape",
+  "result": {
+   "http": 200,
+   "s": 0.35,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.97,
+    "matter_completed": 0.21,
+    "same_vs_different": 0.27,
+    "partial_vs_full": 0.56,
+    "reference_grounded": 0.68,
+    "ambiguity_present": 0.84,
+    "ownership_external": 0.63,
+    "contradiction_present": 0.14
+   }
+  }
+ },
+ "adv-paperwork": {
+  "truth": "Studio Sam contract AND solicitor ID paperwork both genuinely live; 'what happened with the paperwork?' must hold, not merge.",
+  "result": {
+   "http": 200,
+   "s": 0.44,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.96,
+    "matter_completed": 0.14,
+    "same_vs_different": 0.35,
+    "partial_vs_full": 0.46,
+    "reference_grounded": 0.77,
+    "ambiguity_present": 0.56,
+    "ownership_external": 0.68,
+    "contradiction_present": 0.28
+   }
+  }
+ },
+ "adv-carlos2": {
+  "truth": "Two Carlos payments (\u00a32,100 balance + \u00a3200 venue deposit via Carlos?) \u2014 'did that come through' must hold.",
+  "result": {
+   "http": 200,
+   "s": 0.41,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.97,
+    "matter_completed": 0.16,
+    "same_vs_different": 0.36,
+    "partial_vs_full": 0.37,
+    "reference_grounded": 0.86,
+    "ambiguity_present": 0.38,
+    "ownership_external": 0.86,
+    "contradiction_present": 0.13
+   }
+  }
+ },
+ "adv-men": {
+  "truth": "Matt surgery + Carlos call-back both live; 'how's he doing?' must hold.",
+  "result": {
+   "http": 200,
+   "s": 0.61,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.96,
+    "matter_completed": 0.17,
+    "same_vs_different": 0.3,
+    "partial_vs_full": 0.53,
+    "reference_grounded": 0.69,
+    "ambiguity_present": 0.71,
+    "ownership_external": 0.59,
+    "contradiction_present": 0.19
+   }
+  }
+ },
+ "adv-trivia": {
+  "truth": "Vivid but irrelevant details (pigeons, barista's tattoo, jingle) must not persist as longitudinal matters.",
+  "result": {
+   "http": 200,
+   "s": 0.31,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.09,
+    "matter_completed": 0.09,
+    "same_vs_different": 0.26,
+    "partial_vs_full": 0.18,
+    "reference_grounded": 0.12,
+    "ambiguity_present": 0.36,
+    "ownership_external": 0.27,
+    "contradiction_present": 0.05
+   }
+  }
+ },
+ "adv-contradict": {
+  "truth": "Florist says Saturday, later email says Sunday. Expected: uncertainty/revision proposal, not invented certainty.",
+  "result": {
+   "http": 200,
+   "s": 0.41,
+   "model": "typesafe/jev-1.13-20260917",
+   "probs": {
+    "longitudinally_meaningful": 0.94,
+    "matter_completed": 0.56,
+    "same_vs_different": 0.81,
+    "partial_vs_full": 0.55,
+    "reference_grounded": 0.75,
+    "ambiguity_present": 0.25,
+    "ownership_external": 0.71,
+    "contradiction_present": 0.96
+   }
+  }
+ }
+}

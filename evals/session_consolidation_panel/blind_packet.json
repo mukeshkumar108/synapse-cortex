@@ -1,0 +1,2789 @@
+{
+ "chairs": {
+  "truth": {
+   "completed": [
+    "chairs-120-venue"
+   ],
+   "no_violation": [
+    "chairs-120-venue"
+   ],
+   "no_resurrection": true,
+   "must_hold": [
+    "chairs-120-venue"
+   ],
+   "desc": "Explicit completion ('told the venue yes, 120 chairs, done') must resolve; retrospective 'did I ever sort the chairs?' must not resurrect or violate."
+  },
+  "turns": [
+   [
+    "user",
+    "The venue need a final headcount and chair number by tonight or we lose the slot."
+   ],
+   [
+    "user",
+    "The chairs. I told the venue yes, 120 chairs, so that's done."
+   ],
+   [
+    "user",
+    "Florist is sorted for Saturday, Aisha confirmed this morning."
+   ],
+   [
+    "user",
+    "Did I ever sort the chairs?"
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "Provide final headcount and chair number to venue",
+     "OpenLoopStatus.RESOLVED"
+    ],
+    [
+     "Florist is sorted for Saturday, Aisha confirmed this morning.",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user confirmed the chair count and the florist arrangement. The user also inquired about whether the chairs had been sorted, implying a potential outstanding task.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "31e6ec8c-06ee-41fc-ace1-6744b3a49345"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-chairs-t1"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "resolve_matter",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "partial_fulfilment",
+      "reason": "unknown_matter_id"
+     },
+     {
+      "op": "uncertainty",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "Session confirmed florist sorted for Saturday and resolved a self-query about whether chairs had been sorted, with the user affirming 120 chairs were already confirmed with the venue.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "31e6ec8c-06ee-41fc-ace1-6744b3a49345"
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "resolve_matter",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "resolve_matter",
+      "reason": "unknown_matter_id"
+     },
+     {
+      "op": "incidental",
+      "reason": "confidence_below_floor"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     }
+    ]
+   },
+   "MODEL-D": {
+    "summary": "User clarified venue headcount and chair number (120 chairs) and reiterated florist confirmation; no new decisions or resolutions.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-chairs-t0",
+        "panel-chairs-t1",
+        "panel-chairs-t3"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-chairs-t3"
+       ]
+      }
+     ]
+    ],
+    "rejected": [],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "The user confirmed the number of chairs for the venue and inquired about the status of chair arrangement.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "carlos": {
+  "truth": {
+   "external_owner": [
+    "carlos-debt"
+   ],
+   "partial": [
+    "carlos-debt"
+   ],
+   "remainder_survives": true,
+   "no_duplicate": true,
+   "desc": "Carlos (external) owes \u00a32,100; later \u00a31,000 arrives; 'did that ever come through?' refers to Carlos; remainder \u00a31,100 survives; no duplicate matter."
+  },
+  "turns": [
+   [
+    "user",
+    "Carlos still owes me the remaining balance, twenty one hundred pounds."
+   ],
+   [
+    "user",
+    "Bank alert: incoming transfer one thousand pounds from Carlos Mendoza with reference invoice."
+   ],
+   [
+    "user",
+    "Did that ever come through?"
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "Carlos owes money",
+     "OpenLoopStatus.RESOLVED"
+    ],
+    [
+     "Inquire about arrival status",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user inquired about the remaining balance owed by Carlos, which was \u00a32100. A transfer of \u00a31000 from Carlos was received, and the user asked if this had come through.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-carlos-t2"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "partial_fulfilment",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "User tracked Carlos's outstanding balance of \u00a32100, received a \u00a31000 incoming transfer from Carlos Mendoza, and later asked whether the transfer had arrived. The \u00a31000 transfer partially fulfills the \u00a32100 balance, leaving \u00a31100 outstanding.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "2b7945be-273d-4ffc-a2cc-2e3f3d59c8ef"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-carlos-t2"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "partial_fulfilment",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-D": {
+    "summary": "User inquired about Carlos' remaining balance of \u00a32100 and confirmed receipt of a \u00a31000 transfer from Carlos Mendoza with reference invoice. No definitive arrival status provided.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "2b7945be-273d-4ffc-a2cc-2e3f3d59c8ef"
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "partial_fulfilment",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "incidental",
+      "reason": "confidence_below_floor"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "The user's matter regarding the remaining balance from Carlos Mendoza has been partially resolved with the incoming transfer.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "school": {
+  "truth": {
+   "payment_linked": [
+    "school-payment"
+   ],
+   "form_distinct": true,
+   "no_false_closure": [
+    "school-form"
+   ],
+   "desc": "Pending school payment + outgoing bank evidence for it + separate school trip permission form. Payment evidence closes payment only; form stays live; no lexical-neighbour closure."
+  },
+  "turns": [
+   [
+    "user",
+    "I need to pay the school trip money, two hundred and forty pounds, before Friday."
+   ],
+   [
+    "user",
+    "Bank alert: outgoing payment two hundred and forty pounds to Greenwood School."
+   ],
+   [
+    "user",
+    "The school also sent a trip permission form that needs signing, separate thing."
+   ]
+  ],
+  "b_state": {
+   "loops": [],
+   "expectations": [],
+   "commitments": [
+    [
+     "pay for school trip",
+     "CommitmentCandidateAuthority.ACT",
+     "CommitmentCandidateStatus.PENDING"
+    ]
+   ],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user paid for the school trip and noted a separate permission form that needs signing.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "resolve_matter",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     }
+    ],
+    "would_apply": []
+   },
+   "MODEL-C": {
+    "summary": "User confirmed a school trip payment of 240 GBP due before Friday, received a bank alert for the outgoing payment, and noted a separate trip permission form requiring a signature.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "d262427c-07b5-4e94-8702-69ed1117cb1a"
+      }
+     ]
+    ],
+    "rejected": [],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     }
+    ]
+   },
+   "MODEL-D": {
+    "summary": "User confirmed payment of \u00a3240 school trip fee via bank alert and noted a separate trip permission form requiring signing.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "d262427c-07b5-4e94-8702-69ed1117cb1a"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-school-t0"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "resolve_matter",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "The user initiated and completed the payment for the school trip, and mentioned the need to sign a permission form.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "sam": {
+  "truth": {
+   "distinct": [
+    "studio-sam-contract",
+    "cousin-sam"
+   ],
+   "external": [
+    "studio-sam-contract"
+   ],
+   "approval_not_execution": true,
+   "desc": "Studio Sam (external contractor) vs cousin Sam (family) stay distinct; verbal 'looks good' from Studio Sam is not final written execution."
+  },
+  "turns": [
+   [
+    "user",
+    "Studio Sam sent the revised contract and said it looks good on his side, waiting for final signatures."
+   ],
+   [
+    "user",
+    "Cousin Sam is picking mum up on Wednesday evening, I should confirm with him."
+   ],
+   [
+    "user",
+    "Has the contract been fully signed yet?"
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "Studio Sam sent the revised contract and said it looks good on his side, waiting for final signatures.",
+     "OpenLoopStatus.OPEN"
+    ],
+    [
+     "Confirm pickup with Cousin Sam",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user confirmed that Studio Sam sent the revised contract and is waiting for signatures. They also confirmed that Cousin Sam is picking up their mother on Wednesday evening and asked if the contract has been fully signed yet.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "202ac057-c026-48a2-844a-f81bbb56c614"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "cf81e1ab-072c-4ecc-ad55-2bffb74f063b"
+      }
+     ]
+    ],
+    "rejected": [],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "Session reaffirmed two open matters (Studio Sam contract pending signatures, Cousin Sam pickup confirmation) and added a new matter querying whether the contract has been fully signed. No resolutions or closures occurred.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "202ac057-c026-48a2-844a-f81bbb56c614"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "cf81e1ab-072c-4ecc-ad55-2bffb74f063b"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-sam-t0",
+        "panel-sam-t1",
+        "panel-sam-t2"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-D": {
+    "summary": "User reiterated that Studio Sam sent a revised contract that looks good and is waiting for final signatures; also mentioned Cousin Sam picking up mum on Wednesday evening and asked if contract fully signed. No resolution or new action taken.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-sam-t0",
+        "panel-sam-t1",
+        "panel-sam-t2"
+       ]
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "202ac057-c026-48a2-844a-f81bbb56c614"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "cf81e1ab-072c-4ecc-ad55-2bffb74f063b"
+      }
+     ],
+     [
+      "uncertainty",
+      {
+       "content": "Whether the contract has been fully signed yet.",
+       "related_ids": [
+        "202ac057-c026-48a2-844a-f81bbb56c614"
+       ],
+       "alternatives": [
+        "Contract fully signed",
+        "Contract not yet fully signed"
+       ],
+       "evidence": {
+        "message_ids": [],
+        "spans": []
+       }
+      }
+     ],
+     [
+      "attend",
+      {
+       "content": "Confirm pickup with Cousin Sam regarding mum on Wednesday evening.",
+       "related_ids": [
+        "cf81e1ab-072c-4ecc-ad55-2bffb74f063b"
+       ],
+       "evidence": {
+        "message_ids": [],
+        "spans": []
+       }
+      }
+     ]
+    ],
+    "rejected": [],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "uncertainty",
+      "would_apply": true,
+      "reason": "related_known"
+     },
+     {
+      "op": "attend",
+      "would_apply": true,
+      "reason": "related_known"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "The user confirmed the status of a contract and a pickup arrangement with Cousin Sam.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "freepik": {
+  "truth": {
+   "deferral": true,
+   "external_dep": true,
+   "suppression_kept": true,
+   "no_false_failure": true,
+   "no_clutter": true,
+   "desc": "Freepik client work deferred at their request; external dependency; do-not-nag suppression respected; no failure minted; no clutter rows."
+  },
+  "turns": [
+   [
+    "user",
+    "Freepik asked to pause the illustration batch until next month, their budget is frozen."
+   ],
+   [
+    "user",
+    "Don't nag me about Freepik, I'll pick it up when they unfreeze."
+   ],
+   [
+    "user",
+    "Freepik confirmed the pause is over, restarting the batch Monday."
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "Freepik illustration batch pause",
+     "OpenLoopStatus.RESOLVED"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": [
+    {
+     "t": "Freepik illustration batch",
+     "s": "SuppressionStatus.ACTIVE"
+    }
+   ]
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user confirmed that a Freepik illustration batch, previously paused, is now restarting on Monday. The system was instructed not to nag about this matter and later confirmed the pause was over.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "suppress",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "suppress",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "suppress",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     }
+    ],
+    "would_apply": []
+   },
+   "MODEL-C": {
+    "summary": "Freepik illustration batch was paused due to frozen budget, then resumed after confirmation that the pause is over.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "suppress",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "resolve_matter",
+      "reason": "unknown_matter_id"
+     },
+     {
+      "op": "affirm_matter",
+      "reason": "unknown_matter_id"
+     },
+     {
+      "op": "incidental",
+      "reason": "bad_incidental_mids"
+     }
+    ],
+    "would_apply": []
+   },
+   "MODEL-D": {
+    "summary": "Freepik illustration batch was paused due to frozen budget; user indicated no follow-up needed. Batch restarts Monday.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-freepik-t1"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "resolve_matter",
+      "reason": "unknown_matter_id"
+     },
+     {
+      "op": "suppress",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "attend",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "uncertainty",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "User managed the status of a Freepik illustration batch, pausing and then resuming it.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "matt": {
+  "truth": {
+   "waiting_releases": true,
+   "success_persists": true,
+   "fever_is_new_phase": true,
+   "no_resurrection": true,
+   "desc": "Waiting \u2192 surgery success \u2192 recovery \u2192 later fever is a NEW phase; original waiting releases; success persists; original question must not resurrect."
+  },
+  "turns": [
+   [
+    "user",
+    "Matt is having knee surgery on Thursday and I'm really worried about him."
+   ],
+   [
+    "user",
+    "The surgery went well, Matt is in recovery and the doctor is happy."
+   ],
+   [
+    "user",
+    "Matt has a fever tonight, we might need to call the doctor in the morning."
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "The surgery went well, Matt is in recovery and the doctor is happy.",
+     "OpenLoopStatus.OPEN"
+    ],
+    [
+     "contact the doctor",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user expressed worry about Matt's knee surgery, which went well. However, Matt developed a fever, leading to a change in the plan to contact the doctor.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "42d22680-8244-4b9d-8181-33c38cfe7cba"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-matt-t0"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "revise_expectation",
+      "reason": "bad_expectation_target"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "Matt underwent knee surgery on Thursday; recovery initially went well with doctor satisfied, but he developed a fever later that may require a doctor's call.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "42d22680-8244-4b9d-8181-33c38cfe7cba"
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "resolve_matter",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "incidental",
+      "reason": "confidence_below_floor"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     }
+    ]
+   },
+   "MODEL-D": {
+    "summary": "User reports surgery went well; Matt is in recovery with a fever tonight, indicating possible need to call doctor in morning.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "42d22680-8244-4b9d-8181-33c38cfe7cba"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-matt-t0"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "resolve_matter",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "The user's concern about Matt's knee surgery was addressed, and the matter was resolved with updates on Matt's condition.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "meeting": {
+  "truth": {
+   "meaningful": true,
+   "no_invented_details": true,
+   "future_attention_ok": true,
+   "no_clarify": true,
+   "desc": "'Performance review tomorrow, nervous' is meaningful upcoming state; details may stay unknown; future attention allowed; must not invent details or interrogate."
+  },
+  "turns": [
+   [
+    "user",
+    "I've got that performance review meeting tomorrow and I'm nervous about it."
+   ]
+  ],
+  "b_state": {
+   "loops": [],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user expressed nervousness about an upcoming performance review meeting. This was captured as a new matter.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": []
+   },
+   "MODEL-C": {
+    "error": "malformed"
+   },
+   "MODEL-D": {
+    "summary": "User expresses nervousness about an upcoming performance review meeting tomorrow.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-meeting-t0"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "User expresses nervousness about an upcoming performance review meeting.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "lunch": {
+  "truth": {
+   "incidental": true,
+   "no_durable": true,
+   "desc": "'Not sure whether I'll get lunch there' is incidental; must not become durable longitudinal matter."
+  },
+  "turns": [
+   [
+    "user",
+    "Not sure whether I'll get lunch there."
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "getting lunch",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user expressed uncertainty about getting lunch at the location, which was previously an open matter. No new matters were created, and no existing matters were resolved or modified.",
+    "accepted": [
+     [
+      "uncertainty",
+      {
+       "content": "Not sure whether I'll get lunch there.",
+       "related_ids": [
+        "28c1b1ac-8c67-4f87-9787-ac543e66b589"
+       ],
+       "alternatives": [
+        "get lunch there",
+        "not get lunch there"
+       ],
+       "evidence": {
+        "message_ids": [],
+        "spans": []
+       }
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-lunch-t0"
+       ]
+      }
+     ]
+    ],
+    "rejected": [],
+    "would_apply": [
+     {
+      "op": "uncertainty",
+      "would_apply": true,
+      "reason": "related_known"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "error": "malformed"
+   },
+   "MODEL-D": {
+    "summary": "User expressed uncertainty about whether they will get lunch at the mentioned location.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "uncertainty",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "incidental",
+      "reason": "confidence_below_floor"
+     }
+    ],
+    "would_apply": []
+   },
+   "MODEL-E": {
+    "summary": "User's lunch decision remains uncertain.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "neck": {
+  "truth": {
+   "boundary_persists": true,
+   "no_resurface_obligation": true,
+   "desc": "User established the neck topic is to be left alone; no active obligation may exist whose effect is resurfacing it."
+  },
+  "turns": [
+   [
+    "user",
+    "My neck has been killing me for three days and I can barely sleep."
+   ],
+   [
+    "user",
+    "Actually please just leave the neck thing alone, I don't want to talk about it."
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "My neck has been killing me for three days and I can barely sleep.",
+     "OpenLoopStatus.RESOLVED"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": [
+    {
+     "t": "neck pain",
+     "s": "SuppressionStatus.ACTIVE"
+    }
+   ]
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user initially reported neck pain but then explicitly asked to not discuss it. The system should suppress the topic of neck pain.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-neck-t0"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-neck-t1"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "suppress",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "error": "malformed"
+   },
+   "MODEL-D": {
+    "summary": "User initially described neck pain severely affecting sleep, then explicitly requested to leave the neck topic alone.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-neck-t0"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-neck-t1"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "suppress",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "User initially reported severe neck pain but later requested to suppress further discussion on the topic.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "entityless": {
+  "truth": {
+   "resolve_where_grounded": true,
+   "ambiguity_holds": true,
+   "no_question_mint": true,
+   "desc": "References ('What happened with the paperwork?', 'Did that ever come through?', 'How is he doing?', Spanish/deictic) resolve where context grounds them, hold where ambiguous, never mint question-shaped matters."
+  },
+  "turns": [
+   [
+    "user",
+    "Studio Sam said he'll send the revised contract tomorrow and I need to review it before signing."
+   ],
+   [
+    "user",
+    "Carlos promised to pay the remaining balance by Friday and I must chase him if he doesn't."
+   ],
+   [
+    "user",
+    "Matt is having knee surgery on Thursday and I need to follow up after."
+   ],
+   [
+    "user",
+    "What happened with the paperwork?"
+   ],
+   [
+    "user",
+    "Did that ever come through?"
+   ],
+   [
+    "user",
+    "How's he doing now?"
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "review revised contract",
+     "OpenLoopStatus.OPEN"
+    ],
+    [
+     "Follow up after Matt's knee surgery",
+     "OpenLoopStatus.OPEN"
+    ],
+    [
+     "paperwork status",
+     "OpenLoopStatus.OPEN"
+    ],
+    [
+     "Inquire about status of expected item",
+     "OpenLoopStatus.OPEN"
+    ],
+    [
+     "Inquire about well-being",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [
+    [
+     "A contract revision is expected tomorrow, which requires review before signing",
+     "ExpectationType.PLANNED_EVENT",
+     "OutcomeState.UNKNOWN"
+    ]
+   ],
+   "commitments": [
+    [
+     "review revised contract",
+     "CommitmentCandidateAuthority.ACT",
+     "CommitmentCandidateStatus.PENDING"
+    ]
+   ],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user initiated a session to track several open matters and update expectations. A new matter was created regarding a contract revision. Expectations for an existing matter were revised, and another matter was affirmed. Several turns were marked as incidental.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "66334c1e-0dcb-4c22-9c60-5639b5b86006"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "3b19d38f-18ec-438a-b9fb-ae0f5e1dc394"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "6bcf9377-b77f-4eb5-b2f2-492bbf756d1e"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "fd649c76-9c65-4c95-b81a-a02feab71e20"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t1"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t0"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t2"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t3"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t4"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t5"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "revise_expectation",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "Session established new expectations and commitments around a contract revision, a debt collection follow-up, and post-surgery check-in; no prior matters were resolved or updated.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "a034b031-38cb-4833-8532-f57ce115273c"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "66334c1e-0dcb-4c22-9c60-5639b5b86006"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "3b19d38f-18ec-438a-b9fb-ae0f5e1dc394"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "6bcf9377-b77f-4eb5-b2f2-492bbf756d1e"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "fd649c76-9c65-4c95-b81a-a02feab71e20"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "57784c87-1a33-461a-8bd6-61355b1aaf41"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t3"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "revise_expectation",
+      "reason": "bad_expectation_target"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-D": {
+    "summary": "User confirmed revised contract will arrive tomorrow for review, reiterated follow-up after Matt's knee surgery, asked about paperwork status twice, asked about well-being, and referenced Carlos payment promise.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "a034b031-38cb-4833-8532-f57ce115273c"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "be4da6ce-62ec-44f1-ac55-27c4328b639b"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "66334c1e-0dcb-4c22-9c60-5639b5b86006"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "fd649c76-9c65-4c95-b81a-a02feab71e20"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t1"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t4"
+       ]
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-entityless-t5"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "resolve_matter",
+      "reason": "unknown_matter_id"
+     },
+     {
+      "op": "partial_fulfilment",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "same_as",
+      "reason": "bad_same_as_targets"
+     },
+     {
+      "op": "revise_expectation",
+      "reason": "bad_expectation_target"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "The user updated several matters, including a pending contract review, a payment reminder, a follow-up on a friend's surgery, and inquiries about paperwork and well-being.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "adv-paperwork": {
+  "truth": {
+   "both_live": true,
+   "no_merge": true,
+   "desc": "Studio Sam contract AND solicitor ID paperwork both genuinely live; 'what happened with the paperwork?' must hold, not merge."
+  },
+  "turns": [
+   [
+    "user",
+    "Studio Sam said he'll send the revised contract tomorrow."
+   ],
+   [
+    "user",
+    "My solicitor needs the ID paperwork by Friday or the house purchase stalls."
+   ],
+   [
+    "user",
+    "What happened with the paperwork?"
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "Submit ID paperwork for house purchase",
+     "OpenLoopStatus.OPEN"
+    ],
+    [
+     "ID paperwork for house purchase",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [
+    [
+     "send revised contract",
+     "CommitmentCandidateAuthority.ASK",
+     "CommitmentCandidateStatus.PENDING"
+    ]
+   ],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user is following up on two related matters concerning ID paperwork for a house purchase, one of which has a Friday deadline. They also mentioned a revised contract is expected tomorrow.",
+    "accepted": [
+     [
+      "attend",
+      {
+       "content": "Revised contract expected tomorrow.",
+       "related_ids": [],
+       "evidence": {
+        "message_ids": [],
+        "spans": []
+       }
+      }
+     ],
+     [
+      "attend",
+      {
+       "content": "ID paperwork deadline is Friday.",
+       "related_ids": [
+        "0d56b41f-fab4-4378-9b93-e65aa3b6360f"
+       ],
+       "evidence": {
+        "message_ids": [],
+        "spans": []
+       }
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "resolve_matter",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "revise_expectation",
+      "reason": "bad_expectation_target"
+     },
+     {
+      "op": "incidental",
+      "reason": "bad_incidental_mids"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "attend",
+      "would_apply": true,
+      "reason": "related_known"
+     },
+     {
+      "op": "attend",
+      "would_apply": true,
+      "reason": "related_known"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "User confirmed revised contract will be sent tomorrow by Studio Sam, and solicitor requires ID paperwork by Friday to avoid stalling the house purchase. No new matters or resolutions were introduced; existing matters remain open and pending.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "09a6b00b-34b7-4d48-b3f0-86ebc9904bf0"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "9425652c-9f3f-4998-9361-efd91addb84b"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "0d56b41f-fab4-4378-9b93-e65aa3b6360f"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-paperwork-t2"
+       ]
+      }
+     ]
+    ],
+    "rejected": [],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-D": {
+    "summary": "User received confirmation that solicitor needs ID paperwork by Friday; clarified status of paperwork; no resolution of contract matter.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "9425652c-9f3f-4998-9361-efd91addb84b"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-paperwork-t0",
+        "panel-adv-paperwork-t1",
+        "panel-adv-paperwork-t2"
+       ]
+      }
+     ],
+     [
+      "attend",
+      {
+       "content": "Submit ID paperwork for house purchase by Friday deadline",
+       "related_ids": [
+        "9425652c-9f3f-4998-9361-efd91addb84b",
+        "0d56b41f-fab4-4378-9b93-e65aa3b6360f"
+       ],
+       "evidence": {
+        "message_ids": [
+         "panel-adv-paperwork-t1",
+         "panel-adv-paperwork-t2"
+        ],
+        "spans": []
+       }
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "same_as",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "revise_expectation",
+      "reason": "bad_expectation_target"
+     },
+     {
+      "op": "uncertainty",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     },
+     {
+      "op": "attend",
+      "would_apply": true,
+      "reason": "related_known"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "The user's matters regarding ID paperwork and contract revision for house purchase are progressing.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "adv-carlos2": {
+  "truth": {
+   "both_live": true,
+   "no_merge": true,
+   "desc": "Two Carlos payments (\u00a32,100 balance + \u00a3200 venue deposit via Carlos?) \u2014 'did that come through' must hold."
+  },
+  "turns": [
+   [
+    "user",
+    "Carlos still owes me the remaining balance, twenty one hundred pounds."
+   ],
+   [
+    "user",
+    "Carlos also said he'd cover the two hundred pound venue deposit."
+   ],
+   [
+    "user",
+    "Did that ever come through?"
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "Carlos owes money",
+     "OpenLoopStatus.RESOLVED"
+    ],
+    [
+     "Inquire about arrival status",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [
+    [
+     "cover venue deposit",
+     "CommitmentCandidateAuthority.ASK",
+     "CommitmentCandidateStatus.PENDING"
+    ]
+   ],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user inquired about the status of two outstanding matters: a remaining balance of \u00a32100 owed by Carlos and a \u00a3200 venue deposit also to be covered by Carlos. The system did not provide any new information or resolve these matters.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "b5c40ea0-6cf1-41e3-af87-412aeb0ed273"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "5f7201ad-6498-4e17-8479-4c7cef736c7f"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-carlos2-t0",
+        "panel-adv-carlos2-t1",
+        "panel-adv-carlos2-t2"
+       ]
+      }
+     ]
+    ],
+    "rejected": [],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "User inquired about Carlos covering a \u00a3200 venue deposit and a remaining balance of \u00a32100. No confirmation of payment was provided in the session.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "incidental",
+      "reason": "bad_incidental_mids"
+     },
+     {
+      "op": "incidental",
+      "reason": "bad_incidental_mids"
+     },
+     {
+      "op": "incidental",
+      "reason": "bad_incidental_mids"
+     }
+    ],
+    "would_apply": []
+   },
+   "MODEL-D": {
+    "summary": "User reports Carlos owes remaining balance of \u00a32100 and said he'd cover \u00a3200 venue deposit; asks if deposit came through.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "b5c40ea0-6cf1-41e3-af87-412aeb0ed273"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "5f7201ad-6498-4e17-8479-4c7cef736c7f"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-carlos2-t2"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "partial_fulfilment",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "The user inquired about the status of a pending balance owed by Carlos and the deposit for a venue.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "adv-men": {
+  "truth": {
+   "both_live": true,
+   "no_merge": true,
+   "desc": "Matt surgery + Carlos call-back both live; 'how's he doing?' must hold."
+  },
+  "turns": [
+   [
+    "user",
+    "Matt is having knee surgery on Thursday and I need to follow up after."
+   ],
+   [
+    "user",
+    "Carlos promised he'd call back tonight and I should chase him if he doesn't."
+   ],
+   [
+    "user",
+    "How's he doing now?"
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "Follow up after Matt's knee surgery",
+     "OpenLoopStatus.OPEN"
+    ],
+    [
+     "Follow up with Carlos",
+     "OpenLoopStatus.OPEN"
+    ],
+    [
+     "Inquire about Matt's recovery",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [
+    [
+     "Follow up with Carlos",
+     "CommitmentCandidateAuthority.ASK",
+     "CommitmentCandidateStatus.PENDING"
+    ]
+   ],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user initiated three new matters: following up after Matt's knee surgery, chasing Carlos if he doesn't call back, and inquiring about Matt's current recovery status. The existing matter about following up with Carlos was affirmed.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "ed50db20-1bb2-4d9c-a9e0-dda7be70429f"
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "User confirmed upcoming knee surgery follow-up and Carlos follow-up; no new matters or resolutions emerged.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "5c1dab62-b67c-4fa8-9eb4-69bf419d802c"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "1e6a5d14-1c2c-4c91-bec4-21f5d8ecd50d"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "ab634102-292c-4f2e-97f1-662ee39aa5e9"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "ed50db20-1bb2-4d9c-a9e0-dda7be70429f"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-men-t2"
+       ]
+      }
+     ]
+    ],
+    "rejected": [],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-D": {
+    "summary": "User confirmed Matt's knee surgery date (Thursday) and need to follow up after; reiterated follow-up with Carlos if no call; asked about Matt's current recovery status. No new commitments or resolutions; existing open matters remain open with clarified timing and follow-up condition.",
+    "accepted": [
+     [
+      "affirm_matter",
+      {
+       "matter_id": "5c1dab62-b67c-4fa8-9eb4-69bf419d802c"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "1e6a5d14-1c2c-4c91-bec4-21f5d8ecd50d"
+      }
+     ],
+     [
+      "affirm_matter",
+      {
+       "matter_id": "ab634102-292c-4f2e-97f1-662ee39aa5e9"
+      }
+     ],
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-men-t2"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "same_as",
+      "reason": "bad_evidence"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "affirm_matter",
+      "would_apply": true,
+      "reason": "target_present"
+     },
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "Session focused on follow-ups related to Matt's knee surgery and a pending call from Carlos.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "adv-trivia": {
+  "truth": {
+   "no_persist_trivia": true,
+   "desc": "Vivid but irrelevant details (pigeons, barista's tattoo, jingle) must not persist as longitudinal matters."
+  },
+  "turns": [
+   [
+    "user",
+    "Saw the funniest pigeons fighting over a chip on the way home, absolute carnage."
+   ],
+   [
+    "user",
+    "The barista had this incredible tattoo of a kraken all up her arm."
+   ],
+   [
+    "user",
+    "That jingle from the advert has been stuck in my head all day."
+   ]
+  ],
+  "b_state": {
+   "loops": [
+    [
+     "Saw the funniest pigeons fighting over a chip on the way home, absolute carnage.",
+     "OpenLoopStatus.OPEN"
+    ]
+   ],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user shared three distinct observations: pigeons fighting over a chip, a barista's kraken tattoo, and a catchy jingle. The initial matter about pigeons remains open. No other matters were created or resolved.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-trivia-t0"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "User shared three unrelated anecdotal observations (pigeons fighting over a chip, a kraken tattoo, and a stuck advert jingle). No actionable matters, expectations, or follow-ups were introduced or resolved.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-trivia-t0",
+        "panel-adv-trivia-t1",
+        "panel-adv-trivia-t2"
+       ]
+      }
+     ]
+    ],
+    "rejected": [],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-D": {
+    "summary": "User reported three brief observations: funny pigeons fighting over a chip (already tracked as open_loop), a barista's kraken tattoo, and a stuck-in-head advert jingle. No resolution or expectation change for open_loop; new observations recorded as separate matters.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-trivia-t0"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "User shared observations and experiences from their day.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ },
+ "adv-contradict": {
+  "truth": {
+   "uncertainty_or_revision": true,
+   "no_invented_certainty": true,
+   "desc": "Florist says Saturday, later email says Sunday. Expected: uncertainty/revision proposal, not invented certainty."
+  },
+  "turns": [
+   [
+    "user",
+    "The florist confirmed the wedding flowers for Saturday."
+   ],
+   [
+    "user",
+    "Email from the florist: actually the flowers are coming Sunday, sorry for the confusion."
+   ]
+  ],
+  "b_state": {
+   "loops": [],
+   "expectations": [],
+   "commitments": [],
+   "suppressions": []
+  },
+  "proposals": {
+   "MODEL-A": {
+    "error": "malformed"
+   },
+   "MODEL-B": {
+    "summary": "The user initially stated that wedding flowers were confirmed for Saturday, but later corrected this to Sunday due to a florist's email.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-contradict-t0",
+        "panel-adv-contradict-t1"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "revise_expectation",
+      "reason": "bad_expectation_target"
+     },
+     {
+      "op": "revise_expectation",
+      "reason": "bad_expectation_target"
+     },
+     {
+      "op": "resolve_matter",
+      "reason": "unknown_matter_id"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-C": {
+    "summary": "Session contained two contradictory user statements about wedding flower delivery timing (Saturday vs Sunday), with no prior tracked matters. The contradiction was resolved by the second message, which corrected the first.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_new_matter"
+     },
+     {
+      "op": "resolve_matter",
+      "reason": "unknown_matter_id"
+     },
+     {
+      "op": "incidental",
+      "reason": "confidence_below_floor"
+     }
+    ],
+    "would_apply": []
+   },
+   "MODEL-D": {
+    "summary": "User initially confirmed wedding flowers for Saturday, then received email stating flowers are coming Sunday, creating a contradiction that was resolved.",
+    "accepted": [
+     [
+      "incidental",
+      {
+       "message_ids": [
+        "panel-adv-contradict-t0"
+       ]
+      }
+     ]
+    ],
+    "rejected": [
+     {
+      "op": "new_matter",
+      "reason": "bad_evidence"
+     },
+     {
+      "op": "resolve_matter",
+      "reason": "unknown_matter_id"
+     }
+    ],
+    "would_apply": [
+     {
+      "op": "incidental",
+      "would_apply": true,
+      "reason": "discard_needs_no_mutation"
+     }
+    ]
+   },
+   "MODEL-E": {
+    "summary": "The user initially confirmed the delivery of wedding flowers for Saturday, but later corrected the delivery date to Sunday.",
+    "accepted": [],
+    "rejected": [
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     },
+     {
+      "op": "?",
+      "reason": "unknown_op"
+     }
+    ],
+    "would_apply": []
+   }
+  }
+ }
+}

@@ -1,0 +1,12 @@
+# SEALED — consolidation panel model mapping (DO NOT share with judge)
+
+- MODEL-A = ibm-granite/granite-4.0-h-micro (response_format json_object)
+- MODEL-B = google/gemini-2.5-flash-lite (response_format json_object; control)
+- MODEL-C = poolside/laguna-s-2.1 (response_format json_object)
+- MODEL-D = ibm-granite/granite-4.2-8b (reasoning effort low, NO response_format)
+- MODEL-E = amazon/nova-micro-v1 (NO response_format, NO schema paste; parse-first-JSON)
+
+Jev bounded decisions (`panel_jev.json` equivalent) are NOT blinded against
+generatives — different output shape; evaluate separately.
+
+Unblind only after Gemini returns its evaluation.

@@ -1,0 +1,677 @@
+[
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 2.68,
+  "http": 200,
+  "in_tok": 849,
+  "out_tok": 863,
+  "raw_len": 2839
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 5.45,
+  "http": 200,
+  "in_tok": 877,
+  "out_tok": 324,
+  "raw_len": 732
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 24.96,
+  "http": 200,
+  "in_tok": 798,
+  "out_tok": 926,
+  "raw_len": 3270
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 1.62,
+  "http": 200,
+  "in_tok": 543,
+  "out_tok": 310,
+  "raw_len": 1023
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 5.83,
+  "http": 200,
+  "in_tok": 823,
+  "out_tok": 576,
+  "raw_len": 1870
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.25,
+  "http": 200,
+  "in_tok": 810,
+  "out_tok": 328,
+  "raw_len": 1014
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 7.88,
+  "http": 200,
+  "in_tok": 837,
+  "out_tok": 476,
+  "raw_len": 1103
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 19.73,
+  "http": 200,
+  "in_tok": 762,
+  "out_tok": 729,
+  "raw_len": 2548
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 1.28,
+  "http": 200,
+  "in_tok": 502,
+  "out_tok": 313,
+  "raw_len": 1078
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 4.19,
+  "http": 200,
+  "in_tok": 780,
+  "out_tok": 431,
+  "raw_len": 1384
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.3,
+  "http": 200,
+  "in_tok": 820,
+  "out_tok": 343,
+  "raw_len": 1149
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 14.74,
+  "http": 200,
+  "in_tok": 842,
+  "out_tok": 985,
+  "raw_len": 1447
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 20.87,
+  "http": 200,
+  "in_tok": 768,
+  "out_tok": 772,
+  "raw_len": 3145
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 1.62,
+  "http": 200,
+  "in_tok": 513,
+  "out_tok": 351,
+  "raw_len": 1181
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 1.94,
+  "http": 200,
+  "in_tok": 792,
+  "out_tok": 170,
+  "raw_len": 591
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.35,
+  "http": 200,
+  "in_tok": 880,
+  "out_tok": 323,
+  "raw_len": 1026
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 10.12,
+  "http": 200,
+  "in_tok": 894,
+  "out_tok": 653,
+  "raw_len": 1903
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 12.71,
+  "http": 200,
+  "in_tok": 817,
+  "out_tok": 449,
+  "raw_len": 1639
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 0.99,
+  "http": 200,
+  "in_tok": 573,
+  "out_tok": 191,
+  "raw_len": 657
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 4.52,
+  "http": 200,
+  "in_tok": 853,
+  "out_tok": 424,
+  "raw_len": 1403
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.84,
+  "http": 200,
+  "in_tok": 790,
+  "out_tok": 592,
+  "raw_len": 2179
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 19.15,
+  "http": 200,
+  "in_tok": 827,
+  "out_tok": 1211,
+  "raw_len": 2739
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 20.51,
+  "http": 200,
+  "in_tok": 757,
+  "out_tok": 764,
+  "raw_len": 2943
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 2.48,
+  "http": 200,
+  "in_tok": 481,
+  "out_tok": 478,
+  "raw_len": 1810
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 5.84,
+  "http": 200,
+  "in_tok": 771,
+  "out_tok": 556,
+  "raw_len": 1941
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.86,
+  "http": 200,
+  "in_tok": 883,
+  "out_tok": 564,
+  "raw_len": 1811
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 12.71,
+  "http": 200,
+  "in_tok": 901,
+  "out_tok": 698,
+  "raw_len": 1060
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 36.64,
+  "http": 200,
+  "in_tok": 822,
+  "out_tok": 1368,
+  "raw_len": 5052
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 1.25,
+  "http": 200,
+  "in_tok": 577,
+  "out_tok": 378,
+  "raw_len": 1226
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 3.91,
+  "http": 200,
+  "in_tok": 851,
+  "out_tok": 439,
+  "raw_len": 1371
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 0.68,
+  "http": 200,
+  "in_tok": 718,
+  "out_tok": 143,
+  "raw_len": 527
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 4.35,
+  "http": 200,
+  "in_tok": 748,
+  "out_tok": 243,
+  "raw_len": 808
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 4.05,
+  "http": 200,
+  "in_tok": 684,
+  "out_tok": 127,
+  "raw_len": 509
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 1.53,
+  "http": 200,
+  "in_tok": 411,
+  "out_tok": 334,
+  "raw_len": 1339
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 2.14,
+  "http": 200,
+  "in_tok": 695,
+  "out_tok": 217,
+  "raw_len": 834
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.2,
+  "http": 200,
+  "in_tok": 756,
+  "out_tok": 273,
+  "raw_len": 879
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 5.82,
+  "http": 200,
+  "in_tok": 778,
+  "out_tok": 325,
+  "raw_len": 748
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 4.43,
+  "http": 200,
+  "in_tok": 711,
+  "out_tok": 156,
+  "raw_len": 564
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 0.98,
+  "http": 200,
+  "in_tok": 451,
+  "out_tok": 217,
+  "raw_len": 713
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 2.49,
+  "http": 200,
+  "in_tok": 732,
+  "out_tok": 261,
+  "raw_len": 906
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.14,
+  "http": 200,
+  "in_tok": 756,
+  "out_tok": 334,
+  "raw_len": 1163
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 8.97,
+  "http": 200,
+  "in_tok": 787,
+  "out_tok": 535,
+  "raw_len": 1475
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 10.95,
+  "http": 200,
+  "in_tok": 718,
+  "out_tok": 400,
+  "raw_len": 1562
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 1.62,
+  "http": 200,
+  "in_tok": 448,
+  "out_tok": 349,
+  "raw_len": 1344
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 1.73,
+  "http": 200,
+  "in_tok": 733,
+  "out_tok": 160,
+  "raw_len": 602
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 4.49,
+  "http": 200,
+  "in_tok": 1206,
+  "out_tok": 1758,
+  "raw_len": 5627
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 15.87,
+  "http": 200,
+  "in_tok": 1169,
+  "out_tok": 1039,
+  "raw_len": 3111
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 27.22,
+  "http": 200,
+  "in_tok": 1065,
+  "out_tok": 1003,
+  "raw_len": 3692
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 2.74,
+  "http": 200,
+  "in_tok": 902,
+  "out_tok": 587,
+  "raw_len": 1965
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 10.76,
+  "http": 200,
+  "in_tok": 1141,
+  "out_tok": 1294,
+  "raw_len": 4186
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 2.26,
+  "http": 200,
+  "in_tok": 919,
+  "out_tok": 725,
+  "raw_len": 2394
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 21.27,
+  "http": 200,
+  "in_tok": 925,
+  "out_tok": 1409,
+  "raw_len": 2453
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 24.05,
+  "http": 200,
+  "in_tok": 846,
+  "out_tok": 875,
+  "raw_len": 3142
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 2.26,
+  "http": 200,
+  "in_tok": 614,
+  "out_tok": 520,
+  "raw_len": 1519
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 3.93,
+  "http": 200,
+  "in_tok": 883,
+  "out_tok": 408,
+  "raw_len": 1265
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.52,
+  "http": 200,
+  "in_tok": 866,
+  "out_tok": 377,
+  "raw_len": 1142
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 6.88,
+  "http": 200,
+  "in_tok": 881,
+  "out_tok": 496,
+  "raw_len": 1359
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 15.45,
+  "http": 200,
+  "in_tok": 806,
+  "out_tok": 560,
+  "raw_len": 2049
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 1.51,
+  "http": 200,
+  "in_tok": 559,
+  "out_tok": 323,
+  "raw_len": 1191
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 2.45,
+  "http": 200,
+  "in_tok": 833,
+  "out_tok": 258,
+  "raw_len": 877
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.73,
+  "http": 200,
+  "in_tok": 972,
+  "out_tok": 574,
+  "raw_len": 1840
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 17.19,
+  "http": 200,
+  "in_tok": 974,
+  "out_tok": 835,
+  "raw_len": 1969
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 21.39,
+  "http": 200,
+  "in_tok": 893,
+  "out_tok": 791,
+  "raw_len": 2750
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 1.41,
+  "http": 200,
+  "in_tok": 670,
+  "out_tok": 442,
+  "raw_len": 1438
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 4.22,
+  "http": 200,
+  "in_tok": 934,
+  "out_tok": 444,
+  "raw_len": 1175
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 1.47,
+  "http": 200,
+  "in_tok": 836,
+  "out_tok": 431,
+  "raw_len": 1401
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 8.55,
+  "http": 200,
+  "in_tok": 868,
+  "out_tok": 509,
+  "raw_len": 1292
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 6.44,
+  "http": 200,
+  "in_tok": 791,
+  "out_tok": 226,
+  "raw_len": 831
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 1.59,
+  "http": 200,
+  "in_tok": 530,
+  "out_tok": 403,
+  "raw_len": 1420
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 1.87,
+  "http": 200,
+  "in_tok": 820,
+  "out_tok": 148,
+  "raw_len": 538
+ },
+ {
+  "model": "gemini-control",
+  "retries": 0,
+  "s": 2.02,
+  "http": 200,
+  "in_tok": 746,
+  "out_tok": 662,
+  "raw_len": 2339
+ },
+ {
+  "model": "granite42",
+  "retries": 0,
+  "s": 9.37,
+  "http": 200,
+  "in_tok": 782,
+  "out_tok": 550,
+  "raw_len": 1282
+ },
+ {
+  "model": "granite40h",
+  "retries": 0,
+  "s": 19.09,
+  "http": 200,
+  "in_tok": 715,
+  "out_tok": 697,
+  "raw_len": 2638
+ },
+ {
+  "model": "nova-micro",
+  "retries": 0,
+  "s": 8.08,
+  "http": 200,
+  "in_tok": 438,
+  "out_tok": 277,
+  "raw_len": 1057
+ },
+ {
+  "model": "laguna",
+  "retries": 0,
+  "s": 2.81,
+  "http": 200,
+  "in_tok": 728,
+  "out_tok": 303,
+  "raw_len": 1222
+ }
+]
