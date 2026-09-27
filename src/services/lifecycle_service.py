@@ -1,7 +1,7 @@
 import logging
 import json
 import re
-from typing import Any, Optional, List, Tuple
+from typing import Any, Dict, Optional, List, Tuple
 from uuid import UUID
 from datetime import datetime, timezone
 from sqlmodel import select
@@ -1133,6 +1133,262 @@ class LifecycleService:
                 return f"already_resolved:{label}"
         return None
 
+    # Bounded live-matter set consulted by entity-less continuity recovery.
+    _ENTITYLESS_MAX_LIVE = 4
+
+    async def _recover_entityless_reference(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        candidate: ExtractionCandidate, message_id: str, frame: Optional[str],
+        matter_text: str, expectation_id: Optional[UUID],
+        now: datetime,
+    ) -> Tuple[Optional[OpenLoop], bool]:
+        """Matter continuity without explicit local identity cues (Track E).
+
+        An entity-less, referential follow-up ("What happened with the
+        paperwork?", "Did that ever come through?", "How's he doing?") names
+        nothing the entity gate can resolve and may share zero tokens with
+        the live matter — so every overlap-gated path (reuse, fulfil,
+        resolve, reconcile, recruitment) starves and the utterance falls
+        through to minting a fresh, unrelated loop. This path recovers the
+        referent from live discourse state instead:
+
+        - gate: referential shape only (interrogative recall OR deictic
+          shorthand). Declarative novelty ("Paperwork finally sorted")
+          falls through to normal creation untouched;
+        - gate: no resolvable subject entities. Anything the entity
+          machinery can ground already ran above;
+        - retrieval (broadened, non-mutating): live OPEN loops in this
+          session, recent first, bounded. Retrieval never decides;
+        - grounding: deterministic sole-overlap reuse, else the existing
+          `same_matter` judge over the live set (cross-language safe: no
+          lexical bar before the judge), else one bounded history-assisted
+          round, else hold;
+        - holds are visible: the unresolved distinction lands on the
+          existing Attention substrate (hypothesis + alternatives +
+          evidence ref) — never a fresh loop, never an interrogation.
+
+        Returns (loop, held): a loop means "reused, return it";
+        (None, True) means "held as attention, create nothing";
+        (None, False) means "not an entity-less reference, use the normal
+        path". Never mutates a RESOLVED row; never clarifies.
+        """
+        from src.services.ownership import is_deictic_shorthand, is_interrogative
+
+        if not (is_interrogative(matter_text)
+                or is_deictic_shorthand(matter_text)):
+            return None, False
+        entities = await self._resolve_candidate_entities(
+            db, workspace_id=workspace_id, session_id=session_id,
+            candidate=candidate, message_id=message_id, frame=frame)
+        if entities:
+            return None, False
+        live = list((await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == workspace_id,
+            OpenLoop.honcho_session_id == session_id,
+            OpenLoop.status == OpenLoopStatus.OPEN,
+        ).order_by(OpenLoop.updated_at.desc()).limit(
+            self._ENTITYLESS_MAX_LIVE))).scalars().all())
+        if not live:
+            await self._hold_entityless_reference(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id, candidate=candidate,
+                utterance=matter_text, rows=[],
+                reason="no live matter to attach; held without asking")
+            return None, True
+        # Deterministic sole-candidate retrieval: exactly one live matter
+        # sharing even one content token takes a referential follow-up.
+        # Any competition at all routes to judged confirmation below.
+        if len(live) == 1:
+            only_tokens = self._significant_tokens(
+                f"{live[0].title or ''} {live[0].summary or ''}")
+            if only_tokens & self._significant_tokens(matter_text):
+                return await self._touch_reused_loop(
+                    db, loop=live[0], entities=[],
+                    matter_text=matter_text, message_id=message_id,
+                    expectation_id=expectation_id, now=now), True
+        try:
+            from src.services import semantic_judge
+            adapter = semantic_judge._adapter()
+        except Exception:
+            adapter = None
+        if adapter is None:
+            await self._hold_entityless_reference(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id, candidate=candidate,
+                utterance=matter_text, rows=live,
+                reason="no semantic judge available; held without guessing")
+            return None, True
+        confirmed = []
+        for loop in live:
+            text = f"{loop.title or ''} {loop.summary or ''}".strip() or "open loop"
+            try:
+                result = await semantic_judge.adjudicate(
+                    kind="same_matter", earlier=text, later=matter_text,
+                    adapter=adapter)
+            except Exception as err:
+                logger.warning("entity-less same-matter judge failed: %s", err)
+                continue
+            if result.accepted and result.evidence_span.strip() \
+                    and result.evidence_span.strip() in matter_text:
+                confirmed.append(loop)
+        if len(confirmed) == 1:
+            loop = await self._touch_reused_loop(
+                db, loop=confirmed[0], entities=[],
+                matter_text=matter_text, message_id=message_id,
+                expectation_id=expectation_id, now=now)
+            await self._trace_entityless(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id, loop=loop, judgement=None,
+                recruited=False, query="", provenances=[])
+            return loop, True
+        if len(confirmed) > 1:
+            await self._hold_entityless_reference(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id, candidate=candidate,
+                utterance=matter_text, rows=confirmed,
+                reason="several live matters fit; held without guessing")
+            return None, True
+        # Zero confirmed on current evidence alone: one bounded
+        # history-assisted round before holding (Canon 12-13 — investigate
+        # privately). Reuses the existing recruitment machinery and its
+        # budgets; the provider is fail-open None by default.
+        try:
+            from src.services import evidence_recruitment as recruitment
+            provider = (recruitment.default_history_provider()
+                        if recruitment.recruit_enabled() else None)
+        except Exception as err:
+            logger.warning("entity-less recruitment setup failed: %s", err)
+            provider = None
+        if provider is not None:
+            winner = await self._recruit_entityless_winner(
+                db, workspace_id=workspace_id, session_id=session_id,
+                peer_id=candidate.actor_peer_id,
+                message_id=message_id, utterance=matter_text,
+                rows=live, adapter=adapter, provider=provider)
+            if winner is not None:
+                loop, judgement, query, provenances = winner
+                loop = await self._touch_reused_loop(
+                    db, loop=loop, entities=[],
+                    matter_text=matter_text, message_id=message_id,
+                    expectation_id=expectation_id, now=now)
+                await self._trace_entityless(
+                    db, workspace_id=workspace_id, session_id=session_id,
+                    message_id=message_id, loop=loop, judgement=judgement,
+                    recruited=True, query=query, provenances=provenances)
+                return loop, True
+        await self._hold_entityless_reference(
+            db, workspace_id=workspace_id, session_id=session_id,
+            message_id=message_id, candidate=candidate,
+            utterance=matter_text, rows=live,
+            reason="no single grounded referent; held without asking")
+        return None, True
+
+    async def _recruit_entityless_winner(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        peer_id: Optional[str], message_id: str, utterance: str,
+        rows: List[OpenLoop], adapter: Any, provider: Any,
+    ) -> Optional[Tuple[OpenLoop, Any, str, List[str]]]:
+        """One bounded history-assisted round over the live set.
+
+        Returns (loop, judgement, query, provenances) for a single
+        grounded winner, else None. Never mutates; never clarifies.
+        """
+        from src.services import evidence_recruitment as recruitment
+
+        rejected = [{
+            "kind": "same_matter",
+            "matter": f"{loop.title or ''} {loop.summary or ''}".strip() or "open loop",
+            "target": loop,
+        } for loop in rows]
+        try:
+            outcome = await recruitment.recruit_and_rejudge(
+                workspace_id=workspace_id, session_id=session_id,
+                peer_id=peer_id or "", message_id=message_id,
+                text=utterance, rejected=rejected,
+                adapter=adapter, history_provider=provider)
+        except Exception as err:
+            logger.warning("entity-less recruitment failed (fail-open): %s", err)
+            return None
+        winner = outcome.get("winner")
+        if winner is None:
+            return None
+        pair = winner.get("pair") or {}
+        hits = winner.get("hits") or []
+        return (pair.get("target"),
+                winner.get("judgement"),
+                str(winner.get("query") or ""),
+                [h.provenance for h in hits])
+
+    async def _hold_entityless_reference(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        message_id: str, candidate: ExtractionCandidate, utterance: str,
+        rows: List[OpenLoop], reason: str,
+    ) -> None:
+        """Hold an unresolvable referential follow-up as future attention.
+
+        The utterance is referential (it points at a prior matter), so
+        minting a fresh loop would be false novelty; the referent is
+        unresolved, so merging would be false certainty. The distinction —
+        hypothesis + alternatives + evidence ref — lands on the existing
+        Attention substrate as an available conversational move.
+        """
+        if rows:
+            alternatives = "; ".join(
+                f"({i + 1}) {(row.title or 'untitled matter')[:120]}"
+                for i, row in enumerate(rows[:4]))
+            content = (
+                f"Unresolved reference {utterance[:160]!r} could mean "
+                f"{len(rows)} live matters: {alternatives}. "
+                f"{reason}."
+            )
+        else:
+            content = (
+                f"Unresolved reference {utterance[:160]!r}. {reason}."
+            )
+        try:
+            await record_ambiguity_attention(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id,
+                candidate_key=f"entityless_hold:{candidate.candidate_key}",
+                content=content, owner_peer_id=None, confidence=0.6)
+        except Exception as err:
+            logger.warning("entity-less hold attention failed: %s", err)
+
+    async def _trace_entityless(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        message_id: str, loop: OpenLoop, judgement: Any, recruited: bool,
+        query: str, provenances: List[str],
+    ) -> None:
+        """Audit trace for an entity-less reuse (direct or recruited)."""
+        try:
+            from src.services import semantic_judge
+            from src.services.semantic_reconciliation import _mark
+        except Exception as err:
+            logger.warning("entity-less trace import failed: %s", err)
+            return
+        detail: Dict[str, Any] = {
+            "kind": "same_matter", "target_id": str(loop.id),
+            "via": "entityless_recovery",
+        }
+        if judgement is not None:
+            detail.update({
+                "verdict": getattr(judgement, "verdict", "?"),
+                "confidence": getattr(judgement, "confidence", 0.0),
+                "evidence_span": getattr(judgement, "evidence_span", ""),
+            })
+        if recruited:
+            detail.update({
+                "recruited_query": query[:500],
+                "recruited_hits": provenances,
+            })
+        await _mark(db, workspace_id=workspace_id, session_id=session_id,
+                    message_id=message_id,
+                    item_key=(f"entityless:{loop.id}:{message_id}"
+                              + (":recruited" if recruited else "")),
+                    status=("accepted_via_recruitment"
+                            if recruited else "accepted_entityless"),
+                    detail=detail, model=semantic_judge.judge_model_id())
+
     async def _resolve_candidate_entities(
         self, db: AsyncSession, *, workspace_id: str, session_id: str,
         candidate: ExtractionCandidate, message_id: str,
@@ -1608,6 +1864,20 @@ class LifecycleService:
                     "Skipped new OpenLoop for message_id=%s: %s answers it",
                     message_id, already_resolved,
                 )
+                return None
+            # Entity-less continuity recovery (Track E): a referential
+            # follow-up naming nothing ("paperwork?", "did that come
+            # through?", "how's he doing?") starves every overlap-gated
+            # path. Recover from live discourse state, or hold visibly.
+            recovered, held = await self._recover_entityless_reference(
+                db, workspace_id=workspace_id, session_id=session_id,
+                candidate=candidate, message_id=message_id, frame=frame,
+                matter_text=matter_text, expectation_id=expectation_id,
+                now=now or datetime.now(timezone.utc),
+            )
+            if recovered is not None:
+                return recovered
+            if held:
                 return None
         if reusable is not None:
             return await self._touch_reused_loop(
