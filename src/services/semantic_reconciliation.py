@@ -272,6 +272,33 @@ async def reconcile_turn(
         OpenLoop.honcho_message_id != message_id,
     ).order_by(OpenLoop.created_at.desc()).limit(MAX_OPEN_TARGETS))).scalars().all()
     loops = [lp for lp in loops if str(lp.id) not in closed]
+    if closed and loops:
+        # Same consumed-evidence guard as try_resolve_open_loop: structural
+        # release already closed a sibling on this turn's text. Judging the
+        # leftovers alone would crown a vocabulary neighbour sole winner by
+        # elimination (payment closed -> form "wins"). Only loop closures
+        # are suppressed; expectation refinement is a different lane.
+        try:
+            wanted = []
+            for i in closed:
+                try:
+                    wanted.append(i if isinstance(i, UUID) else UUID(str(i)))
+                except (TypeError, ValueError):
+                    continue
+            if not wanted:
+                raise ValueError("no parseable closed ids")
+            closed_rows = (await db.execute(select(OpenLoop).where(
+                OpenLoop.honcho_workspace_id == workspace_id,
+                OpenLoop.id.in_(wanted),
+            ))).scalars().all()
+            text_tokens = LifecycleService._significant_tokens(text)
+            for crow in closed_rows:
+                if text_tokens & LifecycleService._significant_tokens(
+                        f"{crow.title or ''} {crow.summary or ''}"):
+                    loops = []
+                    break
+        except Exception as err:
+            logger.warning("closed-loop guard failed (fail-open): %s", err)
     exps = (await db.execute(select(Expectation).where(
         Expectation.honcho_workspace_id == workspace_id,
         Expectation.honcho_session_id == session_id,
@@ -293,6 +320,7 @@ async def reconcile_turn(
     result["pairs"] = len(pairs)
 
     rejected: List[Dict[str, Any]] = []
+    resolves_accepts: List[Any] = []
     for pair in pairs[:MAX_JUDGE_CALLS_PER_TURN]:
         kind = pair["kind"]
         target = pair["target"]
@@ -319,12 +347,40 @@ async def reconcile_turn(
                         model=semantic_judge.judge_model_id())
             rejected.append(pair)
             continue
+        if kind == "resolves":
+            # Track D: closure needs a single grounded winner. Shared words
+            # ("school trip payment" vs "school trip permission form") can
+            # convince the judge twice; applying both would close a distinct
+            # matter on vocabulary overlap. Collect first, apply below.
+            resolves_accepts.append((pair, adjudication, judgement,
+                                     item_key, base_detail))
+            continue
         await _apply_accept(
             db, workspace_id=workspace_id, session_id=session_id,
             message_id=message_id, peer_id=peer_id, text=text, now=now,
             kind=kind, target=target, matter=pair["matter"],
             adjudication=adjudication, judgement=judgement,
             recruit=None, result=result)
+    if len(resolves_accepts) == 1:
+        pair, adjudication, judgement, item_key, base_detail = resolves_accepts[0]
+        await _apply_accept(
+            db, workspace_id=workspace_id, session_id=session_id,
+            message_id=message_id, peer_id=peer_id, text=text, now=now,
+            kind="resolves", target=pair["target"], matter=pair["matter"],
+            adjudication=adjudication, judgement=judgement,
+            recruit=None, result=result)
+    elif len(resolves_accepts) > 1:
+        # Ambiguous closure is worse than a missed one: hold everything and
+        # leave an audit trace per matter. Never clarifies.
+        for pair, adjudication, judgement, item_key, base_detail in resolves_accepts:
+            await _mark(db, workspace_id=workspace_id, session_id=session_id,
+                        message_id=message_id, item_key=item_key,
+                        status="ambiguous_hold",
+                        detail={**base_detail,
+                                "rationale": adjudication.rationale,
+                                "evidence_span": adjudication.evidence_span,
+                                "competitors": len(resolves_accepts)},
+                        model=semantic_judge.judge_model_id())
     if result["accepted"] == 0 and rejected and history_provider is not None:
         await _recruit_after_rejection(
             db, workspace_id=workspace_id, session_id=session_id,

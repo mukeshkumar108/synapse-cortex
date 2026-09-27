@@ -29,7 +29,7 @@ from src.models.commitment_candidate import (
 )
 from src.models.operational_state import TurnStamp
 from src.schemas.candidate import ExtractionCandidate
-from src.services.ownership import is_external_counterparty
+from src.services.ownership import is_external_counterparty, is_interrogative
 from src.services.semantic_promotion import promote_transition
 
 logger = logging.getLogger(__name__)
@@ -201,6 +201,16 @@ class CommitmentCandidateService:
         # VIOLATE) whenever nothing confirms the sender as the actor —
         # no judge available, judge unclear/no, or nothing to check with.
         resolved_model_authority = candidate.authority if candidate.authority in ("act", "ask") else None
+        # Track D: a question asserts nothing committable. Recall-shaped
+        # utterances ("Did Carlos ever sort that?") must never mint or
+        # promote ACT authority however the extractor labelled them; ASK
+        # preserves the evidence without creating an actionable obligation.
+        # Structural guard only: it caps authority, never merges or fulfils.
+        question_shaped = is_interrogative(evidence) or is_interrogative(title)
+        if question_shaped:
+            resolved_model_authority = (
+                "ask" if resolved_model_authority is not None else None
+            )
         marker_defeated = bool(
             candidate.is_quoted
             or candidate.is_reported_speech
@@ -262,6 +272,7 @@ class CommitmentCandidateService:
             # ASK -> ACT. Repetition alone never promotes.
             if (
                 not is_counterparty
+                and not question_shaped
                 and existing_canonical.authority != CommitmentCandidateAuthority.ACT
                 and (
                     resolved_model_authority == "act"
@@ -301,6 +312,7 @@ class CommitmentCandidateService:
                 same_matter.updated_at = _now_naive()
                 if (
                     same_matter.authority != CommitmentCandidateAuthority.ACT
+                    and not question_shaped
                     and (
                         resolved_model_authority == "act"
                         or (candidate.evidence_class or "") in (
@@ -641,23 +653,27 @@ class CommitmentCandidateService:
             return None
 
         scored = []
+        actor_tokens = LifecycleService._actor_name_tokens(candidate.subject_refs)
         for row in rows:
-            shared = LifecycleService._significant_tokens(evidence_text) & LifecycleService._significant_tokens(row.title)
+            matter_tokens = LifecycleService._significant_tokens(row.title)
+            shared = LifecycleService._significant_tokens(evidence_text) & matter_tokens
             if shared:
-                scored.append((len(shared), row))
+                # Deterministic authority needs content beyond the actor's
+                # own name (same stem-doubling guard as the loop lane).
+                scored.append((len(shared), len(shared - actor_tokens), row))
         if not scored:
             return None
-        scored.sort(key=lambda item: item[0], reverse=True)
-        strong = [item for item in scored if item[0] >= 2]
+        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        strong = [item for item in scored if item[1] >= 2]
         if len(strong) == 1 and len(scored) == 1:
             # Sole lexical candidate overall: no competing matter shares even
             # one significant token, so row selection cannot misfire onto a
             # vocabulary neighbour ("school trip payment" vs "school trip
             # permission form"). Any competition at all routes to judged
             # confirmation below; ambiguity stays PENDING, never guessed.
-            await self._fulfill_row(db, strong[0][1], message_id=message_id, candidate=candidate,
+            await self._fulfill_row(db, strong[0][2], message_id=message_id, candidate=candidate,
                                     evidence_note="deterministic-overlap")
-            return strong[0][1].id
+            return strong[0][2].id
         # Otherwise (several strong, or one strong with weak competition):
         # selection among vocabulary neighbours is a semantic decision, not
         # a counting one — fall through to judged confirmation, which
@@ -665,8 +681,13 @@ class CommitmentCandidateService:
         if len(strong) > 1:
             # Two-plus commitments both look strongly like the same
             # evidence: an ambiguous match is worse than a missed one.
-            # Keep the cheap early exit (no judge calls spent); the judged
-            # path below handles at most one strong winner with competition.
+            # Hold visibly (Track D): the competition itself is meaningful
+            # uncertainty worth carrying as future attention, not a question.
+            await self._record_fulfilment_ambiguity(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id, candidate=candidate,
+                rows=[row for _, _, row in strong],
+                evidence_text=evidence_text)
             return None
 
         # Weak lexical retrieval only (overlap==1): cheap prefilter results,
@@ -680,7 +701,7 @@ class CommitmentCandidateService:
         if adapter is None:
             return None
         confirmed = []
-        for _, row in scored[:3]:
+        for _, _, row in scored[:3]:
             try:
                 result = await semantic_judge.adjudicate(
                     kind="fulfils", earlier=row.title, later=evidence_text, adapter=adapter)
@@ -694,7 +715,116 @@ class CommitmentCandidateService:
             await self._fulfill_row(db, confirmed[0], message_id=message_id, candidate=candidate,
                                     evidence_note="judged")
             return confirmed[0].id
+        # Full completion unconfirmed (Track D, RC1): partial evidence must
+        # remain partial and auditable, not vanish. Ask the existing
+        # `partially_fulfils` question over the same retrieved set. Exactly
+        # one grounded winner accumulates evidence and stays PENDING (the
+        # remainder may still violate later — partial payment does not owe
+        # less); anything ambiguous holds, visibly when consequential.
+        partial_winner = await self._confirm_partial(
+            db, scored=scored, evidence_text=evidence_text,
+            message_id=message_id, candidate=candidate,
+            workspace_id=workspace_id, session_id=session_id)
+        if partial_winner is not None:
+            return None
+        if len(scored) > 1:
+            await self._record_fulfilment_ambiguity(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id, candidate=candidate,
+                rows=[row for _, _, row in scored[:4]],
+                evidence_text=evidence_text)
         return None
+
+    async def _confirm_partial(
+        self, db: AsyncSession, *, scored, evidence_text: str,
+        message_id: str, candidate: ExtractionCandidate,
+        workspace_id: str, session_id: str,
+    ) -> Optional["UUID"]:
+        """Accumulate judge-confirmed partial fulfilment on a single matter.
+
+        Returns the row id when partial evidence was recorded (the row stays
+        PENDING), else None. Attribution safety mirrors the fulfil path:
+        exactly one grounded winner, otherwise hold. `resolution_evidence`
+        is deliberately untouched — partial evidence must not satisfy the
+        due-violation guard, or the unpaid remainder could never violate.
+        """
+        from src.services.semantic_promotion import promote_transition
+
+        try:
+            from src.services import semantic_judge
+            adapter = semantic_judge._adapter()
+        except Exception:
+            adapter = None
+        if adapter is None:
+            return None
+        confirmed = []
+        for _, _, row in scored[:3]:
+            try:
+                result = await semantic_judge.adjudicate(
+                    kind="partially_fulfils", earlier=row.title,
+                    later=evidence_text, adapter=adapter)
+            except Exception as err:
+                logger.warning("commitment partial judge failed: %s", err)
+                continue
+            if result.accepted and result.evidence_span.strip() \
+                    and result.evidence_span.strip() in evidence_text:
+                confirmed.append((row, result))
+        if len(confirmed) != 1:
+            return None
+        row, verdict = confirmed[0]
+        prior = (row.evidence_verbatim or "")
+        if evidence_text and evidence_text not in prior:
+            row.evidence_verbatim = f"{prior}\n---\n{evidence_text}"[-4000:]
+        row.updated_at = _now_naive()
+        db.add(row)
+        await db.commit()
+        try:
+            await promote_transition(
+                db, workspace_id=workspace_id, rel_type="partially_fulfils",
+                from_text=evidence_text, to_text=row.title,
+                source_key=f"commitment_partial:{message_id}#{row.id}",
+                evidence_refs=[f"honcho_message:{message_id}"],
+                subjects_to=[row.owner_peer_id] if row.owner_peer_id else [],
+                formation="inferred", confidence=verdict.confidence)
+        except Exception as err:
+            logger.warning("commitment partial promotion failed: %s", err)
+        logger.info("Recorded partial fulfilment on CommitmentCandidate id=%s", row.id)
+        return row.id
+
+    async def _record_fulfilment_ambiguity(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        message_id: str, candidate: ExtractionCandidate, rows,
+        evidence_text: str,
+    ) -> None:
+        """Hold consequential ambiguity visibly (Track D, RC5).
+
+        Several live matters compete for one piece of fulfilment evidence and
+        no single winner emerged: never guess, never interrogate — carry the
+        unresolved distinction as available future attention (hypothesis +
+        alternatives + evidence ref) on the existing Attention substrate.
+        """
+        try:
+            from src.services.lifecycle_service import (
+                record_ambiguity_attention,
+            )
+        except Exception as err:
+            logger.warning("ambiguity attention import failed: %s", err)
+            return
+        titles = [getattr(row, "title", "") or "untitled matter" for row in rows]
+        content = (
+            f"Ambiguous evidence {evidence_text[:160]!r} could belong to "
+            f"{len(titles)} live matters: "
+            + "; ".join(f"({i + 1}) {t[:120]}" for i, t in enumerate(titles))
+            + ". Unresolved which one — not asked now."
+        )
+        try:
+            await record_ambiguity_attention(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id,
+                candidate_key=f"fulfil_ambiguity:{candidate.candidate_key}",
+                content=content, owner_peer_id=None, confidence=0.6)
+        except Exception as err:
+            logger.warning("fulfilment ambiguity attention failed: %s", err)
 
     async def _fulfill_row(
         self, db: AsyncSession, row: CommitmentCandidate, *, message_id: str,

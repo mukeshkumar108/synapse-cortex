@@ -330,9 +330,17 @@ async def ingest_turn_event(
     closed_loop_ids: list = []
     violated_ids: list = []
     try:
+        # New-matter texts this turn declares: structural release must not
+        # close a vocabulary neighbour on shared words (payment vs form).
+        new_matter_texts = [
+            f"{cand.canonical_title or ''} {cand.open_loop_hint or ''}".strip()
+            for cand in candidates
+            if cand.open_loop_hint
+        ]
         closed_loop_ids = await lifecycle_service.close_answered_loops(
             db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-            message_id=payload.honcho_message_id, text=payload.text, now=payload.now)
+            message_id=payload.honcho_message_id, text=payload.text, now=payload.now,
+            skip_overlapping=new_matter_texts)
     except Exception as err:
         logger.warning("Loop release failed: %s", err)
     try:
@@ -461,7 +469,7 @@ async def ingest_turn_event(
             mutated_ids.extend(await lifecycle_service.handle_outcome_mutations(
                 db=db, workspace_id=payload.workspace_id, session_id=payload.session_id,
                 message_id=payload.honcho_message_id, candidate=cand, now=payload.now,
-                owner_peer_id=payload.peer_id))
+                owner_peer_id=payload.peer_id, closed_loop_ids=closed_loop_ids))
             continue
 
         operational_result = await operational_state_service.apply(
@@ -508,6 +516,19 @@ async def ingest_turn_event(
             )
         except Exception as err:
             logger.warning("Commitment fulfilment check failed: %s", err)
+        # A2b. Open-loop judged resolution (Track D): the loop lane had no
+        # judged fulfilment consumer — exact target_id mutations need an ID
+        # the evidence rarely carries, close_answered_loops is lexical-only,
+        # and reconcile_turn has a 40-char floor. Short/paraphrased
+        # cross-source completion falls through every path without this.
+        try:
+            await lifecycle_service.try_resolve_open_loop(
+                db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                candidate=cand, message_id=payload.honcho_message_id, now=payload.now,
+                closed_loop_ids=closed_loop_ids,
+            )
+        except Exception as err:
+            logger.warning("Open loop resolution check failed: %s", err)
 
         # B. Suppressions
         await lifecycle_service.create_suppression_if_needed(

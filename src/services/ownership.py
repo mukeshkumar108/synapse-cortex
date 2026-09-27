@@ -11,8 +11,43 @@ Future dreaming cognition writes companion-owned inferred rows directly with
 holder=companion; this helper governs turn-extraction attribution only.
 """
 from typing import Collection, Optional
+import re
 
 _GENERIC_ACTORS = frozenset({"", "user", "assistant", "system", "unknown", "nobody"})
+
+# Structural question-shape signal (Track D). A question asserts nothing
+# committable and, when it shares vocabulary with settled history, is recall
+# rather than a fresh obligation. This is a hard-boundary guard only: it can
+# only ever PREVENT creation/authority (the safe direction), never merge,
+# fulfil, or resolve anything.
+_QUESTION_LEAD_RE = re.compile(
+    r"^\s*(did|do|does|is|are|was|were|have|has|had|can|could|will|would|"
+    r"should|what|when|where|who|whom|whose|which|whether|how|why)\b",
+    re.IGNORECASE,
+)
+
+# Bare pronouns / deictics that can only resolve against live matters, never
+# stand alone as new-matter identity (Track D, mirroring the expectation
+# lane's single-deictic rule).
+_DEICTIC_RE = re.compile(
+    r"\b(him|her|them|us|it|that|this|those|these|they|he|she)\b",
+    re.IGNORECASE,
+)
+
+
+def is_interrogative(text: str) -> bool:
+    """Whether an utterance is shaped as a question (recall candidate)."""
+    stripped = (text or "").strip()
+    if not stripped:
+        return False
+    if stripped.endswith("?"):
+        return True
+    return bool(_QUESTION_LEAD_RE.match(stripped))
+
+
+def is_deictic_shorthand(text: str) -> bool:
+    """Whether a short utterance leans on pronouns/deictics for its referent."""
+    return bool(_DEICTIC_RE.search(text or ""))
 
 
 def resolve_owner(

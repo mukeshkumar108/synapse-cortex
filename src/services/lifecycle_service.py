@@ -25,6 +25,57 @@ logger = logging.getLogger(__name__)
 temporal_grounder = TemporalGrounding()
 
 
+async def record_ambiguity_attention(
+    db: AsyncSession,
+    *,
+    workspace_id: str,
+    session_id: str,
+    message_id: str,
+    candidate_key: str,
+    content: str,
+    owner_peer_id: Optional[str] = None,
+    confidence: float = 0.6,
+):
+    """Carry consequential-but-unresolved ambiguity as future attention.
+
+    Shared Track D writer for every "several live matters, no single winner"
+    hold: the unresolved distinction (hypothesis + alternatives + evidence
+    ref) lands on the existing Attention substrate as an available
+    follow-up opportunity — never an immediate interrogation, never a new
+    schema. Idempotent per (message, candidate_key): replays return the
+    existing row instead of spamming.
+    """
+    from src.models.attention_candidate import (
+        AttentionCandidate,
+        AttentionCandidateKind,
+    )
+
+    row = AttentionCandidate(
+        honcho_workspace_id=workspace_id,
+        honcho_session_id=session_id,
+        owner_peer_id=owner_peer_id,
+        source_message_id=message_id,
+        candidate_key=candidate_key,
+        kind=AttentionCandidateKind.PENDING_QUESTION,
+        content=(content or "")[:500],
+        confidence=max(0.0, min(1.0, confidence)),
+    )
+    db.add(row)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        existing = (await db.execute(select(AttentionCandidate).where(
+            AttentionCandidate.honcho_workspace_id == workspace_id,
+            AttentionCandidate.source_message_id == message_id,
+            AttentionCandidate.candidate_key == candidate_key,
+        ))).scalar_one_or_none()
+        return existing
+    await db.refresh(row)
+    logger.info("Recorded ambiguity attention id=%s", row.id)
+    return row
+
+
 class LifecycleService:
     """
     Manages V4 companion-state mutations:
@@ -128,6 +179,7 @@ class LifecycleService:
         candidate: ExtractionCandidate,
         now: datetime,
         owner_peer_id: Optional[str] = None,
+        closed_loop_ids: Optional[List[Any]] = None,
     ) -> List[UUID]:
         """Processes resolution or cancellation hints against active expectations."""
         if not candidate.resolution_hint:
@@ -150,6 +202,15 @@ class LifecycleService:
             try:
                 target_id = UUID(str(hint.get("target_id")))
             except ValueError:
+                # No exact target carried (the common case for bank feeds,
+                # external senders, and paraphrased user reports): fall
+                # through to judged resolution for open loops rather than
+                # dropping the evidence. Other lanes keep prior behaviour.
+                if kind == "open_loop" and hint.get("action") == "fulfill":
+                    await self.try_resolve_open_loop(
+                        db, workspace_id=workspace_id, session_id=session_id,
+                        candidate=candidate, message_id=message_id, now=now,
+                        closed_loop_ids=closed_loop_ids)
                 return []
             row = (await db.execute(select(model).where(model.id == target_id,
                 model.honcho_workspace_id == workspace_id,
@@ -194,6 +255,14 @@ class LifecycleService:
             )
             if resolved is not None:
                 return [resolved]
+            if not active_expectations:
+                # No live expectation to disambiguate among: fulfilment
+                # evidence aimed elsewhere (commitments, loops, bank feeds,
+                # counterparty claims) must not become a bare "can you
+                # clarify?" — those lanes judge or hold it themselves
+                # (try_fulfill / try_resolve_open_loop / reconcile_turn).
+                # Uncertainty is held, not interrogated by default.
+                return []
             await self._create_clarification(
                 db, workspace_id, session_id, message_id, candidate,
                 "Outcome or correction target is ambiguous",
@@ -430,6 +499,22 @@ class LifecycleService:
                 expectation.id, len(modified),
             )
         return modified
+
+    @staticmethod
+    def _actor_name_tokens(refs) -> set:
+        """Significant tokens of the evidence's own named referents.
+
+        The actor's name is significant in both texts by construction, and
+        the stemmer doubles plural-ish names ("Carlos" -> {carlos, carlo}),
+        so one shared name alone can look like "strong" overlap. Callers
+        subtract these before applying deterministic bars — the same guard
+        `_find_reusable_open_loop` already applies.
+        """
+        tokens: set = set()
+        for ref in refs or []:
+            if isinstance(ref, str) and ref.strip():
+                tokens |= LifecycleService._significant_tokens(ref)
+        return tokens
 
     @staticmethod
     def _significant_tokens(title: str) -> set:
@@ -673,12 +758,23 @@ class LifecycleService:
     async def close_answered_loops(
         self, db: AsyncSession, *, workspace_id: str, session_id: str,
         message_id: str, text: str, now: datetime,
+        skip_overlapping: Optional[List[str]] = None,
     ) -> List[UUID]:
         """Structural release: a later turn that takes up a loop's unfinished
         matter resolves it, without requiring the original turn to have
         emitted a completion object. Single strict winner (best token overlap
         >= 0.5, strictly above runner-up, different message) or nothing —
-        ambiguous continuations stay open rather than close wrongly."""
+        ambiguous continuations stay open rather than close wrongly.
+
+        `skip_overlapping` (Track D): new-matter texts this same turn
+        declares (open-loop hints). A turn that DECLARES a vocabulary
+        neighbour ("permission form" while "payment" is open) is continuing
+        the subject, not answering the old thread — closing the old loop on
+        it would be a false closure on shared words. Loops sharing even one
+        significant token with the turn's own new matter are spared; the
+        new matter itself is created by the loop lane, never closed here
+        (different message exclusion already covers it).
+        """
         loops = (await db.execute(select(OpenLoop).where(
             OpenLoop.honcho_workspace_id == workspace_id,
             OpenLoop.honcho_session_id == session_id,
@@ -690,11 +786,16 @@ class LifecycleService:
         turn_tokens = self._significant_tokens(text or "")
         if not turn_tokens:
             return []
+        skip_tokens: set = set()
+        for skip_text in skip_overlapping or []:
+            skip_tokens |= self._significant_tokens(skip_text or "")
         scored = []
         for loop in loops:
             loop_tokens = self._significant_tokens(
                 f"{loop.title or ''} {loop.summary or ''}")
             if not loop_tokens:
+                continue
+            if skip_tokens and (loop_tokens & skip_tokens):
                 continue
             overlap = len(turn_tokens & loop_tokens) / max(len(loop_tokens), 1)
             scored.append((overlap, loop))
@@ -869,6 +970,22 @@ class LifecycleService:
 
         refs = [r for r in (candidate.subject_refs or [])[:8] if isinstance(r, str) and r.strip()]
         if not refs:
+            # Deictic shorthand (Track D, RC3): "Still nothing from him."
+            # carries no resolvable entity, so the entity gate cannot fire —
+            # but a bare pronoun cannot be a NEW matter either. Mirroring
+            # the expectation lane's single-deictic rule: exactly one OPEN
+            # loop in the session takes it; any competition holds safe.
+            from src.services.ownership import is_deictic_shorthand
+
+            if not is_deictic_shorthand(matter_text):
+                return None, []
+            only = (await db.execute(select(OpenLoop).where(
+                OpenLoop.honcho_workspace_id == workspace_id,
+                OpenLoop.honcho_session_id == session_id,
+                OpenLoop.status == OpenLoopStatus.OPEN,
+            ))).scalars().all()
+            if len(only) == 1:
+                return only[0], []
             return None, []
         entities = []
         for ref in refs:
@@ -1016,6 +1133,420 @@ class LifecycleService:
                 return f"already_resolved:{label}"
         return None
 
+    async def _resolve_candidate_entities(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        candidate: ExtractionCandidate, message_id: str,
+        frame: Optional[str],
+    ) -> List[Any]:
+        """Shared entity-resolution front-end for open-loop identity checks."""
+        from src.services import entity_service
+
+        refs = [r for r in (candidate.subject_refs or [])[:8]
+                if isinstance(r, str) and r.strip()]
+        entities = []
+        for ref in refs:
+            try:
+                entity, status = await entity_service.resolve_mention(
+                    db, workspace_id=workspace_id, session_id=session_id,
+                    mention=ref, frame=frame, message_id=message_id)
+            except Exception:
+                continue
+            if entity is not None and status in ("linked", "provisioned"):
+                entities.append(entity)
+        return entities
+
+    async def _open_loops_linked_to(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        entities: List[Any],
+    ) -> List[OpenLoop]:
+        """OPEN loops already linked to any of these entities (same session)."""
+        if not entities:
+            return []
+        from src.models.identity import EntityLink
+
+        entity_ids = [e.id for e in entities]
+        linked_object_ids = (await db.execute(select(EntityLink.object_id).where(
+            EntityLink.honcho_workspace_id == workspace_id,
+            EntityLink.object_type == "open_loop",
+            EntityLink.entity_id.in_(entity_ids),
+        ))).scalars().all()
+        if not linked_object_ids:
+            return []
+        return list((await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == workspace_id,
+            OpenLoop.honcho_session_id == session_id,
+            OpenLoop.status == OpenLoopStatus.OPEN,
+            OpenLoop.id.in_(set(linked_object_ids)),
+        ))).scalars().all())
+
+    async def _touch_reused_loop(
+        self, db: AsyncSession, *, loop: OpenLoop, entities: List[Any],
+        matter_text: str, message_id: str,
+        expectation_id: Optional[UUID], now: datetime,
+    ) -> OpenLoop:
+        """Attach new evidence to an existing loop (bump + link + audit)."""
+        from src.services import entity_service
+
+        loop.updated_at = self._naive_utc(now)
+        if expectation_id is not None and loop.expectation_id is None:
+            loop.expectation_id = expectation_id
+        db.add(loop)
+        await db.commit()
+        await db.refresh(loop)
+        for entity in entities:
+            try:
+                await entity_service.link_object(
+                    db, workspace_id=loop.honcho_workspace_id,
+                    object_type="open_loop", object_id=loop.id,
+                    role="subject", entity_id=entity.id,
+                    confidence=0.7, message_id=message_id)
+            except Exception:
+                logger.exception("open loop reuse entity link failed")
+        try:
+            await promote_transition(
+                db, workspace_id=loop.honcho_workspace_id, rel_type="same_as",
+                from_text=matter_text or loop.title,
+                to_text=f"{loop.title or ''} {loop.summary or ''}".strip(),
+                source_key=f"open_loop_reuse:{message_id}#{loop.id}",
+                evidence_refs=[f"honcho_message:{message_id}"],
+                subjects_to=[loop.owner_peer_id] if loop.owner_peer_id else [],
+                formation="inferred", confidence=0.7)
+        except Exception:
+            logger.exception("open loop reuse promotion failed")
+        logger.info(
+            "Reused OpenLoop id=%s for message_id=%s (same matter, new evidence)",
+            loop.id, message_id,
+        )
+        return loop
+
+    async def _route_recall_question(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        candidate: ExtractionCandidate, message_id: str, frame: Optional[str],
+        matter_text: str, owner_peer_id: Optional[str],
+        expectation_id: Optional[UUID], now: datetime,
+    ) -> Tuple[bool, Optional[OpenLoop]]:
+        """Route a recall-shaped question without a semantic judge.
+
+        Returns (handled, loop): handled=True + a loop means "reused, return
+        it"; handled=True + None means "settled history answers it, create
+        nothing"; handled=False means "genuinely new or ambiguous, use the
+        normal creation path". Never mutates a resolved row; never asks.
+        """
+        entities = await self._resolve_candidate_entities(
+            db, workspace_id=workspace_id, session_id=session_id,
+            candidate=candidate, message_id=message_id, frame=frame)
+        if entities:
+            linked = await self._open_loops_linked_to(
+                db, workspace_id=workspace_id, session_id=session_id,
+                entities=entities)
+            if len(linked) == 1:
+                # A question about the one live matter attaches to it —
+                # continued relevance, not a fresh obligation.
+                loop = await self._touch_reused_loop(
+                    db, loop=linked[0], entities=entities,
+                    matter_text=matter_text, message_id=message_id,
+                    expectation_id=expectation_id, now=now)
+                return True, loop
+            if len(linked) > 1:
+                return False, None
+        if await self._recall_matches_settled(
+            db, workspace_id=workspace_id, session_id=session_id,
+            owner_peer_id=owner_peer_id, matter_text=matter_text,
+        ):
+            logger.info(
+                "Skipped new OpenLoop for recall message_id=%s: settled history answers it",
+                message_id,
+            )
+            return True, None
+        return False, None
+
+    async def _recall_matches_settled(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        owner_peer_id: Optional[str], matter_text: str,
+    ) -> bool:
+        """Deterministic settled-history check for recall questions.
+
+        A question sharing even one significant token with an already
+        FULFILLED commitment or RESOLVED loop is recall, not novelty.
+        Skipping creation is non-destructive (no state is mutated; the
+        foreground still answers from history), so the bar is deliberately
+        lower than the merge bars elsewhere — the harm being prevented is
+        immortal resurrection, not a wrong merge.
+        """
+        matter_tokens = self._significant_tokens(matter_text)
+        if not matter_tokens:
+            return False
+        from src.models.commitment_candidate import (
+            CommitmentCandidate, CommitmentCandidateStatus,
+        )
+
+        if owner_peer_id:
+            rows = (await db.execute(select(CommitmentCandidate).where(
+                CommitmentCandidate.honcho_workspace_id == workspace_id,
+                CommitmentCandidate.owner_peer_id == owner_peer_id,
+                CommitmentCandidate.status == CommitmentCandidateStatus.FULFILLED,
+            ).order_by(CommitmentCandidate.updated_at.desc()).limit(10))).scalars().all()
+            for row in rows:
+                if self._significant_tokens(
+                        f"{row.title or ''} {row.evidence_verbatim or ''}") & matter_tokens:
+                    return True
+        loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == workspace_id,
+            OpenLoop.honcho_session_id == session_id,
+            OpenLoop.status == OpenLoopStatus.RESOLVED,
+        ).order_by(OpenLoop.updated_at.desc()).limit(10))).scalars().all()
+        for loop in loops:
+            if self._significant_tokens(
+                    f"{loop.title or ''} {loop.summary or ''}") & matter_tokens:
+                return True
+        return False
+
+    async def _evidence_consumed_by_closed(
+        self, db: AsyncSession, *, workspace_id: str, evidence_text: str,
+        closed_loop_ids: Optional[List[Any]],
+    ) -> bool:
+        """Whether this evidence already closed a sibling matter this turn.
+
+        Structural release (`close_answered_loops`) commits before the
+        judged consumers run. When the same evidence lexically matches a
+        loop closed moments ago, its match was consumed there — resolving
+        a leftover neighbour on the same evidence would be double-closure
+        of one observation (payment closed -> form "wins" by elimination).
+        """
+        if not closed_loop_ids:
+            return False
+        evidence_tokens = self._significant_tokens(evidence_text)
+        if not evidence_tokens:
+            return False
+        try:
+            wanted = []
+            for i in closed_loop_ids:
+                try:
+                    wanted.append(i if isinstance(i, UUID) else UUID(str(i)))
+                except (TypeError, ValueError):
+                    continue
+            if not wanted:
+                return False
+            closed_rows = (await db.execute(select(OpenLoop).where(
+                OpenLoop.honcho_workspace_id == workspace_id,
+                OpenLoop.id.in_(wanted),
+            ))).scalars().all()
+        except Exception:
+            return False
+        for row in closed_rows:
+            if evidence_tokens & self._significant_tokens(
+                    f"{row.title or ''} {row.summary or ''}"):
+                return True
+        return False
+
+    async def try_resolve_open_loop(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        candidate: ExtractionCandidate, message_id: str, now: datetime,
+        closed_loop_ids: Optional[List[Any]] = None,
+    ) -> Optional[UUID]:
+        """Judged resolution consumer for open loops (Track D, RC2).
+
+        The mirror of the commitment `try_fulfill` posture for the loop
+        lane, which previously had no judged consumer at all: exact
+        `target_id` mutations need an ID the evidence rarely carries,
+        `close_answered_loops` is purely lexical, and `reconcile_turn`
+        has a 40-char floor — so short or paraphrased cross-source
+        completion ("Signed contract copy attached.", 39 chars) fell
+        through every path. Lexical overlap retrieves and ranks only; a
+        strong sole-candidate overlap resolves directly (same bar as the
+        shipped fulfilment precedent); weaker retrieval is confirmed by
+        the existing `resolves` judge with a single grounded winner, else
+        the `partially_fulfils` question accumulates partial evidence
+        without closing; residual competition holds visibly as future
+        attention. Never mutates a RESOLVED row, never clarifies.
+        """
+        if not candidate.resolution_hint:
+            return None
+        hint = candidate.resolution_hint
+        if hint.get("action") != "fulfill":
+            return None
+        if candidate.is_hypothetical or candidate.is_quoted:
+            return None
+        evidence_text = " ".join(filter(None, [candidate.raw_evidence, candidate.observation]))
+        if self._has_marker(evidence_text, self.COUNTERFACTUAL_MARKERS):
+            return None
+        if self._has_marker(evidence_text, self.NEGATIVE_OUTCOME_MARKERS):
+            return None
+
+        rows = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == workspace_id,
+            OpenLoop.honcho_session_id == session_id,
+            OpenLoop.status == OpenLoopStatus.OPEN,
+        ))).scalars().all()
+        if not rows:
+            return None
+        if closed_loop_ids and await self._evidence_consumed_by_closed(
+            db, workspace_id=workspace_id, evidence_text=evidence_text,
+            closed_loop_ids=closed_loop_ids,
+        ):
+            # This turn's evidence already closed a sibling matter via
+            # structural release (payment closed -> the same bank line must
+            # not also close the permission form). One evidence, one
+            # closure; the remainder holds rather than crowning a neighbour
+            # sole winner by elimination.
+            return None
+        # Owner-agnostic within the session, matching try_fulfill: completion
+        # evidence legitimately arrives from another sender than the loop
+        # owner (bank feeds, external senders, the user closing a shared
+        # matter).
+        target_id = hint.get("target_id")
+        if target_id:
+            try:
+                target_uuid = UUID(str(target_id))
+            except (TypeError, ValueError):
+                target_uuid = None
+            if target_uuid is not None:
+                for row in rows:
+                    if row.id == target_uuid:
+                        await self._resolve_open_loop_row(
+                            db, row, message_id=message_id,
+                            candidate=candidate, evidence_note="target_id",
+                            now=now)
+                        return row.id
+            return None
+
+        evidence_tokens = self._significant_tokens(evidence_text)
+        actor_tokens = self._actor_name_tokens(candidate.subject_refs)
+        scored = []
+        for row in rows:
+            matter_tokens = self._significant_tokens(
+                f"{row.title or ''} {row.summary or ''}")
+            shared = evidence_tokens & matter_tokens
+            if not shared:
+                continue
+            # Deterministic authority needs content beyond the actor's own
+            # name: the stemmer doubles names ("Carlos" -> {carlos, carlo}),
+            # so one shared name must never satisfy the strong bar alone.
+            content_shared = len(shared - actor_tokens)
+            scored.append((len(shared), content_shared, row))
+        if not scored:
+            return None
+        strong = [item for item in scored if item[1] >= 2]
+        if len(strong) == 1 and len(scored) == 1:
+            await self._resolve_open_loop_row(
+                db, strong[0][2], message_id=message_id,
+                candidate=candidate, evidence_note="deterministic-overlap",
+                now=now)
+            return strong[0][2].id
+        if len(strong) > 1:
+            await self._record_loop_ambiguity(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id, candidate=candidate,
+                rows=[row for _, _, row in strong],
+                evidence_text=evidence_text)
+            return None
+
+        try:
+            from src.services import semantic_judge
+            adapter = semantic_judge._adapter()
+        except Exception:
+            adapter = None
+        if adapter is None:
+            if len(scored) > 1:
+                await self._record_loop_ambiguity(
+                    db, workspace_id=workspace_id, session_id=session_id,
+                    message_id=message_id, candidate=candidate,
+                    rows=[row for _, _, row in scored[:4]],
+                    evidence_text=evidence_text)
+            return None
+        confirmed = []
+        for _, _, row in scored[:3]:
+            try:
+                result = await semantic_judge.adjudicate(
+                    kind="resolves",
+                    earlier=f"{row.title or ''} {row.summary or ''}".strip(),
+                    later=evidence_text, adapter=adapter)
+            except Exception as err:
+                logger.warning("open loop resolve judge failed: %s", err)
+                continue
+            if result.accepted and result.evidence_span.strip() \
+                    and result.evidence_span.strip() in evidence_text:
+                confirmed.append(row)
+        if len(confirmed) == 1:
+            await self._resolve_open_loop_row(
+                db, confirmed[0], message_id=message_id,
+                candidate=candidate, evidence_note="judged", now=now)
+            return confirmed[0].id
+        # Full resolution unconfirmed: partial evidence accumulates on a
+        # single matter without closing it (same RC1 posture as commitments).
+        if len(scored) == 1:
+            sole = scored[0][2]
+            try:
+                partial = await semantic_judge.adjudicate(
+                    kind="partially_fulfils",
+                    earlier=f"{sole.title or ''} {sole.summary or ''}".strip(),
+                    later=evidence_text, adapter=adapter)
+            except Exception as err:
+                logger.warning("open loop partial judge failed: %s", err)
+                partial = None
+            if (partial is not None and partial.accepted
+                    and partial.evidence_span.strip()
+                    and partial.evidence_span.strip() in evidence_text):
+                try:
+                    await promote_transition(
+                        db, workspace_id=workspace_id,
+                        rel_type="partially_fulfils",
+                        from_text=evidence_text,
+                        to_text=f"{sole.title or ''} {sole.summary or ''}".strip(),
+                        source_key=f"open_loop_partial:{message_id}#{sole.id}",
+                        evidence_refs=[f"honcho_message:{message_id}"],
+                        subjects_to=[sole.owner_peer_id]
+                        if sole.owner_peer_id else [],
+                        formation="inferred", confidence=partial.confidence)
+                except Exception as err:
+                    logger.warning("open loop partial promotion failed: %s", err)
+                logger.info("Recorded partial evidence on OpenLoop id=%s",
+                            sole.id)
+                return None
+        if len(scored) > 1:
+            await self._record_loop_ambiguity(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id, candidate=candidate,
+                rows=[row for _, _, row in scored[:4]],
+                evidence_text=evidence_text)
+        return None
+
+    async def _resolve_open_loop_row(
+        self, db: AsyncSession, row: OpenLoop, *, message_id: str,
+        candidate: ExtractionCandidate, evidence_note: str, now: datetime,
+    ) -> None:
+        row.status = OpenLoopStatus.RESOLVED
+        row.resolution_evidence = (
+            f"resolved:{evidence_note}:{message_id}#candidate:{candidate.candidate_key}"
+        )
+        row.updated_at = self._naive_utc(now)
+        db.add(row)
+        await db.commit()
+        logger.info("Resolved OpenLoop id=%s via %s", row.id, evidence_note)
+
+    async def _record_loop_ambiguity(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        message_id: str, candidate: ExtractionCandidate, rows,
+        evidence_text: str,
+    ) -> None:
+        titles = [getattr(row, "title", "") or "untitled matter" for row in rows]
+        content = (
+            f"Ambiguous evidence {evidence_text[:160]!r} could resolve "
+            f"{len(titles)} live matters: "
+            + "; ".join(f"({i + 1}) {t[:120]}" for i, t in enumerate(titles))
+            + ". Unresolved which one — not asked now."
+        )
+        try:
+            await record_ambiguity_attention(
+                db, workspace_id=workspace_id, session_id=session_id,
+                message_id=message_id,
+                candidate_key=f"resolve_ambiguity:{candidate.candidate_key}",
+                content=content,
+                owner_peer_id=getattr(candidate, "actor_peer_id", None),
+                confidence=0.6)
+        except Exception as err:
+            logger.warning("loop ambiguity attention failed: %s", err)
+
     async def create_open_loop_if_needed(
         self,
         db: AsyncSession,
@@ -1042,8 +1573,26 @@ class LifecycleService:
             return existing
 
         from src.services import entity_service
+        from src.services.ownership import is_interrogative
 
         matter_text = candidate.canonical_title or candidate.open_loop_hint or ""
+        if is_interrogative(matter_text):
+            # Recall-shaped utterances ("Did Carlos ever sort that?") are
+            # questions about history, not fresh obligations (Track D, RC4).
+            # A question attaching to exactly one live matter reuses it; a
+            # question answered by settled history creates nothing (the
+            # foreground answers from history); genuine ambiguity or novelty
+            # falls through to the normal path. Deterministic and
+            # adapter-independent; never mutates a resolved row.
+            handled, recalled = await self._route_recall_question(
+                db, workspace_id=workspace_id, session_id=session_id,
+                candidate=candidate, message_id=message_id, frame=frame,
+                matter_text=matter_text, owner_peer_id=owner_peer_id,
+                expectation_id=expectation_id,
+                now=now or datetime.now(timezone.utc),
+            )
+            if handled:
+                return recalled
         reusable, entities = await self._find_reusable_open_loop(
             db, workspace_id=workspace_id, session_id=session_id,
             candidate=candidate, message_id=message_id, frame=frame,
@@ -1061,38 +1610,12 @@ class LifecycleService:
                 )
                 return None
         if reusable is not None:
-            reusable.updated_at = self._naive_utc(now or datetime.now(timezone.utc))
-            if expectation_id is not None and reusable.expectation_id is None:
-                reusable.expectation_id = expectation_id
-            db.add(reusable)
-            await db.commit()
-            await db.refresh(reusable)
-            # New evidence linked onto the SAME matter (not a new row): keeps
-            # the entity graph current and gives future turns more to match.
-            for entity in entities:
-                try:
-                    await entity_service.link_object(
-                        db, workspace_id=workspace_id, object_type="open_loop",
-                        object_id=reusable.id, role="subject", entity_id=entity.id,
-                        confidence=0.7, message_id=message_id)
-                except Exception:
-                    logger.exception("open loop reuse entity link failed")
-            try:
-                await promote_transition(
-                    db, workspace_id=workspace_id, rel_type="same_as",
-                    from_text=matter_text or reusable.title,
-                    to_text=f"{reusable.title or ''} {reusable.summary or ''}".strip(),
-                    source_key=f"open_loop_reuse:{message_id}#{reusable.id}",
-                    evidence_refs=[f"honcho_message:{message_id}"],
-                    subjects_to=[reusable.owner_peer_id] if reusable.owner_peer_id else [],
-                    formation="inferred", confidence=0.7)
-            except Exception:
-                logger.exception("open loop reuse promotion failed")
-            logger.info(
-                "Reused OpenLoop id=%s for message_id=%s (same matter, new evidence)",
-                reusable.id, message_id,
+            return await self._touch_reused_loop(
+                db, loop=reusable, entities=entities,
+                matter_text=matter_text, message_id=message_id,
+                expectation_id=expectation_id,
+                now=now or datetime.now(timezone.utc),
             )
-            return reusable
 
         expires_at = None
         expiry_phrase = candidate.expiry_phrase or candidate.temporal_phrase
@@ -1139,6 +1662,26 @@ class LifecycleService:
             )
         except Exception:
             logger.exception("open loop subject linking failed")
+        if (candidate.confidence or 1.0) < 0.5 and not (candidate.subject_refs or []):
+            # Meaningful-but-actorless uncertainty (Track D, RC5): the
+            # extractor found something worth tracking but could ground
+            # neither actor nor details ("that meeting tomorrow, nervous").
+            # Hold it as available future attention — the foreground may
+            # return naturally later — never an immediate interrogation.
+            try:
+                await record_ambiguity_attention(
+                    db, workspace_id=workspace_id, session_id=session_id,
+                    message_id=message_id,
+                    candidate_key=f"uncertain_matter:{candidate.candidate_key}",
+                    content=(
+                        f"Follow-up opportunity: {open_loop.title or matter_text} "
+                        f"— details unknown (low-confidence mention, held "
+                        f"without asking)."
+                    ),
+                    owner_peer_id=owner_peer_id,
+                    confidence=float(candidate.confidence or 0.4))
+            except Exception:
+                logger.exception("uncertain-matter attention failed")
         return open_loop
 
     async def create_suppression_if_needed(
