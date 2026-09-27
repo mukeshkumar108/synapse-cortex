@@ -1,0 +1,8 @@
+# SEALED — R2 run identity mapping (DO NOT share with judge)
+
+Packet: evals/sophie_longitudinal/raw_outputs/blind_judging_20260926_r2/
+- RUN-X = A, frozen baseline (synapse-cortex 44a89d1 outputs, 2026-09-25)
+- RUN-Y = B, previous current-head (705f5a6-era outputs, pre-semantic-fixes)
+- RUN-Z = C, new current head (5f0dce7: counterparty + agency + title + matter-identity fixes)
+
+Unblind only after Gemini returns its evaluation.

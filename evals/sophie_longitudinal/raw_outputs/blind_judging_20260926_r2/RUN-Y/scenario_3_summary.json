@@ -1,0 +1,664 @@
+{
+  "scenario_id": "scenario_3",
+  "mode": "model",
+  "baseline_type": "semantic_baseline",
+  "provider": "model",
+  "model": "google/gemini-2.5-flash-lite",
+  "external_model_calls": true,
+  "timestamp": "REDACTED-FOR-BLIND-JUDGING",
+  "checkpoints": [
+    {
+      "event_id": "s3_e05",
+      "label": "Monday 21:43 - Monday night multi-source reconciliation",
+      "counts": {
+        "expectations": 2,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 3,
+        "current_meaning": 5,
+        "attention_candidates": 0,
+        "suppressions": 1,
+        "clarifications": 0,
+        "facts": 2,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "56b1b541-1866-47ea-b3c8-2ba0751e1179",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
+          "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
+          "source_system": null
+        },
+        {
+          "id": "35783d90-c580-4fc4-878c-348cb3cf0f61",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user wants to read the contract properly",
+          "summary": "User intends: The user wants to read the contract properly (tomorrow)",
+          "source_system": null
+        }
+      ],
+      "commitments": [
+        {
+          "id": "1169c421-542f-4864-b10a-2ca91d30c7b5",
+          "status": "CommitmentCandidateStatus.PENDING",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "send revised contract",
+          "class": "implicit_self_commitment"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "239920e9-4ca9-4249-a826-57ebf8e8c0a2",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "dentist appointment"
+        },
+        {
+          "id": "60395e6a-cb11-4465-8725-a490bece3c12",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Lucy debt for camera"
+        },
+        {
+          "id": "8b15daf9-fcbd-4e66-8010-0b69cf06b14d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "appointment confirmation"
+        }
+      ],
+      "entities": [
+        {
+          "id": "6810ccd9-6420-48ae-a5a5-75c9845c6bea",
+          "name": "Mum",
+          "type": "person",
+          "aliases": [
+            "mum"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "entity_separation": "Studio Sam != Cousin Sam",
+        "dentist_status": "Friday 09:20 active, Thursday superseded",
+        "lucy_payment_status": "unconfirmed_pending_user_verification"
+      }
+    },
+    {
+      "event_id": "s3_e07",
+      "label": "Tuesday 16:55 - Studio Sam contract content approved",
+      "counts": {
+        "expectations": 3,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 5,
+        "current_meaning": 7,
+        "attention_candidates": 0,
+        "suppressions": 1,
+        "clarifications": 1,
+        "facts": 3,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "56b1b541-1866-47ea-b3c8-2ba0751e1179",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
+          "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
+          "source_system": null
+        },
+        {
+          "id": "35783d90-c580-4fc4-878c-348cb3cf0f61",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user wants to read the contract properly",
+          "summary": "User intends: The user wants to read the contract properly (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "5e840d51-4f97-4f78-86c5-45e7ec823ec0",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
+          "source_system": null
+        }
+      ],
+      "commitments": [
+        {
+          "id": "1169c421-542f-4864-b10a-2ca91d30c7b5",
+          "status": "CommitmentCandidateStatus.VIOLATED",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "send revised contract",
+          "class": "implicit_self_commitment"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "239920e9-4ca9-4249-a826-57ebf8e8c0a2",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "dentist appointment"
+        },
+        {
+          "id": "60395e6a-cb11-4465-8725-a490bece3c12",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Lucy debt for camera"
+        },
+        {
+          "id": "8b15daf9-fcbd-4e66-8010-0b69cf06b14d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "appointment confirmation"
+        },
+        {
+          "id": "ebc4677a-802f-470a-a222-8386860268ca",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Confirmation of contract approval sufficiency"
+        },
+        {
+          "id": "369e6655-5368-4358-9b79-1e3c01922b3f",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "Response from Lucy"
+        }
+      ],
+      "entities": [
+        {
+          "id": "6810ccd9-6420-48ae-a5a5-75c9845c6bea",
+          "name": "Mum",
+          "type": "person",
+          "aliases": [
+            "mum"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "contract_status": "content_approved_awaiting_final_signature_copy"
+      }
+    },
+    {
+      "event_id": "s3_e09",
+      "label": "Wednesday 18:40 - Cousin Sam check & Lucy payment confirmed",
+      "counts": {
+        "expectations": 3,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 5,
+        "current_meaning": 8,
+        "attention_candidates": 0,
+        "suppressions": 1,
+        "clarifications": 2,
+        "facts": 3,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "56b1b541-1866-47ea-b3c8-2ba0751e1179",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
+          "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
+          "source_system": null
+        },
+        {
+          "id": "35783d90-c580-4fc4-878c-348cb3cf0f61",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user wants to read the contract properly",
+          "summary": "User intends: The user wants to read the contract properly (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "5e840d51-4f97-4f78-86c5-45e7ec823ec0",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
+          "source_system": null
+        }
+      ],
+      "commitments": [
+        {
+          "id": "1169c421-542f-4864-b10a-2ca91d30c7b5",
+          "status": "CommitmentCandidateStatus.VIOLATED",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "send revised contract",
+          "class": "implicit_self_commitment"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "239920e9-4ca9-4249-a826-57ebf8e8c0a2",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "dentist appointment"
+        },
+        {
+          "id": "60395e6a-cb11-4465-8725-a490bece3c12",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Lucy debt for camera"
+        },
+        {
+          "id": "8b15daf9-fcbd-4e66-8010-0b69cf06b14d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "appointment confirmation"
+        },
+        {
+          "id": "ebc4677a-802f-470a-a222-8386860268ca",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Confirmation of contract approval sufficiency"
+        },
+        {
+          "id": "369e6655-5368-4358-9b79-1e3c01922b3f",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Response from Lucy"
+        }
+      ],
+      "entities": [
+        {
+          "id": "6810ccd9-6420-48ae-a5a5-75c9845c6bea",
+          "name": "Mum",
+          "type": "person",
+          "aliases": [
+            "mum"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "lucy_payment_closed": true,
+        "cousin_sam_check_fulfilled": true,
+        "pickup_scheduled_for": "Thursday 15:00"
+      }
+    },
+    {
+      "event_id": "s3_e11",
+      "label": "Thursday 22:06 - Mum pickup indirect closure",
+      "counts": {
+        "expectations": 4,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 6,
+        "current_meaning": 9,
+        "attention_candidates": 1,
+        "suppressions": 1,
+        "clarifications": 2,
+        "facts": 4,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "56b1b541-1866-47ea-b3c8-2ba0751e1179",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
+          "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
+          "source_system": null
+        },
+        {
+          "id": "35783d90-c580-4fc4-878c-348cb3cf0f61",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user wants to read the contract properly",
+          "summary": "User intends: The user wants to read the contract properly (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "5e840d51-4f97-4f78-86c5-45e7ec823ec0",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "0f8b5c1b-4460-4825-957a-f1997155d7f3",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Mum pickup \u2014 Sam",
+          "summary": "Mum pickup \u2014 Sam",
+          "source_system": "google_calendar"
+        }
+      ],
+      "commitments": [
+        {
+          "id": "1169c421-542f-4864-b10a-2ca91d30c7b5",
+          "status": "CommitmentCandidateStatus.VIOLATED",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "send revised contract",
+          "class": "implicit_self_commitment"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "239920e9-4ca9-4249-a826-57ebf8e8c0a2",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "dentist appointment"
+        },
+        {
+          "id": "60395e6a-cb11-4465-8725-a490bece3c12",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Lucy debt for camera"
+        },
+        {
+          "id": "8b15daf9-fcbd-4e66-8010-0b69cf06b14d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "appointment confirmation"
+        },
+        {
+          "id": "ebc4677a-802f-470a-a222-8386860268ca",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Confirmation of contract approval sufficiency"
+        },
+        {
+          "id": "369e6655-5368-4358-9b79-1e3c01922b3f",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Response from Lucy"
+        },
+        {
+          "id": "940d78cb-1181-4f5e-88b8-699006f137d8",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "contract status"
+        }
+      ],
+      "entities": [
+        {
+          "id": "6810ccd9-6420-48ae-a5a5-75c9845c6bea",
+          "name": "Mum",
+          "type": "person",
+          "aliases": [
+            "mum"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "mum_pickup_status": "completed_corroborated",
+        "contract_status": "pending_final_copy"
+      }
+    },
+    {
+      "event_id": "s3_e13",
+      "label": "Friday 08:02 - Contract reminder requested & Sam disambiguation",
+      "counts": {
+        "expectations": 5,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 6,
+        "current_meaning": 11,
+        "attention_candidates": 1,
+        "suppressions": 1,
+        "clarifications": 2,
+        "facts": 4,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "56b1b541-1866-47ea-b3c8-2ba0751e1179",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
+          "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
+          "source_system": null
+        },
+        {
+          "id": "35783d90-c580-4fc4-878c-348cb3cf0f61",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user wants to read the contract properly",
+          "summary": "User intends: The user wants to read the contract properly (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "5e840d51-4f97-4f78-86c5-45e7ec823ec0",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.FULFILLED",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "0f8b5c1b-4460-4825-957a-f1997155d7f3",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Mum pickup \u2014 Sam",
+          "summary": "Mum pickup \u2014 Sam",
+          "source_system": "google_calendar"
+        },
+        {
+          "id": "31219211-31a9-46b4-af05-a53f1e00390a",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "User is leaving for the dentist and wants a reminder about the contract this afternoon",
+          "summary": "User intends: User is leaving for the dentist and wants a reminder about the contract this afternoon (this afternoon)",
+          "source_system": null
+        }
+      ],
+      "commitments": [
+        {
+          "id": "1169c421-542f-4864-b10a-2ca91d30c7b5",
+          "status": "CommitmentCandidateStatus.VIOLATED",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "send revised contract",
+          "class": "implicit_self_commitment"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "239920e9-4ca9-4249-a826-57ebf8e8c0a2",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "dentist appointment"
+        },
+        {
+          "id": "60395e6a-cb11-4465-8725-a490bece3c12",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Lucy debt for camera"
+        },
+        {
+          "id": "8b15daf9-fcbd-4e66-8010-0b69cf06b14d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "appointment confirmation"
+        },
+        {
+          "id": "ebc4677a-802f-470a-a222-8386860268ca",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Confirmation of contract approval sufficiency"
+        },
+        {
+          "id": "369e6655-5368-4358-9b79-1e3c01922b3f",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Response from Lucy"
+        },
+        {
+          "id": "940d78cb-1181-4f5e-88b8-699006f137d8",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "contract status"
+        }
+      ],
+      "entities": [
+        {
+          "id": "6810ccd9-6420-48ae-a5a5-75c9845c6bea",
+          "name": "Mum",
+          "type": "person",
+          "aliases": [
+            "mum"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "active_reminder_expectation": "remind about contract Friday afternoon",
+        "current_frame_sam_binding": "Studio Sam"
+      }
+    },
+    {
+      "event_id": "s3_e14",
+      "label": "Friday 15:47 - Contract signed by user, final closeout",
+      "counts": {
+        "expectations": 5,
+        "commitments": 1,
+        "stored_ask": 0,
+        "surfaced_shelf": 0,
+        "open_loops": 7,
+        "current_meaning": 12,
+        "attention_candidates": 1,
+        "suppressions": 1,
+        "clarifications": 3,
+        "facts": 4,
+        "entities": 1,
+        "models": 0
+      },
+      "expectations": [
+        {
+          "id": "56b1b541-1866-47ea-b3c8-2ba0751e1179",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable",
+          "summary": "User intends: Need to remind the user to check on cousin Sam picking up Mum on Wednesday evening, as he is considered unreliable (Wednesday evening)",
+          "source_system": null
+        },
+        {
+          "id": "35783d90-c580-4fc4-878c-348cb3cf0f61",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "The user wants to read the contract properly",
+          "summary": "User intends: The user wants to read the contract properly (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "5e840d51-4f97-4f78-86c5-45e7ec823ec0",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.FULFILLED",
+          "title": "The user will send the final signature copy",
+          "summary": "User intends: The user will send the final signature copy (tomorrow)",
+          "source_system": null
+        },
+        {
+          "id": "0f8b5c1b-4460-4825-957a-f1997155d7f3",
+          "type": "ExpectationType.PLANNED_EVENT",
+          "state": "OutcomeState.FULFILLED",
+          "title": "Mum pickup \u2014 Sam",
+          "summary": "Mum pickup \u2014 Sam",
+          "source_system": "google_calendar"
+        },
+        {
+          "id": "31219211-31a9-46b4-af05-a53f1e00390a",
+          "type": "ExpectationType.USER_INTENTION",
+          "state": "OutcomeState.UNKNOWN",
+          "title": "User is leaving for the dentist and wants a reminder about the contract this afternoon",
+          "summary": "User intends: User is leaving for the dentist and wants a reminder about the contract this afternoon (this afternoon)",
+          "source_system": null
+        }
+      ],
+      "commitments": [
+        {
+          "id": "1169c421-542f-4864-b10a-2ca91d30c7b5",
+          "status": "CommitmentCandidateStatus.VIOLATED",
+          "authority": "CommitmentCandidateAuthority.ACT",
+          "title": "send revised contract",
+          "class": "implicit_self_commitment"
+        }
+      ],
+      "open_loops": [
+        {
+          "id": "239920e9-4ca9-4249-a826-57ebf8e8c0a2",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "dentist appointment"
+        },
+        {
+          "id": "60395e6a-cb11-4465-8725-a490bece3c12",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Lucy debt for camera"
+        },
+        {
+          "id": "8b15daf9-fcbd-4e66-8010-0b69cf06b14d",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "appointment confirmation"
+        },
+        {
+          "id": "ebc4677a-802f-470a-a222-8386860268ca",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Confirmation of contract approval sufficiency"
+        },
+        {
+          "id": "369e6655-5368-4358-9b79-1e3c01922b3f",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "Response from Lucy"
+        },
+        {
+          "id": "940d78cb-1181-4f5e-88b8-699006f137d8",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "contract status"
+        },
+        {
+          "id": "e80ca965-02e4-4d15-93a3-84bf2365bb98",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "outstanding tasks or obligations"
+        }
+      ],
+      "entities": [
+        {
+          "id": "6810ccd9-6420-48ae-a5a5-75c9845c6bea",
+          "name": "Mum",
+          "type": "person",
+          "aliases": [
+            "mum"
+          ]
+        }
+      ],
+      "deterministic_expectations": {
+        "contract_obligation_status": "fulfilled_closed_no_violation",
+        "active_open_loops_count": 0
+      }
+    }
+  ],
+  "trap_evaluations": [
+    {
+      "trap_id": "trap-incoming \u00a324",
+      "trigger_text": "Incoming \u00a3240 from L. HARGREAVES",
+      "prohibited": [
+        "auto_mark_lucy_paid_on_monday"
+      ],
+      "passed": true,
+      "violations_found": []
+    },
+    {
+      "trap_id": "trap-i replied \u2018l",
+      "trigger_text": "I replied \u2018looks good to me, go ahead\u2019",
+      "prohibited": [
+        "mark_contract_signed_and_fully_executed"
+      ],
+      "passed": true,
+      "violations_found": []
+    }
+  ],
+  "summary": {
+    "scenario_id": "scenario_3",
+    "mode": "model",
+    "baseline_type": "semantic_baseline",
+    "provider": "model",
+    "model": "google/gemini-2.5-flash-lite",
+    "external_model_calls": true,
+    "total_checkpoints": 6,
+    "traps_evaluated": 2,
+    "traps_passed": 2,
+    "trap_defense_interpretation": "Semantic baseline evaluation against active model state generation.",
+    "final_state_counts": {
+      "expectations": 5,
+      "commitments": 1,
+      "stored_ask": 0,
+      "surfaced_shelf": 0,
+      "open_loops": 7,
+      "current_meaning": 12,
+      "attention_candidates": 1,
+      "suppressions": 1,
+      "clarifications": 3,
+      "facts": 4,
+      "entities": 1,
+      "models": 0
+    }
+  }
+}
