@@ -331,6 +331,13 @@ def validate_ops(raw_ops: Any, *, snapshot: StartSnapshot,
             if ev is None:
                 rejected.append({"op": op, "reason": "bad_evidence"})
                 continue
+            # Grounding rule (generic, not scenario-specific): an attention
+            # or uncertainty hold must be traceable — verbatim spans, or a
+            # link to a known matter plus cited transcript provenance.
+            # Bare content with neither is unauditable future clutter.
+            if not ev["spans"] and not (related and ev["message_ids"]):
+                rejected.append({"op": op, "reason": "ungrounded_no_spans_no_link"})
+                continue
             data["evidence"] = ev
         elif op == "incidental":
             mids = raw.get("message_ids") or []
@@ -704,6 +711,12 @@ async def consolidate_session(
         extra_known_ids={m.id for m in created})
     result.accepted = accepted
     result.rejected = rejected
+    if not accepted and not rejected:
+        # A model that proposes nothing verifiable leaves no trace of its
+        # reasoning otherwise: record the fail-closed hold explicitly so
+        # later passes can distinguish "held empty" from "never ran".
+        await _trace("held_empty", {"summary": result.summary})
+        return result
     try:
         result.would_apply = await check_would_apply(
             db, workspace_id=workspace_id, accepted=accepted)

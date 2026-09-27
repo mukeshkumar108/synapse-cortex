@@ -538,10 +538,12 @@ async def test_meeting_uncertainty_survives_without_interrogation(async_client, 
                 "ops": [
                     {"op": "uncertainty", "content": "Meeting tomorrow matters to the user; what it is for was never caught",
                      "alternatives": [], "related_ids": [meeting],
-                     "evidence": _ev("e1", "nervous"),
+                     "evidence": {"message_ids": ["e1"], "spans": []},
                      "confidence": 0.75, "rationale": "emotional salience + future outcome, details missing"},
                     {"op": "attend", "content": "After the meeting: how did it go, and what was it for",
-                     "related_ids": [meeting], "evidence": _ev("e1", "meeting tomorrow"),
+                     "related_ids": [meeting],
+                     "evidence": {"message_ids": ["e1"],
+                                  "spans": [{"message_id": "e1", "span": "meeting tomorrow"}]},
                      "confidence": 0.7, "rationale": "natural future follow-up opportunity"},
                 ]}
 
