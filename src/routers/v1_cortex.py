@@ -535,6 +535,7 @@ async def _compile_session_handover(
         adapter=get_agenda_adapter(),
         force=False,  # compile_agenda reconciles cached rank against current eligibility
         schedule_background=not evaluation,
+        session_id=req.session_id,
     )
     # FOREGROUND ADMISSION CONTROL: the backend decides what deserves
     # foreground bandwidth. Owed/contractual items are admitted with
@@ -614,6 +615,7 @@ async def initiative_tick(req: WorkingSetRequest, db: AsyncSession = Depends(get
         db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
         packet=packet, now=req.now, timezone_str=req.timezone,
         adapter=get_agenda_adapter(),
+        session_id=req.session_id,
     )
     decision = await evaluate_initiative(
         db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id or "",
