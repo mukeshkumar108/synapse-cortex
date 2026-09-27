@@ -841,6 +841,105 @@ class LifecycleService:
             db.add(loop)
             logger.info("OpenLoop id=%s resolved via expectation fulfillment", loop.id)
 
+    async def _find_reusable_open_loop(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        candidate: ExtractionCandidate, message_id: str, frame: Optional[str],
+        matter_text: str,
+    ) -> Tuple[Optional[OpenLoop], List[Any]]:
+        """Same-matter identity for OpenLoop, reusing existing infrastructure
+        only: entity resolution/linking (entity_service, already used for
+        commitments/facts/expectations) supplies actor identity — OpenLoop
+        has no subject_peer_id column, so this is the substitute signal, not
+        a new primitive — and `_significant_tokens` overlap (already used by
+        `close_answered_loops`/`reconcile_new_expectation`) confirms it is
+        the same content, not just the same person.
+
+        Deliberately an AND, not an OR (unlike expectation supersession,
+        which accepts high title overlap alone): title overlap alone is not
+        semantic authority here (e.g. "Carlos payment" vs "Studio Sam
+        payment" must never merge on wording alone). A resolvable, shared
+        subject entity is REQUIRED before content overlap is even
+        considered; no entity resolved -> no reuse, existing behavior.
+        Only OPEN loops are eligible (a RESOLVED loop is never silently
+        reopened or mutated by this path). Ambiguous (non-strict-winner)
+        matches stay distinct rather than merge wrongly, matching the same
+        safety rule `close_answered_loops` already applies.
+        """
+        from src.services import entity_service
+
+        refs = [r for r in (candidate.subject_refs or [])[:8] if isinstance(r, str) and r.strip()]
+        if not refs:
+            return None, []
+        entities = []
+        for ref in refs:
+            entity, status = await entity_service.resolve_mention(
+                db, workspace_id=workspace_id, session_id=session_id,
+                mention=ref, frame=frame, message_id=message_id)
+            if entity is not None and status in ("linked", "provisioned"):
+                entities.append(entity)
+        if not entities:
+            return None, []
+
+        from src.models.identity import EntityLink
+        entity_ids = [e.id for e in entities]
+        linked_object_ids = (await db.execute(select(EntityLink.object_id).where(
+            EntityLink.honcho_workspace_id == workspace_id,
+            EntityLink.object_type == "open_loop",
+            EntityLink.entity_id.in_(entity_ids),
+        ))).scalars().all()
+        if not linked_object_ids:
+            return None, entities
+
+        candidate_loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == workspace_id,
+            OpenLoop.honcho_session_id == session_id,
+            OpenLoop.status == OpenLoopStatus.OPEN,
+            OpenLoop.id.in_(set(linked_object_ids)),
+        ))).scalars().all()
+        if not candidate_loops:
+            return None, entities
+
+        # The entity gate already proved "same actor" (the hard part, and the
+        # part title-overlap alone could never prove safely — see Case C).
+        # Content overlap here only has to separate genuinely distinct
+        # matters about that SAME actor (Case B: payment vs venue details,
+        # which share zero significant tokens) from paraphrased evidence
+        # about the SAME matter (Case A: "still owes the rest" -> "any news
+        # on ... payment", which may share only one word once the actor's
+        # name itself is excluded as already-proven). A ratio bar tuned for
+        # title-vs-title matching (as used elsewhere for closure/supersession
+        # decisions with no entity backstop) would wrongly reject short,
+        # genuinely-on-topic follow-ups; requiring at least one shared
+        # significant content token is sufficient once identity is settled,
+        # and Case B's vocabulary is disjoint by construction, not a
+        # near-miss, so this does not weaken that guarantee.
+        #
+        # The actor's own name is excluded from the overlap count first: it
+        # is a significant token in both texts by construction (the entity
+        # gate matched on it), so leaving it in would make every same-actor
+        # pair trivially "overlap", collapsing exactly the Case A/B
+        # distinction this check exists to make.
+        name_tokens: set = set()
+        for entity in entities:
+            name_tokens |= self._significant_tokens(getattr(entity, "display_name", "") or "")
+        new_tokens = self._significant_tokens(matter_text) - name_tokens
+        scored = []
+        for loop in candidate_loops:
+            loop_tokens = self._significant_tokens(
+                f"{loop.title or ''} {loop.summary or ''}") - name_tokens
+            if not loop_tokens or not new_tokens:
+                continue
+            shared = loop_tokens & new_tokens
+            if len(shared) >= 1:
+                scored.append((len(shared), loop))
+        if not scored:
+            return None, entities
+        scored.sort(key=lambda item: item[0], reverse=True)
+        if len(scored) > 1 and scored[1][0] >= scored[0][0]:
+            # Ambiguous: two equally-good same-actor matters. Do not guess.
+            return None, entities
+        return scored[0][1], entities
+
     async def create_open_loop_if_needed(
         self,
         db: AsyncSession,
@@ -852,6 +951,7 @@ class LifecycleService:
         expectation_id: Optional[UUID] = None,
         now: Optional[datetime] = None,
         timezone_str: str = "UTC",
+        frame: Optional[str] = None,
     ) -> Optional[OpenLoop]:
         if not candidate.open_loop_hint:
             return None
@@ -864,6 +964,48 @@ class LifecycleService:
         existing = (await db.execute(stmt)).scalar_one_or_none()
         if existing:
             return existing
+
+        from src.services import entity_service
+
+        matter_text = candidate.canonical_title or candidate.open_loop_hint or ""
+        reusable, entities = await self._find_reusable_open_loop(
+            db, workspace_id=workspace_id, session_id=session_id,
+            candidate=candidate, message_id=message_id, frame=frame,
+            matter_text=matter_text,
+        )
+        if reusable is not None:
+            reusable.updated_at = self._naive_utc(now or datetime.now(timezone.utc))
+            if expectation_id is not None and reusable.expectation_id is None:
+                reusable.expectation_id = expectation_id
+            db.add(reusable)
+            await db.commit()
+            await db.refresh(reusable)
+            # New evidence linked onto the SAME matter (not a new row): keeps
+            # the entity graph current and gives future turns more to match.
+            for entity in entities:
+                try:
+                    await entity_service.link_object(
+                        db, workspace_id=workspace_id, object_type="open_loop",
+                        object_id=reusable.id, role="subject", entity_id=entity.id,
+                        confidence=0.7, message_id=message_id)
+                except Exception:
+                    logger.exception("open loop reuse entity link failed")
+            try:
+                await promote_transition(
+                    db, workspace_id=workspace_id, rel_type="same_as",
+                    from_text=matter_text or reusable.title,
+                    to_text=f"{reusable.title or ''} {reusable.summary or ''}".strip(),
+                    source_key=f"open_loop_reuse:{message_id}#{reusable.id}",
+                    evidence_refs=[f"honcho_message:{message_id}"],
+                    subjects_to=[reusable.owner_peer_id] if reusable.owner_peer_id else [],
+                    formation="inferred", confidence=0.7)
+            except Exception:
+                logger.exception("open loop reuse promotion failed")
+            logger.info(
+                "Reused OpenLoop id=%s for message_id=%s (same matter, new evidence)",
+                reusable.id, message_id,
+            )
+            return reusable
 
         expires_at = None
         expiry_phrase = candidate.expiry_phrase or candidate.temporal_phrase
@@ -899,6 +1041,17 @@ class LifecycleService:
             return (await db.execute(stmt)).scalar_one()
         await db.refresh(open_loop)
         logger.info("Created OpenLoop id=%s", open_loop.id)
+        # Subject entity linking (parity with commitment/fact/model_entry/
+        # expectation, all of which already do this): without it, no future
+        # turn could ever find this loop again for reuse.
+        try:
+            await entity_service.link_candidate_subjects(
+                db, workspace_id=workspace_id, session_id=session_id,
+                object_type="open_loop", object_id=open_loop.id,
+                refs=candidate.subject_refs, frame=frame, message_id=message_id,
+            )
+        except Exception:
+            logger.exception("open loop subject linking failed")
         return open_loop
 
     async def create_suppression_if_needed(

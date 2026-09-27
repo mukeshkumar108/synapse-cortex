@@ -636,6 +636,7 @@ async def ingest_turn_event(
             expectation_id=expectation_record_id,
             now=payload.now,
             timezone_str=payload.timezone,
+            frame=turn_frame,
         )
 
         # E. Epistemic & Domain Annotations

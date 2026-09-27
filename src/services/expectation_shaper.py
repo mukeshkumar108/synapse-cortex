@@ -33,6 +33,38 @@ def _has_future_temporal(phrase: Optional[str]) -> bool:
     return phrase.strip().lower().strip("()") not in _NON_FUTURE_TEMPORAL
 
 
+# Self-referential actor-assertion prefixes: the extractor's own free-text
+# `observation` sometimes narrates the acting party as "I"/"the user" even
+# when the true actor (per authoritative ownership) is someone else — the
+# extraction model describes external first-person speech ("I'll send it
+# tomorrow") in its own third-person narration ("The user will send it"),
+# which is simply wrong when the row's owner is external. This is the same
+# family of modal-verb self-reference already stripped for first person
+# below; the third-person "(the) user ..." forms are the model's own
+# mis-narration of that identical construct, not a new linguistic category.
+_ACTOR_ASSERTION_RE = re.compile(
+    r"^(?:i'm going to|i am going to|i'll|i will|gonna|i have to|i need to|"
+    r"(?:the\s+)?user\s+(?:will|is going to|has to|needs? to|wants? to))\s+",
+    re.IGNORECASE,
+)
+
+
+def _strip_leading_actor_assertion(text: str) -> tuple[str, bool]:
+    stripped = _ACTOR_ASSERTION_RE.sub("", text, count=1)
+    return stripped, stripped != text
+
+
+def _owner_display_name(owner_peer_id: str) -> str:
+    """Deterministic, structural label from a trusted peer-id — never a
+    per-name special case. Operates only on the ingest-adapter-owned
+    ``external:<slug>`` identifier shape (the same provenance boundary
+    ``is_external_counterparty`` already trusts), not on conversation
+    content: "external:studio_sam" -> "Studio Sam"."""
+    raw = owner_peer_id.split(":", 1)[-1] if ":" in owner_peer_id else owner_peer_id
+    words = [w for w in re.split(r"[_\s]+", raw.strip()) if w]
+    return " ".join(w.capitalize() for w in words) if words else owner_peer_id
+
+
 _TYPE_SUMMARY_PREFIX = {
     ExpectationType.USER_INTENTION: "User intends",
     ExpectationType.USER_COMMITMENT: "User committed",
@@ -117,11 +149,12 @@ class ExpectationShaper:
         # this covers the direct-first-person case (the external sender's
         # own message/email/etc.), which is not "reported speech".
         resolved_owner = owner_peer_id or candidate.actor_peer_id or subject_peer_id
-        if (
+        owner_overridden_external = bool(
             expectation_type in _ACTOR_ASSERTING_TYPES
             and resolved_owner
             and is_external_counterparty(resolved_owner)
-        ):
+        )
+        if owner_overridden_external:
             expectation_type = ExpectationType.EXTERNAL_DEPENDENCY
 
         if (
@@ -145,6 +178,25 @@ class ExpectationShaper:
         title = self._clean_title(obs_text)
         if not title or len(title) < 3:
             return None
+
+        if owner_overridden_external:
+            # The extractor's free-text observation was actor-asserting the
+            # wrong party (ownership authority already overrode the type
+            # above); if we can deterministically isolate the bare action
+            # clause (a self-referential modal-verb prefix was stripped —
+            # never a guess), rebuild the title around the authoritative
+            # owner instead of leaving "the user"/"I" in derived Cortex
+            # state. Raw evidence (the honcho message this candidate is
+            # linked to) is untouched by this — only the derived title
+            # changes. If no such prefix was present, the observation's
+            # actor framing is unknown shape: leave the title as extracted
+            # rather than fabricate a reconstruction we can't ground.
+            action, had_actor_prefix = _strip_leading_actor_assertion(obs_text.rstrip(".!?"))
+            if had_actor_prefix:
+                action_title = self._clean_title(action)
+                if action_title:
+                    owner_display = _owner_display_name(resolved_owner)
+                    title = f"{owner_display} will {action_title[0].lower()}{action_title[1:]}"
 
         summary = _type_summary(expectation_type, title)
         if candidate.temporal_phrase:

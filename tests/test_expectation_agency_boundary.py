@@ -79,7 +79,9 @@ async def _ingest_candidate(async_client, monkeypatch, *, workspace_id: str,
 def test_external_first_person_promise_is_not_user_intention():
     """'I'll send the signature copy tomorrow.' authored by the external
     sender directly (not reported by the user) must not become
-    USER_INTENTION merely because the extractor hinted it that way."""
+    USER_INTENTION merely because the extractor hinted it that way, and the
+    derived title must attribute the action to the authoritative owner
+    rather than leaving a bare, actor-less action phrase."""
     cand = _expectation_candidate(
         sender="external:studio_sam",
         text="I'll send the signature copy tomorrow.",
@@ -91,8 +93,7 @@ def test_external_first_person_promise_is_not_user_intention():
     assert shaped is not None
     assert shaped["expectation_type"] == ExpectationType.EXTERNAL_DEPENDENCY
     assert shaped["subject_peer_id"] == "external:studio_sam"
-    # No text rewriting: the external actor is not relabelled as "the user".
-    assert shaped["title"] == "Send the signature copy"
+    assert shaped["title"] == "Studio Sam will send the signature copy"
 
 
 def test_external_counterparty_user_commitment_hint_also_remapped():
@@ -107,6 +108,7 @@ def test_external_counterparty_user_commitment_hint_also_remapped():
     )
     assert shaped is not None
     assert shaped["expectation_type"] == ExpectationType.EXTERNAL_DEPENDENCY
+    assert shaped["title"] == "Carlos will pay you back"
 
 
 # ── Case 2: genuine user intention (unit) — must be unaffected ─────────────
@@ -135,6 +137,46 @@ def test_owner_peer_id_omitted_preserves_prior_behavior():
     assert shaped["expectation_type"] == ExpectationType.USER_INTENTION
 
 
+# ── Case D: ambiguous/unresolved actor — never fabricate an owner ──────────
+
+def test_no_confident_external_owner_does_not_rewrite_title():
+    """When ownership cannot be confidently resolved as external (no
+    owner_peer_id, no actor_peer_id — falls back to a generic user-scoped
+    subject), the type stays as hinted and the title is left exactly as
+    extracted: no owner is fabricated onto a row we cannot attribute."""
+    cand = _expectation_candidate(
+        sender="user-1", text="I'll send the document tomorrow.",
+        title="Send the document",
+    ).model_copy(update={"actor_peer_id": None, "subject_peer_id": None})
+    shaped = shaper.shape_expectation(cand, "user-1", owner_peer_id=None)
+    assert shaped is not None
+    assert shaped["expectation_type"] == ExpectationType.USER_INTENTION
+    assert shaped["title"] == "Send the document"
+
+
+def test_external_owner_without_recognizable_actor_phrasing_leaves_title_alone():
+    """The extractor's free-text observation doesn't always take the
+    recognized 'I'll .../the user will ...' shape. When we cannot
+    deterministically isolate a bare action clause, we must not fabricate a
+    reconstruction (STOP-clause behavior: leave title as extracted rather
+    than guess)."""
+    cand = _expectation_candidate(
+        sender="external:studio_sam",
+        text="Final signature copy pending tomorrow.",
+        title="Final signature copy pending",
+        hint="user_intention",
+    )
+    shaped = shaper.shape_expectation(
+        cand, "external:studio_sam", owner_peer_id="external:studio_sam",
+    )
+    assert shaped is not None
+    assert shaped["expectation_type"] == ExpectationType.EXTERNAL_DEPENDENCY
+    # No actor-assertion prefix was present to strip, so no reconstruction:
+    # the title is left as the cleaned observation (existing trailing-
+    # temporal-phrase stripping still applies, unrelated to this fix).
+    assert shaped["title"] == "Final signature copy pending"
+
+
 # ── Integration: persisted rows via /v1/events/turn ─────────────────────────
 
 @pytest.mark.asyncio
@@ -154,7 +196,8 @@ async def test_case1_external_promise_persists_as_external_dependency(
     assert row.owner_peer_id == "external:studio_sam"
     assert row.subject_peer_id == "external:studio_sam"
     assert row.expectation_type == ExpectationType.EXTERNAL_DEPENDENCY
-    assert row.title == "Send the signature copy"
+    assert row.title == "Studio Sam will send the signature copy"
+    assert row.summary.startswith("Expected from another: Studio Sam will send")
     assert row.outcome_state == OutcomeState.UNKNOWN
 
 
@@ -198,6 +241,7 @@ async def test_case3_external_promise_later_fulfilled_by_evidence(
         message_id="message-1",
     )
     assert row.expectation_type == ExpectationType.EXTERNAL_DEPENDENCY
+    assert row.title == "Studio Sam will send the signature copy"
     assert row.outcome_state == OutcomeState.UNKNOWN
 
     fulfilling = ExtractionCandidate(
@@ -238,6 +282,7 @@ async def test_case3_external_promise_later_fulfilled_by_evidence(
         # onto the user or companion by the act of closing it.
         assert refreshed.owner_peer_id == "external:studio_sam"
         assert refreshed.expectation_type == ExpectationType.EXTERNAL_DEPENDENCY
+        assert refreshed.title == "Studio Sam will send the signature copy"
 
 
 @pytest.mark.asyncio
