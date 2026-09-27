@@ -82,6 +82,7 @@ async def apply_reconstruction(
     result: Any,  # V2Result (accepted ops + discards + provisional_marks)
     user_peer_id: str = "user",
     now: Optional[datetime] = None,
+    temporal_session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Apply the AUTO + GUARDED tiers; defer the rest. Returns
     {"applied": [...], "deferred": [...]}. Every applied mutation cites the
@@ -102,7 +103,9 @@ async def apply_reconstruction(
     from src.services.semantic_promotion import promote_transition
 
     now = now or datetime.now(timezone.utc)
-    message_id = f"consolidation:{session_id}"
+    # Lane vs temporal: rows scope to the stable lane `session_id`; the
+    # temporal boundary id travels only as provenance on message ids.
+    message_id = f"consolidation:{temporal_session_id or session_id}"
     applied: List[Dict[str, Any]] = []
     deferred: List[Dict[str, Any]] = []
     attentions_used = 0

@@ -111,9 +111,8 @@ async def do_run(args: argparse.Namespace) -> None:
     from sqlmodel import SQLModel
     import src.main  # noqa: F401 -- imports every table model into metadata
     import src.db as dbmod
-    from src.services.session_apply import apply_reconstruction
     from src.services.session_consolidation import SessionTurn, capture_snapshot
-    from src.services.session_reconstruction import reconstruct_session
+    from src.services.session_reconstruction import consolidate_long_session
 
     corpus = load_corpus(args.input)
     sessions = corpus.sessions[:args.max_sessions or None]
@@ -132,21 +131,15 @@ async def do_run(args: argparse.Namespace) -> None:
             before = _snapshot_dict(before_obj)
             turns = [SessionTurn(t.message_id, "assistant" if t.role == "assistant" else "user", t.text)
                      for t in session.turns]
-            reconstruction_session_id = (
-                f"{lane_session_id}:source:{session.source_session_id}")
-            result = await reconstruct_session(
-                db, workspace_id=workspace_id, session_id=reconstruction_session_id,
+            # Segmented orchestration: long sessions split into bounded raw
+            # windows (apply-continue), short ones take the single path.
+            aggregate = await consolidate_long_session(
+                db, workspace_id=workspace_id, session_id=lane_session_id,
                 transcript=turns, start_snapshot=before_obj,
-                model_id=args.model_id, user_peer_id=corpus.subject_id)
-            at = datetime.fromisoformat(session.ended_at)
-            if at.tzinfo is None:
-                at = at.replace(tzinfo=timezone.utc)
-            applied = {"applied": [], "deferred": []}
-            if not result.error:
-                applied = await apply_reconstruction(
-                    db, workspace_id=workspace_id, session_id=lane_session_id,
-                    result=result, user_peer_id=corpus.subject_id, now=at)
-                await db.commit()
+                temporal_session_id=session.source_session_id,
+                model_id=args.model_id, user_peer_id=corpus.subject_id,
+                mode="apply")
+            await db.commit()
             after_obj = await capture_snapshot(
                 db, workspace_id=workspace_id, session_id=lane_session_id)
             after = _snapshot_dict(after_obj)
@@ -156,25 +149,29 @@ async def do_run(args: argparse.Namespace) -> None:
                 "boundary": session.boundary, "started_at": session.started_at,
                 "ended_at": session.ended_at, "message_count": len(session.turns),
                 "transcript": [asdict(t) for t in session.turns],
-                "consolidation": {"summary": result.summary, "error": result.error,
-                    "prompt_chars": result.prompt_chars, "latency_s": result.latency_s,
-                    "accepted": [{"op": o.op, "data": o.data,
-                                  "confidence": o.confidence, "rationale": o.rationale}
-                                 for o in result.accepted],
-                    "rejected": result.rejected, "discards": result.discards,
-                    "provisional_marks": result.provisional_marks,
-                    "would_apply": result.would_apply, **applied},
+                "consolidation": {"summaries": aggregate.get("summaries", []),
+                    "error": aggregate.get("error", ""),
+                    "prompt_chars": aggregate.get("prompt_chars", 0),
+                    "latency_s": aggregate.get("latency_s", 0.0),
+                    "accepted": aggregate.get("accepted", []),
+                    "rejected": aggregate.get("rejected", []),
+                    "discards": aggregate.get("discards", []),
+                    "provisional_marks": aggregate.get("provisional_marks", []),
+                    "would_apply": aggregate.get("would_apply", []),
+                    "applied": aggregate.get("applied", []),
+                    "deferred": aggregate.get("deferred", []),
+                    "segments": aggregate.get("segment_reports", []),
+                    "coverage": aggregate.get("coverage", {})},
                 "snapshot_after": after, "diff_from_prior": _diff(before, after),
                 "future_lexical_references": lexical_future_references(
                     (m["title"] for m in after["matters"]), future_text),
-                "coverage": {"input_turns": len(turns), "model_turn_cap": 40,
-                             "transcript_char_cap": 6000,
-                             "possibly_truncated": len(turns) > 40 or
-                             sum(len(t.text) for t in turns) > 6000},
+                "coverage": aggregate.get("coverage", {}),
             })
             print(f"{i + 1}/{len(sessions)} {session.source_session_id}: "
-                  f"{len(result.accepted)} accepted, {len(applied['applied'])} applied, "
-                  f"error={result.error or '-'}", flush=True)
+                  f"{len(aggregate.get('accepted', []))} accepted, "
+                  f"{len(aggregate.get('applied', []))} applied, "
+                  f"segments={len(aggregate.get('segment_reports', []))}, "
+                  f"error={aggregate.get('error') or '-'}", flush=True)
     report = {"schema_version": 1, "source": corpus.source,
               "source_locator": corpus.source_locator,
               "subject_id": corpus.subject_id, "companion_id": corpus.companion_id,

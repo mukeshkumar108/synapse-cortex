@@ -46,6 +46,10 @@ logger = logging.getLogger(__name__)
 
 TRANSCRIPT_CHAR_CAP = 6000
 MAX_TURNS = 40
+# Segment budget: long real sessions (100+ verbose turns) need ~15 windows
+# at the char cap. Each window is one bounded model call (~$0.001), so
+# the budget is cost, not semantics; coverage accounting stays explicit.
+MAX_SEGMENTS = 20
 MAX_MATTERS = 20
 MAX_PROPOSED = 24
 MATTER_TITLE_CAP = 160
@@ -78,7 +82,10 @@ class ReconstructionResult:
 def build_reconstruction_prompt(snapshot: StartSnapshot,
                                 transcript: List[SessionTurn],
                                 provisional: List[SnapshotMatter],
-                                user_peer_id: Optional[str] = None) -> str:
+                                user_peer_id: Optional[str] = None,
+                                checkpoints: Optional[List[Dict[str, Any]]] = None,
+                                receipts: Optional[List[Dict[str, Any]]] = None,
+                                prior_proposals: Optional[List[Dict[str, Any]]] = None) -> str:
     turns = transcript[:MAX_TURNS]
     lines = [
         "SESSION RECONSTRUCTOR: given the session-start longitudinal state and the",
@@ -119,6 +126,29 @@ def build_reconstruction_prompt(snapshot: StartSnapshot,
             break
         lines.append(chunk)
         used += len(chunk)
+    if receipts:
+        lines.append("")
+        lines.append("2b. ACTION RECEIPTS (factual evidence of what happened during the session — "
+                     "quotable as [receipt:N] spans exactly like transcript turns):")
+        for i, r in enumerate(receipts[:12]):
+            if isinstance(r, dict) and str(r.get("text") or "").strip():
+                lines.append(f"[receipt:{i}] {str(r.get('kind') or 'action')}: "
+                             f"{str(r.get('text') or '').strip()[:300]}")
+    if checkpoints:
+        lines.append("")
+        lines.append("2c. NAVIGATION CHECKPOINTS (provisional working-memory summaries — orientation "
+                     "only, NEVER evidence: do not cite their claims as spans, do not affirm them):")
+        for c in checkpoints[:6]:
+            if isinstance(c, dict) and str(c.get("text") or "").strip():
+                lines.append(f"- ({str(c.get('label') or 'checkpoint')[:40]}): "
+                             f"{str(c.get('text') or '').strip()[:300]}")
+    if prior_proposals:
+        lines.append("")
+        lines.append("2d. ALREADY PROPOSED EARLIER THIS SESSION (from prior segments — do not "
+                     "re-propose these; build on them or leave them):")
+        for p in prior_proposals[:24]:
+            if isinstance(p, dict) and str(p.get("title") or "").strip():
+                lines.append(f"- [{str(p.get('op') or 'op')}] {str(p.get('title') or '')[:120]}")
     lines.append("")
     lines.append("3. UNTRUSTED PROVISIONAL INTERPRETATION (produced live during ingestion; "
                  "may be correct, duplicate, incomplete, or WRONG — do not affirm by default):")
@@ -231,10 +261,22 @@ def _rationale(raw: Any) -> str:
     return ""
 
 
+def _receipt_map(receipts: Any) -> Dict[str, str]:
+    """Quotable receipt texts keyed receipt:N. Receipts are factual session
+    evidence (action results that happened); checkpoints are not quotable."""
+    out: Dict[str, str] = {}
+    if isinstance(receipts, list):
+        for i, r in enumerate(receipts[:12]):
+            if isinstance(r, dict) and str(r.get("text") or "").strip():
+                out[f"receipt:{i}"] = str(r.get("text"))
+    return out
+
+
 def validate_reconstruction(raw: Any, *, snapshot: StartSnapshot,
                             transcript: List[SessionTurn],
                             provisional_ids: set,
-                            user_peer_ids: Optional[set] = None) -> tuple[dict, list]:
+                            user_peer_ids: Optional[set] = None,
+                            receipts: Any = None) -> tuple[dict, list]:
     """Validate a state-first proposal. Returns (validated, rejected).
     `validated` holds matters/uncertainties/attentions/suppressions/
     incidental_mids/provisional_review in normalized form. Never raises.
@@ -249,6 +291,8 @@ def validate_reconstruction(raw: Any, *, snapshot: StartSnapshot,
     if not isinstance(raw, dict):
         return validated, [{"where": "root", "reason": "proposal_not_an_object"}]
     by_msg = {t.message_id: t.text or "" for t in transcript}
+    quotable = dict(by_msg)
+    quotable.update(_receipt_map(receipts))
     known_ids = {m.id for m in snapshot.matters} | set(provisional_ids or set())
     speakers = {t.speaker for t in transcript}
     start_by_id = {m.id: m for m in snapshot.matters}
@@ -319,8 +363,8 @@ def validate_reconstruction(raw: Any, *, snapshot: StartSnapshot,
         else:
             repaired_basis = False
         ev_raw = entry.get("evidence") if isinstance(entry.get("evidence"), dict) else {}
-        mids = _mids(ev_raw.get("message_ids"), by_msg)
-        spans = _ground_spans(ev_raw.get("spans"), by_msg)
+        mids = _mids(ev_raw.get("message_ids"), quotable)
+        spans = _ground_spans(ev_raw.get("spans"), quotable)
         if mids is None or spans is None:
             rejected.append({"where": where, "reason": "bad_evidence"})
             continue
@@ -433,8 +477,8 @@ def validate_reconstruction(raw: Any, *, snapshot: StartSnapshot,
                 rejected.append({"where": where, "reason": "empty_content"})
                 continue
             ev_raw = entry.get("evidence") if isinstance(entry.get("evidence"), dict) else {}
-            mids = _mids(ev_raw.get("message_ids"), by_msg)
-            spans = _ground_spans(ev_raw.get("spans"), by_msg)
+            mids = _mids(ev_raw.get("message_ids"), quotable)
+            spans = _ground_spans(ev_raw.get("spans"), quotable)
             if mids is None or spans is None:
                 rejected.append({"where": where, "reason": "bad_evidence"})
                 continue
@@ -478,8 +522,8 @@ def validate_reconstruction(raw: Any, *, snapshot: StartSnapshot,
                 rejected.append({"where": where, "reason": "bad_suppress"})
                 continue
             ev_raw = entry.get("evidence") if isinstance(entry.get("evidence"), dict) else {}
-            mids = _mids(ev_raw.get("message_ids"), by_msg)
-            spans = _ground_spans(ev_raw.get("spans"), by_msg)
+            mids = _mids(ev_raw.get("message_ids"), quotable)
+            spans = _ground_spans(ev_raw.get("spans"), quotable)
             if not mids or not spans:
                 rejected.append({"where": where, "reason": "suppress_needs_spans"})
                 continue
@@ -662,6 +706,143 @@ class V2Result:
     retries: int = 0
 
 
+def segment_transcript(turns: List[SessionTurn]) -> List[List[SessionTurn]]:
+    """Deterministic packing of a long session into bounded raw windows.
+
+    Purely mechanical (turn count + char budget, order preserved): no
+    semantic selection, so no turn is ever silently judged irrelevant.
+    Every turn lands in exactly one segment; raw text stays authoritative
+    and every op cites the real turn it came from."""
+    segments: List[List[SessionTurn]] = []
+    current: List[SessionTurn] = []
+    used = 0
+    for t in turns:
+        chunk_len = len(f"[msg:{t.message_id}] {t.speaker}: {(t.text or '').strip()}")
+        if current and (len(current) >= MAX_TURNS or used + chunk_len > TRANSCRIPT_CHAR_CAP):
+            segments.append(current)
+            current = []
+            used = 0
+        current.append(t)
+        used += chunk_len
+    if current:
+        segments.append(current)
+    return segments
+
+
+async def consolidate_long_session(
+    db: Any,
+    *,
+    workspace_id: str,
+    session_id: str,
+    transcript: List[SessionTurn] | List[Dict[str, Any]],
+    start_snapshot: Optional[StartSnapshot] = None,
+    adapter: Any = ...,
+    model_id: Optional[str] = None,
+    max_tokens: int = 4000,
+    user_peer_id: Optional[str] = None,
+    temporal_session_id: Optional[str] = None,
+    checkpoints: Optional[List[Dict[str, Any]]] = None,
+    receipts: Optional[List[Dict[str, Any]]] = None,
+    mode: str = "shadow",
+) -> Dict[str, Any]:
+    """Long-session orchestration over sequential bounded windows.
+
+    Apply mode: reconstruct segment -> apply -> refresh authoritative
+    snapshot -> next segment sees applied rows as start state (no
+    re-minting, no extra machinery). Shadow mode: no mutations; earlier
+    segments' accepted proposals travel as `prior_proposals` context so
+    later windows build instead of duplicating. Caps at MAX_SEGMENTS
+    windows with explicit coverage accounting — the remainder is reported
+    dropped, never silently absorbed into a summary."""
+    from src.services.session_apply import apply_enabled, apply_reconstruction
+
+    turns = [t if isinstance(t, SessionTurn) else SessionTurn(
+        message_id=str(t.get("message_id") or ""),
+        speaker=str(t.get("speaker") or ""),
+        text=str(t.get("text") or "")) for t in (transcript or [])]
+    turns = [t for t in turns if t.message_id and (t.text or "").strip()]
+    segments = segment_transcript(turns)
+    truncated = len(segments) > MAX_SEGMENTS
+    segments = segments[:MAX_SEGMENTS]
+    aggregate: Dict[str, Any] = {
+        "accepted": [], "rejected": [], "discards": [],
+        "provisional_marks": [], "would_apply": [],
+        "applied": [], "deferred": [],
+        "segment_reports": [], "prompt_chars": 0, "latency_s": 0.0,
+        "summaries": [], "error": "",
+    }
+    coverage = {"complete": not truncated, "segments": len(segments),
+                "turns_in": sum(len(s) for s in segments),
+                "turns_total": len(turns),
+                "turns_dropped": len(turns) - sum(len(s) for s in segments),
+                "window": {"turns": MAX_TURNS, "chars": TRANSCRIPT_CHAR_CAP}}
+    if not turns:
+        aggregate["coverage"] = coverage
+        return aggregate
+    if start_snapshot is None:
+        start_snapshot = await capture_snapshot(
+            db, workspace_id=workspace_id, session_id=session_id)
+    snapshot = start_snapshot
+    prior_proposals: List[Dict[str, Any]] = []
+    can_apply = mode == "apply"
+    for i, seg in enumerate(segments):
+        result = await reconstruct_session(
+            db, workspace_id=workspace_id, session_id=session_id,
+            transcript=seg, start_snapshot=snapshot, adapter=adapter,
+            model_id=model_id, max_tokens=max_tokens,
+            user_peer_id=user_peer_id,
+            temporal_session_id=temporal_session_id,
+            checkpoints=checkpoints, receipts=receipts,
+            prior_proposals=prior_proposals if i > 0 else None,
+            trace_suffix=f"seg{i}" if len(segments) > 1 else "")
+        aggregate["prompt_chars"] += result.prompt_chars
+        aggregate["latency_s"] = round(aggregate["latency_s"] + result.latency_s, 2)
+        aggregate["summaries"].append(result.summary)
+        if result.error:
+            aggregate["error"] = aggregate["error"] or result.error
+            aggregate["segment_reports"].append(
+                {"segment": i, "turns": len(seg), "error": result.error})
+            continue
+        aggregate["accepted"].extend(
+            [{"op": o.op, "data": o.data, "confidence": o.confidence,
+              "rationale": o.rationale} for o in result.accepted])
+        aggregate["rejected"].extend(result.rejected)
+        aggregate["discards"].extend(result.discards)
+        aggregate["provisional_marks"].extend(result.provisional_marks)
+        aggregate["would_apply"].extend(result.would_apply)
+        seg_applied: list = []
+        seg_deferred: list = []
+        if can_apply and apply_enabled():
+            report = await apply_reconstruction(
+                db, workspace_id=workspace_id, session_id=session_id,
+                result=result, user_peer_id=user_peer_id or "user",
+                temporal_session_id=temporal_session_id)
+            seg_applied = report["applied"]
+            seg_deferred = report["deferred"]
+            aggregate["applied"].extend(seg_applied)
+            aggregate["deferred"].extend(seg_deferred)
+            snapshot = await capture_snapshot(
+                db, workspace_id=workspace_id, session_id=session_id)
+        else:
+            titles_by_id = {m.id: (m.title or "") for m in
+                            (snapshot.matters if snapshot else [])}
+            for o in result.accepted:
+                title = str((o.data.get("title") or o.data.get("content")
+                             or o.data.get("topic_or_entity") or ""))[:120]
+                if not title:
+                    mid = (o.data.get("matter_id") or o.data.get("expectation_id")
+                           or o.data.get("matter_id_a") or "")
+                    title = titles_by_id.get(str(mid), "")[:120]
+                if title:
+                    prior_proposals.append({"op": o.op, "title": title})
+        aggregate["segment_reports"].append(
+            {"segment": i, "turns": len(seg), "accepted": len(result.accepted),
+             "applied": len(seg_applied), "deferred": len(seg_deferred),
+             "error": ""})
+    aggregate["coverage"] = coverage
+    return aggregate
+
+
 async def reconstruct_session(
     db: Any,
     *,
@@ -671,9 +852,25 @@ async def reconstruct_session(
     start_snapshot: Optional[StartSnapshot] = None,
     adapter: Any = ...,
     model_id: Optional[str] = None,
-    max_tokens: int = 2500,
+    max_tokens: int = 4000,
     user_peer_id: Optional[str] = None,
+    temporal_session_id: Optional[str] = None,
+    checkpoints: Optional[List[Dict[str, Any]]] = None,
+    receipts: Optional[List[Dict[str, Any]]] = None,
+    prior_proposals: Optional[List[Dict[str, Any]]] = None,
+    trace_suffix: str = "",
 ) -> V2Result:
+    """Evidence-first session reconstruction, SHADOW ONLY.
+
+    Identity contract: `session_id` is the STABLE durable lane — every DB
+    read/write in this call scopes to it, so reconstructed state lands in
+    the same namespace the live system reads next session. The temporal
+    session id (this conversation's boundary) travels separately as
+    `temporal_session_id` and is used ONLY for provenance (traces, run
+    ledger, created-row message ids), never for state scoping.
+    Checkpoints are navigation-only (never evidence); receipts are factual
+    quotable evidence. `prior_proposals` carries earlier-segment titles so
+    long sessions do not re-mint across segments."""
     """Evidence-first session reconstruction, SHADOW ONLY. Validates the
     canonical proposal, diffs to ops, reports would-apply. Mutates nothing
     except one audit trace. Any failure holds existing state for retry."""
@@ -703,21 +900,31 @@ async def reconstruct_session(
     provisional = await capture_session_created(
         db, workspace_id=workspace_id, session_mids=session_mids)
     provisional_ids = {m.id for m in provisional}
-    prompt = build_reconstruction_prompt(start_snapshot, turns, provisional,
-                                           user_peer_id=user_peer_id)
+    prompt = build_reconstruction_prompt(
+        start_snapshot, turns, provisional, user_peer_id=user_peer_id,
+        checkpoints=checkpoints, receipts=receipts,
+        prior_proposals=prior_proposals)
     result.prompt_chars = len(prompt)
+    provenance_tag = temporal_session_id or session_id
+    # Per-segment trace keys: the (workspace, message, stage, item_key)
+    # ledger is unique, so sequential windows of one boundary must not
+    # share a key or all but the first trace is lost to the constraint.
+    trace_tag = (f"{provenance_tag}:{trace_suffix}" if trace_suffix
+                 else provenance_tag)
 
     async def _trace(status: str, detail: Dict[str, Any]) -> None:
         try:
             db.add(ExtractionTrace(
                 honcho_workspace_id=workspace_id,
                 honcho_session_id=session_id,
-                honcho_message_id=f"reconstruction:{session_id}",
+                honcho_message_id=f"reconstruction:{trace_tag}",
                 stage="session_reconstruction",
-                item_key=f"reconstruction:{session_id}",
+                item_key=f"reconstruction:{trace_tag}",
                 status=status,
                 model=(model_id or semantic_judge.judge_model_id()),
-                detail_json=json.dumps(detail, default=str)[:4000],
+                detail_json=json.dumps({**detail,
+                                        "temporal_session_id": temporal_session_id or "",
+                                        "lane_session_id": session_id}, default=str)[:4000],
             ))
             await db.commit()
         except Exception as err:
@@ -788,6 +995,7 @@ async def reconstruct_session(
     }
     raw: Any = None
     responded = False
+    call_error = ""
     for attempt in range(3):
         try:
             raw = await adapter.generate_structured(
@@ -803,6 +1011,8 @@ async def reconstruct_session(
             logger.warning("reconstruction call failed (attempt %d, fail-open): %s",
                            attempt, exc)
             # Normal transport retry: one extra attempt on exception, then hold.
+            # Record only the exception class (operability without content).
+            call_error = type(exc).__name__
             result.retries += 1
             raw = None
             if attempt >= 1:
@@ -821,13 +1031,15 @@ async def reconstruct_session(
     if not isinstance(raw, dict) or not isinstance(raw.get("matters"), list):
         result.error = "malformed" if responded else "call_failed"
         result.summary = "model unavailable or invalid: existing state holds, retry later"
-        await _trace("error", {"error": result.error, "retries": result.retries})
+        await _trace("error", {"error": result.error, "retries": result.retries,
+                               "call_error": call_error})
         return result
     result.summary = str(raw.get("session_summary") or "")[:500]
     validated, rejected = validate_reconstruction(
         raw, snapshot=start_snapshot, transcript=turns,
         provisional_ids=provisional_ids,
-        user_peer_ids={user_peer_id} if user_peer_id else None)
+        user_peer_ids={user_peer_id} if user_peer_id else None,
+        receipts=receipts)
     result.rejected = rejected
     start_by_id = {m.id: m for m in start_snapshot.matters}
     pid_to_uuid = {p["pid"]: p["matter_id"] for p in validated["matters"]

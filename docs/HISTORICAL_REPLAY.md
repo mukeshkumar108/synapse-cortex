@@ -37,6 +37,11 @@ result, bounded apply/defer decisions, post-session snapshot, human-readable
 state diff, and conservative lexical leads into the future transcript. Lexical
 leads are navigation aids, not semantic scores.
 
-Known constraint: today's consolidator reads at most 40 turns / 6,000 transcript
-characters per boundary. The report marks possible truncation; the adapter does
-not manufacture sub-session boundaries to hide it.
+Known constraint (updated): the consolidator works in bounded raw windows
+(40 turns / 6,000 chars each, up to 20 windows) rather than one truncated
+call. `consolidate_long_session` walks long sessions window-by-window
+(apply-continue, or prior-proposals context in shadow) with explicit
+coverage accounting — dropped turns are reported, never silently absorbed.
+Identity contract: pass the stable lane id as `session_id` and the source
+boundary as `temporal_session_id` (provenance only); all durable rows land
+in the lane namespace the live system reads.

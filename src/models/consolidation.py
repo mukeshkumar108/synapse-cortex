@@ -24,6 +24,10 @@ class ConsolidationRun(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     honcho_workspace_id: str = Field(index=True, nullable=False)
     honcho_session_id: str = Field(index=True, nullable=False)
+    # Stable lane vs temporal boundary: honcho_session_id is ALWAYS the
+    # durable lane id (state namespace). The temporal conversation boundary
+    # id lives here — provenance only, never state scoping.
+    temporal_session_id: str = Field(default="", nullable=False)
     mode: str = Field(default="shadow", nullable=False)  # shadow | apply
     model: str = Field(default="", nullable=False)
     summary: str = Field(default="", nullable=False)
