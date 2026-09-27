@@ -77,6 +77,162 @@ def _naive_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
 
 
+async def _apply_accept(
+    db: AsyncSession,
+    *,
+    workspace_id: str,
+    session_id: str,
+    message_id: str,
+    peer_id: str,
+    text: str,
+    now: datetime,
+    kind: str,
+    target: Any,
+    matter: str,
+    adjudication: Any,
+    judgement: Any,
+    recruit: Optional[Dict[str, Any]],
+    result: Dict[str, int],
+) -> None:
+    """Shared deterministic apply for direct and recruited accepts.
+
+    The model never writes: this commits the state change, the relation
+    promotion, and the audit trace. Recruited accepts additionally record
+    the query, hit provenance, and whether the grounding span came from the
+    current turn or recruited history. Mutates result counts in place;
+    never raises (fail-open via error trace).
+    """
+    from src.services import semantic_judge
+    from src.services.semantic_promotion import promote_transition
+
+    detail: Dict[str, Any] = {
+        "kind": kind, "target_id": str(target.id),
+        "verdict": adjudication.verdict,
+        "confidence": judgement.confidence,
+        "evidence_span": judgement.evidence_span,
+        "rationale": judgement.rationale,
+    }
+    source_key = f"semantic_proposal:{message_id}#target:{target.id}"
+    evidence_note = f"semantic_proposal:{message_id}#confidence:{judgement.confidence:.2f}"
+    evidence_refs = [f"honcho_message:{message_id}#target:{target.id}"]
+    trace_status = "accepted"
+    item_key = f"{kind}:{target.id}:{message_id}"
+    if recruit is not None:
+        hits = recruit.get("hits") or []
+        provenances = [h.provenance for h in hits]
+        source_key += "#recruited"
+        item_key += ":recruited"
+        evidence_note = (
+            f"semantic_proposal:{message_id}"
+            f"#recruited:{(provenances[0] if provenances else '?')}"
+            f"#confidence:{judgement.confidence:.2f}")
+        evidence_refs = evidence_refs + [f"honcho_ref:{p}" for p in provenances]
+        detail.update({
+            "recruited_query": str(recruit.get("query") or "")[:500],
+            "recruited_hits": provenances,
+            "span_in_current": bool(recruit.get("span_in_current")),
+        })
+        trace_status = "accepted_via_recruitment"
+    try:
+        if kind == "resolves" and isinstance(target, OpenLoop):
+            target.status = OpenLoopStatus.RESOLVED
+            target.resolution_evidence = evidence_note
+            target.updated_at = _naive_utc(now)
+            db.add(target)
+            await db.commit()
+            result["closed"] += 1
+        promoted = await promote_transition(
+            db, workspace_id=workspace_id, rel_type=kind,
+            from_text=text, to_text=matter,
+            source_key=source_key,
+            evidence_refs=evidence_refs,
+            subjects_from=[peer_id] if peer_id else [],
+            subjects_to=([target.owner_peer_id] if getattr(
+                target, "owner_peer_id", None) else []),
+            formation="inferred", confidence=judgement.confidence,
+            effective_at=_naive_utc(now))
+        if promoted is not None:
+            result["promoted"] += 1
+        result["accepted"] += 1
+        await _mark(db, workspace_id=workspace_id, session_id=session_id,
+                    message_id=message_id,
+                    item_key=item_key,
+                    status=trace_status,
+                    detail=detail, model=semantic_judge.judge_model_id())
+    except Exception as err:
+        logger.warning("semantic reconciliation apply failed: %s", err)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        await _mark(db, workspace_id=workspace_id, session_id=session_id,
+                    message_id=message_id,
+                    item_key=item_key,
+                    status="error",
+                    detail={**detail, "error": str(err)[:200]},
+                    model=semantic_judge.judge_model_id())
+
+
+async def _recruit_after_rejection(
+    db: AsyncSession,
+    *,
+    workspace_id: str,
+    session_id: str,
+    message_id: str,
+    peer_id: str,
+    text: str,
+    now: datetime,
+    rejected: List[Dict[str, Any]],
+    adapter: Any,
+    history_provider: Any,
+    result: Dict[str, int],
+) -> None:
+    """Adjacent self-resolution bridge (Canon 12-13).
+
+    Fires only when plausible pairs existed, the judge ran, and nothing was
+    accepted on current evidence alone. One bounded retrieval, re-judge of at
+    most MAX_REJUDGE_PAIRS, mutation only on a single grounded winner;
+    otherwise hold with an audit trace. Never raises; never clarifies.
+    """
+    from src.services import evidence_recruitment, semantic_judge
+
+    try:
+        outcome = await evidence_recruitment.recruit_and_rejudge(
+            workspace_id=workspace_id, session_id=session_id, peer_id=peer_id,
+            message_id=message_id, text=text, rejected=rejected,
+            adapter=adapter, history_provider=history_provider)
+    except Exception as err:
+        logger.warning("evidence recruitment failed (fail-open): %s", err)
+        return
+    if not outcome.get("recruited"):
+        return
+    result["recruited"] = int(outcome.get("recruited") or 0)
+    result["recruit_judged"] = int(outcome.get("recruit_judged") or 0)
+    result["recruit_accepted"] = int(outcome.get("recruit_accepted") or 0)
+    winner = outcome.get("winner")
+    if winner is None:
+        for pair in rejected[:evidence_recruitment.MAX_REJUDGE_PAIRS]:
+            hold_key = f"{pair['kind']}:{pair['target'].id}:{message_id}:recruited"
+            if await _marked(db, workspace_id, message_id, hold_key):
+                continue
+            await _mark(db, workspace_id=workspace_id, session_id=session_id,
+                        message_id=message_id, item_key=hold_key,
+                        status="recruited_hold",
+                        detail={"kind": pair["kind"],
+                                "target_id": str(pair["target"].id),
+                                "reasons": outcome.get("holds") or [],
+                                "recruited": outcome.get("recruited")},
+                        model=semantic_judge.judge_model_id())
+        return
+    pair = winner["pair"]
+    await _apply_accept(
+        db, workspace_id=workspace_id, session_id=session_id,
+        message_id=message_id, peer_id=peer_id, text=text, now=now,
+        kind=pair["kind"], target=pair["target"], matter=pair["matter"],
+        adjudication=winner["judgement"],
+        judgement=winner["judgement"], recruit=winner, result=result)
+
+
 async def reconcile_turn(
     db: AsyncSession,
     *,
@@ -88,10 +244,16 @@ async def reconcile_turn(
     now: datetime,
     closed_loop_ids: Optional[List[Any]] = None,
     adapter: Any = ...,
+    history_provider: Any = None,
 ) -> Dict[str, int]:
-    """Judge open matters against this turn's evidence. Returns counts."""
+    """Judge open matters against this turn's evidence. Returns counts.
+
+    history_provider, when given, enables one bounded recruitment round if
+    plausible pairs were judged but none accepted on current evidence alone
+    (Canon 12-13: investigate privately before holding). None preserves
+    today's behaviour exactly. Never mints clarifications.
+    """
     from src.services import semantic_judge
-    from src.services.semantic_promotion import promote_transition
 
     result = {"pairs": 0, "judged": 0, "accepted": 0, "promoted": 0, "closed": 0}
     text = (text or "").strip()
@@ -130,6 +292,7 @@ async def reconcile_turn(
     pairs.sort(key=lambda p: 0 if p["kind"] == "resolves" else 1)
     result["pairs"] = len(pairs)
 
+    rejected: List[Dict[str, Any]] = []
     for pair in pairs[:MAX_JUDGE_CALLS_PER_TURN]:
         kind = pair["kind"]
         target = pair["target"]
@@ -154,47 +317,20 @@ async def reconcile_turn(
                                 "rationale": adjudication.rationale,
                                 "evidence_span": adjudication.evidence_span},
                         model=semantic_judge.judge_model_id())
+            rejected.append(pair)
             continue
-        result["accepted"] += 1
-        detail = {"kind": kind, "target_id": str(target.id),
-                  "verdict": adjudication.verdict,
-                  "confidence": judgement.confidence,
-                  "evidence_span": judgement.evidence_span,
-                  "rationale": judgement.rationale}
-        try:
-            if kind == "resolves" and isinstance(target, OpenLoop):
-                target.status = OpenLoopStatus.RESOLVED
-                target.resolution_evidence = (
-                    f"semantic_proposal:{message_id}#confidence:{judgement.confidence:.2f}")
-                target.updated_at = _naive_utc(now)
-                db.add(target)
-                await db.commit()
-                result["closed"] += 1
-            promoted = await promote_transition(
-                db, workspace_id=workspace_id, rel_type=kind,
-                from_text=text, to_text=pair["matter"],
-                source_key=f"semantic_proposal:{message_id}#target:{target.id}",
-                evidence_refs=[f"honcho_message:{message_id}#target:{target.id}"],
-                subjects_from=[peer_id] if peer_id else [],
-                subjects_to=([target.owner_peer_id] if getattr(
-                    target, "owner_peer_id", None) else []),
-                formation="inferred", confidence=judgement.confidence,
-                effective_at=_naive_utc(now))
-            if promoted is not None:
-                result["promoted"] += 1
-            await _mark(db, workspace_id=workspace_id, session_id=session_id,
-                        message_id=message_id, item_key=item_key, status="accepted",
-                        detail=detail, model=semantic_judge.judge_model_id())
-        except Exception as err:
-            logger.warning("semantic reconciliation apply failed: %s", err)
-            try:
-                await db.rollback()
-            except Exception:
-                pass
-            await _mark(db, workspace_id=workspace_id, session_id=session_id,
-                        message_id=message_id, item_key=item_key, status="error",
-                        detail={**detail, "error": str(err)[:200]},
-                        model=semantic_judge.judge_model_id())
+        await _apply_accept(
+            db, workspace_id=workspace_id, session_id=session_id,
+            message_id=message_id, peer_id=peer_id, text=text, now=now,
+            kind=kind, target=target, matter=pair["matter"],
+            adjudication=adjudication, judgement=judgement,
+            recruit=None, result=result)
+    if result["accepted"] == 0 and rejected and history_provider is not None:
+        await _recruit_after_rejection(
+            db, workspace_id=workspace_id, session_id=session_id,
+            message_id=message_id, peer_id=peer_id, text=text, now=now,
+            rejected=rejected, adapter=adapter,
+            history_provider=history_provider, result=result)
     return result
 
 

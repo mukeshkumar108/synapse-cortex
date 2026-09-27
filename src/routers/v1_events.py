@@ -346,11 +346,13 @@ async def ingest_turn_event(
     semantic_reconciliation_summary: dict = {}
     try:
         from src.services.semantic_reconciliation import reconcile_turn
+        from src.services.evidence_recruitment import default_history_provider
         semantic_reconciliation_summary = await reconcile_turn(
             db, workspace_id=payload.workspace_id, session_id=payload.session_id,
             message_id=payload.honcho_message_id, text=payload.text,
             peer_id=payload.peer_id, now=payload.now,
             closed_loop_ids=[str(lid) for lid in closed_loop_ids],
+            history_provider=default_history_provider(),
         )
     except Exception as err:
         logger.warning("Semantic reconciliation failed: %s", err)
