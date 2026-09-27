@@ -21,6 +21,63 @@ from src.schemas.candidate import ExtractionCandidate
 from src.services.semantic_promotion import promote_transition
 from src.services.temporal_grounding import TemporalGrounding
 
+
+# Boundary-setting utterances ("don't bring up X", "leave Y alone") are the
+# one shape that must NEVER become a tracked loop: minting the boundary as a
+# matter inverts the user's wish and the packet then surfaces the buried
+# topic as follow-up. Deterministic and narrow by design: only explicit
+# refusal framings with an extractable noun topic fire. Everything else
+# (pronoun-only "leave it alone", questions, reassurance, reminders phrased
+# as "don't forget to X") falls through to existing behaviour.
+# "Don't forget X" is deliberately excluded: that is a reminder, not a
+# boundary. "Worry" is excluded: emotional threads are not burial targets.
+_BOUNDARY_PATTERNS = (
+    r"(?:do\s+not|don't|dont)\s+bring\s+up\s+(?P<topic>.+)",
+    r"(?:do\s+not|don't|dont)\s+(?:mention|talk\s+about)\s+(?P<topic>.+)",
+    r"leave\s+(?P<topic>.+?)\s+alone",
+    r"stop\s+(?:bringing\s+up|mentioning|talking\s+about)\s+(?P<topic>.+)",
+    r"drop\s+(?:the|this|that)\s+(?P<topic>.+)",
+    r"forget\s+about\s+(?P<topic>.+)",
+)
+_BOUNDARY_TRAILING = re.compile(
+    r"\s+(again|for now|right now|anymore|please|for the (?:moment|time being))[\s.!?]*$",
+    re.IGNORECASE,
+)
+_BOUNDARY_LEADING = re.compile(r"^(?:the|this|that|my)\s+", re.IGNORECASE)
+_BOUNDARY_EXCLUDE = re.compile(
+    r"\b(worr(?:y|ies|ied)|anxious|forget\s+to|forgetting\s+to)\b", re.IGNORECASE)
+
+
+def boundary_topic(text: str) -> Optional[str]:
+    """Extract the buried topic from a boundary-setting utterance, or None.
+
+    Returns None for everything that is not an explicit refusal framing with
+    a resolvable noun topic: questions, pronoun-only topics ("leave it
+    alone"), reminders ("don't forget to X"), reassurance ("don't worry").
+    Conservative by design — a miss falls through to existing behaviour,
+    while a false hit would bury something the user wants tracked.
+    """
+    stripped = (text or "").strip()
+    if not stripped or stripped.endswith("?"):
+        return None
+    lowered = stripped.lower()
+    if _BOUNDARY_EXCLUDE.search(lowered):
+        return None
+    for pattern in _BOUNDARY_PATTERNS:
+        match = re.search(pattern, lowered)
+        if not match:
+            continue
+        topic = match.group("topic").strip()
+        previous = None
+        while previous != topic:
+            previous = topic
+            topic = _BOUNDARY_TRAILING.sub("", topic).strip()
+        topic = _BOUNDARY_LEADING.sub("", topic).strip().rstrip(".!?")
+        words = [w for w in re.findall(r"[a-z0-9]+", topic) if len(w) > 2]
+        if len(topic) >= 3 and words:
+            return topic
+    return None
+
 logger = logging.getLogger(__name__)
 temporal_grounder = TemporalGrounding()
 
@@ -1828,6 +1885,36 @@ class LifecycleService:
         frame: Optional[str] = None,
     ) -> Optional[OpenLoop]:
         if not candidate.open_loop_hint:
+            return None
+
+        # Boundary-first: a refusal framing about a topic ("don't bring up
+        # the work trip") must bury the topic, never track it. The packet
+        # already hides suppression-matching topics from open_loops, so a
+        # suppression here is sufficient. Applies to every mint path
+        # (extractor-shaped and interpreter-shaped candidates alike).
+        boundary = boundary_topic(
+            candidate.observation or candidate.canonical_title or "")
+        if boundary is not None:
+            suppression = Suppression(
+                honcho_workspace_id=workspace_id,
+                honcho_session_id=session_id,
+                honcho_message_id=message_id,
+                owner_peer_id=owner_peer_id,
+                candidate_key=f"mint_boundary:{candidate.candidate_key}",
+                target_type=SuppressionTarget.TOPIC,
+                topic_or_entity=boundary[:160],
+                reason="user_explicit_boundary",
+                surface_scope="followup_prompt",
+                reopen_condition="user re-raises topic",
+                status=SuppressionStatus.ACTIVE,
+            )
+            db.add(suppression)
+            try:
+                await db.commit()
+            except IntegrityError:
+                await db.rollback()
+            logger.info("Suppressed boundary topic=%r (msg=%s); no loop minted",
+                        boundary, message_id)
             return None
 
         stmt = select(OpenLoop).where(
