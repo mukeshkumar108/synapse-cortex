@@ -182,6 +182,20 @@ class CortexPacketService:
                     })
                 continue
 
+            # User-told expectations carrying explicit reminder windows join
+            # the commitments compile: a stated "remind me" deserves the same
+            # reminder_due/overdue attention authority as an app task window.
+            # Delivery (/reminders/due) already covers them; this restores
+            # ranking/admission/handover/initiative visibility. They remain
+            # in the generic sections too (deduped downstream by content).
+            if exp.reminder_windows_json:
+                try:
+                    _has_windows = bool(json.loads(exp.reminder_windows_json or "[]"))
+                except (TypeError, ValueError):
+                    _has_windows = False
+                if _has_windows:
+                    source_expectations.append(exp)
+
             if read_model["followup_eligible"]:
                 followups.append({
                     "id": str(exp.id),
@@ -750,7 +764,12 @@ class CortexPacketService:
         message_id = f"packet:{int(now_utc.timestamp())}"
         items: List[Dict[str, Any]] = []
         for exp in source_expectations:
-            if exp.source_system != "app_task":
+            # App tasks plus user-told expectations carrying explicit reminder
+            # windows (added by the caller). Other user-told expectations stay
+            # in the generic sections; only windowed ones need due-state here.
+            if exp.source_system not in (None, "app_task"):
+                continue
+            if exp.source_system is None and not CortexPacketService._parse_reminder_windows(exp):
                 continue
             windows = CortexPacketService._parse_reminder_windows(exp)
             active_window = None
@@ -783,7 +802,7 @@ class CortexPacketService:
                 state = "upcoming"
             reminder_surfaced = False
             if active_window is not None:
-                window_key = f"task_reminder:{exp.source_object_id}:{active_window['start'].isoformat()}"
+                window_key = f"task_reminder:{exp.source_object_id or exp.id}:{active_window['start'].isoformat()}"
                 window_end = active_window.get("end")
                 cooldown = (
                     max(60, int((window_end - active_window["start"]).total_seconds()))

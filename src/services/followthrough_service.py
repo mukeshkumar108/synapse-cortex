@@ -175,6 +175,13 @@ async def compute_admission(
                 "followup_state": (
                     status if status in _FOREGROUND_TERMINAL else "optional_background"
                 ),
+                # Rank order is preserved (agenda order in); judgement
+                # travels with the item so handover can offer the ranked
+                # optional without re-deriving it from raw packet rows.
+                "why": str(item.get("why") or "")[:140],
+                "next_move": str(item.get("next_move") or "")[:110],
+                "item_key": item.get("item_key"),
+                "horizon": item.get("horizon", "day"),
             })
 
     owed.sort(key=lambda x: (-x["pressure"], -x["surface_count"] * -0.0))

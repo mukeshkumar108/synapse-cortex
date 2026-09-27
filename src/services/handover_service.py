@@ -87,15 +87,58 @@ def compile_handover(
     available = []
     # Optional matters never become owed work. The foreground's incoming request
     # and intent policy decide whether this single grounded opportunity is useful.
-    for item in list(packet.get("sophie_attention") or []) + list(packet.get("open_loops") or []):
-        content = _line(item, "content", "title", "summary")
-        if str(item.get("title") or "").lower() == "open loop":
-            content = _line(item, "summary", "content", "title")
-        if content and not any(content.lower() == str(x.get("what", "")).lower() for x in owed_items):
-            available.append({"what": content, "authority": "optional_not_obligation",
-                "candidate_id": item.get("candidate_id"), "candidate_version": item.get("candidate_version"),
-                "evidence_refs": item.get("evidence_refs") or [item.get("honcho_message_id")]})
-            break
+    # Selection follows the RANKED admission optional list (agenda order with
+    # pressure dynamics applied) — not raw packet order — so the offered
+    # candidate reflects the attention system's actual judgement, with its
+    # why/pressure/next_move intact. IDs and evidence resolve back to packet
+    # rows so delivery receipts keep working; unmatched items fall back to
+    # the legacy first-eligible packet row.
+    _packet_by_id: Dict[str, Dict[str, Any]] = {}
+    for _section in ("open_loops", "sophie_attention", "active_expectations",
+                     "window_elapsed_unknown", "waiting_on", "commitments",
+                     "events", "recent_resolutions"):
+        for _row in (packet.get(_section) or []):
+            if isinstance(_row, dict) and _row.get("id"):
+                _packet_by_id.setdefault(str(_row["id"]), _row)
+    _TERMINAL_OPTIONAL = {"resolved", "confirmed", "scheduled_for_later",
+                          "suppressed_until_event", "fulfilled", "cancelled"}
+    for item in (admission.get("optional") or []):
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("followup_state") or "") in _TERMINAL_OPTIONAL:
+            continue
+        content = str(item.get("what") or "").strip()
+        if not content or content.lower() == "open loop":
+            continue
+        if any(content.lower() == str(x.get("what", "")).lower() for x in owed_items):
+            continue
+        _key = str(item.get("item_key") or "")
+        _pid = _key.split(":", 1)[1] if ":" in _key else ""
+        _row = _packet_by_id.get(_pid, {})
+        available.append({
+            "what": content,
+            "authority": "optional_not_obligation",
+            "pressure": item.get("pressure"),
+            "why": str(item.get("why") or "")[:140] or None,
+            "next_move": str(item.get("next_move") or "")[:110] or None,
+            "candidate_id": _row.get("candidate_id") or item.get("candidate_id"),
+            "candidate_version": _row.get("candidate_version") or item.get("candidate_version"),
+            "evidence_refs": _row.get("evidence_refs") or (
+                [_row.get("honcho_message_id")] if _row.get("honcho_message_id") else None
+            ) or item.get("evidence_refs") or (
+                [item.get("honcho_message_id")] if item.get("honcho_message_id") else []),
+        })
+        break
+    if not available:
+        for item in list(packet.get("sophie_attention") or []) + list(packet.get("open_loops") or []):
+            content = _line(item, "content", "title", "summary")
+            if str(item.get("title") or "").lower() == "open loop":
+                content = _line(item, "summary", "content", "title")
+            if content and not any(content.lower() == str(x.get("what", "")).lower() for x in owed_items):
+                available.append({"what": content, "authority": "optional_not_obligation",
+                    "candidate_id": item.get("candidate_id"), "candidate_version": item.get("candidate_version"),
+                    "evidence_refs": item.get("evidence_refs") or [item.get("honcho_message_id")]})
+                break
     handover: Dict[str, Any] = {
         "version": "handover-v4",
         "product": profile.name,

@@ -35,13 +35,21 @@ DEFAULT_POLICY = {
 }
 
 
+# Agenda statuses that still describe LIVE, actionable matters. The agenda
+# emits outstanding (due/actionable commitments), waiting_event (blocked on
+# a trigger, still worth appearing for when ripe) and unresolved alongside
+# terminal states (resolved/scheduled/deferred/suppressed/...). Proactive
+# eligibility must follow the agenda's live vocabulary, not a single string.
+LIVE_STATUSES = {"unresolved", "outstanding", "waiting_event"}
+
+
 def _high_pressure_items(agenda: List[Dict[str, Any]], threshold: float) -> List[Dict[str, Any]]:
     out = []
     for item in agenda or []:
         pressure = item.get("pressure")
         if isinstance(pressure, str):
             pressure = {"high": 0.8, "medium": 0.45, "low": 0.2}.get(pressure, 0.2)
-        if float(pressure or 0) >= threshold and item.get("status") == "unresolved":
+        if float(pressure or 0) >= threshold and str(item.get("status") or "") in LIVE_STATUSES:
             out.append(item)
     return out
 
