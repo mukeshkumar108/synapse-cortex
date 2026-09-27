@@ -219,6 +219,8 @@ class CortexPacketService:
                     "actor": exp.subject_peer_id,
                     "title": exp.title,
                     "summary": exp.summary,
+                    "age_hours": round((now_utc - exp.created_at).total_seconds() / 3600, 1),
+                    "updated_at": exp.updated_at.isoformat(),
                 })
 
             if exp.raw_temporal_phrase or exp.hard_deadline_at:
@@ -312,6 +314,8 @@ class CortexPacketService:
                     ),
                     "expectation_id": str(loop.expectation_id) if loop.expectation_id else None,
                     "explicitly_invited": explicitly_invited,
+                    "age_hours": round((now_utc - loop.created_at).total_seconds() / 3600, 1),
+                    "updated_at": loop.updated_at.isoformat(),
                 })
 
         # 4. Fetch grounded Sophie-side attention. Candidates are permission to

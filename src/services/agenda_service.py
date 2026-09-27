@@ -57,9 +57,15 @@ def _is_stale(item: Dict[str, Any]) -> bool:
         return False
 
 
-def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: str) -> List[Dict[str, Any]]:
+def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: str,
+                       surface_marks: Optional[Dict[str, Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
     """Deterministic L1/L2/L3 candidate extraction from the attention packet.
-    Code owns every factual and temporal field. No model involved here."""
+    Code owns every factual and temporal field. No model involved here.
+
+    surface_marks optionally maps agenda item_key -> {"count", "last"}
+    surfacing history (from SurfaceRegistry); matched loop candidates
+    receive last_surfaced_at/surfaced_count so pressure dynamics can apply
+    fatigue. Absent marks simply skip fatigue (fail-open)."""
     now = _naive(now)
     brief = packet.get("intelligence_brief") or {}
     daypart = str(brief.get("daypart") or "").lower()
@@ -147,8 +153,51 @@ def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: s
             continue
         cand(item_key=f"gap:{item.get('id')}", what=str(item.get("title") or "")[:90],
              semantic_type="open_loop", urgency=0.4, pressure=0.25,
+             age_hours=age, updated_at=item.get("candidate_version"),
              why=f"no outcome evidence yet ({age:.0f}h old)",
              next_move="ask outcome naturally once", horizon="day")
+
+    # L2 - open loops (waiting threads without windows). Same organic
+    # dynamics as gaps: slow growth with age, fatigue after surfacing.
+    for item in (packet.get("open_loops") or [])[:8]:
+        title = str(item.get("title") or "").strip()
+        if not title or title.lower() == "open loop":
+            title = str(item.get("summary") or "").strip()
+        if not title:
+            continue
+        try:
+            age = float(item.get("age_hours") or 0)
+        except (TypeError, ValueError):
+            age = 0.0
+        extra: Dict[str, Any] = {}
+        if surface_marks:
+            mark = surface_marks.get(f"surface:open_loop:{item.get('id')}")
+            if isinstance(mark, dict):
+                if mark.get("last"):
+                    extra["last_surfaced_at"] = mark["last"]
+                try:
+                    extra["surfaced_count"] = int(mark.get("count") or 0)
+                except (TypeError, ValueError):
+                    pass
+        cand(item_key=f"loop:{item.get('id')}", what=title[:100],
+             semantic_type="open_loop", urgency=0.4, pressure=0.25,
+             age_hours=age, updated_at=item.get("updated_at"), **extra,
+             why="open thread with no outcome yet",
+             next_move="return naturally when the moment fits", horizon="day")
+
+    # L2 - waiting on third parties (external dependencies). Organic threads:
+    # no due time, slow pressure growth with age, fatigue after surfacing.
+    for item in (packet.get("waiting_on") or []):
+        try:
+            age = float(item.get("age_hours") or 0)
+        except (TypeError, ValueError):
+            age = 0.0
+        cand(item_key=f"wait:{item.get('id')}",
+             what=f"{item.get('actor')}: {item.get('title')}"[:100] if item.get("actor") else str(item.get("title") or "")[:100],
+             semantic_type="waiting", urgency=0.4, pressure=0.3,
+             age_hours=age, updated_at=item.get("updated_at"),
+             why=f"waiting on {item.get('actor') or 'third party'}",
+             next_move="check back naturally when the moment fits", horizon="day")
 
     # L2 - transitions (recent resolutions worth acknowledging)
     for item in (packet.get("recent_resolutions") or []):
@@ -166,9 +215,12 @@ def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: s
             continue
         cand(item_key=f"si:{item.get('id')}", what=content[:110], semantic_type="sophie_intention",
              owner="sophie", importance=0.45, urgency=0.3, pressure=0.2,
+             surfaced_count=item.get("surfaced_count") or 0,
              why="follow-up Sophie wants to make when an opening appears",
              next_move="raise at a natural opening", horizon="6h")
 
+    from src.services.pressure_service import apply_pressure_dynamics
+    candidates = apply_pressure_dynamics(candidates, now=now)
     return candidates
 
 
@@ -280,16 +332,39 @@ async def ensure_occurrence_rows(db: AsyncSession, *, workspace_id: str, packet:
         item["ask_count"] = 0
 
 
+async def _surface_marks(db: AsyncSession, *, workspace_id: str,
+                       session_id: str) -> Dict[str, Dict[str, Any]]:
+    """Load per-key surfacing history for fatigue. Fail-open: {} on any error."""
+    try:
+        from src.models.derived_signal import DerivedSignal, DerivedSignalKind
+        row = (await db.execute(select(DerivedSignal).where(
+            DerivedSignal.honcho_workspace_id == workspace_id,
+            DerivedSignal.honcho_session_id == session_id,
+            DerivedSignal.kind == DerivedSignalKind.SURFACE_COOLDOWN,
+        ))).scalar_one_or_none()
+        payload = json.loads(row.payload_json) if row and row.payload_json else {}
+        return payload if isinstance(payload, dict) else {}
+    except Exception:
+        return {}
+
+
 async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: Optional[str],
                          packet: Dict[str, Any], now: datetime, timezone_str: str,
                          adapter: Any, force: bool = False,
-                         schedule_background: bool = True) -> Dict[str, Any]:
+                         schedule_background: bool = True,
+                         session_id: Optional[str] = None) -> Dict[str, Any]:
     """Read-or-compile the live agenda. Fresh snapshot returns instantly.
     Otherwise compile deterministically, persist, and refresh via the model
-    in the background (never blocking the foreground)."""
+    in the background (never blocking the foreground).
+
+    session_id enables per-session surfacing history (fatigue): when
+    provided, recent SurfaceRegistry marks are folded into candidate
+    pressure. Absent marks simply skip fatigue (fail-open)."""
     from src.db import async_session_maker
     now = _naive(now)
     horizon = "day"
+    marks = await _surface_marks(db, workspace_id=workspace_id,
+                                 session_id=session_id or "") if session_id else {}
     snap = (await db.execute(select(AgendaSnapshot).where(
         AgendaSnapshot.honcho_workspace_id == workspace_id,
         AgendaSnapshot.owner_peer_id == owner_peer_id,
@@ -300,7 +375,8 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
             # A prepared rank is reusable; its eligibility and facts are not.
             # Reconcile against today's packet so cancellation, suppression,
             # receipts and temporal boundaries win immediately in every consumer.
-            current = {c["item_key"]: c for c in extract_candidates(packet, now=now, timezone_str=timezone_str)}
+            current = {c["item_key"]: c for c in extract_candidates(
+                packet, now=now, timezone_str=timezone_str, surface_marks=marks)}
             ranked = json.loads(snap.items_json)
             items = [{**item, **current[item["item_key"]]} for item in ranked
                      if item.get("item_key") in current]
@@ -314,7 +390,8 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
 
     daypart = str((packet.get("intelligence_brief") or {}).get("daypart") or "").lower()
     await ensure_occurrence_rows(db, workspace_id=workspace_id, packet=packet, now=now)
-    candidates = extract_candidates(packet, now=now, timezone_str=timezone_str)
+    candidates = extract_candidates(packet, now=now, timezone_str=timezone_str,
+                                    surface_marks=marks)
     items = fallback_rank(candidates, daypart=daypart)
     compiled_by = "fallback"
 
