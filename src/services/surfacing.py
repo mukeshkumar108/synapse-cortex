@@ -186,6 +186,10 @@ async def _matter_title(db: AsyncSession, matter_kind: str,
         from src.models.open_loop import OpenLoop
         row = await db.get(OpenLoop, uid)
         return str(getattr(row, "title", "") or "") if row else ""
+    if matter_kind == "expectation":
+        from src.models.expectation import Expectation
+        row = await db.get(Expectation, uid)
+        return str(getattr(row, "title", "") or "") if row else ""
     if matter_kind == "attention":
         from src.models.attention_candidate import AttentionCandidate
         row = await db.get(AttentionCandidate, uid)

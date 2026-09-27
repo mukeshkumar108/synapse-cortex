@@ -157,6 +157,9 @@ async def compute_admission(
         entry = {
             "what": what,
             "occurrence_id": str(occ_id) if occ_id else None,
+            "candidate_id": item.get("candidate_id"),
+            "candidate_version": item.get("candidate_version"),
+            "item_key": item.get("item_key"),
             "owner": item.get("owner", "user"),
             "semantic_type": item.get("semantic_type", "objective"),
             "followup_state": status,
@@ -181,6 +184,8 @@ async def compute_admission(
                 "why": str(item.get("why") or "")[:140],
                 "next_move": str(item.get("next_move") or "")[:110],
                 "item_key": item.get("item_key"),
+                "candidate_id": item.get("candidate_id"),
+                "candidate_version": item.get("candidate_version"),
                 "horizon": item.get("horizon", "day"),
             })
 

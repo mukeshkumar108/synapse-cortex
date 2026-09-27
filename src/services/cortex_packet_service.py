@@ -250,6 +250,7 @@ class CortexPacketService:
                     "expected_window_label": read_model["expected_window_label"],
                     "raw_temporal_phrase": exp.raw_temporal_phrase,
                     "age_hours": round((now_utc - exp.created_at).total_seconds() / 3600, 1),
+                    "updated_at": exp.updated_at.isoformat(),
                 }
                 if read_model["temporal_state"] in (
                     "window_elapsed", "deadline_passed"
@@ -491,6 +492,7 @@ class CortexPacketService:
                 "user_day": user_day.isoformat(),
                 "occurrence_status": occurrence.status.value if occurrence else "pending",
                 "occurrence_id": str(occurrence.id) if occurrence else None,
+                "occurrence_updated_at": occurrence.updated_at.isoformat() if occurrence else None,
                 "ask_count": occurrence.ask_count if occurrence else 0,
                 "asked_at": occurrence.asked_at.isoformat() if occurrence and occurrence.asked_at else None,
                 "evidence_ref": recurrence.honcho_message_id,
@@ -830,6 +832,7 @@ class CortexPacketService:
                 "title": exp.title,
                 "due_at": due_at.isoformat() if due_at else None,
                 "state": state,
+                "updated_at": exp.updated_at.isoformat(),
                 "active_reminder": (
                     {
                         "start": active_window["start"].isoformat(),

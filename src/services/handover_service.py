@@ -55,9 +55,15 @@ def compile_handover(
     admission = admission or {}
     owed_items: List[Dict[str, Any]] = []
     for item in (admission.get("owed") or [])[: profile.handover_limits.get("agenda", 3)]:
+        _occ = item.get("occurrence_id")
+        _cid = item.get("candidate_id")
+        if _cid is None and _occ:
+            _cid = f"recurring_occurrence:{_occ}"
         owed_items.append({
             "what": str(item.get("what") or "")[:90],
-            "occurrence_id": item.get("occurrence_id"),
+            "occurrence_id": _occ,
+            "candidate_id": _cid,
+            "candidate_version": item.get("candidate_version"),
             "pressure": item.get("pressure"),
             "followup_state": item.get("followup_state", "outstanding"),
             "next_move": str(item.get("next_move") or "")[:110],

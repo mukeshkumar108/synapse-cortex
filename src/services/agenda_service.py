@@ -102,9 +102,12 @@ def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: s
         if target is not None and item.get("target_unit"):
             what = f"{what} ({target:g} {item['target_unit']})"
         asks = int(item.get("ask_count") or 0)
+        occ_id = item.get("occurrence_id")
         cand(item_key=f"obj:{item.get('id')}", what=what,
              semantic_type=str(item.get("semantic_type") or "recurring_action"),
-             urgency=min(1.0, urgency), pressure=pressure, occurrence_id=item.get("occurrence_id"),
+             urgency=min(1.0, urgency), pressure=pressure, occurrence_id=occ_id,
+             candidate_id=f"recurring_occurrence:{occ_id}" if occ_id else None,
+             candidate_version=item.get("occurrence_updated_at"),
              why=f"daily objective unconfirmed today ({asks} ask(s) so far)",
              next_move=("ask status; adapt strategy if window closed" if (window_passed or daypart in ("evening", "night")) else "check in naturally"),
              horizon="now" if (window_passed or daypart in ("evening", "night")) else "day")
@@ -124,6 +127,8 @@ def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: s
             urgency=0.9 if state == "overdue" else 0.75,
             pressure=0.85 if state == "overdue" else 0.7,
             status="outstanding",
+            candidate_id=f"expectation:{item.get('id')}" if item.get("id") else None,
+            candidate_version=item.get("updated_at"),
             why=("task is overdue" if state == "overdue" else "explicit reminder window is open"),
             next_move="surface once and close the ask when answered",
             horizon="now",
@@ -139,6 +144,8 @@ def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: s
              urgency=0.8 if approaching else 0.5,
              pressure=0.6 if approaching else 0.3,
              status="waiting_event" if waits_for_event else "unresolved",
+             candidate_id=f"expectation:{item.get('id')}" if item.get("id") else None,
+             candidate_version=item.get("updated_at"),
              why=str(item.get("expected_window_label") or "")[:80],
              next_move=(f"reactivate {raw_temporal}" if waits_for_event else "confirm status or offer prep help"),
              horizon="now" if approaching else "day")
@@ -333,8 +340,18 @@ async def ensure_occurrence_rows(db: AsyncSession, *, workspace_id: str, packet:
 
 
 async def _surface_marks(db: AsyncSession, *, workspace_id: str,
-                       session_id: str) -> Dict[str, Dict[str, Any]]:
-    """Load per-key surfacing history for fatigue. Fail-open: {} on any error."""
+                       session_id: str,
+                       owner_peer_id: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+    """Load per-key surfacing history for fatigue. Fail-open: {} on any error.
+
+    Merges two scopes: the session SurfaceRegistry (cooldown/max-count map)
+    and recent owner-scoped CandidateReceipts at delivered/generated stages
+    (cross-session trajectory: a matter surfaced last week still counts).
+    Keys are shared (`surface:<kind>:<id>`); receipt counts add onto any
+    session count, latest timestamp wins.
+    """
+    from datetime import timedelta
+    marks: Dict[str, Dict[str, Any]] = {}
     try:
         from src.models.derived_signal import DerivedSignal, DerivedSignalKind
         row = (await db.execute(select(DerivedSignal).where(
@@ -343,9 +360,46 @@ async def _surface_marks(db: AsyncSession, *, workspace_id: str,
             DerivedSignal.kind == DerivedSignalKind.SURFACE_COOLDOWN,
         ))).scalar_one_or_none()
         payload = json.loads(row.payload_json) if row and row.payload_json else {}
-        return payload if isinstance(payload, dict) else {}
+        if isinstance(payload, dict):
+            for key, entry in payload.items():
+                if isinstance(entry, dict):
+                    marks[str(key)] = {"count": int(entry.get("count") or 0),
+                                       "last": entry.get("last")}
     except Exception:
-        return {}
+        pass
+    try:
+        from src.models.operational_state import CandidateReceipt
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
+        stmt = select(CandidateReceipt).where(
+            CandidateReceipt.honcho_workspace_id == workspace_id,
+            CandidateReceipt.stage.in_(("delivered", "generated")),
+            CandidateReceipt.occurred_at >= cutoff,
+        )
+        if owner_peer_id:
+            stmt = stmt.where(CandidateReceipt.owner_peer_id == owner_peer_id)
+        rows = (await db.execute(stmt)).scalars().all()
+        for receipt in rows:
+            prefix, _, raw = (receipt.candidate_id or "").partition(":")
+            if prefix not in ("open_loop", "attention", "expectation",
+                              "clarification", "recurring_occurrence"):
+                continue
+            key = f"surface:{prefix}:{raw}"
+            try:
+                last = receipt.occurred_at.isoformat()
+            except Exception:
+                last = None
+            prev = marks.get(key) or {}
+            try:
+                count = int(prev.get("count") or 0) + 1
+            except (TypeError, ValueError):
+                count = 1
+            if last is not None and (prev.get("last") is None or last > str(prev["last"])):
+                marks[key] = {"count": count, "last": last}
+            elif key not in marks:
+                marks[key] = {"count": count, "last": last}
+    except Exception:
+        pass
+    return marks
 
 
 async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: Optional[str],
@@ -363,8 +417,9 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
     from src.db import async_session_maker
     now = _naive(now)
     horizon = "day"
-    marks = await _surface_marks(db, workspace_id=workspace_id,
-                                 session_id=session_id or "") if session_id else {}
+    marks = await _surface_marks(
+        db, workspace_id=workspace_id, session_id=session_id or "",
+        owner_peer_id=owner_peer_id) if session_id else {}
     snap = (await db.execute(select(AgendaSnapshot).where(
         AgendaSnapshot.honcho_workspace_id == workspace_id,
         AgendaSnapshot.owner_peer_id == owner_peer_id,

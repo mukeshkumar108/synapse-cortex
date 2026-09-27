@@ -162,15 +162,22 @@ async def record_candidate_receipts(
     req: CandidateReceiptRequest,
     db: AsyncSession = Depends(get_async_session),
 ):
-    """Append idempotent candidate lifecycle evidence scoped to its owner."""
+    """Append idempotent candidate lifecycle evidence scoped to its owner.
+
+    Supported candidate_id prefixes (stable identity contract shared with
+    handover/agenda): recurring_occurrence, attention, open_loop,
+    clarification, expectation. The version must equal the row's updated_at
+    (stale versions 409) so receipts attest to the exact state delivered.
+    """
     accepted = 0
     duplicates = 0
     for item in req.receipts:
         prefix, separator, raw_id = item.candidate_id.partition(":")
         from src.models.attention_candidate import AttentionCandidate, AttentionCandidateStatus
+        from src.models.expectation import Expectation
         from src.models.open_loop import OpenLoop
         from src.models.clarification import ClarificationCandidate
-        if separator != ":" or prefix not in {"recurring_occurrence", "attention", "open_loop", "clarification"}:
+        if separator != ":" or prefix not in {"recurring_occurrence", "attention", "open_loop", "clarification", "expectation"}:
             raise HTTPException(status_code=422, detail="unsupported candidate_id")
         try:
             occurrence_id = __import__("uuid").UUID(raw_id)
@@ -185,7 +192,9 @@ async def record_candidate_receipts(
                 RecurringIntention.owner_peer_id == req.owner_peer_id,
             ))).scalar_one_or_none()
         else:
-            model = {"attention": AttentionCandidate, "open_loop": OpenLoop, "clarification": ClarificationCandidate}[prefix]
+            model = {"attention": AttentionCandidate, "open_loop": OpenLoop,
+                     "clarification": ClarificationCandidate,
+                     "expectation": Expectation}[prefix]
             owned = (await db.execute(select(model).where(model.id == occurrence_id,
                 model.honcho_workspace_id == req.workspace_id,
                 model.owner_peer_id == req.owner_peer_id))).scalar_one_or_none()
@@ -266,6 +275,18 @@ async def record_candidate_receipts(
             await SurfaceRegistry().mark(db, workspace_id=req.workspace_id,
                 session_id=owned.honcho_session_id, message_id=item.assistant_message_id,
                 key=f"clarification:{owned.id}", now=item.occurred_at)
+        if prefix in ("open_loop", "expectation") and item.stage in ("generated", "delivered") and item.effect == "asked":
+            # Delivered surfacing is recorded (receipt row above) and fenced
+            # into surfacing history so future pressure/fatigue sees it —
+            # without mutating the matter itself. Resolution still arrives
+            # only via evidence (ingestion/reconciliation), never via report.
+            # Key shape matches the agenda fatigue reader
+            # (surface:<kind>:<id>); session is the row's own session so a
+            # cross-session runtime report lands where the matter lives.
+            from src.services.surface_lifecycle import SurfaceRegistry
+            await SurfaceRegistry().mark(db, workspace_id=req.workspace_id,
+                session_id=owned.honcho_session_id, message_id=item.assistant_message_id,
+                key=f"surface:{prefix}:{owned.id}", now=item.occurred_at)
         if prefix == "recurring_occurrence" and item.stage == "delivered" and item.effect == "asked":
             await db.execute(
                 update(RecurringOccurrence)
