@@ -25,7 +25,19 @@ Raw exports, reports, and replay DBs belong under gitignored `replay-private/`.
   --input replay-private/sophie.json \
   --db replay-private/sophie.sqlite \
   --out replay-private/sophie-report.json
+
+./.venv/bin/python scripts/historical_replay.py retry \
+  --db replay-private/sophie.sqlite \
+  --input replay-private/sophie.json \
+  --workspace 'replay:sophie:USER' --lane 'historical-lane:USER:PERSONA' \
+  --run-id <run-id-from-report> --source-session-id <source-session>
 ```
+
+`retry` re-runs only the failed windows recorded in the run ledger
+(`completion: partial|failed`), skips covered windows without model cost,
+chains a new run row to the prior, and converges through the same stable
+idempotency keys — no duplicate application. A retry of a complete run
+reports `already_complete` with zero model calls.
 
 RPD2 scene boundaries are observational only: a scene rolls over at a recorded
 gap of 30 minutes or more. Sophie uses explicit source `Session` rows and only

@@ -307,3 +307,169 @@ async def test_segment_cap_reports_dropped_honestly(async_client, monkeypatch):
     assert len(body["segments"]) <= 20
     assert body["coverage"]["turns_dropped"] > 0
     assert len(stub.prompts) <= 20
+
+
+# ── partial-success semantics ────────────────────────────────────────────────
+
+class _ScriptStub:
+    """Scripted per-call adapter: each response is a payload dict or an
+    exception to raise. Counts calls for retry-convergence assertions."""
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = 0
+
+    async def generate_structured(self, **kw):
+        self.calls += 1
+        if not self.responses:
+            raise AssertionError("adapter called more times than scripted")
+        resp = self.responses.pop(0)
+        if isinstance(resp, Exception):
+            raise resp
+        return resp
+
+
+def _matter_payload(title, mids, kind="watch"):
+    return {"session_summary": "s",
+            "matters": [{"pid": "m1", "kind": kind, "title": title,
+                         "status": "open", "owner": "user", "basis": "new",
+                         "confidence": 0.85, "rationale": "fixture",
+                         "subjects": [],
+                         "evidence": {"message_ids": mids,
+                                      "spans": [{"message_id": mids[0],
+                                                 "span": "turn number"}]}}]}
+
+
+@pytest.mark.asyncio
+async def test_failed_window_visible_completion_partial(async_client, monkeypatch):
+    stub = _ScriptStub(
+        [_matter_payload("First thread", ["m0"])] + [RuntimeError("boom")] * 3)
+    monkeypatch.setattr(semantic_judge, "_adapter", lambda: stub)
+    monkeypatch.setenv("SESSION_CONSOLIDATION_APPLY", "1")
+    r = await async_client.post(
+        "/v1/sessions/consolidate",
+        json={"workspace_id": WS, "session_id": LANE, "mode": "apply",
+              "user_peer_id": "ashley", "temporal_session_id": "temp-1",
+              "transcript": _turns(65, prefix="dentist")})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # Packing covered everything; semantics did not.
+    assert body["coverage"]["packing"]["complete"] is True
+    assert body["coverage"]["semantic"]["complete"] is False
+    assert body["coverage"]["complete"] is False, \
+        "a failed window must never report complete"
+    assert body["completion"] == "partial"
+    failed = body["failed_segments"]
+    assert len(failed) == 1 and failed[0]["segment"] == 1
+    assert len(failed[0]["message_ids"]) == 25, "failed window stays explicit"
+    # Successful window still applied (no atomic rollback of good state)...
+    assert [a for a in body["applied"] if a["op"] == "new_matter"]
+    # ...and the ledger exposes the partial state for operators.
+    async with async_session_maker() as db:
+        from src.models.consolidation import ConsolidationRun
+        runs = (await db.execute(select(ConsolidationRun).where(
+            ConsolidationRun.honcho_workspace_id == WS))).scalars().all()
+    assert len(runs) == 1
+    assert runs[0].completion == "partial"
+    assert runs[0].temporal_session_id == "temp-1"
+    import json as _json
+    segmap = _json.loads(runs[0].segment_map_json)
+    assert {s["status"] for s in segmap} == {"ok", "failed"}
+    assert runs[0].accepted_json and "First thread" in runs[0].accepted_json
+
+
+@pytest.mark.asyncio
+async def test_retry_converges_without_duplicates(async_client, monkeypatch):
+    stub = _ScriptStub(
+        [_matter_payload("First thread", ["m0"])]
+        + [RuntimeError("boom")] * 2
+        + [_matter_payload("Second thread", ["m40"])])
+    monkeypatch.setattr(semantic_judge, "_adapter", lambda: stub)
+    monkeypatch.setenv("SESSION_CONSOLIDATION_APPLY", "1")
+    base = {"workspace_id": WS, "session_id": LANE, "mode": "apply",
+            "user_peer_id": "ashley", "transcript": _turns(65, prefix="dentist")}
+    r1 = await async_client.post("/v1/sessions/consolidate", json=base)
+    assert r1.status_code == 200, r1.text
+    run1 = r1.json()
+    assert run1["completion"] == "partial"
+    assert stub.calls == 3, "1 ok + 2 transport attempts on the failed window"
+    r2 = await async_client.post(
+        "/v1/sessions/consolidate/retry",
+        json={"workspace_id": WS, "session_id": LANE,
+              "run_id": run1["run_id"], "user_peer_id": "ashley",
+              "transcript": base["transcript"]})
+    assert r2.status_code == 200, r2.text
+    body = r2.json()
+    assert stub.calls == 4, "only the failed window re-runs: no wasted model cost"
+    assert body["completion"] == "complete"
+    assert body["coverage"]["semantic"]["windows_skipped_covered"] == 1
+    titles = [a["data"].get("title", "") for a in body["accepted"]]
+    assert any("First thread" in t for t in titles), "prior accepted merged"
+    assert any("Second thread" in t for t in titles)
+    async with async_session_maker() as db:
+        loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == WS))).scalars().all()
+        from src.models.consolidation import ConsolidationRun
+        runs = (await db.execute(select(ConsolidationRun).where(
+            ConsolidationRun.honcho_workspace_id == WS))).scalars().all()
+    assert len([l for l in loops if "thread" in (l.title or "").lower()]) == 2, \
+        "retry must converge without reminting covered windows"
+    assert len(runs) == 2 and runs[1].prior_run_id == runs[0].id, \
+        "runs chain instead of mutating history"
+
+
+@pytest.mark.asyncio
+async def test_retry_rejects_changed_transcript(async_client, monkeypatch):
+    stub = _ScriptStub([_matter_payload("First thread", ["m0"])] + [RuntimeError("boom")] * 3)
+    monkeypatch.setattr(semantic_judge, "_adapter", lambda: stub)
+    base = {"workspace_id": WS, "session_id": LANE, "mode": "shadow",
+            "transcript": _turns(65, prefix="dentist")}
+    run1 = (await async_client.post("/v1/sessions/consolidate", json=base)).json()
+    changed = base["transcript"][:-1]  # drop a turn: boundary drifted
+    r = await async_client.post(
+        "/v1/sessions/consolidate/retry",
+        json={"workspace_id": WS, "session_id": LANE,
+              "run_id": run1["run_id"], "transcript": changed})
+    assert r.status_code == 400, r.text
+    r = await async_client.post(
+        "/v1/sessions/consolidate/retry",
+        json={"workspace_id": "other-ws", "session_id": LANE,
+              "run_id": run1["run_id"], "transcript": base["transcript"]})
+    assert r.status_code == 400, r.text
+
+
+@pytest.mark.asyncio
+async def test_retry_complete_returns_already(async_client, monkeypatch):
+    stub = _ScriptStub([{"session_summary": "s", "matters": []}])
+    monkeypatch.setattr(semantic_judge, "_adapter", lambda: stub)
+    base = {"workspace_id": WS, "session_id": LANE, "mode": "shadow",
+            "transcript": _turns(5)}
+    run1 = (await async_client.post("/v1/sessions/consolidate", json=base)).json()
+    assert run1["completion"] == "complete"
+    r = await async_client.post(
+        "/v1/sessions/consolidate/retry",
+        json={"workspace_id": WS, "session_id": LANE,
+              "run_id": run1["run_id"], "transcript": base["transcript"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["already_complete"] is True
+    assert stub.calls == 1, "no model call for an already-complete run"
+
+
+@pytest.mark.asyncio
+async def test_all_windows_failed_shadow_applies_nothing(async_client, monkeypatch):
+    stub = _ScriptStub([RuntimeError("boom")] * 6)
+    monkeypatch.setattr(semantic_judge, "_adapter", lambda: stub)
+    monkeypatch.setenv("SESSION_CONSOLIDATION_APPLY", "1")
+    r = await async_client.post(
+        "/v1/sessions/consolidate",
+        json={"workspace_id": WS, "session_id": LANE, "mode": "apply",
+              "transcript": _turns(65, prefix="dentist")})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["completion"] == "failed"
+    assert body["coverage"]["complete"] is False
+    assert body["applied"] == []
+    async with async_session_maker() as db:
+        loops = (await db.execute(select(OpenLoop).where(
+            OpenLoop.honcho_workspace_id == WS))).scalars().all()
+    assert loops == []

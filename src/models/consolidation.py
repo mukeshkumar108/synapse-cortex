@@ -13,10 +13,10 @@ class ConsolidationRun(SQLModel, table=True):
     """Durable audit ledger for session-consolidation runs (shadow + apply).
 
     One row per endpoint/service invocation that reached a model call (or a
-    recorded failure). Interpreted-state mutations applied by a run cite
-    `consolidation:<session_id>:<run_id_short>` in their evidence fields, so
-    any applied change traces back here and can be revisited or corrected.
-    Raw evidence remains canonical; this ledger is the revisit index.
+    recorded failure). Applied rows cite `consolidation:<temporal-or-lane>`
+    in their message ids; this ledger row (lane + temporal + completion +
+    segment map) is the revisit index that ties those rows back to the run
+    that derived them. Raw evidence remains canonical.
     """
 
     __tablename__ = "consolidation_runs"
@@ -31,6 +31,16 @@ class ConsolidationRun(SQLModel, table=True):
     mode: str = Field(default="shadow", nullable=False)  # shadow | apply
     model: str = Field(default="", nullable=False)
     summary: str = Field(default="", nullable=False)
+    # Partial-success contract: completion is complete ONLY when every
+    # windowed turn was packed AND every window judged successfully.
+    # partial = some windows applied/accepted, failures remain retryable;
+    # failed = nothing semantically covered. segment_map_json records
+    # per-window status so a retry can re-run exactly the failed windows;
+    # accepted_json lets a retry merge without re-judging covered ones.
+    completion: str = Field(default="complete", nullable=False)
+    segment_map_json: str = Field(default="[]", nullable=False)
+    accepted_json: str = Field(default="[]", nullable=False)
+    prior_run_id: Optional[UUID] = Field(default=None, nullable=True)
     accepted_count: int = Field(default=0, nullable=False)
     rejected_count: int = Field(default=0, nullable=False)
     applied_count: int = Field(default=0, nullable=False)

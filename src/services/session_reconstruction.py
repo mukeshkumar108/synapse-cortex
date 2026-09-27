@@ -738,12 +738,14 @@ async def consolidate_long_session(
     start_snapshot: Optional[StartSnapshot] = None,
     adapter: Any = ...,
     model_id: Optional[str] = None,
-    max_tokens: int = 4000,
+    max_tokens: int = 8000,
     user_peer_id: Optional[str] = None,
     temporal_session_id: Optional[str] = None,
     checkpoints: Optional[List[Dict[str, Any]]] = None,
     receipts: Optional[List[Dict[str, Any]]] = None,
     mode: str = "shadow",
+    skip_message_ids: Optional[set] = None,
+    seed_proposals: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Long-session orchestration over sequential bounded windows.
 
@@ -753,7 +755,23 @@ async def consolidate_long_session(
     segments' accepted proposals travel as `prior_proposals` context so
     later windows build instead of duplicating. Caps at MAX_SEGMENTS
     windows with explicit coverage accounting — the remainder is reported
-    dropped, never silently absorbed into a summary."""
+    dropped, never silently absorbed into a summary.
+
+    Partial-success contract (the whole point): packing coverage (every
+    turn windowed) and semantic coverage (every window judged) are tracked
+    separately. `coverage.complete` is true ONLY when all turns are
+    windowed AND every window succeeded. A failed window never blocks its
+    neighbors: in apply mode their validated results still persist (each
+    individually guarded, provenance-linked, revisable); the run is marked
+    partial and the failed windows stay explicitly retryable. There is no
+    transaction-level atomicity by design — rolling back good grounded
+    state to punish a failed window would destroy evidence-derived work
+    for no product gain.
+
+    `skip_message_ids` (retry): windows fully covered by a prior run are
+    reported `skipped_covered` with no model call; `seed_proposals` seeds
+    the dedup context. Convergence without duplicates comes from the
+    stable idempotency keys in session_apply plus liveness guards."""
     from src.services.session_apply import apply_enabled, apply_reconstruction
 
     turns = [t if isinstance(t, SessionTurn) else SessionTurn(
@@ -764,6 +782,7 @@ async def consolidate_long_session(
     segments = segment_transcript(turns)
     truncated = len(segments) > MAX_SEGMENTS
     segments = segments[:MAX_SEGMENTS]
+    skip: set = set(skip_message_ids or set())
     aggregate: Dict[str, Any] = {
         "accepted": [], "rejected": [], "discards": [],
         "provisional_marks": [], "would_apply": [],
@@ -771,21 +790,47 @@ async def consolidate_long_session(
         "segment_reports": [], "prompt_chars": 0, "latency_s": 0.0,
         "summaries": [], "error": "",
     }
-    coverage = {"complete": not truncated, "segments": len(segments),
-                "turns_in": sum(len(s) for s in segments),
-                "turns_total": len(turns),
-                "turns_dropped": len(turns) - sum(len(s) for s in segments),
-                "window": {"turns": MAX_TURNS, "chars": TRANSCRIPT_CHAR_CAP}}
+    packing_complete = not truncated
+    packing = {"complete": packing_complete,
+               "turns_in": sum(len(s) for s in segments),
+               "turns_total": len(turns),
+               "turns_dropped": len(turns) - sum(len(s) for s in segments),
+               "segments": len(segments),
+               "window": {"turns": MAX_TURNS, "chars": TRANSCRIPT_CHAR_CAP}}
+    # Back-compat flat keys (replay lane + existing readers).
+    coverage: Dict[str, Any] = {
+        "complete": False, "segments": len(segments),
+        "turns_in": packing["turns_in"], "turns_total": packing["turns_total"],
+        "turns_dropped": packing["turns_dropped"],
+        "window": packing["window"],
+        "packing": packing,
+        "semantic": {"complete": False, "windows_ok": 0,
+                     "windows_failed": [], "windows_skipped_covered": 0,
+                     "windows_total": len(segments)},
+    }
     if not turns:
+        coverage["complete"] = True
+        coverage["semantic"]["complete"] = True
         aggregate["coverage"] = coverage
+        aggregate["completion"] = "complete"
         return aggregate
     if start_snapshot is None:
         start_snapshot = await capture_snapshot(
             db, workspace_id=workspace_id, session_id=session_id)
     snapshot = start_snapshot
-    prior_proposals: List[Dict[str, Any]] = []
+    prior_proposals: List[Dict[str, Any]] = list(seed_proposals or [])
     can_apply = mode == "apply"
     for i, seg in enumerate(segments):
+        seg_mids = [t.message_id for t in seg]
+        if skip and all(m in skip for m in seg_mids):
+            # Retry convergence: this window's evidence was already judged
+            # by a prior run. No model call, no cost, no duplicate work.
+            aggregate["segment_reports"].append(
+                {"segment": i, "turns": len(seg), "message_ids": seg_mids,
+                 "status": "skipped_covered", "accepted": 0, "applied": 0,
+                 "deferred": 0, "error": ""})
+            coverage["semantic"]["windows_skipped_covered"] += 1
+            continue
         result = await reconstruct_session(
             db, workspace_id=workspace_id, session_id=session_id,
             transcript=seg, start_snapshot=snapshot, adapter=adapter,
@@ -801,8 +846,14 @@ async def consolidate_long_session(
         if result.error:
             aggregate["error"] = aggregate["error"] or result.error
             aggregate["segment_reports"].append(
-                {"segment": i, "turns": len(seg), "error": result.error})
+                {"segment": i, "turns": len(seg), "message_ids": seg_mids,
+                 "status": "failed", "accepted": 0, "applied": 0,
+                 "deferred": 0, "error": result.error})
+            coverage["semantic"]["windows_failed"].append(
+                {"segment": i, "message_ids": seg_mids,
+                 "error": result.error})
             continue
+        coverage["semantic"]["windows_ok"] += 1
         aggregate["accepted"].extend(
             [{"op": o.op, "data": o.data, "confidence": o.confidence,
               "rationale": o.rationale} for o in result.accepted])
@@ -836,15 +887,28 @@ async def consolidate_long_session(
                 if title:
                     prior_proposals.append({"op": o.op, "title": title})
         aggregate["segment_reports"].append(
-            {"segment": i, "turns": len(seg), "accepted": len(result.accepted),
+            {"segment": i, "turns": len(seg), "message_ids": seg_mids,
+             "status": "ok", "accepted": len(result.accepted),
              "applied": len(seg_applied), "deferred": len(seg_deferred),
              "error": ""})
+    semantic = coverage["semantic"]
+    semantic_ok = (not semantic["windows_failed"]
+                   and semantic["windows_ok"] + semantic["windows_skipped_covered"] > 0)
+    semantic["complete"] = semantic_ok
+    coverage["complete"] = bool(packing["complete"] and semantic_ok)
     aggregate["coverage"] = coverage
+    if not turns:
+        aggregate["completion"] = "complete"
+    elif coverage["complete"]:
+        aggregate["completion"] = "complete"
+    elif semantic["windows_ok"] > 0 or semantic["windows_skipped_covered"] > 0:
+        aggregate["completion"] = "partial"
+    else:
+        aggregate["completion"] = "failed"
     return aggregate
 
 
-async def reconstruct_session(
-    db: Any,
+async def reconstruct_session(    db: Any,
     *,
     workspace_id: str,
     session_id: str,
@@ -852,7 +916,7 @@ async def reconstruct_session(
     start_snapshot: Optional[StartSnapshot] = None,
     adapter: Any = ...,
     model_id: Optional[str] = None,
-    max_tokens: int = 4000,
+    max_tokens: int = 8000,
     user_peer_id: Optional[str] = None,
     temporal_session_id: Optional[str] = None,
     checkpoints: Optional[List[Dict[str, Any]]] = None,
@@ -1075,3 +1139,169 @@ async def reconstruct_session(
             "would_apply": result.would_apply,
         })
     return result
+
+
+class RetryError(ValueError):
+    """Retry precondition failure; `.code` maps to the HTTP detail."""
+
+    def __init__(self, code: str, payload: Any = None):
+        super().__init__(code)
+        self.code = code
+        self.payload = payload or {}
+
+
+async def retry_long_session(
+    db: Any,
+    *,
+    workspace_id: str,
+    session_id: str,
+    run_id: str,
+    transcript: List[SessionTurn] | List[Dict[str, Any]],
+    adapter: Any = ...,
+    model_id: Optional[str] = None,
+    max_tokens: int = 8000,
+    user_peer_id: Optional[str] = None,
+    temporal_session_id: Optional[str] = None,
+    checkpoints: Optional[List[Dict[str, Any]]] = None,
+    receipts: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Re-run ONLY the failed windows of a partial/failed run.
+
+    Loads the prior run's segment map from the ledger, requires the exact
+    same turn ids (boundaries must not drift under retry), skips covered
+    windows (no model cost), and merges prior accepted ops into the result.
+    Convergence without duplicates comes from stable idempotency keys +
+    liveness guards, not from consensus machinery. Returns
+    {"aggregate", "merged", "prior", "effective_mode"}; raises RetryError
+    for bad_run_id / run_not_found / run_scope_mismatch / already_complete
+    / transcript_changed / nothing_retryable.
+    """
+    import json as _json
+    from uuid import UUID as _UUID
+    from sqlmodel import select as _select
+
+    from src.models.consolidation import ConsolidationRun
+    from src.services.session_apply import apply_enabled
+
+    try:
+        run_uuid = _UUID(str(run_id))
+    except (TypeError, ValueError, AttributeError):
+        try:
+            run_uuid = _UUID(hex=str(run_id).replace("-", ""))
+        except (TypeError, ValueError, AttributeError):
+            raise RetryError("bad_run_id")
+    prior = (await db.execute(_select(ConsolidationRun).where(
+        ConsolidationRun.id == run_uuid))).scalar_one_or_none()
+    if prior is None:
+        raise RetryError("run_not_found")
+    if (prior.honcho_workspace_id != workspace_id
+            or prior.honcho_session_id != session_id):
+        raise RetryError("run_scope_mismatch")
+    prior_info = {
+        "id": str(prior.id), "mode": prior.mode,
+        "completion": prior.completion,
+        "temporal_session_id": prior.temporal_session_id or "",
+    }
+    try:
+        segment_map = _json.loads(prior.segment_map_json or "[]")
+        prior_accepted = _json.loads(prior.accepted_json or "[]")
+    except (TypeError, ValueError):
+        segment_map, prior_accepted = [], []
+    if prior_info["completion"] == "complete":
+        raise RetryError("already_complete", {
+            "prior": prior_info, "accepted": prior_accepted})
+    prior_mids = {m for seg in segment_map for m in seg.get("message_ids", [])}
+    turns = [t if isinstance(t, SessionTurn) else SessionTurn(
+        message_id=str(t.get("message_id") or ""),
+        speaker=str(t.get("speaker") or ""),
+        text=str(t.get("text") or "")) for t in (transcript or [])]
+    turns = [t for t in turns if t.message_id and (t.text or "").strip()]
+    if {t.message_id for t in turns} != prior_mids:
+        raise RetryError("transcript_changed")
+    failed_mids = {m for seg in segment_map if seg.get("status") == "failed"
+                   for m in seg.get("message_ids", [])}
+    if not failed_mids:
+        raise RetryError("nothing_retryable")
+    seed_proposals = [
+        {"op": o.get("op", ""), "title": str(
+            o.get("data", {}).get("title", "")
+            or o.get("data", {}).get("content", "")
+            or o.get("data", {}).get("topic_or_entity", ""))[:120]}
+        for o in prior_accepted
+        if isinstance(o, dict) and isinstance(o.get("data"), dict)]
+    seed_proposals = [p for p in seed_proposals if p["title"]]
+    authoritative = await capture_snapshot(
+        db, workspace_id=workspace_id, session_id=session_id)
+    effective_mode = prior_info["mode"]
+    if effective_mode == "apply" and not apply_enabled():
+        effective_mode = "shadow"
+    aggregate = await consolidate_long_session(
+        db, workspace_id=workspace_id, session_id=session_id,
+        transcript=turns, start_snapshot=authoritative,
+        adapter=adapter, model_id=model_id, max_tokens=max_tokens,
+        user_peer_id=user_peer_id,
+        temporal_session_id=temporal_session_id,
+        checkpoints=checkpoints, receipts=receipts,
+        mode=effective_mode,
+        skip_message_ids={m for m in prior_mids if m not in failed_mids},
+        seed_proposals=seed_proposals,
+    )
+    merged = list(prior_accepted) + list(aggregate.get("accepted", []))
+    # Chain a new run row (history is append-only; the prior row is never
+    # mutated). Segment map merges prior-ok windows with fresh outcomes so
+    # the next retry sees truth.
+    from src.models.consolidation import ConsolidationRun
+    from src.services import semantic_judge as _judge
+    import json as _json2
+    coverage = aggregate.get("coverage", {}) or {}
+    semantic = coverage.get("semantic", {}) or {}
+    if coverage.get("complete"):
+        completion = "complete"
+    elif semantic.get("windows_ok", 0) > 0 or semantic.get("windows_skipped_covered", 0) > 0:
+        completion = "partial"
+    else:
+        completion = "failed"
+    full_map_by_mids: dict = {}
+    for seg in segment_map:
+        if isinstance(seg, dict) and seg.get("status") != "failed":
+            full_map_by_mids[tuple(sorted(seg.get("message_ids", [])))] = seg
+    for rep in aggregate.get("segment_reports", []) or []:
+        if rep.get("status") == "skipped_covered":
+            continue
+        full_map_by_mids[tuple(sorted(rep.get("message_ids", [])))] = {
+            "segment": rep.get("segment"),
+            "message_ids": rep.get("message_ids", []),
+            "status": rep.get("status", "failed" if rep.get("error") else "ok"),
+            "error": rep.get("error", ""),
+        }
+    full_map = list(full_map_by_mids.values())
+    new_run = ConsolidationRun(
+        honcho_workspace_id=workspace_id, honcho_session_id=session_id,
+        temporal_session_id=temporal_session_id or "",
+        mode=effective_mode, model=model_id or _judge.judge_model_id(),
+        summary=" | ".join(aggregate.get("summaries", []))[:500],
+        accepted_count=len(merged),
+        rejected_count=len(aggregate.get("rejected", [])),
+        applied_count=len(aggregate.get("applied", [])),
+        deferred_count=len(aggregate.get("deferred", [])),
+        error=aggregate.get("error", ""),
+        prompt_chars=aggregate.get("prompt_chars", 0),
+        latency_s=aggregate.get("latency_s", 0.0),
+        owner_peer_id=user_peer_id,
+        completion=completion,
+        segment_map_json=_json2.dumps(full_map, default=str),
+        accepted_json=_json2.dumps(merged, default=str),
+        prior_run_id=_UUID(prior_info["id"]),
+    )
+    db.add(new_run)
+    try:
+        await db.commit()
+    except Exception as err:
+        logger.warning("retry run ledger failed: %s", err)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+    return {"aggregate": aggregate, "merged": merged, "prior": prior_info,
+            "effective_mode": effective_mode, "run_id": str(new_run.id),
+            "completion": completion}

@@ -44,6 +44,16 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--db", type=Path, required=True)
     run.add_argument("--model-id")
     run.add_argument("--max-sessions", type=int, default=0)
+    run.add_argument("--max-tokens", type=int, default=8000)
+    ret = sub.add_parser("retry", help="retry failed windows of a recorded run")
+    ret.add_argument("--db", type=Path, required=True)
+    ret.add_argument("--input", type=Path, required=True)
+    ret.add_argument("--workspace", required=True)
+    ret.add_argument("--lane", required=True)
+    ret.add_argument("--run-id", required=True)
+    ret.add_argument("--source-session-id", required=True)
+    ret.add_argument("--model-id")
+    ret.add_argument("--user-id", default="user")
     return ap
 
 
@@ -111,6 +121,7 @@ async def do_run(args: argparse.Namespace) -> None:
     from sqlmodel import SQLModel
     import src.main  # noqa: F401 -- imports every table model into metadata
     import src.db as dbmod
+    from src.models.consolidation import ConsolidationRun
     from src.services.session_consolidation import SessionTurn, capture_snapshot
     from src.services.session_reconstruction import consolidate_long_session
 
@@ -138,8 +149,43 @@ async def do_run(args: argparse.Namespace) -> None:
                 transcript=turns, start_snapshot=before_obj,
                 temporal_session_id=session.source_session_id,
                 model_id=args.model_id, user_peer_id=corpus.subject_id,
+                max_tokens=args.max_tokens,
                 mode="apply")
             await db.commit()
+            coverage = aggregate.get("coverage", {}) or {}
+            semantic = coverage.get("semantic", {}) or {}
+            if coverage.get("complete"):
+                completion = "complete"
+            elif semantic.get("windows_ok", 0) > 0:
+                completion = "partial"
+            else:
+                completion = "failed"
+            run = ConsolidationRun(
+                honcho_workspace_id=workspace_id,
+                honcho_session_id=lane_session_id,
+                temporal_session_id=session.source_session_id,
+                mode="apply",
+                model=args.model_id or "",
+                summary=" | ".join(aggregate.get("summaries", []))[:500],
+                accepted_count=len(aggregate.get("accepted", [])),
+                rejected_count=len(aggregate.get("rejected", [])),
+                applied_count=len(aggregate.get("applied", [])),
+                deferred_count=len(aggregate.get("deferred", [])),
+                error=aggregate.get("error", ""),
+                prompt_chars=aggregate.get("prompt_chars", 0),
+                latency_s=aggregate.get("latency_s", 0.0),
+                owner_peer_id=corpus.subject_id,
+                completion=completion,
+                segment_map_json=json.dumps([
+                    {"segment": rep.get("segment"),
+                     "message_ids": rep.get("message_ids", []),
+                     "status": rep.get("status", "failed" if rep.get("error") else "ok"),
+                     "error": rep.get("error", "")}
+                    for rep in aggregate.get("segment_reports", [])], default=str),
+                accepted_json=json.dumps(aggregate.get("accepted", []), default=str))
+            db.add(run)
+            await db.commit()
+            print(f"  run={str(run.id)[:8]} completion={completion}", flush=True)
             after_obj = await capture_snapshot(
                 db, workspace_id=workspace_id, session_id=lane_session_id)
             after = _snapshot_dict(after_obj)
@@ -183,9 +229,60 @@ async def do_run(args: argparse.Namespace) -> None:
                       "sessions": len(records)}))
 
 
+async def do_retry(args: argparse.Namespace) -> None:
+    """Re-run ONLY failed windows of a recorded run, in place on its DB."""
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{args.db.resolve()}"
+    os.environ["ENV"] = "test"
+    os.environ["SESSION_CONSOLIDATION_ENABLED"] = "1"
+    os.environ["SESSION_CONSOLIDATION_APPLY"] = "1"
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(REPO / ".env", override=False)
+    except ImportError:
+        pass
+    import src.main  # noqa: F401
+    import src.db as dbmod
+    from src.services.session_consolidation import SessionTurn
+    from src.services.session_reconstruction import retry_long_session
+
+    corpus = load_corpus(args.input)
+    match = [s for s in corpus.sessions if s.source_session_id == args.source_session_id]
+    if not match:
+        raise SystemExit(f"source session not in corpus: {args.source_session_id}")
+    session = match[0]
+    turns = [SessionTurn(t.message_id, t.role, t.text) for t in session.turns]
+    async with dbmod.async_session_maker() as db:
+        from src.services.session_reconstruction import RetryError
+        try:
+            outcome = await retry_long_session(
+                db, workspace_id=args.workspace, session_id=args.lane,
+                run_id=args.run_id, transcript=turns,
+                user_peer_id=args.user_id, model_id=args.model_id,
+                temporal_session_id=session.source_session_id)
+        except RetryError as err:
+            print(json.dumps({"outcome": err.code,
+                              "detail": err.payload}, indent=2, default=str))
+            return
+    aggregate = outcome["aggregate"]
+    aggregate = outcome["aggregate"]
+    print(json.dumps({
+        "retried_from": outcome["prior"]["id"],
+        "new_run_id": outcome.get("run_id", ""),
+        "effective_mode": outcome["effective_mode"],
+        "completion": outcome.get("completion", ""),
+        "accepted_total": len(outcome["merged"]),
+        "new_accepted": len(aggregate.get("accepted", [])),
+        "applied": len(aggregate.get("applied", [])),
+        "coverage": aggregate.get("coverage", {}),
+    }, indent=2, default=str))
+
+
 async def main() -> None:
     args = parser().parse_args()
-    await (do_export(args) if args.command == "export" else do_run(args))
+    if args.command == "retry":
+        await do_retry(args)
+    else:
+        await (do_export(args) if args.command == "export" else do_run(args))
 
 
 if __name__ == "__main__":

@@ -20,10 +20,12 @@ apply mode continues through applied rows; shadow mode carries prior
 proposals as context. Coverage accounting is explicit.
 """
 
+import json
 import logging
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,10 +36,7 @@ from src.services.session_consolidation import (
     SessionTurn,
     StartSnapshot,
 )
-from src.services.session_reconstruction import (
-    consolidate_long_session,
-    reconstruct_session,
-)
+from src.services.session_reconstruction import consolidate_long_session
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +84,113 @@ class ConsolidateRequest(BaseModel):
     checkpoints: List[EvidenceItem] = Field(default_factory=list)
     # Action receipts: factual session evidence, quotable as receipt:N.
     receipts: List[EvidenceItem] = Field(default_factory=list)
+
+
+class RetryRequest(BaseModel):
+    """Re-run ONLY the failed windows of a prior partial/failed run.
+
+    Transcript must contain exactly the same turn ids as the original call
+    (else 400 transcript_changed — boundaries must not drift under a
+    retry). Converges via stable idempotency keys + liveness guards; a new
+    run row chains to the prior via prior_run_id. Merged accepted ops from
+    the prior run are returned alongside the new ones.
+    """
+
+    workspace_id: str
+    session_id: str
+    run_id: str
+    transcript: List[TranscriptTurn] = Field(default_factory=list)
+    temporal_session_id: Optional[str] = None
+    user_peer_id: str = Field(default="user")
+    model_id: Optional[str] = None
+    checkpoints: List[EvidenceItem] = Field(default_factory=list)
+    receipts: List[EvidenceItem] = Field(default_factory=list)
+
+
+async def _write_run(db: AsyncSession, *, workspace_id: str, session_id: str,
+                     temporal: str, mode: str, model: str,
+                     aggregate: Dict[str, Any], user_peer_id: str,
+                     prior_run_id: Optional[UUID] = None) -> ConsolidationRun:
+    coverage = aggregate.get("coverage", {}) or {}
+    semantic = coverage.get("semantic", {}) or {}
+    failed = semantic.get("windows_failed", []) or []
+    ok = int(semantic.get("windows_ok", 0) or 0)
+    skipped = int(semantic.get("windows_skipped_covered", 0) or 0)
+    if coverage.get("complete"):
+        completion = "complete"
+    elif ok > 0 or skipped > 0:
+        completion = "partial"
+    else:
+        completion = "failed"
+    segment_map = []
+    for rep in aggregate.get("segment_reports", []) or []:
+        segment_map.append({
+            "segment": rep.get("segment"),
+            "message_ids": rep.get("message_ids", []),
+            "status": rep.get("status", "failed" if rep.get("error") else "ok"),
+            "error": rep.get("error", ""),
+        })
+    run = ConsolidationRun(
+        honcho_workspace_id=workspace_id,
+        honcho_session_id=session_id,
+        temporal_session_id=temporal or "",
+        mode=mode,
+        model=model,
+        summary=" | ".join(aggregate.get("summaries", []))[:500],
+        accepted_count=len(aggregate.get("accepted", [])),
+        rejected_count=len(aggregate.get("rejected", [])),
+        applied_count=len(aggregate.get("applied", [])),
+        deferred_count=len(aggregate.get("deferred", [])),
+        error=aggregate.get("error", ""),
+        prompt_chars=aggregate.get("prompt_chars", 0),
+        latency_s=aggregate.get("latency_s", 0.0),
+        owner_peer_id=user_peer_id,
+        completion=completion,
+        segment_map_json=json.dumps(segment_map, default=str),
+        accepted_json=json.dumps(aggregate.get("accepted", []), default=str),
+        prior_run_id=prior_run_id,
+    )
+    db.add(run)
+    try:
+        await db.commit()
+    except Exception as err:
+        logger.warning("consolidation run ledger failed: %s", err)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+    return run
+
+
+def _response(run: ConsolidationRun, aggregate: Dict[str, Any],
+              *, snapshot_source: str = "authoritative",
+              apply_note: str = "", retried_from: str = "",
+              merged_accepted: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    coverage = aggregate.get("coverage", {}) or {}
+    semantic = coverage.get("semantic", {}) or {}
+    return {
+        "status": run.mode,
+        "run_id": str(run.id),
+        "completion": run.completion,
+        "summary": " | ".join(aggregate.get("summaries", []))[:500],
+        "error": aggregate.get("error", ""),
+        "prompt_chars": aggregate.get("prompt_chars", 0),
+        "latency_s": aggregate.get("latency_s", 0.0),
+        "apply_note": apply_note,
+        "snapshot_source": snapshot_source,
+        "coverage": coverage,
+        "failed_segments": semantic.get("windows_failed", []),
+        "segments": aggregate.get("segment_reports", []),
+        "accepted": merged_accepted if merged_accepted is not None
+        else aggregate.get("accepted", []),
+        "rejected": aggregate.get("rejected", []),
+        "discards": aggregate.get("discards", []),
+        "provisional_marks": aggregate.get("provisional_marks", []),
+        "would_apply": aggregate.get("would_apply", []),
+        "applied": aggregate.get("applied", []),
+        "deferred": aggregate.get("deferred", []),
+        "retried_from": retried_from,
+    }
 
 
 def _to_snapshot(payload: ConsolidateRequest) -> Optional[StartSnapshot]:
@@ -155,52 +261,96 @@ async def consolidate(
     )
     effective_mode = "shadow"
     apply_note = ""
-    if want_apply and not aggregate.get("error"):
+    # Mode records what the orchestrator was authorized to do, not whether
+    # every window succeeded: per-segment results apply independently, and
+    # partial completion is reported via completion + failed_segments, never
+    # by relabeling applied state as shadow.
+    if want_apply:
         if apply_enabled():
             effective_mode = "apply"
         else:
             apply_note = "apply_requested_but_disabled"
-    run = ConsolidationRun(
-        honcho_workspace_id=payload.workspace_id,
-        honcho_session_id=payload.session_id,
-        temporal_session_id=payload.temporal_session_id or "",
+    run = await _write_run(
+        db, workspace_id=payload.workspace_id,
+        session_id=payload.session_id,
+        temporal=payload.temporal_session_id or "",
         mode=effective_mode,
         model=payload.model_id or semantic_judge.judge_model_id(),
-        summary=" | ".join(aggregate.get("summaries", []))[:500],
-        accepted_count=len(aggregate.get("accepted", [])),
-        rejected_count=len(aggregate.get("rejected", [])),
-        applied_count=len(aggregate.get("applied", [])),
-        deferred_count=len(aggregate.get("deferred", [])),
-        error=aggregate.get("error", ""),
-        prompt_chars=aggregate.get("prompt_chars", 0),
-        latency_s=aggregate.get("latency_s", 0.0),
-        owner_peer_id=payload.user_peer_id,
-    )
-    db.add(run)
+        aggregate=aggregate, user_peer_id=payload.user_peer_id)
+    return _response(run, aggregate, snapshot_source=snapshot_source,
+                     apply_note=apply_note)
+
+
+@router.post("/consolidate/retry", status_code=status.HTTP_200_OK)
+async def retry_consolidate(
+    payload: RetryRequest,
+    db: AsyncSession = Depends(get_async_session),
+) -> Dict[str, Any]:
+    """Retry only the failed windows of a partial/failed run.
+
+    Loads the prior run's segment map, verifies the transcript is
+    unchanged (same turn ids — boundaries must not drift under retry),
+    re-runs exactly the failed windows, and chains a new run row. Already
+    covered windows cost no model calls; convergence without duplicates
+    comes from stable idempotency keys + liveness guards. A retry of a
+    complete run returns already_complete with the prior accepted ops.
+    """
+    from src.services import semantic_judge
+    from src.services.session_reconstruction import retry_long_session, RetryError
+
+    turns = [SessionTurn(message_id=t.message_id, speaker=t.speaker,
+                         text=t.text) for t in payload.transcript]
+    checkpoints = [{"label": c.label, "text": c.text} for c in payload.checkpoints]
+    receipts = [{"kind": c.kind, "text": c.text} for c in payload.receipts]
     try:
-        await db.commit()
-    except Exception as err:
-        logger.warning("consolidation run ledger failed: %s", err)
-        try:
-            await db.rollback()
-        except Exception:
-            pass
+        outcome = await retry_long_session(
+            db, workspace_id=payload.workspace_id,
+            session_id=payload.session_id, run_id=payload.run_id,
+            transcript=turns, user_peer_id=payload.user_peer_id,
+            model_id=payload.model_id,
+            temporal_session_id=payload.temporal_session_id,
+            checkpoints=checkpoints, receipts=receipts)
+    except RetryError as err:
+        if err.code == "already_complete":
+            prior = err.payload.get("prior", {})
+            return {
+                "status": prior.get("mode", "shadow"),
+                "run_id": prior.get("id", ""),
+                "completion": "complete", "retried_from": "",
+                "already_complete": True,
+                "accepted": err.payload.get("accepted", []),
+                "failed_segments": [],
+                "coverage": {"complete": True},
+                "applied": [], "deferred": [], "error": "",
+            }
+        status_map = {"bad_run_id": 400, "run_not_found": 404,
+                      "run_scope_mismatch": 400, "transcript_changed": 400,
+                      "nothing_retryable": 400}
+        raise HTTPException(status_code=status_map.get(err.code, 400),
+                            detail=err.code)
+    aggregate = outcome["aggregate"]
+    merged = outcome["merged"]
+    aggregate = outcome["aggregate"]
     return {
-        "status": effective_mode,
-        "run_id": str(run.id),
+        "status": outcome["effective_mode"],
+        "run_id": outcome["run_id"],
+        "completion": outcome["completion"],
         "summary": " | ".join(aggregate.get("summaries", []))[:500],
         "error": aggregate.get("error", ""),
         "prompt_chars": aggregate.get("prompt_chars", 0),
         "latency_s": aggregate.get("latency_s", 0.0),
-        "apply_note": apply_note,
-        "snapshot_source": snapshot_source,
+        "apply_note": "",
+        "snapshot_source": "authoritative",
         "coverage": aggregate.get("coverage", {}),
+        "failed_segments": (aggregate.get("coverage", {}) or {}).get(
+            "semantic", {}).get("windows_failed", []),
         "segments": aggregate.get("segment_reports", []),
-        "accepted": aggregate.get("accepted", []),
+        "accepted": merged,
         "rejected": aggregate.get("rejected", []),
         "discards": aggregate.get("discards", []),
         "provisional_marks": aggregate.get("provisional_marks", []),
         "would_apply": aggregate.get("would_apply", []),
         "applied": aggregate.get("applied", []),
         "deferred": aggregate.get("deferred", []),
+        "retried_from": outcome["prior"]["id"],
     }
