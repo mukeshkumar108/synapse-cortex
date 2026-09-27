@@ -71,7 +71,8 @@ def test_question_kinds_bounded():
     assert set(QUESTION_KINDS) == {
         "resolves", "fulfils", "partially_fulfils", "factual_claim",
         "same_person", "accepts", "eased",
-        "supersedes", "undertaking", "revisit_worthy"}
+        "supersedes", "undertaking", "revisit_worthy",
+        "self_undertaking", "same_matter"}
 
 
 @pytest.mark.asyncio

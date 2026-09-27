@@ -30,6 +30,7 @@ from src.models.commitment_candidate import (
 from src.models.operational_state import TurnStamp
 from src.schemas.candidate import ExtractionCandidate
 from src.services.ownership import is_external_counterparty
+from src.services.semantic_promotion import promote_transition
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,38 @@ def _is_reported_counterparty(
     return actor_is_distinct and reported
 
 
+async def _confirm_self_undertaking(evidence: str, *, owner_peer_id: str) -> bool:
+    """Semantic actor attribution for the gray zone the deterministic marker
+    cannot safely resolve: indirect self-commitment ("leave it with me"),
+    named-self reference, quoted/reported text that happens to contain a
+    marker, and languages/phrasings with no English first-person token at
+    all. Owner identity is passed as CONTEXT (structured data already
+    available, not a name special-case) so a named-self formulation can be
+    recognised generically for whichever peer it is.
+
+    Fails CLOSED (False = do not confirm) on any unavailability or
+    non-'yes' verdict: this only ever gates whether ACT authority is
+    GRANTED, and ASK is the safe state pending better evidence — never
+    interrogates the user over it (Canon §2.12: uncertainty is held
+    privately, not escalated by default)."""
+    try:
+        from src.services import semantic_judge
+        adapter = semantic_judge._adapter()
+        if adapter is None:
+            return False
+        result = await semantic_judge.adjudicate(
+            kind="self_undertaking",
+            earlier="the message's own sender",
+            later=evidence,
+            context=f"The message sender's own identifying name or alias is '{owner_peer_id}'.",
+            adapter=adapter,
+        )
+    except Exception as err:
+        logger.warning("self-undertaking judge check failed (fail-closed to ASK): %s", err)
+        return False
+    return result.accepted
+
+
 class CommitmentCandidateService:
     async def upsert_from_candidate(
         self,
@@ -128,6 +161,7 @@ class CommitmentCandidateService:
         message_id: str,
         candidate: ExtractionCandidate,
         now: datetime,
+        frame: Optional[str] = None,
     ) -> Optional[CommitmentCandidate]:
         title = (candidate.canonical_title or candidate.observation or "").strip()
         if not title:
@@ -148,25 +182,38 @@ class CommitmentCandidateService:
                 candidate, owner_peer_id=owner_peer_id, evidence=evidence
             )
         )
-        # Authority floor for an "implicit self commitment" reading: no
-        # existing semantic-judge question actually asks "who is the actor
-        # of this commitment" (the closest, "undertaking", asks genuineness
-        # vs joke/hypothetical, not attribution) — this is a narrow
-        # grammatical-attribution check, not a semantic-identity decision,
-        # so a deterministic floor is the right tool, not a mis-fit judge
-        # call. Fails CLOSED to ASK (the safer state: ACT is what can later
-        # VIOLATE) when the evidence contains no first-person commitment
-        # marker at all — catching both third-party reported promises the
-        # counterparty check's actor-distinctness gate can miss (no
-        # attributed actor_peer_id at all) and reported third-party NEEDS
-        # with no promise language whatsoever ("Andree ... needs the school
-        # money", no promise by anyone, let alone the sender).
+        # Authority floor for an "implicit self commitment" reading: WHO
+        # actually undertakes this action? A first-person marker
+        # ("I'll"/"I need to"/...) is a cheap, hard-boundary guard for the
+        # common, unambiguous case — it never runs a model call when the
+        # sender plainly speaks of their own future action. It is NOT
+        # semantic authority: it is defeated by quotation/reported-speech
+        # (a quoted "I'll send it" is not the sender's own commitment — B6),
+        # and it cannot recognise indirect self-commitment ("leave it with
+        # me"), named-self reference ("Mukesh will sort it" when Mukesh IS
+        # the sender), or genuinely absent commitment ("Andree ... needs the
+        # school money" — no promise by anyone). Those genuinely ambiguous
+        # or indirect shapes are resolved by the semantic judge
+        # ("self_undertaking"), using owner identity as structured context
+        # rather than a name special-case; the marker only ever SKIPS that
+        # call when it already agrees, it never overrides a judge verdict.
+        # Fails CLOSED to ASK (the safer state: ACT is what can later
+        # VIOLATE) whenever nothing confirms the sender as the actor —
+        # no judge available, judge unclear/no, or nothing to check with.
         resolved_model_authority = candidate.authority if candidate.authority in ("act", "ask") else None
-        if (
+        marker_defeated = bool(
+            candidate.is_quoted
+            or candidate.is_reported_speech
+            or candidate.epistemic_provenance == "reported_statement"
+        )
+        needs_actor_check = (
             not is_counterparty
             and resolved_model_authority == "act"
             and (candidate.evidence_class or "implicit_self_commitment") == "implicit_self_commitment"
-            and not _has_first_person_commitment_marker(evidence)
+            and (marker_defeated or not _has_first_person_commitment_marker(evidence))
+        )
+        if needs_actor_check and not await _confirm_self_undertaking(
+            evidence, owner_peer_id=owner_peer_id,
         ):
             resolved_model_authority = "ask"
 
@@ -233,6 +280,55 @@ class CommitmentCandidateService:
             await db.commit()
             return existing_canonical
 
+        if not is_counterparty:
+            same_matter = await self._find_same_matter_commitment(
+                db, workspace_id=workspace_id, session_id=session_id,
+                owner_peer_id=owner_peer_id, candidate=candidate, frame=frame,
+                message_id=message_id,
+            )
+            if same_matter is not None:
+                # Attach: one real-world obligation accumulates evidence
+                # rather than multiplying active representations of itself.
+                # Append (never overwrite) — distinct from the exact-
+                # canonical-key refresh above, which is a paraphrase-free
+                # re-observation of the identical title; here the wording
+                # genuinely differs, so the earlier evidence stays legible.
+                if evidence and evidence not in (same_matter.evidence_verbatim or ""):
+                    same_matter.evidence_verbatim = (
+                        f"{same_matter.evidence_verbatim}\n---\n{evidence}"
+                    )[-4000:]
+                same_matter.source_message_id = message_id
+                same_matter.updated_at = _now_naive()
+                if (
+                    same_matter.authority != CommitmentCandidateAuthority.ACT
+                    and (
+                        resolved_model_authority == "act"
+                        or (candidate.evidence_class or "") in (
+                            "explicit_command", "explicit_acceptance",
+                            "explicit_resolution", "explicit_modification",
+                        )
+                    )
+                ):
+                    same_matter.authority = CommitmentCandidateAuthority.ACT
+                    same_matter.resolution_evidence = (
+                        f"promoted:same_matter_corroborated:{message_id}#"
+                        f"{candidate.candidate_key}"
+                    )
+                db.add(same_matter)
+                await db.commit()
+                await db.refresh(same_matter)
+                try:
+                    await promote_transition(
+                        db, workspace_id=workspace_id, rel_type="same_as",
+                        from_text=title, to_text=same_matter.title,
+                        source_key=f"commitment_same_matter:{message_id}#{same_matter.id}",
+                        evidence_refs=[f"honcho_message:{message_id}"],
+                        subjects_to=[owner_peer_id] if owner_peer_id else [],
+                        formation="inferred", confidence=0.7)
+                except Exception as err:
+                    logger.warning("commitment same-matter promotion failed: %s", err)
+                return same_matter
+
         row = CommitmentCandidate(
             honcho_workspace_id=workspace_id,
             honcho_session_id=session_id,
@@ -274,6 +370,94 @@ class CommitmentCandidateService:
                 )
             ).scalar_one_or_none()
         return row
+
+    async def _find_same_matter_commitment(
+        self, db: AsyncSession, *, workspace_id: str, session_id: str,
+        owner_peer_id: str, candidate: ExtractionCandidate, frame: Optional[str],
+        message_id: str,
+    ) -> Optional[CommitmentCandidate]:
+        """Structured-first same-matter identity: generalises the principle
+        already proven for OpenLoop (entity identity gates before any
+        semantic step; lexical overlap is never the deciding authority) —
+        not a mechanical copy, because commitment semantics differ from
+        OpenLoop's OPEN-only reuse: a DISMISSED/VIOLATED/FULFILLED/
+        MATERIALIZED commitment must never silently absorb new evidence
+        (a new mention of a since-fulfilled or since-dismissed obligation is
+        either a genuinely new instance or needs its own review, not a
+        reopening), so this only ever considers PENDING rows.
+
+        An EntityLink match (the same `entity_service`/`EntityLink`
+        machinery already used for commitment subject-linking at the
+        router) is REQUIRED before any semantic step — never lexical/title
+        overlap alone (explicit instruction). Confirmation is the
+        `same_matter` semantic-judge question, never a lexical threshold:
+        this is what makes A3 safe (same actor + same topic ≠ same
+        obligation) and A4 possible (poor lexical overlap, including
+        cross-language, is irrelevant once an LLM judges meaning). Zero or
+        multiple confirmed matches is treated as unresolved (A5): create a
+        new row rather than guess, matching this module's own stated
+        principle that a wrong merge is worse than a duplicate proposal.
+        """
+        refs = [r for r in (candidate.subject_refs or [])[:8] if isinstance(r, str) and r.strip()]
+        if not refs:
+            return None
+        from src.services import entity_service
+        entities = []
+        for ref in refs:
+            entity, status = await entity_service.resolve_mention(
+                db, workspace_id=workspace_id, session_id=session_id,
+                mention=ref, frame=frame, message_id=message_id)
+            if entity is not None and status in ("linked", "provisioned"):
+                entities.append(entity)
+        if not entities:
+            return None
+
+        from src.models.identity import EntityLink
+        entity_ids = [e.id for e in entities]
+        linked_object_ids = (await db.execute(select(EntityLink.object_id).where(
+            EntityLink.honcho_workspace_id == workspace_id,
+            EntityLink.object_type == "commitment",
+            EntityLink.entity_id.in_(entity_ids),
+        ))).scalars().all()
+        if not linked_object_ids:
+            return None
+
+        candidate_rows = (await db.execute(select(CommitmentCandidate).where(
+            CommitmentCandidate.honcho_workspace_id == workspace_id,
+            CommitmentCandidate.owner_peer_id == owner_peer_id,
+            CommitmentCandidate.status == CommitmentCandidateStatus.PENDING,
+            CommitmentCandidate.id.in_(set(linked_object_ids)),
+        ).order_by(CommitmentCandidate.updated_at.desc()).limit(5))).scalars().all()
+        if not candidate_rows:
+            return None
+
+        try:
+            from src.services import semantic_judge
+            adapter = semantic_judge._adapter()
+        except Exception:
+            adapter = None
+        if adapter is None:
+            # No confirmation available: the safe default is a new,
+            # distinct row — never merge on entity identity alone.
+            return None
+
+        new_text = (candidate.canonical_title or candidate.observation or "").strip()
+        if not new_text:
+            return None
+        confirmed = []
+        for row in candidate_rows:
+            try:
+                result = await semantic_judge.adjudicate(
+                    kind="same_matter", earlier=row.title, later=new_text, adapter=adapter)
+            except Exception as err:
+                logger.warning("same-matter judge check failed: %s", err)
+                continue
+            if result.accepted and result.evidence_span.strip() \
+                    and result.evidence_span.strip() in new_text:
+                confirmed.append(row)
+        if len(confirmed) == 1:
+            return confirmed[0]
+        return None
 
     async def expire_stale(
         self, db: AsyncSession, *, workspace_id: str, owner_peer_id: str, now: datetime

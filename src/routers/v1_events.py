@@ -441,7 +441,7 @@ async def ingest_turn_event(
             candidate_row = await commitment_candidate_service.upsert_from_candidate(
                 db, workspace_id=payload.workspace_id, session_id=payload.session_id,
                 owner_peer_id=row_owner, message_id=payload.honcho_message_id,
-                candidate=cand, now=payload.now,
+                candidate=cand, now=payload.now, frame=turn_frame,
             )
             operational_mutations.append({
                 "mutation": "commitment_candidate_upserted",

@@ -32,6 +32,8 @@ QUESTION_KINDS = (
     "supersedes",        # does the newer plan replace the older one?
     "undertaking",       # is this a genuine future undertaking vs passing thought?
     "revisit_worthy",    # is this topic naturally worth revisiting later?
+    "self_undertaking",  # does the sender undertake this themselves (vs third party/nobody)?
+    "same_matter",       # do these describe the SAME real-world obligation (not just topic/actor)?
 )
 
 MIN_CONFIDENCE = 0.6
@@ -48,6 +50,8 @@ _QUESTIONS = {
     "supersedes": "Does the NEWER plan/promise replace (not merely restate) the OLDER one?",
     "undertaking": "Is the quoted statement a genuine future undertaking/commitment (vs a passing thought, wish, joke, hypothetical, or sarcasm)?",
     "revisit_worthy": "Is this retained topic naturally worth revisiting later (unfinished business, open feeling, pending outcome) vs settled small-talk?",
+    "self_undertaking": "Does the LATER text show the EARLIER-named party (the message's own sender) personally undertaking or committing to the action themselves — including indirect self-commitment ('leave it with me', 'count me in', 'I've got it', or 'we' when the sender is part of that we) — as opposed to reporting, quoting, or describing a THIRD PARTY's action, promise, or need, and as opposed to no one actually committing to anything at all? A quotation of someone else's words is not the sender's own commitment even if the quoted words are first-person.",
+    "same_matter": "Do the EARLIER and LATER texts describe the SAME specific real-world obligation or task (not merely the same topic, person, or category)? Two distinct obligations about the same person or subject (for example a payment and a separate form, or two different payments) are NOT the same matter.",
 }
 
 
