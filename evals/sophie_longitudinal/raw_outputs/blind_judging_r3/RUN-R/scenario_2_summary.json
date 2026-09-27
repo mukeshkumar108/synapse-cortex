@@ -5,7 +5,7 @@
   "provider": "model",
   "model": "google/gemini-2.5-flash-lite",
   "external_model_calls": true,
-  "timestamp": "2026-09-27T09:06:51.567230+00:00",
+  "timestamp": "REDACTED-FOR-BLIND-JUDGING",
   "checkpoints": [
     {
       "event_id": "s2_e02",
@@ -27,7 +27,7 @@
       "expectations": [],
       "commitments": [
         {
-          "id": "c184d016-3dc9-4c65-b563-d78e4ef0e7a4",
+          "id": "99ca656b-610d-4caf-8756-1a6ccd027674",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
@@ -49,18 +49,18 @@
         "commitments": 1,
         "stored_ask": 1,
         "surfaced_shelf": 1,
-        "open_loops": 1,
-        "current_meaning": 2,
+        "open_loops": 2,
+        "current_meaning": 1,
         "attention_candidates": 0,
         "suppressions": 0,
-        "clarifications": 0,
+        "clarifications": 1,
         "facts": 1,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "1b56decc-4382-4608-8050-23de995760f3",
+          "id": "62d030ea-daac-4fba-b3f7-dc3bd90dd6eb",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.CANCELLED",
           "title": "The user will look for the original document in Dad's old folder in the loft",
@@ -70,7 +70,7 @@
       ],
       "commitments": [
         {
-          "id": "c184d016-3dc9-4c65-b563-d78e4ef0e7a4",
+          "id": "99ca656b-610d-4caf-8756-1a6ccd027674",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
@@ -79,14 +79,19 @@
       ],
       "open_loops": [
         {
-          "id": "9b190650-210f-479e-869d-bb9aafba174f",
+          "id": "950d7805-8197-4362-8405-8764fd794bc0",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "original insurance letter"
+        },
+        {
+          "id": "b543ecb0-80f3-4de5-b31a-9b24cf9ed1c8",
+          "status": "OpenLoopStatus.OPEN",
+          "title": "look for original document in the loft"
         }
       ],
       "entities": [
         {
-          "id": "a4b1949d-9518-494c-85f9-75b0267cdd84",
+          "id": "c9c1f5c5-f108-49c1-918d-febee1432628",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -94,7 +99,7 @@
           ]
         },
         {
-          "id": "660caa30-5295-4897-9f6f-a15a2e14ddc9",
+          "id": "09e2e66e-34ec-4cb0-9227-0edee8f0660a",
           "name": "Grandad",
           "type": "person",
           "aliases": [
@@ -118,17 +123,17 @@
         "stored_ask": 1,
         "surfaced_shelf": 1,
         "open_loops": 2,
-        "current_meaning": 3,
+        "current_meaning": 2,
         "attention_candidates": 0,
         "suppressions": 0,
-        "clarifications": 0,
-        "facts": 2,
+        "clarifications": 1,
+        "facts": 1,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "1b56decc-4382-4608-8050-23de995760f3",
+          "id": "62d030ea-daac-4fba-b3f7-dc3bd90dd6eb",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.CANCELLED",
           "title": "The user will look for the original document in Dad's old folder in the loft",
@@ -138,7 +143,7 @@
       ],
       "commitments": [
         {
-          "id": "c184d016-3dc9-4c65-b563-d78e4ef0e7a4",
+          "id": "99ca656b-610d-4caf-8756-1a6ccd027674",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
@@ -147,19 +152,19 @@
       ],
       "open_loops": [
         {
-          "id": "9b190650-210f-479e-869d-bb9aafba174f",
+          "id": "950d7805-8197-4362-8405-8764fd794bc0",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "original insurance letter"
         },
         {
-          "id": "095b5dbb-8327-432a-9b5f-ddbd66f47eea",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Check loft for Auntie thing"
+          "id": "b543ecb0-80f3-4de5-b31a-9b24cf9ed1c8",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "look for original document in the loft"
         }
       ],
       "entities": [
         {
-          "id": "a4b1949d-9518-494c-85f9-75b0267cdd84",
+          "id": "c9c1f5c5-f108-49c1-918d-febee1432628",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -167,7 +172,7 @@
           ]
         },
         {
-          "id": "660caa30-5295-4897-9f6f-a15a2e14ddc9",
+          "id": "09e2e66e-34ec-4cb0-9227-0edee8f0660a",
           "name": "Grandad",
           "type": "person",
           "aliases": [
@@ -185,40 +190,32 @@
       "event_id": "s2_e09",
       "label": "Friday 08:07 - Cancellation reminder deferred",
       "counts": {
-        "expectations": 2,
+        "expectations": 1,
         "commitments": 1,
         "stored_ask": 1,
         "surfaced_shelf": 1,
         "open_loops": 2,
-        "current_meaning": 4,
+        "current_meaning": 3,
         "attention_candidates": 0,
         "suppressions": 1,
-        "clarifications": 0,
-        "facts": 2,
+        "clarifications": 1,
+        "facts": 1,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "1b56decc-4382-4608-8050-23de995760f3",
+          "id": "62d030ea-daac-4fba-b3f7-dc3bd90dd6eb",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.CANCELLED",
           "title": "The user will look for the original document in Dad's old folder in the loft",
           "summary": "User intends: The user will look for the original document in Dad's old folder in the loft (tonight)",
           "source_system": null
-        },
-        {
-          "id": "65edecb1-e338-415b-ad39-f1879277ff2b",
-          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
-          "state": "OutcomeState.UNKNOWN",
-          "title": "The client has not yet approved the graphics",
-          "summary": "Expected from another: The client has not yet approved the graphics (not yet)",
-          "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "c184d016-3dc9-4c65-b563-d78e4ef0e7a4",
+          "id": "99ca656b-610d-4caf-8756-1a6ccd027674",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
@@ -227,19 +224,19 @@
       ],
       "open_loops": [
         {
-          "id": "9b190650-210f-479e-869d-bb9aafba174f",
+          "id": "950d7805-8197-4362-8405-8764fd794bc0",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "original insurance letter"
         },
         {
-          "id": "095b5dbb-8327-432a-9b5f-ddbd66f47eea",
-          "status": "OpenLoopStatus.OPEN",
-          "title": "Check loft for Auntie thing"
+          "id": "b543ecb0-80f3-4de5-b31a-9b24cf9ed1c8",
+          "status": "OpenLoopStatus.RESOLVED",
+          "title": "look for original document in the loft"
         }
       ],
       "entities": [
         {
-          "id": "a4b1949d-9518-494c-85f9-75b0267cdd84",
+          "id": "c9c1f5c5-f108-49c1-918d-febee1432628",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -247,7 +244,7 @@
           ]
         },
         {
-          "id": "660caa30-5295-4897-9f6f-a15a2e14ddc9",
+          "id": "09e2e66e-34ec-4cb0-9227-0edee8f0660a",
           "name": "Grandad",
           "type": "person",
           "aliases": [
@@ -264,40 +261,32 @@
       "event_id": "s2_e10",
       "label": "Saturday 14:22 - Saturday closeout",
       "counts": {
-        "expectations": 2,
+        "expectations": 1,
         "commitments": 1,
         "stored_ask": 1,
         "surfaced_shelf": 1,
         "open_loops": 2,
-        "current_meaning": 5,
+        "current_meaning": 3,
         "attention_candidates": 0,
         "suppressions": 1,
-        "clarifications": 0,
-        "facts": 2,
+        "clarifications": 1,
+        "facts": 1,
         "entities": 2,
         "models": 0
       },
       "expectations": [
         {
-          "id": "1b56decc-4382-4608-8050-23de995760f3",
+          "id": "62d030ea-daac-4fba-b3f7-dc3bd90dd6eb",
           "type": "ExpectationType.USER_INTENTION",
           "state": "OutcomeState.CANCELLED",
           "title": "The user will look for the original document in Dad's old folder in the loft",
           "summary": "User intends: The user will look for the original document in Dad's old folder in the loft (tonight)",
           "source_system": null
-        },
-        {
-          "id": "65edecb1-e338-415b-ad39-f1879277ff2b",
-          "type": "ExpectationType.EXTERNAL_DEPENDENCY",
-          "state": "OutcomeState.FULFILLED",
-          "title": "The client has not yet approved the graphics",
-          "summary": "Expected from another: The client has not yet approved the graphics (not yet)",
-          "source_system": null
         }
       ],
       "commitments": [
         {
-          "id": "c184d016-3dc9-4c65-b563-d78e4ef0e7a4",
+          "id": "99ca656b-610d-4caf-8756-1a6ccd027674",
           "status": "CommitmentCandidateStatus.PENDING",
           "authority": "CommitmentCandidateAuthority.ASK",
           "title": "help make sure subscription doesn't slip",
@@ -306,19 +295,19 @@
       ],
       "open_loops": [
         {
-          "id": "9b190650-210f-479e-869d-bb9aafba174f",
+          "id": "950d7805-8197-4362-8405-8764fd794bc0",
           "status": "OpenLoopStatus.RESOLVED",
           "title": "original insurance letter"
         },
         {
-          "id": "095b5dbb-8327-432a-9b5f-ddbd66f47eea",
+          "id": "b543ecb0-80f3-4de5-b31a-9b24cf9ed1c8",
           "status": "OpenLoopStatus.RESOLVED",
-          "title": "Check loft for Auntie thing"
+          "title": "look for original document in the loft"
         }
       ],
       "entities": [
         {
-          "id": "a4b1949d-9518-494c-85f9-75b0267cdd84",
+          "id": "c9c1f5c5-f108-49c1-918d-febee1432628",
           "name": "Mum",
           "type": "person",
           "aliases": [
@@ -326,7 +315,7 @@
           ]
         },
         {
-          "id": "660caa30-5295-4897-9f6f-a15a2e14ddc9",
+          "id": "09e2e66e-34ec-4cb0-9227-0edee8f0660a",
           "name": "Grandad",
           "type": "person",
           "aliases": [
@@ -394,16 +383,16 @@
     "traps_passed": 4,
     "trap_defense_interpretation": "Semantic baseline evaluation against active model state generation.",
     "final_state_counts": {
-      "expectations": 2,
+      "expectations": 1,
       "commitments": 1,
       "stored_ask": 1,
       "surfaced_shelf": 1,
       "open_loops": 2,
-      "current_meaning": 5,
+      "current_meaning": 3,
       "attention_candidates": 0,
       "suppressions": 1,
-      "clarifications": 0,
-      "facts": 2,
+      "clarifications": 1,
+      "facts": 1,
       "entities": 2,
       "models": 0
     }

@@ -1,0 +1,8 @@
+# SEALED — R3 run identity mapping (DO NOT share with judge)
+
+Packet: evals/sophie_longitudinal/raw_outputs/blind_judging_r3/
+- RUN-P = frozen baseline (synapse-cortex 44a89d1 outputs, 2026-09-25)
+- RUN-Q = R3 new Track D head (adc2038, 2026-09-27)
+- RUN-R = R2 previous head (5f0dce7-era outputs)
+
+Unblind only after Gemini returns its evaluation.
