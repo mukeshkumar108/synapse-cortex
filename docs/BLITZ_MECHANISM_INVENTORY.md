@@ -106,6 +106,17 @@ Source: `docs/TRACK_B_CURRENT_HEAD_HOT_PATH_2026-09-26.md` Sessions 2–4
 |---|---|---|---|---|
 | 24 | recent/search/summaries/conclusions-list (Cortex) + compiler packet (Runtime) | Per-turn | KEEP | Only semantic evidence; bakeoff vs representation/context/query before change. |
 | 25 | representation / session.context / conclusions/query / peer.chat(depth) / cards / Dream | Unused by us | EXPERIMENT | Latent power we're paying for; test, don't assume. |
+| 26 | Targeted evidence recruitment (`evidence_recruitment.py` + `history_provider` at reconciliation boundary, `SEMANTIC_RECRUIT_HISTORY=0` kill-switch) | IMPLEMENTED (banked) | KEEP | One bounded retrieval after local ambiguity; re-judge, single grounded winner or hold; no clarification; provenance in existing traces. First live implementation of Canon 12–13. |
+
+## Trusted primitives (converged — not a framework)
+
+Recent tranches converge on six primitives: ownership/agency, matter identity, evidence accumulation, confidence/uncertainty, lifecycle reconciliation, targeted evidence recruitment for self-resolution.
+
+## Test procedure (canonical — parallel-safe since maintenance commit)
+
+- Command: `./.venv/bin/python -m pytest tests/ -q` (433 collected). Full suite ~130s.
+- `tests/conftest.py` assigns each pytest process its own `/tmp/synapse_test_<pid>_<rand>.db` and removes it at session end. Concurrent runs are isolated by construction (proven: distinct DBs per process, 433 green during a concurrent run).
+- Legacy single-path `/tmp/synapse_test.db` is gone; do not reintroduce shared mutable test state.
 
 ## Orphans (writers without consumers — wire or retire, no third option)
 
