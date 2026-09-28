@@ -129,18 +129,21 @@ Promotion rules (evidence-based, no exceptions by feel):
 
 ```text
 EVIDENCE SUBSTRATE (Cortex — factual, provenanced, graduated; owns lifecycle)
+  authored claims / corrections / boundaries / receipts / closures
         ↓
-SHARED LONGITUDINAL MODEL (Track P — person + relationship, revisable)
-  source/provenance × reading × epistemic status × scope/owner (§3)
+CANDIDATE GENERATORS (two nomination paths, never open scans)
+  A. OPERATIONAL NOMINATION (deterministic + product systems):
+     deadlines / meetings / open loops / reminders / completions /
+     opportunities / unresolved commitments
+  B. SEMANTIC NOMINATION (longitudinal reads over history, §4 notes)
         ↓
-CURRENT EVIDENCE → PRODUCT LENS (domain expertise: health, relational,
-  symbolic, operational, educational)
+ATTENTION CANDIDATES (bounded room: eligible matters + context)
         ↓
-MOMENT INTERPRETATION (what does this moment mean in the larger trajectory?)
+LLM ATTENTION ARBITER (triggers first; judgement over the room)
+  HOLD / SUPPRESS / RELEASE / ATTEND (maybe PRIORITISE)
+  eligible ≠ relevant now ≠ surface now
         ↓
-STEERING / ORIENTATION (Track S — ephemeral, advisory; interface decided by S2)
-        ↓
-PRODUCT POLICY + PERSONA (voice, allowances, judgement — product-owned)
+PRODUCT LENS (domain expertise reads the arbitration + evidence)
         ↓
 FOREGROUND TURN (chooses, expresses, acts/withholds — never puppeted)
         ↓
@@ -156,6 +159,25 @@ Notes:
   become candidate shared learnings, promoted only through Track P rules (§5).
 - Steering modulates attention and latitude; it never rewrites character
   constitution (curation is lighting, not recasting).
+- **Signals may be query-generated rather than event-extracted.** Many
+  signals that matter do not exist inside any one event; they emerge from a
+  read across history ("when feeling controlled, disengages"). The system
+  therefore distinguishes event-local extraction (Cortex: user said X, task
+  completed, boundary set — stable evidence) from **longitudinal reads**:
+  a scoped question asked over the relevant history ("how do reminders land
+  for this person? what is unresolved? where do stated goals and behaviour
+  diverge?"), answered as an ephemeral interpretation, then validated by
+  **evidence recruitment** (support, counterexamples, scope checks,
+  same-episode dedup, user contradiction, supersession by newer evidence).
+  Reads are recomputable from new angles; they are not trait records.
+- P1 verdict recorded: **0/8 derived candidates earned durable shared
+  persistence** (`reports/track_p_p1_loss_analysis_2026-09-28.md`, commit
+  `1ce11ee`). What persists for years is authored + receipts + operational
+  lifecycle; inference reconstructs on demand. This kills semantic
+  authority-by-persistence, not efficiency caching: **revisable derived
+  views may be materialised for retrieval/latency reasons** without becoming
+  source-of-truth (cheap to regenerate, expiring, invalidated by recheck,
+  contradiction, or correction).
 
 ## 5. Product lens boundary (bidirectional, gated)
 
@@ -213,23 +235,23 @@ relations; transform-below-interpretation; scope tags) are carried forward.
 P0's "two durable kinds + one ephemeral kind" is a candidate compression,
 not architecture — P1 tests it, does not assume it.
 
-**P1 — Loss analysis.** Replay battery (shared with Track S where useful):
-for each candidate, what future turn or cross-product handoff degrades
-without it? Rank by decision-effect. Only the residue past the
-evidence+receipts+profile baseline earns inferred persistence. Likely
-retained: explicit long-term goals, deeply meaningful aims, repeated
-corrections of system behaviour. Likely not: transient affect, single
-readings, raw metric values. Interesting candidates (e.g. "when feeling
-controlled, disengages even when agreeing") require evidence, revision, and
-correction pathways. P1 runs a real control arm attempting to recover
-future-turn quality from operational evidence + receipts + authored user
-knowledge + product-local context **without** the candidate derived
-understanding; where the baseline recovers cheaply and reliably,
-persistence loses. Battery includes relational-learning cases alongside
-person-understanding cases, and the Alchemist resonance specimen
-(authored favourite + observed reception + derived quest-metaphor resonance
-rule with literalness boundary) as a cross-product promotion-path case.
-Full launch contract: `docs/TRACK_P_P1_LAUNCH_CONTRACT.md`.
+**P1 — Loss analysis. COMPLETE.**
+Report: `reports/track_p_p1_loss_analysis_2026-09-28.md`
+(commit `1ce11ee`). Frozen battery C1–C8 with real control-arm
+reconstructions 8/8 and strict independence counting (same-trajectory
+repeats ≠ independent). **Result: 0/8 derived candidates earn durable
+shared persistence.** Authored corrections/standing/boundaries persist as
+authored (≥2 instances, scope + expiry preserved; moment-restraint never
+globalised). C3 (RPD2 repair) and C6 (Bloom co-occurrence) survive only as
+product-local contested-ephemeral with second-instance retest conditions.
+C5 (Monday-subdued) is the deliberate-forgetting prototype: true,
+well-evidenced, never-surface, surveillance-costly — dropped even backstage.
+C7 promotion refused (scope escape + laundering). Claims capped at
+SUPPORTED (reasoning experiment, pending-file dependencies as-present, no
+blind bakeoff — P2 owns reliability). P2 stays narrow per P1 §7: C3/C6
+retests only with second independent instances, blind precision, kill
+clauses for boundary/paternalism/scope-escape/laundering failures; no
+C5, no C7-shared, no C2-shared, no durable shared-derived store.
 
 **P2 — Construction reliability.** Blinded emission of tiered entries from
 frozen evidence, Track A replication methodology (frozen prompts, sealed
@@ -338,35 +360,51 @@ before S4) is adopted as discipline. No canonical stance list. SHP-5
 (remembered goal + current context has room) is the programme's
 situational-affordance carrier.
 
-**S1 — Significance calibration.** Sliding-window runs over the frozen
-battery, with operational/context inputs (deadlines, due items, calendar
-load, time, prior reminders, available context signals) supplied as
-deterministic facts alongside trajectory and person-model content. Primary
-metric: precision/recall on user-marked frustration and
-missed/deepened moments, plus opportunity-timing hits (right matter at a
-genuinely affording moment) and correct suppressions (withheld under
-grief/overload/closure); explicit user signals ("you're not understanding
-me") are ground truth against which classifier ambition is measured. S1
-does not classify every battery shape: it must beat cheap
-deterministic/explicit-signal baselines (explicit correction/frustration,
-explicit boundary, due/open commitment, deadline/recurrence facts, explicit
-completion or change-of-mind, ABSTAIN) without unacceptable false-positive
-steering, inside a pre-registered false-positive budget. If the LLM
-judgement cannot beat deterministic/explicit triggers, ship the triggers.
-Kill condition: false-positive rate that would produce rupture tunnel vision
-(every turn damage-managed) fails the loop regardless of recall; symmetric
-failure is chronic suppression of genuinely affording moments. Full launch
-contract: `docs/TRACK_S_S1_LAUNCH_CONTRACT.md`.
+**S1 — Significance calibration. COMPLETE.**
+Report: `reports/track_s_s1_significance_2026-09-28.md`
+(commit `5fc8cbe`). Frozen 69-window battery (47 real + 22 synth,
+manifest sha `bbd1ca21`), three arms (deterministic cheap triggers,
+restraint-prior LLM, opportunity-prior LLM), pre-registered bar.
+**Verdict: FAIL on frozen numbers, all arms.** Detector recall ties cheap
+explicit triggers on user-marked moments (24/29 both) and loses on the open
+arm; all arms including the cheap baseline exceed the 10% false-steer
+budget by multiples (cheap 45.5%, strict 40.9%, open 59.1%; repaired
+27.3%/50% — still failing); rupture recall 1/3 everywhere; humour and
+successful-challenge have zero real-data windows. **Killed:** general LLM
+moment discovery beating cheap triggers; opportunity-prior operating
+point; restraint-prior rupture detection. **Supported (representation, not
+reliability):** the hold/suppress/release vocabulary carries decision
+value cheap triggers structurally lack (strict +7 entirely from HOLD +6 /
+SUPPRESS +1: Lucy withhold, neck restraint, never-surface Monday,
+changed-mind releases, boundary honoured) — currently drowned in
+over-attending noise (attend on 14/20 HOLD windows). Prescribed for S2:
+compare interfaces on hold/suppress/release quality with a trigger-only
+control; per-matter judgments (single-label verdicts conflate
+attend-to-person with suppress-routine); authority-annotated person notes
+supplied, not invented; reconciliation-before-surfacing gate; repaired CF
+scanner and mark-release class; no humour/challenge interfaces without
+real-data batteries; operating points meet the bar blind, never by
+post-hoc retuning.
 
-**S2 — Interface comparison, blind-judged.** Same frozen sessions, at least
-three arms: (1) named stance; (2) structured orientation brief (salient /
-unresolved / relational posture / avoid / latitude); (3) compact
-natural-language orientation — plus a raw-turns control. Judge downstream
-trajectory on receipts-observables (resumed substance, user correction,
-disengagement, repair yield, deepening). **The experiment may kill the stance
-taxonomy entirely.** Also tested inside S2: annotate-first (keep turns, add
-orientation) vs compressed replacement (logged, recoverable, attributed);
-replacement must win cleanly to survive given its laundering risk.
+**S2 — Attention arbitration over bounded candidates (reframed post-S1).**
+S1 killed general moment discovery, so S2 does not compare interfaces on
+broad detection. Question: **given a bounded set of legitimate attention
+candidates, what interface best helps an LLM arbitrate HOLD / SUPPRESS /
+RELEASE / ATTEND (maybe PRIORITISE) without puppeteering the foreground?**
+Arms: S0 §2 (stance underdog, structured brief, compact NL, suppression-only
+variant) against a **trigger-only control** (deterministic priority alone
+vs deterministic candidates + LLM arbiter — the actual product question).
+Requirements carried from S1 §9: per-matter judgments or explicit
+single-target discipline; authority-annotated person notes supplied;
+reconciliation gate (external evidence resolves against open commitments
+before surfacing); repaired CF scanner; mark-release class; no
+humour/challenge interfaces without real coverage; bars met blind.
+Scenario battery: busy Monday (meeting + task + gym + unresolved thread),
+sudden free window, emotional suppression (due goal vs distressing news),
+external resolution (receipt kills the nag), changed mind (release),
+dormant meaningful goal (context reopens it), accomplishment (close-out
+warmth, not another question). Judging on S0 §7 dimensions including
+non-puppeteering/foreground-room.
 
 **S3 — Rung and authority discipline (arm-agnostic).** Orientation brief
 or compact NL orientation by default; named stance is one S2 candidate,
@@ -459,5 +497,12 @@ monitor trigger mechanism (on-due query vs ambient intersect); the winning
 steering interface; session-close durability owner; watch-list
 implementation; timers and cadence values; which product goes first in
 shadow mode; any user-facing surface for shared understanding
-(product-owned, later); S0's canonical shape inventory (report pending
-landing — §7). Numeric promotion thresholds follow P1/S1 evidence, not preference.
+(product-owned, later). Open research questions, not decisions: whether
+cached derived views materially improve retrieval/latency/quality over
+reconstruction at realistic history scale (systems experiment, with
+invalidation rules — never a semantic-persistence claim); whether a
+Honcho-like semantic query capability answers longitudinal questions
+faithfully with citations and counterexamples (probe before relying);
+one trajectory object vs per-product views (P1 evidence favours
+per-product + thin shared transport, not canonised). Numeric promotion
+thresholds follow evidence, not preference.
