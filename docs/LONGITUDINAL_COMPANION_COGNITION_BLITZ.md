@@ -417,19 +417,22 @@ brief exception tier. Programme direction adopted: **LLM by exception,
 not by default** — deterministic default + contextual exception
 judgement = current attention posture.
 
-**S3 — Exception-tier test (narrowed per S2 §9.3).** Test ONLY whether
-brief-format arbitration gated to flagged judgement-shaped cases recovers
-those exact control-miss classes: dormant-goal affordance (F3-class),
-named-injury attention-with-pursuit-suppressed (Z3-class), restraint-scope
-answers (B2/florist-class), receipt beats (E1/matt-class) — plus the
-**mandatory E1 heavy-context dual-judgement family**: suppress the routine
-candidate while simultaneously recognising the person may deserve
-attention (per-task SUPPRESS + relational ATTEND are different outputs;
-warm-packet task lists with suppression metadata alone would lose the
-second). Bar, brutal and pre-registered: recover those classes at FP 0%
-on all-held controls, or kill the exception tier too and run deterministic
-triggers/context rules until better evidence exists. Full launch contract:
-`docs/TRACK_S_S3_LAUNCH_CONTRACT.md`.
+**S3 — Exception-tier test. COMPLETE, tier KILLED.**
+Report: `reports/track_s_s3_exception_2026-09-28.md`
+(commit `b5b9591`). 25 cases / 65 candidates, gated brief tier vs
+trigger-only control, brutal pre-registered bar. Result: tier 60/65 vs
+control 51/65 with zero FP, zero violations, 9 clean recoveries — and
+**killed on its load-bearing clause**: E1d person-ATTEND missed (HOLD
+chosen — attention conflated with requested action) while the routine was
+suppressed correctly. Six of seven clauses passed; the failed clause was
+the point, so no partial-credit survival. Killed joins: broad detection,
+arbitration-as-replacement, stance, suppression-only-standalone, NL record,
+PRIORITISE. Survives: triggers-first substrate, suppression-posture
+default, G1–G6 gates as **telemetry/diagnostics only** (never behavioural
+authority), per-matter verdicts as the validatable unit, E1 dual-verdict
+family as regression battery. Next attention work, if any, needs a new
+representation (e.g. separate relational-attention channel, not a
+competing ATTEND verdict) — never this tier warmed over.
 
 **S3 — Rung and authority discipline (arm-agnostic).** Orientation brief
 or compact NL orientation by default; named stance is one S2 candidate,
@@ -459,7 +462,14 @@ frozen F1–F10 blind. VPS hosts a live Honcho stack (api/postgres/deriver
 containers present; access verified read-only) — rerun agent may target it
 with owner authorisation under the probe contract's privacy rules.
 Fallback if unusable: retrieval + model synthesis over Cortex evidence
-under the same recruitment contract. Stored Honcho conclusions are NOT
+under the same recruitment contract. **Rerun COMPLETE** (report
+`reports/honcho_rerun_2026-09-28.md`, commit `b7dabcb`): 422 cause PROVEN
+(filters required, schema defect — no code changed); populated VPS corpus
+(53 messages) + blind frozen F1–F10: retrieval coverage 10/10, Honcho
+synthesis 7/10 with critical failures in correction dominance (F2),
+hearsay-as-fact (F5), hindsight leaks (F9) → **NOT USABLE for semantic
+nomination; outcome B+C: Honcho is evidence infrastructure, synthesis is
+ours** per `docs/LONGITUDINAL_READ_CONTRACT.md`. Stored Honcho conclusions are NOT
 trusted semantic state (probe: deductive conclusions drawn from single
 throwaway remarks) — at most retrieval hints until separately validated,
 and explicitly excluded from any scored semantic-read path. Data posture
@@ -532,6 +542,12 @@ judges with voice applied after.
 - Follow-up is re-authorised against current state at send time.
 - Trajectory edits are contested supersessions, logged and recoverable —
   never silent replacement.
+- **Cortex prepares; Runtime decides.** The projection carries hard state
+  (authoritative constraints) and soft relevance (context/candidates),
+  never behavioural commands beyond hard state. ATTEND/HOLD/SUPPRESS/
+  RELEASE are research evaluation labels, not downstream instructions:
+  Runtime, holding the live turn, decides mention/hold/circle-back/ask/
+  tone. No second companion upstream of the companion.
 
 ## 11. Replay and experiment discipline
 
@@ -561,7 +577,10 @@ faithfully with citations and counterexamples (probe before relying);
 one trajectory object vs per-product views (P1 evidence favours
 per-product + thin shared transport, not canonised). Next architecture
 artifact when evidence justifies it: warm projection / companion packet
-spec (what is prepared at what horizons, what is deterministic, what is
-cached with what invalidation, what is JIT-only, how runtime requests
-missing context — the packet is a projection, never truth). Numeric promotion
+spec (v1 drafted as `docs/COMPANION_PROJECTION_SPEC.md`: readiness kinds,
+hard/soft boundary, dual-channel E1 home, invalidation, JIT protocol;
+cadence, PRIORITISE-ordering, and E1-suppression competence stay OPEN).
+Longitudinal synthesis governed by `docs/LONGITUDINAL_READ_CONTRACT.md`
+(Honcho retrieval + our recruited synthesis + Cortex override channel;
+F1–F10 as regression battery). Numeric promotion
 thresholds follow evidence, not preference.

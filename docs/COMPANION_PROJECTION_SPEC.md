@@ -1,101 +1,106 @@
-# Companion Projection Spec (Draft — Research Architecture, Not Production)
+# Companion Projection v1 (Research Architecture — Not Production)
 
-> Status: draft for programme use. Nothing here authorises schema, runtime
-> wiring, thresholds, or production behaviour. Graduated substrate unchanged.
-> Evidence: P1 (`1ce11ee`), S1 (`5fc8cbe`), S2 (`cb8e0f8`), Honcho probe
-> (`85942ef`), P0 (`49fa0a0`), S0 (`bac8c274`).
+> Status: v1 draft for programme use. Nothing here authorises schema,
+> runtime wiring, thresholds, or production behaviour. Graduated substrate
+> unchanged.
+> Evidence: P1 (`1ce11ee`, 0/8 shared-durable), S1 (`5fc8cbe`, broad
+> detection fails), S2 (`cb8e0f8`, control 67/84 wins; stance killed),
+> S3 (`b5b9591`, exception tier self-killed on E1d), Honcho rerun
+> (`b7dabcb`, retrieval 10/10, synthesis 7/10, stored conclusions unsafe).
 >
-> **The packet is a projection, not truth.** Its authoritative source is
-> always lower down (Cortex evidence, authored claims, corrections,
-> receipts, lifecycle). It is disposable, regenerable, and invalidated by
-> recheck, contradiction, or correction.
+> **The projection is a prepared desk, not a director.** Cortex puts the
+> useful papers on the desk; Companion Runtime sits down with the user and
+> decides which papers to look at. The packet says "here is what may be
+> relevant", never "do X" — except hard state (§Hard vs soft).
 
-## What it is
+## Hard state vs soft relevance (binding boundary)
 
-A small, fast, prepared map of the current world for Companion Runtime:
-what is known, what is eligible, what is open/closed/sensitive, what
-becomes useful when, what reads may be needed, and what must be
-revalidated before surfacing. It answers readiness, not identity. It does
-not contain the person.
+**Hard state / hard constraints** — Cortex sends these as authoritative;
+they constrain Runtime:
 
-## Horizons (preparation timescales)
+- task completed → closed; bill paid; user changed mind → obligation
+  released/removed; explicit reminder requested at a time;
+- user said "don't mention X" → boundary (until reopened);
+- meeting starts in N minutes; deadline facts; lifecycle transitions.
 
-- **Session open:** full projection build (deterministic substrate pull +
-  longitudinal context attach).
-- **Day boundaries / morning-afternoon-evening refresh:** lightweight
-  rebuild or delta update.
-- **Event-triggered:** calendar/task sync, major event, meaningful
-  conversation close, explicit user correction (corrections invalidate
-  immediately, never wait for the next cycle).
-- Exact cadence is OPEN — S3/Honcho evidence first, timers later.
+**Soft relevance / potential significance** — Cortex sends these as
+**context and candidates**, never commands:
 
-## Sections (readiness kinds)
+- goal still active; user seemed concerned about X recently;
+- task could fit a free window; project important for weeks;
+- unresolved thread from yesterday; history suggests a topic may matter.
+
+ATTEND / HOLD / SUPPRESS / RELEASE are **research labels for evaluating
+relevance**, not commands Cortex sends downstream. Runtime, holding the
+live turn, character, product rules, and relational state, decides:
+mention now, hold in mind, circle back later, ask, let it colour tone
+without surfacing. The S-track's verdict is therefore not "no LLM
+judgement" but: **no separate upstream LLM attention governor — judgement
+lives in Runtime, which has the moment.**
+
+## Sections
 
 ```text
-FACTUAL READINESS — what is known and current?
-  calendar constraints, meetings, hard deadlines, due/eligible tasks,
-  explicit reminders, open commitments, recently resolved matters,
-  authored boundaries and deferrals. Deterministic, substrate-backed.
+CURRENT WORLD (factual, deterministic, substrate-backed)
+- calendar, time constraints, active commitments, task state
+- recent closures, recent important events
 
-ATTENTION READINESS — what candidates are eligible?
-  attend / held / suppressed / released-closed candidates with
-  eligibility facts. Deterministic default posture;   exception-tier
-  judgements attached only where S3 earns them, flagged provisional
-  (judgement, not fact).
+ATTENTION (eligible matters + deterministic trigger state)
+- eligible / held / suppressed / released matters with eligibility facts
+- explicit boundaries, recheck conditions
+- NO general arbiter verdicts; exception tier killed (S3)
 
-SOCIAL READINESS — what topics are open / closed / sensitive / welcomed?
-  boundaries, closures, heavy-context flags, never-surface patterns
-  (referenced, never disclosed: "topic closed Thursday", not content).
+CONTINUITY (session and relationship texture)
+- recent session handoff, open conversation threads
+- promises the companion made, explicit user concerns
 
-TEMPORAL READINESS — what becomes useful now / later / this week?
-  recheck conditions, dormant goals with reopening shapes, upcoming
-  horizons, expiry times.
+RELATIONAL CONTEXT (distinct channel from operational attention)
+- emotionally important personal material currently salient
+  (e.g. family concern disclosed today) — stated as context,
+  never as an ATTEND command. E1-class dual handling lives here:
+  routine SUPPRESS coexists with relational salience; Runtime
+  reconciles them in the live turn.
 
-SEMANTIC READINESS — what bounded reads may be needed?
-  questions the arbiter is likely to pull (e.g. "how have exercise
-  nudges landed lately?"), NOT precomputed answers. Answers are JIT.
+HORIZONS (temporal readiness)
+- today / next few days / current week
+- dormant goals with known deterministic reopening conditions
 
-JIT REQUIREMENTS — what must be revalidated before surfacing?
-  reconciliation gates (receipt beats rule), authority annotations
-  (self-report dominance, invitation status), per-matter freshness.
+JIT READ HINTS (not answers)
+- candidate/questions for which longitudinal retrieval may become
+  useful if the matter becomes live
+  (e.g. "if exercise reminder becomes eligible under overload →
+  longitudinal read may help")
+- NEVER precomputed conclusions ("user dislikes reminders when
+  overwhelmed" is forbidden as projection content — P1 0/8)
 ```
 
-Dual-judgement shape (E1 family): routine candidacy and relational
-attention are separate fields — e.g. `gym: eligible yes, surface_now no`
-alongside `person: relational_attention elevated, warm-check-in allowed`.
-A task list with suppression flags alone is insufficient by programme rule.
+## Horizons and refresh
 
-## Deterministic vs cached vs JIT
+Session open (full build), day-boundary / morning-afternoon-evening
+refresh (delta), event-triggered rebuild (calendar/task sync, major
+event, meaningful conversation close), correction-triggered immediate
+invalidation (corrections never wait for a cycle). Exact cadence OPEN.
 
-- **Deterministic:** everything derivable from substrate + triggers.
-  Majority of the projection. Cheap, testable, owns ~80% of cases (S2).
-- **Cached:** revisable derived views ONLY if scale evidence demands
-  (OPEN). Disposable materialised interpretations with invalidation
-  conditions on their face; never source-of-truth; invalidated by
-  recheck, contradiction, or correction.
-- **JIT:** bounded longitudinal reads pulled by live candidates, plus
-  authoritative Cortex queries for missing facts. S3 exception tier and
-  Honcho-probe-verified reads are the only sanctioned sources.
+## Invalidation
 
-## Runtime requests (sketch, not API)
+Recheck firing, contradiction, user correction, lifecycle closure, or
+boundary-setting invalidates the affected projection parts immediately.
+Stale projection must be unreachable, not merely marked.
 
-Runtime holds the projection; on a gap it requests downward: missing fact
-→ Cortex authoritative query; missing judgement → bounded read pulled by
-the live candidate (never open scans); changed world → partial rebuild or
-correction-triggered invalidation. No request path may persist an answer
-as truth.
+## JIT protocol (sketch, not API)
 
-## Status marking (anti-graduation-guard)
+Runtime on a gap: missing fact → authoritative Cortex query; missing
+judgement → bounded longitudinal read pulled by the live candidate
+(per Longitudinal Read contract; interrogative-only, recruited, ephemeral);
+changed world → partial rebuild or correction-triggered invalidation. No
+request path persists an answer as truth. No open-ended scans, ever.
 
-- **Proven:** deterministic candidate generation; lifecycle ownership;
-  bounded candidate sets reduce false positives (S1→S2: 40–59% to 0–8.3%);
-  packet-as-disposable-projection; JIT authoritative fallback.
-- **Supported, not production-proven:** recruited longitudinal reads
-  (10/10 author-performed, blind rerun required); LLM exception tier
-  (isolated wins, S3 must confirm at FP 0%).
-- **Open:** E1 person-vs-task handling; cached derived views; Honcho
-  longitudinal QA; refresh cadence/horizon design; prioritisation ordering
-  (no evidence PRIORITISE is decidable — default without it).
+## Banned content (programme kills, binding here)
 
-No hypothesis above may appear in an architecture diagram without its
-marking. Markings change only on pre-registered experimental evidence.
+General LLM attention verdicts; stance labels; trusted Honcho stored
+conclusions (retrieval hints / debugging artefacts only); precomputed
+trait/pattern conclusions about the person; numeric scores or priority
+rankings presented as production state; any surfacing instruction beyond
+hard state. G1–G6-style gate firings may appear as **telemetry /
+diagnostics** (evaluation, observability, projection selection) — never
+as behavioural authority.
