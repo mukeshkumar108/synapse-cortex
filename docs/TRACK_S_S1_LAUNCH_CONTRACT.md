@@ -8,13 +8,29 @@
 
 ## Question
 
-**Can side cognition detect moment significance / trajectory relevance well
-enough to outperform cheap explicit-signal baselines without introducing
-unacceptable false-positive steering?**
+**Can side cognition recognise what deserves attention now from the
+combination of operational pressure, trajectory relevance, current context,
+situational opportunity, suppression signals, and longitudinal
+person/relationship understanding — while outperforming cheap
+deterministic/explicit-signal baselines without excessive false-positive
+steering?**
 
-S1 does NOT classify every battery shape. Per-shape accuracy is explicitly
-not the metric. Rupture/frustration is one subclass; significance,
-opportunity, deepening, and timely silence matter equally.
+Moment significance is not trajectory-change detection alone. An open
+matter with no new trajectory evidence may become surface-worthy when a
+window opens (e.g. 40 free minutes appearing); an important goal may demand
+suppression under upsetting news or severe overload. Preserved throughout:
+**eligible ≠ relevant now ≠ surface now.** Do not reduce the target to
+historical trajectory-change detection, and do not turn the inputs below
+into a numeric formula or fixed ontology (calendar/time/load/weather are
+examples of context inputs, never mandatory universal primitives).
+
+Hybrid boundary for the experiment: deterministic/operational machinery
+establishes facts and eligibility (deadlines, meetings, recurrence,
+completion, prior reminders, calendar load, current time, available
+context signals); person/relationship understanding supplies importance,
+preferences, goals, receipts, help/backfire history; side cognition judges
+relevance, opportunity, competing demands, timing, suppression, and
+attentional latitude; foreground/product keeps behavioural authority.
 
 ## S0 status (binding constraint on this track)
 
@@ -27,15 +43,24 @@ classifier outputs or state labels in any proposal.
 
 ## Method
 
-Sliding-window runs over the frozen manifest (§Manifest). Two arms minimum:
+Sliding-window runs over the frozen manifest (§Manifest). Each window
+supplies: operational/context facts as deterministic inputs (due/open
+items, deadlines, recurrence state, completion, prior-reminder receipts,
+calendar load, current time, available context signals — stated as facts,
+never as interpretation); trajectory relevance and person/relationship
+content as the longitudinal side; the live turn as the moment. Three arms
+minimum:
 
 - **Cheap-baseline arm:** explicit correction/frustration markers, explicit
-  boundaries, due/open commitments, explicit completion or change-of-mind,
-  ABSTAIN. Deterministic or near-deterministic triggers only.
-- **Significance-detector arm(s):** side-cognition readings of moment
-  significance (opportunity, circling, deepening, accomplishment, drift,
-  recheck firing, rupture risk). Frozen prompts/configs; no oracle leakage;
-  no access to future turns beyond the window.
+  boundaries, due/open commitments, deadline/recurrence facts, explicit
+  completion or change-of-mind, ABSTAIN. Deterministic or near-deterministic
+  triggers only.
+- **Significance-detector arm(s):** side-cognition readings combining all
+  input classes above into attention judgements (attend / hold / suppress /
+  surface-as-candidate / narrow-latitude). Frozen prompts/configs; no oracle
+  leakage; no access to future turns beyond the window; no numeric scoring
+  formulas — LLM judgement over stated facts, reported qualitatively and
+  scored on outcomes.
 
 Judge against user-marked ground truth: explicit user frustration /
 correction, marked accomplishments, remembered-goal relevance points,
@@ -48,7 +73,9 @@ Cover all programme-doc §7 categories: rupture/friction, successful
 repair, circling, deepening, remembered goals, missed opportunities,
 celebration/accomplishment, humour/shared repertoire, changed mind,
 gradual personal change, correct silence, unwanted probing, successful
-challenge, mundane nothing-should-happen turns. Sources, in preference
+challenge, situational opportunity (open matter meets a newly available
+window), suppression-by-context (important matter correctly withheld under
+grief, overload, or bad timing), mundane nothing-should-happen turns. Sources, in preference
 order: committed `evals/sophie_longitudinal/` scenario inputs+oracles and
 the committed blind-eval report; redacted excerpts of `replay-private/`
 corpora (gitignored — minimise, never commit full trajectories); synthetic
@@ -62,7 +89,12 @@ why nothing should fire.
 - Recall on user-marked rupture moments vs cheap-baseline recall (same
   windows, reported separately).
 - Recall on non-rupture significance (remembered-goal relevance,
-  accomplishment, deepening, missed opportunity) vs cheap baseline.
+  accomplishment, deepening, missed opportunity, situational-opportunity
+  timing) vs cheap baseline.
+- Correct-suppression rate on suppression-by-context cases (withheld under
+  grief/overload/closure where surfacing would be wrong), reported
+  separately from recall: chronic failure to suppress is the symmetric
+  failure to tunnel vision.
 - False-steer rate on mundane + correct-silence controls (any steering
   output where ABSTAIN was correct).
 - Latency/window metadata recorded (window sizes tested, no production
@@ -72,10 +104,14 @@ why nothing should fire.
 
 ## Pre-registered bar and false-positive budget (fixed before results)
 
-- PASS requires BOTH: (a) detector recall exceeds the cheap baseline on
+- PASS requires ALL of: (a) detector recall exceeds the cheap baseline on
   user-marked moments at (b) false-steer rate on mundane + correct-silence
-  controls **≤10%**. Exceeding recall while exceeding the FP budget is a
-  FAIL (rupture tunnel vision fails the loop regardless of recall).
+  controls **≤10%**, and (c) correct-suppression rate on
+  suppression-by-context cases reported with no systematic suppression
+  blindness (eligible-but-withheld matters must not leak into surfacing).
+  Exceeding recall while exceeding the FP budget is a FAIL (rupture tunnel
+  vision fails the loop regardless of recall); systematic failure to
+  suppress is the symmetric FAIL.
 - Non-rupture significance recall must be reported separately; a detector
   that only fires on frustration is a FAIL of scope even if it passes on
   rupture (wind tunnel, not aircraft).
@@ -94,6 +130,10 @@ why nothing should fire.
   scripted utterances in steering output.
 - Steering that fires interrogation-style probing on an already-answered
   or explicitly closed matter.
+- Surfacing an eligible matter into a suppression context (active grief,
+  acute overload, user-closed topic) where the oracle requires holding:
+  eligible ≠ relevant now ≠ surface now, and relevance misjudged under
+  suppression signals fails the arm.
 
 ## Claims and landing
 

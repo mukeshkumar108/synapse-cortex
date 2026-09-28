@@ -259,9 +259,39 @@ recoverable.
 
 **Core question:**
 
-**Can side cognition improve the foreground model's attention, orientation
-and behavioural latitude by recognising what this moment means in the larger
-trajectory, without puppeteering it?**
+**Can side cognition recognise what deserves attention now from the
+combination of operational pressure, trajectory relevance, current context,
+situational opportunity, suppression signals, and longitudinal
+person/relationship understanding — while outperforming cheap
+deterministic/explicit-signal baselines without excessive false-positive
+steering?**
+
+Moment significance is not trajectory-change detection alone. It includes
+current situational affordance: an open dentist task with no new trajectory
+evidence may become surface-worthy the moment the user has 40 free minutes;
+an important gym goal may demand suppression on receipt of upsetting family
+news or a severely overloaded day. No new trajectory evidence need exist in
+either case.
+
+The hybrid boundary (not a formula, not an ontology — context inputs such
+as calendar, time, load, weather are examples, never mandatory universal
+primitives):
+
+- deterministic/operational machinery establishes facts and eligibility:
+  deadlines, meetings, recurrence, completion, prior reminders, calendar
+  load, current time, external/context signals where available;
+- longitudinal person/relationship understanding supplies importance,
+  preferences, goals, previous receipts, what tends to help or backfire;
+- side cognition exercises LLM judgement over the current moment:
+  relevance, opportunity, competing demands, timing, suppression, and
+  attentional latitude;
+- foreground/product retains behavioural and expression authority.
+
+Preserved throughout: **eligible ≠ relevant now ≠ surface now.** An owed,
+uncompleted matter is eligible; only the moment decides relevance; only
+relevance plus legitimacy decides surfacing. Suppression on contextual
+grounds (grief, overload, closed topics) is a first-class correct output,
+scored alongside timely surfacing.
 
 Rupture/frustration is one subclass, not the organising purpose. The loop
 serves significance, opportunity, deepening, and timely silence at least as
@@ -271,7 +301,10 @@ much as repair.
 friction; successful repair; circling; deepening; remembered goals; missed
 opportunities; celebration and accomplishment; humour and shared repertoire;
 changed mind; gradual personal change; correct silence; unwanted probing;
-successful challenge; mundane turns where nothing should happen. RPD2 is a
+successful challenge; situational opportunity (open matter meets a newly
+available window, e.g. free time appearing); suppression-by-context
+(important matter correctly withheld under grief, overload, or bad timing);
+mundane turns where nothing should happen. RPD2 is a
 wind tunnel, not the aircraft: rupture-rich data must not optimise the whole
 system around repair. These categories are **evaluation coverage, not runtime
 ontology**: no proposal may turn battery labels (including any `SHP-*`
@@ -291,18 +324,24 @@ No canonical stance list. Output: frozen trigger/shape inventory plus the
 frozen replay battery.
 
 **S1 — Significance calibration.** Sliding-window runs over the frozen
-battery. Primary metric: precision/recall on user-marked frustration and
-missed/deepened moments; explicit user signals ("you're not understanding
+battery, with operational/context inputs (deadlines, due items, calendar
+load, time, prior reminders, available context signals) supplied as
+deterministic facts alongside trajectory and person-model content. Primary
+metric: precision/recall on user-marked frustration and
+missed/deepened moments, plus opportunity-timing hits (right matter at a
+genuinely affording moment) and correct suppressions (withheld under
+grief/overload/closure); explicit user signals ("you're not understanding
 me") are ground truth against which classifier ambition is measured. S1
-does not classify every battery shape: it must beat cheap explicit-signal
-baselines (explicit correction/frustration, explicit boundary, due/open
-commitment, explicit completion or change-of-mind, ABSTAIN) without
-unacceptable false-positive steering, inside a pre-registered
-false-positive budget. If the classifier cannot beat explicit-signal
-triggers, ship the triggers. Kill condition: false-positive rate that would
-produce rupture tunnel vision (every turn damage-managed) fails the loop
-regardless of recall. Full launch contract:
-`docs/TRACK_S_S1_LAUNCH_CONTRACT.md`.
+does not classify every battery shape: it must beat cheap
+deterministic/explicit-signal baselines (explicit correction/frustration,
+explicit boundary, due/open commitment, deadline/recurrence facts, explicit
+completion or change-of-mind, ABSTAIN) without unacceptable false-positive
+steering, inside a pre-registered false-positive budget. If the LLM
+judgement cannot beat deterministic/explicit triggers, ship the triggers.
+Kill condition: false-positive rate that would produce rupture tunnel vision
+(every turn damage-managed) fails the loop regardless of recall; symmetric
+failure is chronic suppression of genuinely affording moments. Full launch
+contract: `docs/TRACK_S_S1_LAUNCH_CONTRACT.md`.
 
 **S2 — Interface comparison, blind-judged.** Same frozen sessions, at least
 three arms: (1) named stance; (2) structured orientation brief (salient /
