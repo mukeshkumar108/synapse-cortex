@@ -66,6 +66,13 @@ Every track in this programme must preserve all three gaps. Any proposal that
 collapses them — understanding auto-surfacing, relevance auto-instructing,
 orientation auto-uttering — fails whatever its diagram says.
 
+Core programme rule (S1→S2 evidence): **do not ask intelligence to
+discover relevance from an unbounded life stream. First bound the decision
+surface (deterministic candidates, eligibility facts, triggers); then use
+intelligence only on the residue.** S1 at 40–59% false-steer vs S2 at
+0–8.3% once candidates were bounded is the result that earns this rule:
+the noise problem was room size, not model nature.
+
 ## 3. Epistemic dimensions (P0 reconciliation)
 
 P0 (`reports/track_p_p0_separability_2026-09-28.md`) killed the original
@@ -411,11 +418,18 @@ not by default** — deterministic default + contextual exception
 judgement = current attention posture.
 
 **S3 — Exception-tier test (narrowed per S2 §9.3).** Test ONLY whether
-brief-format arbitration gated to flagged judgement-shaped cases
-(receipt beats, named-injury attention-with-pursuit-suppressed,
-restraint-scope answers) recovers those exact control-miss classes at
-FP 0% on all-held controls. If not, kill the exception tier too and run
-deterministic triggers/context rules until better evidence exists.
+brief-format arbitration gated to flagged judgement-shaped cases recovers
+those exact control-miss classes: dormant-goal affordance (F3-class),
+named-injury attention-with-pursuit-suppressed (Z3-class), restraint-scope
+answers (B2/florist-class), receipt beats (E1/matt-class) — plus the
+**mandatory E1 heavy-context dual-judgement family**: suppress the routine
+candidate while simultaneously recognising the person may deserve
+attention (per-task SUPPRESS + relational ATTEND are different outputs;
+warm-packet task lists with suppression metadata alone would lose the
+second). Bar, brutal and pre-registered: recover those classes at FP 0%
+on all-held controls, or kill the exception tier too and run deterministic
+triggers/context rules until better evidence exists. Full launch contract:
+`docs/TRACK_S_S3_LAUNCH_CONTRACT.md`.
 
 **S3 — Rung and authority discipline (arm-agnostic).** Orientation brief
 or compact NL orientation by default; named stance is one S2 candidate,
@@ -445,7 +459,14 @@ frozen F1–F10 blind. VPS hosts a live Honcho stack (api/postgres/deriver
 containers present; access verified read-only) — rerun agent may target it
 with owner authorisation under the probe contract's privacy rules.
 Fallback if unusable: retrieval + model synthesis over Cortex evidence
-under the same recruitment contract. P2 stays narrow per P1 §7 and runs
+under the same recruitment contract. Stored Honcho conclusions are NOT
+trusted semantic state (probe: deductive conclusions drawn from single
+throwaway remarks) — at most retrieval hints until separately validated,
+and explicitly excluded from any scored semantic-read path. Data posture
+for the rerun: the operator is the sole user and the VPS histories are
+deliberate test data, so the constraint is methodological cleanliness
+(frozen corpus, isolated probe workspace preferred, no contamination of
+the scored path), not privacy theatre. P2 stays narrow per P1 §7 and runs
 separate from both tracks.
 
 **S4 — Repair and follow-up loop.** Intervention log format; session-level
