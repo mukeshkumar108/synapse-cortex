@@ -386,26 +386,36 @@ scanner and mark-release class; no humour/challenge interfaces without
 real-data batteries; operating points meet the bar blind, never by
 post-hoc retuning.
 
-**S2 — Attention arbitration over bounded candidates (reframed post-S1).**
-S1 killed general moment discovery, so S2 does not compare interfaces on
-broad detection. Question: **given a bounded set of legitimate attention
-candidates, what interface best helps an LLM arbitrate HOLD / SUPPRESS /
-RELEASE / ATTEND (maybe PRIORITISE) without puppeteering the foreground?**
-Arms: S0 §2 (stance underdog, structured brief, compact NL, suppression-only
-variant) against a **trigger-only control** (deterministic priority alone
-vs deterministic candidates + LLM arbiter — the actual product question).
-Requirements carried from S1 §9: per-matter judgments or explicit
-single-target discipline; authority-annotated person notes supplied;
-reconciliation gate (external evidence resolves against open commitments
-before surfacing); repaired CF scanner; mark-release class; no
-humour/challenge interfaces without real coverage; bars met blind.
-Scenario battery: busy Monday (meeting + task + gym + unresolved thread),
-sudden free window, emotional suppression (due goal vs distressing news),
-external resolution (receipt kills the nag), changed mind (release),
-dormant meaningful goal (context reopens it), accomplishment (close-out
-warmth, not another question). Judging on S0 §7 dimensions including
-non-puppeteering/foreground-room. Full launch contract:
-`docs/TRACK_S_S2_LAUNCH_CONTRACT.md`.
+**S2 — Attention arbitration over bounded candidates. COMPLETE.**
+Report: `reports/track_s_s2_arbitration_2026-09-28.md`
+(commit `cb8e0f8`). 30 frozen cases / 84 per-matter verdicts, five arms
+(trigger-only control, structured brief, suppression-only, NL orientation,
+named stance), arm-blind judging with audited leniency. **Verdict: FAIL
+for arbitration-as-replacement.** Control 67/84 beats brief 60/84
+deterministic (judge +5 for brief sits inside audited leniency/noise);
+all verdict arms inside the FP budget here (control 0%, brief 8.3%,
+supponly 0%) — bounded candidates fixed S1's FP blowup, leaving recall
+of the judgement-shaped residue as the gap. **Killed:** named-stance
+interface (K-b fires: 22 wrong vs brief 7; K-c supported; 1 format
+failure); suppression-only as standalone arbiter (0/15 ATTEND);
+NL as arbitration record (29/84 unclear); generic priority ranking
+(undemonstrated). **Supported:** per-matter verdicts as the validatable
+unit; hold/suppress/release vocabulary where triggers structurally lack
+it. Control misses (17) are exactly the judgement-shaped residue
+(receipt beats, named injury, accomplishment marking, restraint-scope).
+E1-class heavy-context receipt-beat cases defeat ALL arms — needs a
+dedicated family before any suppression claim there. Prescribed:
+triggers-first substrate + suppression-posture default + strictly-gated
+brief exception tier. Programme direction adopted: **LLM by exception,
+not by default** — deterministic default + contextual exception
+judgement = current attention posture.
+
+**S3 — Exception-tier test (narrowed per S2 §9.3).** Test ONLY whether
+brief-format arbitration gated to flagged judgement-shaped cases
+(receipt beats, named-injury attention-with-pursuit-suppressed,
+restraint-scope answers) recovers those exact control-miss classes at
+FP 0% on all-held controls. If not, kill the exception tier too and run
+deterministic triggers/context rules until better evidence exists.
 
 **S3 — Rung and authority discipline (arm-agnostic).** Orientation brief
 or compact NL orientation by default; named stance is one S2 candidate,
@@ -418,11 +428,22 @@ chase" bar (chosenness available: waiting held as a live candidate).
 **Honcho longitudinal-QA probe (gates semantic nomination).** Semantic
 nomination (diagram path B) depends on an untested capability claim: that
 a Honcho-like semantic query layer answers bounded longitudinal questions
-faithfully. Probe contract: `docs/HONCHO_PROBE_LAUNCH_CONTRACT.md`.
-Frozen histories with known evidence/counterevidence; interrogative-only
-questions (open-ended pattern-scanning runs are void); recruitment
-discipline scored as part of every read; pre-registered usability bar
-(zero fabrication, zero missed corrections, zero cross-frame leaks).
+faithfully. Probe contract: `docs/HONCHO_PROBE_LAUNCH_CONTRACT.md`
+(interrogative-only questions; recruitment discipline scored per read;
+pre-registered usability bar). **First run COMPLETE, capability still
+OPEN.** Report: `reports/honcho_longitudinal_qa_probe_2026-09-28.md`
+(commit `85942ef`): local workspaces contain no usable longitudinal data
+(PROVEN, 4 workspaces enumerated); `conclusions/query` 422s on
+schema-valid bodies (PROVEN — file upstream); stored deductive conclusions
+overstate thin chatter (caution for any reliance). Fallback arm:
+retrieval-only 2/10 vs retrieval + recruited synthesis 10/10 with zero
+fabrication/missed-corrections/leaks (SUPPORTED, author-performed cap —
+validates the recruitment contract, not a pipeline). Rerun prescribed:
+isolated probe workspace (fixture ingestion, never production or
+real-user mining without explicit consent rules) + fixed query endpoint +
+frozen F1–F10 blind. VPS hosts a live Honcho stack (api/postgres/deriver
+containers present; access verified read-only) — rerun agent may target it
+with owner authorisation under the probe contract's privacy rules.
 Fallback if unusable: retrieval + model synthesis over Cortex evidence
 under the same recruitment contract. P2 stays narrow per P1 §7 and runs
 separate from both tracks.
@@ -517,5 +538,9 @@ invalidation rules — never a semantic-persistence claim); whether a
 Honcho-like semantic query capability answers longitudinal questions
 faithfully with citations and counterexamples (probe before relying);
 one trajectory object vs per-product views (P1 evidence favours
-per-product + thin shared transport, not canonised). Numeric promotion
+per-product + thin shared transport, not canonised). Next architecture
+artifact when evidence justifies it: warm projection / companion packet
+spec (what is prepared at what horizons, what is deterministic, what is
+cached with what invalidation, what is JIT-only, how runtime requests
+missing context — the packet is a projection, never truth). Numeric promotion
 thresholds follow evidence, not preference.
