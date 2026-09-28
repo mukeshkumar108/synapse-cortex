@@ -1,0 +1,62 @@
+{
+  "F1": {
+    "verdict": "Q2100-OPEN",
+    "correct": true,
+    "failures": [],
+    "compact": "[F1] Carlos still owes ~Q2,100 at Thursday closeout (total Q3,600 case-file; Q1,500 received; remainder open per s1_e14).\ncutoff: 2026-10-01T19:12:00+01:00 | scope: matter:carlos_debt (invoice balance only; no other obligation)\nsupport: s1_e03 carlos email: sent Q1,500, rest after bank releases transfer; s1_e04 bank feed: incoming Q1,500 EVENT BALANCE (same transfer as e03); s1_e09 user: 'still owes 2,100?' (hedged estimate); s1_e14 user Thursday: 'Carlos still hasn't paid the rest'\ncounter: s1_e01 user hedges total ('3,000? Or 3,600'): total is not user-established fact; s1_e09 '2,100?' is itself hedged: remainder rests on feed + case total, not the estimate\nindependence: e03 (sender email) + e04 (feed row) are ONE transfer in two records; counting both as payments would fabricate Q3,000 received.\nuncertainty: Medium-low on exact remainder: total is case-file given, user estimate hedged.\nwould-change: A second feed row for the remainder, or a user correction of the total."
+  },
+  "F2": {
+    "verdict": "NO",
+    "correct": true,
+    "failures": [],
+    "compact": "[F2] NO: the Monday \u00a3240 row may NOT be treated as Lucy's payment. User explicitly withholds confirmation (s3_e05).\ncutoff: 2026-09-28T21:43:00+01:00 | scope: matter:lucy_camera_payment at Monday decision checkpoint\nsupport: s3_e02 bank feed: incoming \u00a3240 L.HARGREAVES, no memo (suggestive only); s3_e05 user: 'Don't count it as paid until I ask her though' (binding withhold); s3_e01 user: 'unless she already sent it ... I don't recognise the surname' (uncertain at open)\ncounter: Amount match (\u00a3240 == \u00a3240 owed) + surname-initial guess: suggestive, NOT confirming; s3_e08 Lucy confirmation exists but is AFTER the Monday checkpoint and excluded here\ncorrections: s3_e05 user withhold dominates amount-match evidence (G1 correction precedence)\nindependence: Single feed row; no independent corroboration at Monday checkpoint.\nuncertainty: Low: explicit user withhold present; only the confirmation timing is cutoff-excluded.\nwould-change: Contemporaneous user confirmation (which in fact arrives s3_e08, after cutoff)."
+  },
+  "F3": {
+    "verdict": "ONE",
+    "correct": true,
+    "failures": [],
+    "compact": "[F3] ONE distinct Carlos-debt obligation: e01/e07/e09/e11/e14 are mentions of one matter with evolving deferrals, not multiple debts.\ncutoff: 2026-10-01T19:12:00+01:00 | scope: matter:carlos_debt (single invoice balance)\nsupport: s1_e01 initial dump introduces the debt; s1_e07 'not dealing with Carlos yet / chase tomorrow' (same matter, deferral); s1_e09 'still owes 2,100? Don't chase tonight' (same matter, deferral); s1_e11 'hasn't sent the rest ... give him until tomorrow' (same matter, deferral); s1_e14 'still hasn't paid the rest' (same matter, still open)\ncounter: Mention count (5) != obligation count: counting mentions as debts is the loop-sprawl defect\nindependence: Same-matter repeats are NOT independent corroboration; one matter, five observations.\nuncertainty: Low: all mentions share amount/counterparty/deferral chain.\nwould-change: Evidence of a second invoice, amount, or counterparty."
+  },
+  "F4": {
+    "verdict": "NO-TRANSFER",
+    "correct": true,
+    "failures": [],
+    "compact": "[F4] NO: Studio Sam and cousin Sam are distinct entities; evidence about one may not bear on the other's reliability.\ncutoff: 2026-10-02T15:47:00+01:00 | scope: entities sam_studio (professional/contract) vs sam_cousin (family/pickup); frames do not transfer\nsupport: s3_e01 user introduces both distinctly ('Sam from the studio' vs 'my cousin Sam'); s3_e03/e07 studio Sam in contract domain; s3_e09/e10 cousin Sam in family pickup domain; s3_e13 user disambiguation binds later 'Sam' to studio Sam in the contract frame only\ncounter: Shared first name is the trap, not evidence; no user statement ever links the two\ncorrections: s3_e13 user disambiguation applied frame-locally (contract frame only)\nindependence: Two entity tracks; cross-track transfer prohibited.\nuncertainty: Low on distinctness; later-'Sam' binding follows explicit user statement only.\nwould-change: A user statement linking the two people."
+  },
+  "F5": {
+    "verdict": "ABSTAIN",
+    "correct": true,
+    "failures": [],
+    "compact": "[F5] ABSTAIN on why the remainder was delayed and whether he will pay by Thursday: only unverified hearsay supports a reason.\ncutoff: 2026-10-01T19:12:00+01:00 | scope: matter:carlos_debt reason-for-delay only (chase timing per user deferral is separately answerable)\nsupport: s1_e03 counterparty email: 'after the bank releases the transfer tomorrow' (interested-party report); s1_e11 user-relayed: 'he said bank issue' (hearsay, user reporting Carlos)\ncounter: s1_e11 'give him until tomorrow' is the user's grace window, not a payer promise; No bank record, receipt, or independent verification of any cause exists\nindependence: e03 and e11 are not two independent causes: e11 relays the same counterparty claim.\nABSTAIN\nuncertainty: High on reason: no verified source. Chase-timing action (wait per e11) is answerable; the why is not.\nwould-change: Independent verification (bank record/receipt) or a direct confirmed commitment with date."
+  },
+  "F6": {
+    "verdict": "NO-END-WATCH",
+    "correct": true,
+    "failures": [],
+    "compact": "[F6] NO: end the neck watch. User closes it Thursday morning (s4_e10).\ncutoff: 2026-10-03T18:44:00+01:00 | scope: matter:neck_watch (somatic check-back candidacy only)\nsupport: s4_e01/e02/e04/e07 multi-day neck pattern (legitimate watch while open); s4_e10 user: 'don't need to keep asking about that anymore, it's not a thing' (explicit release)\ncounter: Mention count ('neck x5') argued for continuing; closure dominates frequency (G1); s4_e07 'a bit better' improvement trend is consistent with, not a substitute for, the release\ncorrections: s4_e10 user release dominates pattern evidence (G1); post-release checking = pestering-class failure\nindependence: e01/e02/e04/e07 are one matter's trajectory, not independent votes to continue.\nuncertainty: Low: explicit user release present.\nwould-change: User re-raising neck pain (re-opens prospectively; never retro-justifies)."
+  },
+  "F7": {
+    "verdict": "NO-NOT-SIGNED",
+    "correct": true,
+    "failures": [],
+    "compact": "[F7] NO: 'looks good to me, go ahead' (s3_e06) is content approval, not signature/execution.\ncutoff: 2026-10-02T15:47:00+01:00 | scope: matter:studio_contract (approval stage vs signature stage)\nsupport: s3_e06 user self-negates: 'I didn't sign anything though. Is that enough?'; s3_e07 studio Sam: 'send the final signature copy tomorrow' (still outstanding); s3_e12 final copy arrives; s3_e14 user signs (closure, where within cutoff)\ncounter: Approval wording is the attractive misreading, surfaced and refused here\ncorrections: s3_e06 user self-negation dominates approval-equals-execution inference (G1/G4)\nindependence: Approval + receipt chain are stages of one matter, not independent executions.\nuncertainty: Low pre-Friday; closed once s3_e12/s3_e14 in scope.\nwould-change: Signed copy / user confirmation of signing (s3_e14 where in scope)."
+  },
+  "F8": {
+    "verdict": "NO-TURN-SCOPED",
+    "correct": true,
+    "failures": [],
+    "compact": "[F8] NO: 'Don't just give me everything' (s1_e10) is turn-scoped restraint, not a permanent global rule.\ncutoff: 2026-10-01T19:12:00+01:00 | scope: turn-only restraint for the s1_e10 urgency query; expires with the turn\nsupport: s1_e10 verbatim: 'what's actually urgent today? ... don't just give me everything, please' (this-turn framing)\ncounter: Persisting it globally is the oracle-prohibited move and the P1-C4 boundary finding\ncorrections: s1_e10 boundary read as moment-restraint (turn-only, expired) per G4 scope discipline\nindependence: Single utterance; one mention cannot establish a durable preference.\nuncertainty: Low on scope; durability would need explicit standing instruction (absent).\nwould-change: An explicit standing instruction ('always ...' / 'from now on ...')."
+  },
+  "F9": {
+    "verdict": "ABSTAIN",
+    "correct": true,
+    "failures": [],
+    "compact": "[F9] ABSTAIN at Wednesday 09:11: pre-resolution evidence does not identify the child.\ncutoff: 2026-09-30T09:11:00+01:00 | scope: matter:school_payment at Wednesday 09:11 checkpoint\nsupport: s1_e01 user: 'one of the boys ... \u00a318 or maybe last term' (ambiguous referent + amount)\ncounter: Answering 'Andree' here would use s1_e12 ('so yes, it was him'), excluded after cutoff (G2)\nindependence: Single ambiguous mention; nothing to corroborate.\nABSTAIN\nuncertainty: High at checkpoint by construction: referent unresolvable until s1_e12.\nwould-change: The s1_e12 disambiguation ('it was him' -> Andree), excluded here by cutoff."
+  },
+  "F10": {
+    "verdict": "CLOSED-SAME-SOURCE",
+    "correct": true,
+    "failures": [],
+    "compact": "[F10] Pickup loop closed (s3_e10 completion + s3_e11 'Mum got home fine'), medium confidence: corroborating but NOT fully independent (both user-sourced).\ncutoff: 2026-10-02T15:47:00+01:00 | scope: matter:cousin_pickup (loop closure only)\nsupport: s3_e10 calendar: 'Mum pickup \u2014 Sam' marked completed by user; s3_e11 user: 'Mum got home fine' (indirect real-world report)\ncounter: No third-party (Sam) confirmation exists; independence cannot be claimed\nindependence: SAME-SOURCE WARNING: both records originate with the user \u2014 corroborating, not two independent witnesses. Medium confidence, not high.\nuncertainty: Medium: closure established; independence limited by shared source.\nwould-change: Third-party confirmation (Sam) would raise to high; a contradiction would reopen."
+  }
+}
