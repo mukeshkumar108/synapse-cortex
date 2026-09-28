@@ -404,7 +404,8 @@ sudden free window, emotional suppression (due goal vs distressing news),
 external resolution (receipt kills the nag), changed mind (release),
 dormant meaningful goal (context reopens it), accomplishment (close-out
 warmth, not another question). Judging on S0 §7 dimensions including
-non-puppeteering/foreground-room.
+non-puppeteering/foreground-room. Full launch contract:
+`docs/TRACK_S_S2_LAUNCH_CONTRACT.md`.
 
 **S3 — Rung and authority discipline (arm-agnostic).** Orientation brief
 or compact NL orientation by default; named stance is one S2 candidate,
@@ -413,6 +414,18 @@ safety, or separately justified authority; script basically never. Rung
 chosen by uncertainty × stakes. Steering delivers structure +
 options, never moves to perform; repair steering must clear the "performed
 chase" bar (chosenness available: waiting held as a live candidate).
+
+**Honcho longitudinal-QA probe (gates semantic nomination).** Semantic
+nomination (diagram path B) depends on an untested capability claim: that
+a Honcho-like semantic query layer answers bounded longitudinal questions
+faithfully. Probe contract: `docs/HONCHO_PROBE_LAUNCH_CONTRACT.md`.
+Frozen histories with known evidence/counterevidence; interrogative-only
+questions (open-ended pattern-scanning runs are void); recruitment
+discipline scored as part of every read; pre-registered usability bar
+(zero fabrication, zero missed corrections, zero cross-frame leaks).
+Fallback if unusable: retrieval + model synthesis over Cortex evidence
+under the same recruitment contract. P2 stays narrow per P1 §7 and runs
+separate from both tracks.
 
 **S4 — Repair and follow-up loop.** Intervention log format; session-level
 judging on pre-registered observable criteria (not vibes); follow-up
