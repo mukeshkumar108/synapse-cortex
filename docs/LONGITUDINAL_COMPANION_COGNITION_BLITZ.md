@@ -138,7 +138,7 @@ CURRENT EVIDENCE → PRODUCT LENS (domain expertise: health, relational,
         ↓
 MOMENT INTERPRETATION (what does this moment mean in the larger trajectory?)
         ↓
-STEERING / ORIENTATION (Track S — ephemeral, advisory, stance-rung)
+STEERING / ORIENTATION (Track S — ephemeral, advisory; interface decided by S2)
         ↓
 PRODUCT POLICY + PERSONA (voice, allowances, judgement — product-owned)
         ↓
@@ -302,26 +302,41 @@ friction; successful repair; circling; deepening; remembered goals; missed
 opportunities; celebration and accomplishment; humour and shared repertoire;
 changed mind; gradual personal change; correct silence; unwanted probing;
 successful challenge; situational opportunity (open matter meets a newly
-available window, e.g. free time appearing); suppression-by-context
+available window, e.g. free time appearing — SHP-5); suppression-by-context
 (important matter correctly withheld under grief, overload, or bad timing);
-mundane turns where nothing should happen. RPD2 is a
+frame/boundary cross-cutting (diegetic vs extradiegetic vs boundary —
+S0 R-14; scope-leakage control for every steering output); mundane turns
+where nothing should happen. RPD2 is a
 wind tunnel, not the aircraft: rupture-rich data must not optimise the whole
 system around repair. These categories are **evaluation coverage, not runtime
 ontology**: no proposal may turn battery labels (including any `SHP-*`
 shape identifiers) into production classifier outputs or state labels merely
 because the battery uses them.
 
-**S0 — Candidate interfaces and trigger shapes. REPORT PENDING CANONICAL
-LANDING.** The battery categories above and trigger shapes below stand as
-the programme's planned evaluation coverage. S0's frozen shape inventory
-and interface analysis must be landed canonically before S1 cites them;
-until then S1 builds its manifest from the categories in this section and
-committed fixtures only (see `docs/TRACK_S_S1_LAUNCH_CONTRACT.md`).
-Candidate steering interfaces (§9) and meaningful trigger shapes
-(asymmetric conversational debt + energy + open expectation; circling
-structure; user frustration markers; accomplishment moments; recheck firing).
-No canonical stance list. Output: frozen trigger/shape inventory plus the
-frozen replay battery.
+**S0 — Candidate interfaces and trigger shapes. COMPLETE.**
+Report: `reports/track_s_s0_significance_shapes_2026-09-28.md`
+(commit `bac8c274`). Findings applied: frozen shape inventory SHP-1..SHP-14
+adopted as the evaluation-coverage battery (shapes are temporal + evidential
++ relational structures, never runtime classifier labels or state — the
+`SHP-*` prohibition in §7 stands); three S2 interface arms confirmed
+(named stance as underdog, structured orientation brief, compact NL
+orientation, plus raw-turns control) with annotate-first vs replacement and
+a suppression-only variant as orthogonal S2 choices; per-shape suppression
+conditions and failure modes carried into S1/S2 judging; blind-judging
+dimensions (continuity-without-nagging, restraint/timing, repair yield,
+deepening, character fidelity, non-puppeteering/foreground-room,
+abstention precision) reserved for S2. Corrections applied back to this
+document: "stance-rung" demoted as organising noun (neutral term is
+*orientation* until S2 evidence lands — see diagram, §9, S3 below);
+jargon trigger starter list replaced by the frozen shape inventory, each
+shape defined by observable evidence + recheck; rung discipline made
+arm-agnostic. Two notes: S0 §4's reservation of "whether to act at all"
+entirely to foreground is superseded by §10's attentional-powers boundary
+(strong hold/attend/avoid recommendations permitted; move authorship
+forbidden); S0 §8.7 (no persistent intervention log as infrastructure
+before S4) is adopted as discipline. No canonical stance list. SHP-5
+(remembered goal + current context has room) is the programme's
+situational-affordance carrier.
 
 **S1 — Significance calibration.** Sliding-window runs over the frozen
 battery, with operational/context inputs (deadlines, due items, calendar
@@ -353,9 +368,11 @@ taxonomy entirely.** Also tested inside S2: annotate-first (keep turns, add
 orientation) vs compressed replacement (logged, recoverable, attributed);
 replacement must win cleanly to survive given its laundering risk.
 
-**S3 — Rung discipline.** Stance by default; directive only under explicit
-invitation, hard safety, or separately justified authority; script basically
-never. Rung chosen by uncertainty × stakes. Steering delivers structure +
+**S3 — Rung and authority discipline (arm-agnostic).** Orientation brief
+or compact NL orientation by default; named stance is one S2 candidate,
+not the presumption. Directives only under explicit invitation, hard
+safety, or separately justified authority; script basically never. Rung
+chosen by uncertainty × stakes. Steering delivers structure +
 options, never moves to perform; repair steering must clear the "performed
 chase" bar (chosenness available: waiting held as a live candidate).
 
@@ -382,13 +399,20 @@ The Phase 0 packet shape is available as research/validation machinery
 (validators, blind-judging harness, ABSTAIN scoring). It is not the new
 architecture and must not be forced into that role.
 
-## 9. Steering interface candidates (experimental, S2 decides)
+## 9. Steering interface candidates (experimental, S2 decides; S0 §2)
 
-1. Named stance (e.g. lead, hijack, curiosity, hold, repair-readiness —
-   product-constituted, never canonical).
+1. Named stance (e.g. hold, curiosity, lead, repair-readiness —
+   product-constituted, never canonical; underdog — S2 tests whether it
+   can be killed).
 2. Structured orientation brief (salient / unresolved / relational posture /
-   avoid / latitude).
-3. Compact natural-language orientation.
+   avoid / latitude + recheck + abstain-reason; ≤5 lines, ≤3 items).
+3. Compact natural-language orientation (1–2 sentences of trajectory-aware
+   context).
+
+Plus a raw-turns control (no side cognition — every arm must earn its keep
+against evidence + receipts). Orthogonal S2 choices: annotate-first vs
+compressed replacement (replacement must win cleanly); suppression-only
+variant (only `avoid` / hold-quietly populated).
 
 Every candidate carries its suppression condition and characteristic failure
 (hijack↔heavy moments/boundaries; curiosity↔interrogation; lead↔dragging;

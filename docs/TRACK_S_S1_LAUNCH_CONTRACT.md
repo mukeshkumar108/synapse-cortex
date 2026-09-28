@@ -32,14 +32,18 @@ preferences, goals, receipts, help/backfire history; side cognition judges
 relevance, opportunity, competing demands, timing, suppression, and
 attentional latitude; foreground/product keeps behavioural authority.
 
-## S0 status (binding constraint on this track)
+## S0 status (canonical — cite it)
 
-The S0 report is **not canonically landed** at contract writing. Do not
-cite S0 shape identifiers (`SHP-*`) or S0 findings as prior work. Build the
-manifest from the battery categories in the programme doc §7 and committed
-fixtures only. If S0 lands mid-run, reconcile differences explicitly; do
-not silently adopt its taxonomy. Battery labels must never become
-classifier outputs or state labels in any proposal.
+S0 report: `reports/track_s_s0_significance_shapes_2026-09-28.md`
+(commit `bac8c274`). Its frozen shape inventory SHP-1..SHP-14 and concrete
+source table (R-1..R-14) are the manifest basis for this track: build the
+manifest from S0 §6, reconciled against the programme doc §7 categories
+(which add situational opportunity, suppression-by-context, and
+frame/boundary cross-cutting explicitly). Shapes remain evaluation
+coverage, never runtime classifier outputs or state labels; the `SHP-*`
+prohibition stands. Interface arms for later S2 are S0 §2 (stance
+underdog, brief, NL, raw control); S1 calibrates significance detection
+only and presumes no interface.
 
 ## Method
 
@@ -69,14 +73,17 @@ controls, not filler.
 
 ## Manifest (freeze before runs; commit it with the report)
 
-Cover all programme-doc §7 categories: rupture/friction, successful
+Build from S0 §6 (R-1..R-14 with concrete sources), reconciled against
+programme-doc §7 categories. Cover: rupture/friction, successful
 repair, circling, deepening, remembered goals, missed opportunities,
 celebration/accomplishment, humour/shared repertoire, changed mind,
-gradual personal change, correct silence, unwanted probing, successful
-challenge, situational opportunity (open matter meets a newly available
-window), suppression-by-context (important matter correctly withheld under
-grief, overload, or bad timing), mundane nothing-should-happen turns. Sources, in preference
-order: committed `evals/sophie_longitudinal/` scenario inputs+oracles and
+gradual personal change, correct silence, unwanted probing,
+successful challenge, situational opportunity (open matter meets a newly
+available window), suppression-by-context (important matter correctly
+withheld under grief, overload, or bad timing), frame/boundary
+cross-cutting (diegetic vs extradiegetic vs boundary; scope-leakage
+control), mundane nothing-should-happen turns (≥30% of battery per S0 §6).
+Sources, in preference order: committed `evals/sophie_longitudinal/` scenario inputs+oracles and
 the committed blind-eval report; redacted excerpts of `replay-private/`
 corpora (gitignored — minimise, never commit full trajectories); synthetic
 Bloom/Phase-0 cases only where real coverage is absent (labelled as such,

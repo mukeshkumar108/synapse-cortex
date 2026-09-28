@@ -2,8 +2,8 @@
 
 > Programme: `docs/LONGITUDINAL_COMPANION_COGNITION_BLITZ.md` (§6).
 > Read it, the canon, and P0 before acting. P0 report:
-> `reports/track_p_p0_separability_2026-09-28.md` (verify it is committed;
-> if not, report the blocker and proceed on the file as present, citing path).
+> `reports/track_p_p0_separability_2026-09-28.md` (commit `49fa0a0`,
+> canonical).
 > No production code, schema, runtime, prompts, or deployed behaviour changes.
 > No new production mechanisms. Offline research only.
 
