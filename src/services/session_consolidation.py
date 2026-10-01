@@ -82,6 +82,9 @@ class StartSnapshot:
     attentions: List[str] = field(default_factory=list)
     suppressions: List[str] = field(default_factory=list)
     people: List[str] = field(default_factory=list)
+    # Current epistemic claims (SnapshotClaim, services/consolidation_world.py):
+    # lets a session revise a claim by id without the model inventing ids.
+    claims: List[Any] = field(default_factory=list)
 
 
 @dataclass
@@ -414,6 +417,12 @@ async def capture_snapshot(db: Any, *, workspace_id: str, session_id: str) -> St
             (s.topic_or_entity or "")[:80] for s in supps if s.topic_or_entity)
     except Exception as err:
         logger.warning("consolidation snapshot failed (fail-open): %s", err)
+    try:
+        from src.services.consolidation_world import capture_claims
+        snap.claims.extend(await capture_claims(
+            db, workspace_id=workspace_id, session_id=session_id, owner_peer_id=None))
+    except Exception as err:
+        logger.warning("consolidation claim snapshot failed (fail-open): %s", err)
     return snap
 
 
@@ -524,6 +533,15 @@ async def check_would_apply(db: Any, *, workspace_id: str,
         elif op.op == "incidental":
             report.append({"op": op.op, "would_apply": True,
                            "reason": "discard_needs_no_mutation"})
+        elif op.op == "claim":
+            report.append({"op": op.op, "would_apply": True,
+                           "reason": f"epistemic_claim_{d.get('formation', 'inferred')}_would_write"})
+        elif op.op == "directed_expectation":
+            report.append({"op": op.op, "would_apply": True,
+                           "reason": f"{d.get('direction')}_expectation_would_mint"})
+        elif op.op == "knowledge_gap":
+            report.append({"op": op.op, "would_apply": True,
+                           "reason": "unknown_would_be_registered_without_value"})
         else:
             report.append({"op": op.op, "would_apply": False,
                            "reason": "unknown_op"})

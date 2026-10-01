@@ -67,7 +67,7 @@ def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: s
     receive last_surfaced_at/surfaced_count so pressure dynamics can apply
     fatigue. Absent marks simply skip fatigue (fail-open)."""
     now = _naive(now)
-    brief = packet.get("intelligence_brief") or {}
+    brief = packet.get("window") or {}
     daypart = str(brief.get("daypart") or "").lower()
     candidates: List[Dict[str, Any]] = []
 
@@ -216,7 +216,7 @@ def extract_candidates(packet: Dict[str, Any], *, now: datetime, timezone_str: s
                  horizon="2h")
 
     # L3 - Sophie intentions (grounded attention candidates)
-    for item in (brief.get("backstage_attention") or [])[:6]:
+    for item in (packet.get("sophie_attention") or [])[:6]:
         content = str(item.get("content") or item.get("title") or "").strip()
         if not content:
             continue
@@ -443,7 +443,7 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
         except (TypeError, ValueError):
             pass
 
-    daypart = str((packet.get("intelligence_brief") or {}).get("daypart") or "").lower()
+    daypart = str((packet.get("window") or {}).get("daypart") or "").lower()
     await ensure_occurrence_rows(db, workspace_id=workspace_id, packet=packet, now=now)
     candidates = extract_candidates(packet, now=now, timezone_str=timezone_str,
                                     surface_marks=marks)
@@ -451,7 +451,7 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
     compiled_by = "fallback"
 
     # Persist the fallback snapshot immediately so the foreground never waits.
-    # Concurrent handover requests converge: on the rare unique violation the
+    # Concurrent attention requests converge: on the rare unique violation the
     # losing request re-reads and updates the winning row instead of failing.
     try:
         if snap is not None:

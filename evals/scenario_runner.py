@@ -80,13 +80,12 @@ def run_scenario(path: Path) -> dict:
                     "honcho_message_id": f"msg_{run_id}_{t_idx}", "peer_id": peer,
                     "text": step["text"], "now": now, "timezone": tz,
                 })
-            elif step["op"] == "handover":
-                h = _post("/v1/cortex/handover", {
+            elif step["op"] in ("attention", "handover"):  # "handover" kept as scenario-file alias
+                h = _post("/v1/cortex/attention-state", {
                     "workspace_id": ws, "session_id": session, "peer_id": peer,
                     "now": now, "timezone": tz, "turn_text": "",
-                    "director_hints": {"force_agenda": True, "product": spec.get("product", "sophie")},
                 })
-                # handover-v4 contract: the owed list IS the surfaced agenda.
+                # AttentionState contract: follow_through.owed IS the surfaced agenda.
                 # Map float pressure to the labels the assertion layer expects.
                 def _label(p):
                     if isinstance(p, (int, float)):
@@ -94,9 +93,14 @@ def run_scenario(path: Path) -> dict:
                     return p
                 capture["agenda"] = [
                     {**it, "pressure": _label(it.get("pressure"))}
-                    for it in (h.get("owed") or [])
+                    for it in ((h.get("follow_through") or {}).get("owed") or [])
                 ]
-                capture["patterns"] = h.get("patterns")
+                capture["patterns"] = [
+                    f"{i.get('title')} (observed pattern - context, not a commitment)"
+                    for i in (h.get("recurring_intentions") or [])
+                    if i.get("semantic_type") == "observed_pattern"
+                    and i.get("occurrence_status") == "pending"
+                ]
                 capture["metrics"] = h.get("metrics")
             elif step["op"] == "initiative":
                 capture["initiative"] = _post("/v1/cortex/initiative/tick", {

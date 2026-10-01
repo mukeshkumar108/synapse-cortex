@@ -6,7 +6,7 @@ from starlette.requests import Request
 import hmac
 from src.db import init_db
 from src.config import settings
-from src.routers import health_router, events_router, debug_router, cortex_router, sessions_router
+from src.routers import health_router, events_router, debug_router, cortex_router, sessions_router, world_router
 from src.services.turn_extractor import extractor_config_status
 
 
@@ -56,3 +56,4 @@ app.include_router(events_router)
 app.include_router(cortex_router)
 app.include_router(debug_router)
 app.include_router(sessions_router)
+app.include_router(world_router)

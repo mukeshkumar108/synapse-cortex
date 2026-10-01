@@ -79,6 +79,10 @@ RULES:
 """
 
 
+class _NothingPromoted(Exception):
+    pass
+
+
 class SweeperService:
     """Async Lane 2 sweeper over Honcho history."""
 
@@ -236,7 +240,9 @@ class SweeperService:
                     confidence=c["confidence"],
                     extractor_version=SWEEPER_VERSION,
                     raw_evidence=c["evidence_text"],
-                    evidence_class="implicit_self_commitment",
+                    # The system's own promise toward the user: system->user
+                    # direction, never the user's self-commitment.
+                    evidence_class="character_promise",
                     authority="ask",
                     formation="inferred",
                 )
@@ -323,12 +329,14 @@ class SweeperService:
                 raw_evidence=c["evidence_text"],
             )
             svc = LifecycleService()
-            await svc.create_open_loop_if_needed(
+            loop_row = await svc.create_open_loop_if_needed(
                 db, workspace_id=workspace_id,
                 session_id=c.get("evidence_session_id"),
                 message_id=c["evidence_id"], candidate=cand,
                 owner_peer_id=peer_id, now=now, timezone_str="UTC",
             )
+            if loop_row is not None:
+                created.setdefault("open_loops", []).append(c["title"])
 
     async def run(
         self, db: AsyncSession, *, workspace_id: str, peer_id: str,
@@ -342,7 +350,23 @@ class SweeperService:
             db, workspace_id=workspace_id, peer_id=peer_id,
             candidates=candidates, now=now,
         )
+        # One coherent write path: promoted primitives resolve into Matters
+        # exactly as consolidation-written ones do.
+        matters = None
+        wrote = any(promoted.get(k) for k in promoted if k != "rejected")
+        try:
+            if not wrote:
+                raise _NothingPromoted()
+            from src.services.session_episode_service import reconcile_after_writes
+            matters = await reconcile_after_writes(
+                db, workspace_id=workspace_id, owner_peer_id=peer_id,
+                session_id=session_id or None, now=now)
+        except _NothingPromoted:
+            pass  # nothing written => nothing to reconcile (no extra DB work)
+        except Exception as err:
+            logger.warning("sweeper matter reconcile failed (additive): %s", err)
         return {
+            "matters": matters,
             "status": "ok",
             "evidence_packets": len(packets),
             "candidates": candidates,

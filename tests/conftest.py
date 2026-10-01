@@ -20,6 +20,15 @@ try:
 except OSError:
     pass
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TEST_DB_PATH}"
+# Opt-in: run the DB integration paths against a LOCAL scratch Postgres
+# (never a hosted/production URL). e.g.
+#   CORTEX_TEST_POSTGRES_URL=postgresql+asyncpg://postgres:pw@localhost:55432/cortex_test
+_PG = os.environ.get("CORTEX_TEST_POSTGRES_URL", "")
+if _PG:
+    from urllib.parse import urlsplit as _urlsplit
+    assert _urlsplit(_PG).hostname in ("localhost", "127.0.0.1", "::1"), "test Postgres must be local"
+    os.environ["DATABASE_URL"] = _PG
+    os.environ["SYNAPSE_DB_NULLPOOL"] = "1"
 
 
 def pytest_sessionfinish(session, exitstatus):

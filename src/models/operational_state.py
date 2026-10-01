@@ -87,7 +87,7 @@ class RecurringOccurrence(SQLModel, table=True):
     progress_unit: Optional[str] = None
     source_message_id: Optional[str] = Field(default=None, index=True)
     evidence: Optional[str] = None
-    # Deterministic follow-up accounting: when the handover surfaced this
+    # Deterministic follow-up accounting: when AttentionState surfaced this
     # objective to the foreground (an ask opportunity was granted). Code owns
     # this state so asking is a computed duty, never model discretion.
     asked_at: Optional[datetime] = None

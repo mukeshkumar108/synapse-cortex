@@ -120,5 +120,8 @@ class Expectation(SQLModel, table=True):
     # message time; backdated on retrospective correction, never rewriting
     # created_at).
     effective_at: Optional[datetime] = Field(default=None, index=True)
+    # Actor direction (user_to_system|system_to_user|shared|user_self|world);
+    # null = legacy/unstamped, derived structurally in services/actor_direction.py.
+    direction: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)

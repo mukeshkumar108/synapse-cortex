@@ -22,6 +22,13 @@ from src.models.fact import Fact
 from src.models.identity import (
     Entity, EntityAlias, RelationshipEdge, ModelEntry, EntityLink, TurnFrame,
 )
+from src.models.matter import (
+    Matter, MatterLink, MatterRelation, MatterKind, MatterStatus,
+    MATTER_KINDS, MATTER_STATUSES, MATTER_RELATIONS,
+)
+from src.models.world_model import (
+    WorldModelSnapshot, KnowledgeCoverage, SessionEpisode, COVERAGE_STATUSES,
+)
 
 __all__ = [
     "Expectation",
@@ -59,4 +66,12 @@ __all__ = [
     "CurrentMeaning",
     "Fact",
     "Entity", "EntityAlias", "RelationshipEdge", "ModelEntry", "EntityLink", "TurnFrame",
+    "Matter", "MatterLink", "MatterRelation", "MatterKind", "MatterStatus",
+    "MATTER_KINDS", "MATTER_STATUSES", "MATTER_RELATIONS",
+    "WorldModelSnapshot", "KnowledgeCoverage", "SessionEpisode", "COVERAGE_STATUSES",
 ]
+
+# Stamp actor direction at insert time on the lifecycle primitives (one choke
+# point; see src/services/actor_direction.py).
+from src.services.actor_direction import register_stamping as _register_direction_stamping  # noqa: E402
+_register_direction_stamping()

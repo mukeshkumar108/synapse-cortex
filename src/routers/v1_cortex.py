@@ -12,9 +12,11 @@ from src.db import get_async_session, get_rollback_session
 from src.models.commitment_candidate import CommitmentCandidateStatus
 from src.services.commitment_candidate_service import CommitmentCandidateService
 from src.services.cortex_handshake_service import CortexHandshakeService
-from src.services.cortex_packet_service import CortexPacketService
+from src.services.attention_state_service import (
+    AttentionStateService, compile_attention_state_with_follow_through,
+)
 from src.services.cortex_router_service import CortexRouterService
-from src.services.working_set_service import WorkingSetService
+from src.services.turn_working_set import TurnWorkingSetService
 from src.models.work_item import WorkItem  # noqa: F401  (register metadata for create_all)
 from src.models.current_meaning import CurrentMeaning  # noqa: F401  (register metadata for create_all)
 from src.runtime_model import get_agenda_adapter
@@ -36,10 +38,10 @@ router = APIRouter(prefix="/v1/cortex", tags=["cortex"])
 
 
 handshake_service = CortexHandshakeService()
-packet_service = CortexPacketService()
+attention_service = AttentionStateService()
 router_service = CortexRouterService()
 candidate_service = CommitmentCandidateService()
-working_set_service = WorkingSetService()
+turn_working_set_service = TurnWorkingSetService()
 
 
 class WorkingSetRequest(BaseModel):
@@ -165,7 +167,7 @@ async def record_candidate_receipts(
     """Append idempotent candidate lifecycle evidence scoped to its owner.
 
     Supported candidate_id prefixes (stable identity contract shared with
-    handover/agenda): recurring_occurrence, attention, open_loop,
+    attention/agenda): recurring_occurrence, attention, open_loop,
     clarification, expectation. The version must equal the row's updated_at
     (stale versions 409) so receipts attest to the exact state delivered.
     """
@@ -308,52 +310,39 @@ async def record_candidate_receipts(
     }
 
 
-@router.post("/working-set")
-async def get_cortex_working_set(
+@router.post("/turn-working-set")
+async def get_turn_working_set(
     req: WorkingSetRequest,
     db: AsyncSession = Depends(get_async_session),
 ):
-    """Bounded per-turn working set (L0 HOT / L1 WARM / L2 COLD refs).
-
-    Consumes the same attention packet / intelligence brief used by the
-    proactive path and Inspector; it never builds a second interpretation."""
+    """Tiny per-turn selection (<=5 items): AttentionState + a WorldModel
+    fragment filtered by the current turn. Each item carries provenance and a
+    pointer to the projection holding more depth. Disposable, never canonical;
+    the whole WorldModel is never returned here."""
+    from src.services import world_model_service
     started = time.perf_counter()
-    packet = await packet_service.compile_attention_packet(
-        db=db,
-        workspace_id=req.workspace_id,
-        session_id=req.session_id,
-        now=req.now,
-        timezone_str=req.timezone,
-        owner_peer_id=req.peer_id,
+    state = await attention_service.compile_attention_state(
+        db=db, workspace_id=req.workspace_id, session_id=req.session_id,
+        now=req.now, timezone_str=req.timezone, owner_peer_id=req.peer_id,
     )
-    working_set = working_set_service.compile_working_set(
-        packet,
+    world = None
+    try:
+        world = await world_model_service.get_world_model(
+            db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id, now=req.now,
+            timezone_str=req.timezone, session_id=req.session_id)
+    except Exception as err:  # the working set degrades to attention-only, never fails the turn
+        logger.warning("turn working set: world model unavailable: %s", err)
+    working_set = turn_working_set_service.compile_turn_working_set(
+        state,
+        world_model=world,
         turn_text=req.turn_text,
         current_message_id=req.current_message_id,
         posture=req.posture,
         conversational_operation=req.conversational_operation,
         director_hints=req.director_hints,
     )
-    # WS10: per-hop evidence — Cortex-side cost of this foreground fetch,
-    # so the runtime/app can attribute waterfall time correctly.
     working_set["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
     return working_set
-
-
-class SessionWorkingSetRequest(BaseModel):
-    workspace_id: str
-    session_id: str
-    peer_id: Optional[str] = None
-    now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    timezone: str = "Europe/London"
-    product: str = "sophie"
-    scene: Optional[Dict[str, Any]] = None
-
-
-class SessionWorkingSetRefreshRequest(BaseModel):
-    workspace_id: str
-    session_id: str
-    cached_source_version: str
 
 
 class SurfacingEvent(BaseModel):
@@ -371,38 +360,6 @@ class SurfacingReportRequest(BaseModel):
     channel: str = "chat"
     now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     events: List[SurfacingEvent] = Field(min_length=1, max_length=25)
-
-
-@router.post("/session-working-set")
-async def get_session_working_set(
-    req: SessionWorkingSetRequest,
-    db: AsyncSession = Depends(get_async_session),
-):
-    """Disposable session/scene working set compiled from independent views
-    (never the foreground packet). Runtime caches it and selects locally per
-    turn; recompile only on material change (see refresh). Canonical truth
-    stays in Cortex — a stale/corrupt set is discarded, never repaired."""
-    from src.services.session_workingset import compile_session_working_set
-    started = time.perf_counter()
-    artifact = await compile_session_working_set(
-        db, workspace_id=req.workspace_id, session_id=req.session_id,
-        owner_peer_id=req.peer_id, now=req.now, timezone_str=req.timezone,
-        product=req.product, scene=req.scene)
-    artifact["metrics"] = {
-        "cortex_ms": round((time.perf_counter() - started) * 1000, 1)}
-    return artifact
-
-
-@router.post("/session-working-set/refresh")
-async def session_working_set_refresh(
-    req: SessionWorkingSetRefreshRequest,
-    db: AsyncSession = Depends(get_async_session),
-):
-    """Cheap staleness answer without recompiling."""
-    from src.services.session_workingset import needs_refresh
-    return await needs_refresh(
-        db, workspace_id=req.workspace_id, session_id=req.session_id,
-        cached_source_version=req.cached_source_version)
 
 
 @router.post("/surfacing/report")
@@ -521,99 +478,39 @@ async def get_active_scene_state(
             "fields": _json.loads(row.fields_json or "{}")}
 
 
-async def _compile_session_handover(
-    req: WorkingSetRequest,
-    db: AsyncSession,
-    *,
-    evaluation: bool,
-):
-    """Tiny product-edited session handover (~200-400 tokens).
-
-    One compact foreground object compiled from the same attention packet as
-    the working set: what matters for THIS product/person now, what changed,
-    what is unresolved, what to avoid. Replaceable derived projection, not
-    canonical state; JIT detail stays available via /evidence."""
-    from src.services.handover_service import compile_handover
-
-    started = time.perf_counter()
-    packet = await packet_service.compile_attention_packet(
-        db=db,
-        workspace_id=req.workspace_id,
-        session_id=req.session_id,
-        now=req.now,
-        timezone_str=req.timezone,
-        owner_peer_id=req.peer_id,
-    )
-    # THE LIVE AGENDA: one ranked mixed-semantic artifact compiled from the
-    # packet (deterministic facts + cheap async model ranking + deterministic
-    # fallback). Read-or-compile: fresh snapshots return instantly; the model
-    # refresh never blocks the foreground.
-    from src.services.agenda_service import compile_agenda
-
-    agenda_result = await compile_agenda(
-        db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
-        packet=packet, now=req.now, timezone_str=req.timezone,
-        adapter=get_agenda_adapter(),
-        force=False,  # compile_agenda reconciles cached rank against current eligibility
-        schedule_background=not evaluation,
-        session_id=req.session_id,
-    )
-    # FOREGROUND ADMISSION CONTROL: the backend decides what deserves
-    # foreground bandwidth. Owed/contractual items are admitted with
-    # follow-through ledger state; optional items are held back as capacity.
-    from src.services.followthrough_service import compute_admission
-    admission = await compute_admission(
-        db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
-        agenda_items=agenda_result.get("items") or [],
-        packet=packet, now=req.now, timezone_str=req.timezone,
-        current_turn=req.turn_text,
-    )
-    result = compile_handover(
-        packet, product=(req.director_hints or {}).get("product"), now=req.now,
-        agenda=agenda_result.get("items"), admission=admission,
-        compiled_by=agenda_result.get("compiled_by", "fallback"),
-    )
-    # Compiling context is not an ask. Only explicit effect receipts update ledgers.
-    result["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
-    if evaluation:
-        result["evaluation"] = {
-            "mode": "evaluation",
-            "effects_rolled_back": True,
-            "would_record_asks": [],
-        }
-    return result
-
-
-@router.post("/handover")
-async def get_session_handover(
+@router.post("/attention-state")
+async def get_attention_state(
     req: WorkingSetRequest,
     db: AsyncSession = Depends(get_async_session),
 ):
-    return await _compile_session_handover(req, db, evaluation=False)
+    """AttentionState: of everything Cortex knows, what has unusually high
+    relevance in this temporal window? Scoped (immediate/today/upcoming/
+    unresolved/review_needed), linked to Matters, with the follow-through
+    ledger (owed vs optional) and knowledge-gap curiosity. Eligibility is
+    permission, never an instruction to mention anything."""
+    started = time.perf_counter()
+    state = await compile_attention_state_with_follow_through(
+        db, workspace_id=req.workspace_id, session_id=req.session_id, now=req.now,
+        timezone_str=req.timezone, owner_peer_id=req.peer_id, current_turn=req.turn_text,
+        evaluation=False, adapter=get_agenda_adapter())
+    state["metrics"] = {"cortex_ms": round((time.perf_counter() - started) * 1000, 1)}
+    return state
 
 
-@router.post("/handover/evaluate")
-async def evaluate_session_handover(
+@router.post("/attention-state/evaluate")
+async def evaluate_attention_state(
     req: WorkingSetRequest,
     db: AsyncSession = Depends(get_rollback_session),
 ):
-    """Run the complete handover compiler while rolling DB effects back."""
-    return await _compile_session_handover(req, db, evaluation=True)
-
-
-@router.post("/handover/preview")
-async def preview_session_handover(
-    req: WorkingSetRequest,
-    db: AsyncSession = Depends(get_rollback_session),
-):
-    """Live-turn projection with the complete handover logic and zero writes.
-
-    The legacy `/handover` endpoint is preserved for compatibility. Runtime
-    uses this preview endpoint so reading context cannot count as asking.
-    """
-    result = await _compile_session_handover(req, db, evaluation=True)
-    result.pop("evaluation", None)
-    return result
+    """Run the complete AttentionState compiler while rolling DB effects back
+    (compiling context is never asking)."""
+    started = time.perf_counter()
+    state = await compile_attention_state_with_follow_through(
+        db, workspace_id=req.workspace_id, session_id=req.session_id, now=req.now,
+        timezone_str=req.timezone, owner_peer_id=req.peer_id, current_turn=req.turn_text,
+        evaluation=True, adapter=get_agenda_adapter())
+    state["metrics"] = {"cortex_ms": round((time.perf_counter() - started) * 1000, 1)}
+    return state
 
 
 @router.post("/initiative/tick")
@@ -625,10 +522,9 @@ async def initiative_tick(req: WorkingSetRequest, db: AsyncSession = Depends(get
     scheduler/cron and by the scenario harness. 'Nothing worth pushing' is a
     first-class outcome."""
     from src.services.initiative_service import evaluate_initiative
-    from src.services.handover_service import compile_handover
     from src.services.agenda_service import compile_agenda
 
-    packet = await packet_service.compile_attention_packet(
+    packet = await attention_service.compile_attention_state(
         db=db, workspace_id=req.workspace_id, session_id=req.session_id,
         now=req.now, timezone_str=req.timezone, owner_peer_id=req.peer_id,
     )
@@ -857,8 +753,8 @@ async def route_cortex_query(req: RouteRequest):
     return router_service.route_query(req.query)
 
 
-@router.get("/attention-packet")
-async def get_cortex_attention_packet(
+@router.get("/attention-state")
+async def get_attention_state_get(
     workspace_id: str = Query(...),
     session_id: str = Query(...),
     peer_id: Optional[str] = Query(None),
@@ -866,22 +762,16 @@ async def get_cortex_attention_packet(
     timezone_str: str = Query("UTC", alias="timezone"),
     db: AsyncSession = Depends(get_async_session),
 ):
-    """
-    Compiles dynamic, prose-free Attention & Continuity Packet.
-    """
-    eval_now = now or datetime.now(timezone.utc)
-    return await packet_service.compile_attention_packet(
-        db=db,
-        workspace_id=workspace_id,
-        session_id=session_id,
-        now=eval_now,
-        timezone_str=timezone_str,
+    """AttentionState without the follow-through ledger (pure read)."""
+    return await attention_service.compile_attention_state(
+        db=db, workspace_id=workspace_id, session_id=session_id,
+        now=now or datetime.now(timezone.utc), timezone_str=timezone_str,
         owner_peer_id=peer_id,
     )
 
 
-@router.get("/attention-packet/evaluate")
-async def evaluate_cortex_attention_packet(
+@router.get("/attention-state/evaluate")
+async def evaluate_attention_state_get(
     workspace_id: str = Query(...),
     session_id: str = Query(...),
     peer_id: Optional[str] = Query(None),
@@ -889,12 +779,9 @@ async def evaluate_cortex_attention_packet(
     timezone_str: str = Query("UTC", alias="timezone"),
     db: AsyncSession = Depends(get_rollback_session),
 ):
-    result = await packet_service.compile_attention_packet(
-        db=db,
-        workspace_id=workspace_id,
-        session_id=session_id,
-        now=now or datetime.now(timezone.utc),
-        timezone_str=timezone_str,
+    result = await attention_service.compile_attention_state(
+        db=db, workspace_id=workspace_id, session_id=session_id,
+        now=now or datetime.now(timezone.utc), timezone_str=timezone_str,
         owner_peer_id=peer_id,
     )
     result["evaluation"] = {"mode": "evaluation", "effects_rolled_back": True}

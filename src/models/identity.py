@@ -78,6 +78,19 @@ class ModelEntry(SQLModel, table=True):
     effective_at: Optional[datetime] = Field(default=None)
     discovered_at: datetime = Field(default_factory=utc_now, nullable=False)
     superseded_by_id: Optional[UUID] = Field(default=None, index=True)
+    # Epistemic envelope (docs/CORTEX_ARCHITECTURE.md §4). `formation` carries
+    # the class (explicit|reported|source_linked|observed|inferred|hypothesis).
+    claim_kind: Optional[str] = Field(default=None, index=True)
+    subject_matter_id: Optional[UUID] = Field(default=None, index=True)
+    # current|uncertain|conflicting|stale|superseded (superseded is also
+    # implied by superseded_by_id; see services/epistemics.py).
+    epistemic_status: str = Field(default="current", nullable=False)
+    evidence_refs_json: str = Field(default="[]", nullable=False)
+    # Who holds the claim (user|system|shared|<peer id>) and which way it
+    # points (services/actor_direction.py). System-held claims stay
+    # actor-owned perspectives, never world truth.
+    holder_actor: Optional[str] = Field(default=None)
+    direction: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 

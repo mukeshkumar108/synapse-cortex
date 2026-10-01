@@ -226,7 +226,7 @@ async def test_task_mode_keeps_incoming_request_ahead_of_optional_matters(async_
 @pytest.mark.asyncio
 async def test_cached_rank_cannot_revive_suppressed_item():
     from src.services.agenda_service import compile_agenda
-    p={'intelligence_brief':{'backstage_attention':[{'id':'one','content':'Friend in hospital'}]}}
+    p={'sophie_attention':[{'id':'one','content':'Friend in hospital'}]}  # AttentionState shape (cutover)
     async with async_session_maker() as db:
         first=await compile_agenda(db,workspace_id=WS,owner_peer_id=OWNER,packet=p,
             now=NOW,timezone_str='UTC',adapter=None,schedule_background=False)

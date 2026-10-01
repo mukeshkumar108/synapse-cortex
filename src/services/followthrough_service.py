@@ -78,7 +78,7 @@ async def compute_admission(
     """Classify agenda items into OWED (admitted) vs OPTIONAL (held back),
     and attach follow-through ledger state to each owed item."""
     now = _naive(now)
-    brief = packet.get("intelligence_brief") or {}
+    brief = packet.get("window") or {}
     daypart = str(brief.get("daypart") or "").lower()
     last_turn = (await db.execute(select(TurnStamp.turn_at).where(
         TurnStamp.honcho_workspace_id == workspace_id,
@@ -126,7 +126,7 @@ async def compute_admission(
             # Once the user has subsequently spoken, the item remains durable
             # but must leave the current conversational window. A later daily
             # occurrence or explicit recovery policy may admit it again; this
-            # handover must not keep repeating the same ask in one sitting.
+            # attention state must not keep repeating the same ask in one sitting.
             if asked_at and last_turn and last_turn > asked_at:
                 status = "acknowledged_this_sitting"
         if any(
@@ -179,7 +179,7 @@ async def compute_admission(
                     status if status in _FOREGROUND_TERMINAL else "optional_background"
                 ),
                 # Rank order is preserved (agenda order in); judgement
-                # travels with the item so handover can offer the ranked
+                # travels with the item so Runtime can offer the ranked
                 # optional without re-deriving it from raw packet rows.
                 "why": str(item.get("why") or "")[:140],
                 "next_move": str(item.get("next_move") or "")[:110],

@@ -31,6 +31,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from src.services import consolidation_world as cw
 from src.services.session_consolidation import (
     MIN_CONFIDENCE,
     SessionTurn,
@@ -117,6 +118,9 @@ def build_reconstruction_prompt(snapshot: StartSnapshot,
         lines.append("PEOPLE: " + ", ".join(snapshot.people[:12]))
     if snapshot.suppressions:
         lines.append("ACTIVE SUPPRESSIONS: " + "; ".join(snapshot.suppressions[:8]))
+    claims_block = cw.prompt_claims_block(snapshot.claims)
+    if claims_block:
+        lines.append(claims_block)
     lines.append("")
     lines.append("2. FULL RAW SESSION EVIDENCE (in order; speakers: user / external:<name> / bank_feed):")
     used = 0
@@ -197,6 +201,7 @@ def build_reconstruction_prompt(snapshot: StartSnapshot,
         "incidental_mids[] lists turns with nothing durable. provisional_review[] judges each",
         "[provisional id] as keep|redundant|superseded with reason. Max "
         f"{MAX_PROPOSED} matters.",
+        cw.PROMPT_BLOCK,
     ])
     return "\n".join(lines)
 
@@ -287,7 +292,8 @@ def validate_reconstruction(raw: Any, *, snapshot: StartSnapshot,
     rejected: List[Dict[str, Any]] = []
     validated: dict = {"matters": [], "uncertainties": [], "attentions": [],
                        "suppressions": [], "incidental_mids": [],
-                       "provisional_review": []}
+                       "provisional_review": [], "claims": [], "directed": [],
+                       "gaps": []}
     if not isinstance(raw, dict):
         return validated, [{"where": "root", "reason": "proposal_not_an_object"}]
     by_msg = {t.message_id: t.text or "" for t in transcript}
@@ -572,6 +578,12 @@ def validate_reconstruction(raw: Any, *, snapshot: StartSnapshot,
                  "confidence": conf})
     if isinstance(raw_matters, list) and len(raw_matters) > MAX_PROPOSED:
         rejected.append({"where": "matters", "reason": f"capped_at_{MAX_PROPOSED}"})
+    world, world_rejected = cw.validate_world_sections(
+        raw, quotable=quotable, by_msg=by_msg, known_ids=known_ids,
+        known_claim_ids={c.id for c in (snapshot.claims or [])},
+        ground_spans=_ground_spans, mids_fn=_mids, conf_fn=_conf, rationale_fn=_rationale)
+    validated.update(world)
+    rejected.extend(world_rejected)
     return validated, rejected
 
 
@@ -689,6 +701,7 @@ def translate_to_ops(validated: dict, *, start_by_id: Dict[str, SnapshotMatter],
         ops.append(ValidatedOp(op="incidental",
                                data={"message_ids": [mid]},
                                confidence=0.9, rationale="model-marked incidental"))
+    ops.extend(cw.world_ops(validated, ValidatedOp))
     return ops, discards
 
 
@@ -1053,6 +1066,7 @@ async def reconstruct_session(    db: Any,
             "incidental_mids": {"type": "array", "items": {"type": "string"}},
             "provisional_review": {"type": "array", "maxItems": 12,
                                    "items": {"type": "object"}},
+            **cw.SCHEMA_PROPERTIES,
         },
         "required": ["session_summary", "matters"],
         "additionalProperties": False,

@@ -3,7 +3,7 @@
 Identity contract (see session_reconstruction docstring):
 - `session_id` is the STABLE durable lane (chat id). Every row this
   boundary reads or writes scopes to it, so reconstructed state lands in
-  the exact namespace handover/attention/reconciliation read next time.
+  the exact namespace attention/reconciliation read next time.
 - `temporal_session_id` (optional) is this conversation's boundary id.
   Provenance only: traces, run ledger, created-row message ids. Never
   state scoping. Callers passing a temporal id as session_id fragment
@@ -162,6 +162,29 @@ async def _write_run(db: AsyncSession, *, workspace_id: str, session_id: str,
     return run
 
 
+async def _record_episode(db: AsyncSession, *, run: ConsolidationRun, aggregate: Dict[str, Any],
+                          payload: Any, effective_mode: str):
+    """Applied runs leave a provenance-linked SessionEpisode that REFERENCES
+    the canonical writes (never a second store). Fail-open: the run ledger and
+    canonical writes already committed."""
+    if effective_mode != "apply":
+        return None
+    try:
+        from datetime import datetime, timezone
+        from src.services.session_episode_service import record_episode
+        return await record_episode(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            temporal_session_id=payload.temporal_session_id or "", run=run, aggregate=aggregate,
+            user_peer_id=payload.user_peer_id, now=datetime.now(timezone.utc).replace(tzinfo=None))
+    except Exception as err:
+        logger.warning("session episode failed (fail-open): %s", err)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        return None
+
+
 def _response(run: ConsolidationRun, aggregate: Dict[str, Any],
               *, snapshot_source: str = "authoritative",
               apply_note: str = "", retried_from: str = "",
@@ -244,7 +267,7 @@ async def consolidate(
                 matters=list(authoritative.matters),
                 attentions=list(authoritative.attentions),
                 suppressions=list(authoritative.suppressions),
-                people=merged)
+                people=merged, claims=list(authoritative.claims))
             snapshot_source = "authoritative+caller-people"
     checkpoints = [{"label": c.label, "text": c.text} for c in payload.checkpoints]
     receipts = [{"kind": c.kind, "text": c.text} for c in payload.receipts]
@@ -277,8 +300,13 @@ async def consolidate(
         mode=effective_mode,
         model=payload.model_id or semantic_judge.judge_model_id(),
         aggregate=aggregate, user_peer_id=payload.user_peer_id)
-    return _response(run, aggregate, snapshot_source=snapshot_source,
-                     apply_note=apply_note)
+    episode = await _record_episode(db, run=run, aggregate=aggregate, payload=payload,
+                                    effective_mode=effective_mode)
+    response = _response(run, aggregate, snapshot_source=snapshot_source,
+                         apply_note=apply_note)
+    if episode is not None:
+        response["episode_id"] = str(episode.id)
+    return response
 
 
 @router.post("/consolidate/retry", status_code=status.HTTP_200_OK)
@@ -330,8 +358,18 @@ async def retry_consolidate(
                             detail=err.code)
     aggregate = outcome["aggregate"]
     merged = outcome["merged"]
-    aggregate = outcome["aggregate"]
+    episode_id = ""
+    if outcome["effective_mode"] == "apply":
+        try:
+            run_row = await db.get(ConsolidationRun, UUID(str(outcome["run_id"])))
+        except ValueError:
+            run_row = None
+        if run_row is not None:
+            episode = await _record_episode(db, run=run_row, aggregate=aggregate,
+                                            payload=payload, effective_mode="apply")
+            episode_id = str(episode.id) if episode is not None else ""
     return {
+        "episode_id": episode_id,
         "status": outcome["effective_mode"],
         "run_id": outcome["run_id"],
         "completion": outcome["completion"],

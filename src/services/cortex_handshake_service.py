@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from zoneinfo import ZoneInfo
 
-from src.services.cortex_packet_service import CortexPacketService
+from src.services.attention_state_service import AttentionStateService
 from src.services.daypart import resolve_daypart
 
 logger = logging.getLogger(__name__)
-packet_service = CortexPacketService()
+attention_service = AttentionStateService()
 
 
 class CortexHandshakeService:
@@ -77,8 +77,9 @@ class CortexHandshakeService:
             except Exception:
                 first_contact_today = False
 
-        # 3. Attention Packet Compilation
-        packet = await packet_service.compile_attention_packet(
+        # 3. AttentionState compilation (orientation reads the same state
+        # everything else reads; there is no separate continuity compiler).
+        packet = await attention_service.compile_attention_state(
             db=db, workspace_id=workspace_id, session_id=session_id, now=now,
             timezone_str=timezone_str, owner_peer_id=owner_peer_id,
         )
@@ -106,5 +107,14 @@ class CortexHandshakeService:
                     item["id"] for item in packet["suppressed_targets"]
                 ],
             },
-            "continuity_context": packet["continuity_context"],
+            "attention": {
+                "window": {k: packet["window"][k] for k in ("user_day", "local_time", "timezone", "daypart")},
+                "eligible": packet["eligible"],
+                "open_threads": packet["open_loops"][:3],
+                "matters_in_window": packet.get("matters_in_window", []),
+                "recent_resolutions": packet["recent_resolutions"][:3],
+                "avoid_repeating": packet["suppressed_targets"][:5],
+                "relevant_honcho_message_ids": packet["relevant_honcho_message_ids"][:8],
+                "constraints": packet["window"]["constraints"],
+            },
         }

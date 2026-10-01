@@ -43,16 +43,16 @@ async def test_curiosity_reads_do_not_consume_surface_budget(async_client):
 
     params = {"workspace_id": "ws_sc", "session_id": "s_sc",
               "now": "2026-08-22T12:00:00Z", "timezone": "Europe/London"}
-    first = (await async_client.get("/v1/cortex/attention-packet", params=params)).json()
+    first = (await async_client.get("/v1/cortex/attention-state", params=params)).json()
     assert any(c["type"] == "unobserved_routine" and c["topic"] == "Morning walk" for c in first["curiosity"])
 
     # Reading a packet does not establish that any question was asked.
-    second = (await async_client.get("/v1/cortex/attention-packet", params=params)).json()
+    second = (await async_client.get("/v1/cortex/attention-state", params=params)).json()
     assert any(c["type"] == "unobserved_routine" and c["topic"] == "Morning walk" for c in second["curiosity"])
 
     # A couple of hours later (past cooldown), remains available but budgeted.
     params2 = {**params, "now": "2026-08-22T14:00:00Z"}
-    third = (await async_client.get("/v1/cortex/attention-packet", params=params2)).json()
+    third = (await async_client.get("/v1/cortex/attention-state", params=params2)).json()
     assert any(c["type"] == "unobserved_routine" and c["topic"] == "Morning walk" for c in third["curiosity"])
 
 
@@ -79,7 +79,7 @@ async def test_clarification_and_recurrence_compile_in_one_transaction(async_cli
         ))
         await db.commit()
 
-    response = await async_client.get("/v1/cortex/attention-packet", params={
+    response = await async_client.get("/v1/cortex/attention-state", params={
         "workspace_id": "ws_combined", "session_id": "s_combined",
         "now": "2026-08-22T12:00:00Z", "timezone": "Europe/London",
     })
@@ -103,7 +103,7 @@ async def test_stale_clarification_is_dismissed_and_not_surfaced(async_client):
             updated_at=created.replace(tzinfo=None),
         ))
         await db.commit()
-    packet = (await async_client.get("/v1/cortex/attention-packet", params={
+    packet = (await async_client.get("/v1/cortex/attention-state", params={
         "workspace_id": "ws_stale", "session_id": "s_stale",
         "now": "2026-08-22T12:00:00Z", "timezone": "Europe/London",
     })).json()

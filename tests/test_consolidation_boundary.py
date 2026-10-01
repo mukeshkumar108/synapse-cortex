@@ -41,7 +41,7 @@ def _turns(n, prefix="t"):
 async def test_lane_visibility_next_session_handover(async_client, monkeypatch):
     """Applied boundary matter under lane L is visible to handover/attention
     reads on L, and absent on the temporal id: one namespace, not two."""
-    from src.services.cortex_packet_service import CortexPacketService
+    from src.services.attention_state_service import AttentionStateService
 
     class Stub:
         async def generate_structured(self, **kw):
@@ -69,11 +69,11 @@ async def test_lane_visibility_next_session_handover(async_client, monkeypatch):
     body = r.json()
     assert body["status"] == "apply" and body["error"] == "", body
     from datetime import datetime, timezone
-    svc = CortexPacketService()
+    svc = AttentionStateService()
     async with async_session_maker() as db:
-        packet_lane = await svc.compile_attention_packet(
+        packet_lane = await svc.compile_attention_state(
             db, workspace_id=WS, session_id=LANE, now=datetime.now(timezone.utc))
-        packet_temp = await svc.compile_attention_packet(
+        packet_temp = await svc.compile_attention_state(
             db, workspace_id=WS, session_id=TEMPORAL, now=datetime.now(timezone.utc))
         titles_lane = [x.get("title", "") for x in packet_lane.get("open_loops", [])]
         titles_temp = [x.get("title", "") for x in packet_temp.get("open_loops", [])]

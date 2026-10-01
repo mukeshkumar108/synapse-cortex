@@ -163,7 +163,7 @@ async def test_fast_first_then_turn_delivery_suppresses_duplicate(async_client):
         body["candidates_extracted"] == 0
     )
     packet = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={"workspace_id": "ws-rec", "session_id": "session-a",
                 "peer_id": "user_1", "timezone": "Europe/London"},
     )
@@ -194,7 +194,7 @@ async def test_watcher_first_then_object_push_canonicalizes(async_client):
             "derived same-message expectation must be canonicalized"
         )
     packet = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={"workspace_id": "ws-rec", "session_id": "session-a",
                 "peer_id": "user_1", "timezone": "Europe/London"},
     )
@@ -378,7 +378,7 @@ async def test_candidate_listing_and_packet_surface(async_client):
     assert "Book the dentist" in titles
 
     packet = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={"workspace_id": "ws-rec", "session_id": "session-a",
                 "peer_id": "user_2", "timezone": "Europe/London"},
     )
@@ -387,7 +387,7 @@ async def test_candidate_listing_and_packet_surface(async_client):
     # Vague background thoughts stay invisible; concrete ones surface.
     assert "Sort out the garage someday" not in surfaced
     assert "Book the dentist" in surfaced
-    continuity = data["continuity_context"]["continuity"]
+    continuity = data["eligible"]
     assert any(
         item["type"] == "commitment_candidate" and item["topic"] == "Book the dentist"
         for item in continuity

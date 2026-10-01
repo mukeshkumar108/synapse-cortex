@@ -37,11 +37,11 @@ async def test_owed_carries_receipt_identity(async_client):
                 "label": "tomorrow morning"}]),
             outcome_state=OutcomeState.UNKNOWN))
         await db.commit()
-    r = await async_client.post("/v1/cortex/handover/preview", json={
+    r = await async_client.post("/v1/cortex/attention-state/evaluate", json={
         "workspace_id": ws, "session_id": "s1", "peer_id": "u",
         "now": "2026-09-28T08:30:00+01:00", "timezone": "Europe/London",
         "turn_text": "morning"}, timeout=60.0)
-    owed = r.json().get("owed") or []
+    owed = (r.json().get("follow_through") or {}).get("owed") or []
     assert owed, "due reminder must be owed at window time"
     assert owed[0]["candidate_id"] is not None
     assert owed[0]["candidate_id"].startswith("expectation:")
@@ -104,16 +104,16 @@ async def test_redirect_then_new_evidence_trajectory(async_client):
             updated_at=datetime(2026, 9, 27, 9, 0)))
         await db.commit()
     from src.services import agenda_service
-    from src.services import cortex_packet_service as cps
+    from src.services import attention_state_service as cps
     from datetime import datetime
 
     async def pressures(now):
         from src.services import agenda_service
-        from src.services import cortex_packet_service as cps
+        from src.services import attention_state_service as cps
         from datetime import datetime
         now_dt = datetime.fromisoformat(now)
         async with async_session_maker() as db:
-            packet = await cps.CortexPacketService().compile_attention_packet(
+            packet = await cps.AttentionStateService().compile_attention_state(
                 db=db, workspace_id=ws, session_id="s1", now=now_dt,
                 timezone_str="Europe/London", owner_peer_id="u")
             marks = await agenda_service._surface_marks(

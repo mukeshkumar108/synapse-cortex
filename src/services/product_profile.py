@@ -1,10 +1,11 @@
 """Product policy profiles (Workstream 7).
 
 Cortex stays broadly product-neutral current understanding. This small typed
-configuration decides, per product, what matters for foreground attention and
-handover: priority ordering of operational kinds and how much of each may
-appear in the tiny session handover. Deliberately NOT a generic policy
-framework — a small typed config is enough today.
+configuration is the product POLICY layer: how a product weights Cortex's
+product-neutral state (operational kind priority, generic Matter kinds,
+Matter salience components). It never changes stored truth and never adds
+product-specific Matter kinds or ontology to Cortex. Deliberately NOT a
+generic policy framework — a small typed config is enough today.
 """
 
 from __future__ import annotations
@@ -20,12 +21,13 @@ class ProductProfile:
     # Operational-kind priority for foreground editorial selection.
     # Lower = more important. Kinds not listed are treated as background.
     kind_priority: Dict[str, int]
-    # Max lines per section in the tiny handover.
-    handover_limits: Dict[str, int] = field(default_factory=lambda: {
-        "agenda": 4, "patterns": 2, "avoid": 2,
-    })
-    # Characters the whole handover should stay under (~400 tokens ≈ 1600 chars).
-    handover_char_budget: int = 1600
+    # Multipliers over GENERIC Matter kinds (project|topic|concern|
+    # relationship_situation|goal|life_situation|routine|other). Missing = 1.0.
+    matter_kind_weights: Dict[str, float] = field(default_factory=dict)
+    # Weights over the inspectable Matter salience components
+    # (recency, frequency, explicit_importance, temporal_pressure,
+    # unresolvedness, repeated_user_initiation, recent_activity). Missing = 1.0.
+    matter_weights: Dict[str, float] = field(default_factory=dict)
 
     def priority(self, kind: str) -> int:
         return self.kind_priority.get(kind, 99)
@@ -47,6 +49,8 @@ _PROFILES: Dict[str, ProductProfile] = {
             "unresolved": 5,
             "backstage_attention": 8,
         },
+        matter_kind_weights={"relationship_situation": 1.25, "concern": 1.15, "life_situation": 1.15},
+        matter_weights={"repeated_user_initiation": 1.5, "temporal_pressure": 1.25},
     ),
     "bluum": ProductProfile(
         name="bluum",
@@ -63,6 +67,8 @@ _PROFILES: Dict[str, ProductProfile] = {
             "unresolved": 3,
             "backstage_attention": 7,
         },
+        matter_kind_weights={"concern": 1.4, "routine": 1.25, "relationship_situation": 1.25},
+        matter_weights={"recency": 1.25, "recent_activity": 1.25},
     ),
     "health": ProductProfile(
         name="health",
@@ -76,6 +82,8 @@ _PROFILES: Dict[str, ProductProfile] = {
             "open_loop": 5,
             "backstage_attention": 9,
         },
+        matter_kind_weights={"routine": 1.4, "goal": 1.2},
+        matter_weights={"temporal_pressure": 1.5, "unresolvedness": 1.25},
     ),
     "productivity": ProductProfile(
         name="productivity",
@@ -89,6 +97,8 @@ _PROFILES: Dict[str, ProductProfile] = {
             "state": 6,
             "backstage_attention": 9,
         },
+        matter_kind_weights={"project": 1.4, "goal": 1.25},
+        matter_weights={"temporal_pressure": 1.5, "explicit_importance": 1.25},
     ),
 }
 

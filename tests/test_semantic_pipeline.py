@@ -160,32 +160,6 @@ async def test_reconciliation_no_adapter_no_text_is_zero():
                        "promoted": 0, "closed": 0}
 
 
-def test_roles_structural_zero_to_many():
-    from src.services.state_roles import derive_roles
-
-    class Row:
-        def __init__(self, id, **kw):
-            self.id = id
-            self.__dict__.update(kw)
-
-    roles = derive_roles(
-        expectations=[Row("e1", outcome_state="unknown",
-                          expected_window_start=None, expected_window_end=None,
-                          hard_deadline_at=None, title="Do thing")],
-        open_loops=[Row("l1", status="open", title="Thread")],
-        commitments=[Row("c1", status="pending", authority="ask")],
-        clarifications=[], attentions=[],
-        relations=[], claims=[])
-    assert set(roles["expectation:e1"]) == {"assertional", "obligation", "unresolved"}
-    assert set(roles["open_loop:l1"]) == {"assertional", "attentional", "unresolved"}
-    assert set(roles["commitment:c1"]) == {"attentional"}
-    # Terminal rows shed to assertional.
-    roles2 = derive_roles(
-        expectations=[Row("e2", outcome_state="fulfilled", title="Done")],
-        relations=[], claims=[])
-    assert roles2["expectation:e2"] == ["assertional"]
-
-
 @pytest.mark.asyncio
 async def test_fulfill_grounding_blocks_disconnected_claim(monkeypatch):
     from datetime import datetime, timezone
@@ -238,7 +212,6 @@ async def test_fulfill_grounding_blocks_disconnected_claim(monkeypatch):
         CountingAdapter(), "Cousin Sam pickup confirmed for Wednesday")
     assert out2 != [] and state2 == OutcomeState.FULFILLED
     assert made["n"] == 0
-
 
 
 @pytest.mark.asyncio

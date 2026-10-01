@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timezone
 
-from src.services.cortex_packet_service import CortexPacketService
+from src.services.attention_state_service import AttentionStateService
 
 
 @pytest.mark.asyncio
@@ -24,7 +24,7 @@ async def test_due_plan_becomes_canonical_morning_continuity(async_client):
     assert created.json()["expectation_created"] is True
 
     response = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={
             "workspace_id": base["workspace_id"],
             "session_id": base["session_id"],
@@ -32,18 +32,18 @@ async def test_due_plan_becomes_canonical_morning_continuity(async_client):
             "timezone": "Europe/London",
         },
     )
-    context = response.json()["continuity_context"]
-    assert context["now"]["daypart"] == "morning"
-    assert context["continuity"]
-    assert context["continuity"][0]["type"] == "expectation_due"
-    assert "walk" in context["continuity"][0]["topic"].lower()
-    assert len(context["continuity"]) <= 5
+    state = response.json()
+    assert state["window"]["daypart"] == "morning"
+    assert state["eligible"]
+    assert state["eligible"][0]["type"] == "expectation_due"
+    assert "walk" in state["eligible"][0]["topic"].lower()
+    assert len(state["eligible"]) <= 5
 
 
 @pytest.mark.asyncio
 async def test_empty_state_produces_no_forced_continuity(async_client):
     response = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={
             "workspace_id": "empty",
             "session_id": "empty",
@@ -51,10 +51,10 @@ async def test_empty_state_produces_no_forced_continuity(async_client):
             "timezone": "Europe/London",
         },
     )
-    context = response.json()["continuity_context"]
-    assert context["continuity"] == []
-    assert context["open_threads"] == []
-    assert context["recent_resolutions"] == []
+    state = response.json()
+    assert state["eligible"] == []
+    assert state["open_loops"] == []
+    assert state["recent_resolutions"] == []
 
 
 @pytest.mark.asyncio
@@ -69,7 +69,7 @@ async def test_handshake_carries_same_canonical_context(async_client):
         },
     )
     payload = response.json()
-    assert payload["continuity_context"]["now"]["daypart"] == "evening"
+    assert payload["attention"]["window"]["daypart"] == "evening"
     assert payload["daypart"] == "evening"
 
 
@@ -91,14 +91,10 @@ def test_deadlines_are_prioritized_before_cap_and_keep_evidence_refs():
         ],
         "active_expectations": [],
     }
-    context = CortexPacketService._compile_continuity_context(
-        packet,
-        now=datetime(2026, 8, 13, 9, tzinfo=timezone.utc),
-        timezone_str="Europe/London",
-    )
-    assert len(context["continuity"]) == 4
-    assert context["continuity"][0]["topic"] == "Submit tax return"
-    assert context["continuity"][0]["evidence_refs"] == ["deadline-source"]
+    eligible = AttentionStateService._compile_eligible(packet)
+    assert len(eligible) == 4
+    assert eligible[0]["topic"] == "Submit tax return"
+    assert eligible[0]["evidence_refs"] == ["deadline-source"]
 
 
 @pytest.mark.asyncio
@@ -116,7 +112,7 @@ async def test_linked_open_loop_uses_expectation_topic_not_internal_summary(asyn
         },
     )
     response = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={
             "workspace_id": "ws_loop",
             "session_id": "sess_loop",
@@ -124,9 +120,9 @@ async def test_linked_open_loop_uses_expectation_topic_not_internal_summary(asyn
             "timezone": "Europe/London",
         },
     )
-    thread = response.json()["continuity_context"]["open_threads"][0]
-    assert "appointment" in thread["topic"].lower()
-    assert not thread["topic"].startswith("Invited follow-up")
+    thread = response.json()["open_loops"][0]
+    assert "appointment" in thread["title"].lower()
+    assert not thread["title"].startswith("Invited follow-up")
     assert thread["explicitly_invited"] is True
 
 
@@ -147,7 +143,7 @@ async def test_owned_continuity_surfaces_across_chat_sessions(async_client):
     assert created.json()["expectation_created"] is True
 
     response = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={
             "workspace_id": "ws_cross_chat",
             "session_id": "chat_two",
@@ -156,7 +152,7 @@ async def test_owned_continuity_surfaces_across_chat_sessions(async_client):
             "timezone": "Europe/London",
         },
     )
-    continuity = response.json()["continuity_context"]["continuity"]
+    continuity = response.json()["eligible"]
     assert continuity
     assert "walk" in continuity[0]["topic"].lower()
 
@@ -176,7 +172,7 @@ async def test_owned_continuity_never_leaks_to_another_peer(async_client):
         },
     )
     response = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={
             "workspace_id": "ws_isolation",
             "session_id": "chat_two",
@@ -185,9 +181,9 @@ async def test_owned_continuity_never_leaks_to_another_peer(async_client):
             "timezone": "Europe/London",
         },
     )
-    context = response.json()["continuity_context"]
-    assert context["continuity"] == []
-    assert context["open_threads"] == []
+    context = response.json()
+    assert context["eligible"] == []
+    assert context["open_loops"] == []
 
 
 @pytest.mark.asyncio
@@ -214,6 +210,6 @@ async def test_handshake_uses_owned_cross_chat_continuity(async_client):
             "timezone": "Europe/London",
         },
     )
-    context = response.json()["continuity_context"]
+    context = response.json()["attention"]
     assert context["open_threads"]
-    assert "appointment" in context["open_threads"][0]["topic"].lower()
+    assert "appointment" in context["open_threads"][0]["title"].lower()

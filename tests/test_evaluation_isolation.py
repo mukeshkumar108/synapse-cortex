@@ -21,7 +21,7 @@ async def _count(model) -> int:
         return int((await db.execute(select(func.count()).select_from(model))).scalar_one())
 
 
-async def test_evaluation_handover_rolls_back_agenda_and_occurrence_writes(async_client):
+async def test_evaluation_attention_state_rolls_back_agenda_and_occurrence_writes(async_client):
     now = datetime(2026, 9, 21, 9, tzinfo=timezone.utc)
     async with async_session_maker() as db:
         db.add(RecurringIntention(
@@ -42,7 +42,7 @@ async def test_evaluation_handover_rolls_back_agenda_and_occurrence_writes(async
         await db.commit()
 
     response = await async_client.post(
-        "/v1/cortex/handover/evaluate",
+        "/v1/cortex/attention-state/evaluate",
         json={
             "workspace_id": "ws-eval",
             "session_id": "session-eval",

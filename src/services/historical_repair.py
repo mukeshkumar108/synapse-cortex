@@ -29,7 +29,7 @@ from src.models.operational_state import (
     RecurringIntention, RecurringOccurrence, OperationalStatus,
 )
 from src.models.epistemic import EpistemicAnnotation, EpistemicProvenance
-from src.services.cortex_packet_service import ELAPSED_EXPECTATION_FOREGROUND_HOURS
+from src.services.attention_state_service import ELAPSED_EXPECTATION_FOREGROUND_HOURS
 
 # Life narration cues that must never have become foreground expectations.
 # Used only as a *repair* heuristic over historical rows, never as an

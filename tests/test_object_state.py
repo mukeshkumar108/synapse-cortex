@@ -48,7 +48,7 @@ def object_payload(**overrides) -> dict:
 
 @pytest.fixture
 def packet_url() -> str:
-    return "/v1/cortex/attention-packet"
+    return "/v1/cortex/attention-state"
 
 
 async def post_object(async_client, payload):
@@ -66,7 +66,7 @@ async def get_packet(async_client, payload_overrides: dict | None = None, now: s
         params["now"] = now
     if payload_overrides:
         params.update(payload_overrides)
-    return await async_client.get("/v1/cortex/attention-packet", params=params)
+    return await async_client.get("/v1/cortex/attention-state", params=params)
 
 
 @pytest.mark.asyncio
@@ -173,7 +173,7 @@ async def test_packet_surfaces_upcoming_then_reminder_window_then_overdue(async_
     commitments = in_window.json()["commitments"]
     assert commitments and commitments[0]["state"] == "reminder_due"
     assert commitments[0]["active_reminder"]["label"] == "the day before"
-    continuity = in_window.json()["continuity_context"]["continuity"]
+    continuity = in_window.json()["eligible"]
     assert any(item["type"] == "task_due" for item in continuity), continuity
 
     # Between the windows (after window 1, before window 2): upcoming again.
@@ -184,7 +184,7 @@ async def test_packet_surfaces_upcoming_then_reminder_window_then_overdue(async_
     late = await get_packet(async_client, now=iso(days_ahead=3))
     commitments = late.json()["commitments"]
     assert commitments and commitments[0]["state"] == "overdue"
-    continuity = late.json()["continuity_context"]["continuity"]
+    continuity = late.json()["eligible"]
     assert any(
         item["type"] == "task_due" and item["status"] == "overdue"
         for item in continuity
@@ -249,7 +249,7 @@ async def test_calendar_event_created_rescheduled_cancelled(async_client):
     imminent = await get_packet(async_client, now=iso(days_ahead=0.86))
     events = imminent.json()["events"]
     assert events[0]["state"] == "imminent"
-    continuity = imminent.json()["continuity_context"]["continuity"]
+    continuity = imminent.json()["eligible"]
     assert any(item["type"] == "event_upcoming" for item in continuity)
 
     # Cancel: no stale event state remains.
@@ -301,7 +301,7 @@ async def test_event_completion_creates_bounded_callback_attention(async_client)
     attention = packet.json()["sophie_attention"]
     callbacks = [item for item in attention if item.get("source_object_id") == "evt-2"]
     assert callbacks and callbacks[0]["type"] == "callback"
-    continuity = packet.json()["continuity_context"]["continuity"]
+    continuity = packet.json()["eligible"]
     assert any(item["type"] == "event_followup" for item in continuity)
 
     # Duplicate completion is idempotent: no second callback.
@@ -352,7 +352,7 @@ async def test_event_cancellation_invalidates_stale_callback(async_client):
         item.get("source_object_id") == "evt-3"
         for item in packet.json()["sophie_attention"]
     )
-    continuity = packet.json()["continuity_context"]["continuity"]
+    continuity = packet.json()["eligible"]
     assert not any(item["type"] == "event_followup" for item in continuity)
 
 

@@ -145,7 +145,7 @@ async def test_sleep_signal_in_packet_is_compact_without_confidence(async_client
             kind=DerivedSignalKind.SLEEP_EPISODE, payload_json=json.dumps(payload),
             last_message_id="m1", created_at=utc_now(), updated_at=utc_now()))
         await db.commit()
-    packet = await async_client.get("/v1/cortex/attention-packet", params={
+    packet = await async_client.get("/v1/cortex/attention-state", params={
         "workspace_id": "ws_sleep", "session_id": "s_sleep",
         "now": "2026-08-22T09:45:00Z", "timezone": "Europe/London",
     })
@@ -169,7 +169,7 @@ async def test_slipping_recurrence_is_gap_attention_not_curiosity(async_client):
         await db.commit()
         await db.refresh(recurrence)
 
-    body = (await async_client.get("/v1/cortex/attention-packet", params={
+    body = (await async_client.get("/v1/cortex/attention-state", params={
         "workspace_id": "ws_health", "session_id": "s_health",
         "now": "2026-08-22T12:00:00Z", "timezone": "Europe/London",
     })).json()
@@ -205,7 +205,7 @@ async def test_fresh_completed_recurrence_no_gap_no_curiosity(async_client):
                 honcho_workspace_id="ws_fresh", user_day=start + timedelta(days=offset),
                 status=OccurrenceStatus.COMPLETED, evidence="done"))
         await db.commit()
-    body = (await async_client.get("/v1/cortex/attention-packet", params={
+    body = (await async_client.get("/v1/cortex/attention-state", params={
         "workspace_id": "ws_fresh", "session_id": "s_fresh",
         "now": "2026-08-22T12:00:00Z", "timezone": "Europe/London",
     })).json()
@@ -225,7 +225,7 @@ async def test_pending_clarification_surfaces_as_curiosity(async_client):
             description="which follow-up did you mean?",
             status=ClarificationStatus.PENDING))
         await db.commit()
-    body = (await async_client.get("/v1/cortex/attention-packet", params={
+    body = (await async_client.get("/v1/cortex/attention-state", params={
         "workspace_id": "ws_clar", "session_id": "s_clar",
         "now": "2026-08-22T12:00:00Z", "timezone": "Europe/London",
     })).json()

@@ -1,8 +1,12 @@
-"""Bounded per-turn working-set compiler (L0 HOT / L1 WARM / L2 COLD refs).
+"""Turn Working Set: the tiny per-turn selection (3-5 items).
 
-Durability is not prompt inclusion. The attention packet / intelligence brief
-is structured source material; this module selects the smallest sufficient
-working set for the current cognitive problem. Deterministic, zero LLM calls.
+Durability is not prompt inclusion. AttentionState (what is unusually relevant
+in this temporal window) and a WorldModel fragment (alive Matters, people,
+known unknowns) are structured source material; this module selects the
+smallest sufficient set for the CURRENT TURN, each item carrying provenance and
+a pointer to the projection holding more depth. Disposable, never canonical;
+the whole WorldModel is never injected. Deterministic, zero LLM calls.
+(docs/CORTEX_ARCHITECTURE.md §10)
 
 Budgets (documented choice):
   HOT   <=  600 chars  - turn + posture + immediate conversational operation
@@ -21,6 +25,7 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
+MAX_WARM_ITEMS = 5
 HOT_BUDGET_CHARS = 600
 WARM_BUDGET_CHARS = 2800
 REFS_BUDGET_CHARS = 900
@@ -112,13 +117,14 @@ def _serialize(obj: Any) -> str:
     return json.dumps(obj, ensure_ascii=False, default=str, separators=(",", ":"))
 
 
-class WorkingSetService:
-    """Compiles the L0/L1/L2 per-turn working set from a compiled packet."""
+class TurnWorkingSetService:
+    """Compiles the Turn Working Set from AttentionState (+ WorldModel fragment)."""
 
-    def compile_working_set(
+    def compile_turn_working_set(
         self,
         packet: Dict[str, Any],
         *,
+        world_model: Optional[Dict[str, Any]] = None,
         turn_text: str = "",
         current_message_id: Optional[str] = None,
         posture: Optional[str] = None,
@@ -144,16 +150,15 @@ class WorkingSetService:
 
         # ---- WARM selection ---------------------------------------------
         candidates: List[tuple] = []
-        brief = packet.get("intelligence_brief") or {}
-        horizons = brief.get("horizons") or {}
+        brief = packet.get("window") or {}
+        horizons = brief.get("scopes") or {}
 
-        for horizon in ("now", "today", "tomorrow", "later"):
+        for horizon in ("immediate", "today", "upcoming"):
             for item in horizons.get(horizon, []):
                 kind = str(item.get("kind") or "state")
                 canonical = kind in ("task", "event")
                 score = self._score(item, turn_tokens, base={
-                    "now": 0.5, "today": 0.35, "tomorrow": 0.2,
-                    "later": 0.1,
+                    "immediate": 0.5, "today": 0.35, "upcoming": 0.15,
                 }[horizon])
                 if task_intent and kind in ("task", "event"):
                     score = max(score, 0.9)
@@ -163,7 +168,7 @@ class WorkingSetService:
         # themselves led here (active-conversation understanding), never
         # proactive. Uses existing provenance semantics: non-source
         # sophie_attention is backstage by contract.
-        for item in (brief.get("backstage_attention") or [])[:8]:
+        for item in (packet.get("sophie_attention") or [])[:8]:
             score = self._score(item, turn_tokens, base=0.0)
             if score > 0:
                 candidates.append((
@@ -192,6 +197,11 @@ class WorkingSetService:
                                               "deadline_approaching"):
                 candidates.append((1.0, item, "deadline", True, "deadlines"))
 
+        # WorldModel fragment: alive Matters and known unknowns that THIS turn
+        # touches (people/title overlap). Never the whole model.
+        for item in self._world_candidates(world_model, turn_tokens):
+            candidates.append(item)
+
         candidates.sort(key=lambda pair: -pair[0])
 
         warm: List[Dict[str, Any]] = []
@@ -205,20 +215,23 @@ class WorkingSetService:
                 item, kind, score,
                 surface_safe=(
                     "user_led_only" if kind == "backstage_attention"
-                    else "ask_naturally" if kind == "unresolved"
+                    else "ask_naturally" if kind in ("unresolved", "knowledge_gap")
                     else "foreground_ok"
                 ),
                 proactive_eligible=(
-                    kind not in ("backstage_attention", "unresolved")
-                    and horizon in ("now", "today", "deadlines")
+                    kind not in ("backstage_attention", "unresolved", "knowledge_gap", "matter")
+                    and horizon in ("immediate", "today", "deadlines")
                 ),
                 canonical=canonical,
             )
             if compact is None:
                 dropped += 1
                 continue
+            if kind in ("matter", "knowledge_gap"):
+                compact["depth"] = item.get("depth")
+                compact["matter_id"] = item.get("matter_id")
             item_chars = len(_serialize(compact))
-            if warm_chars + item_chars > WARM_BUDGET_CHARS:
+            if warm_chars + item_chars > WARM_BUDGET_CHARS or len(warm) >= MAX_WARM_ITEMS:
                 dropped += 1
                 continue
             warm.append(compact)
@@ -254,7 +267,7 @@ class WorkingSetService:
 
         total_chars = hot_chars + warm_chars + ref_chars
         return {
-            "version": "working-set-v1",
+            "version": "turn-working-set-v1",
             "levels": {
                 "hot": hot,
                 "warm": warm,
@@ -280,6 +293,31 @@ class WorkingSetService:
                 "domains": sorted({item["kind"] for item in warm}),
             },
         }
+
+    @staticmethod
+    def _world_candidates(world_model: Optional[Dict[str, Any]], turn_tokens: set) -> List[tuple]:
+        if not world_model or not turn_tokens:
+            return []
+        out: List[tuple] = []
+        for m in ((world_model.get("matters") or {}).get("active") or [])[:12]:
+            text = " ".join([str(m.get("title") or "")] + [str(p) for p in (m.get("people") or [])])
+            overlap = turn_tokens & _tokens(text)
+            if overlap:
+                item = {"title": m.get("title"), "id": m.get("id"), "matter_id": m.get("id"),
+                        "why_relevant_now": "an alive matter this turn touches",
+                        "status": m.get("status"), "confidence": 0.8,
+                        "depth": f"projection matter({m.get('id')})"}
+                out.append((min(1.0, 0.35 + 0.15 * len(overlap)), item, "matter", False, "matters"))
+        for g in ((world_model.get("coverage") or {}).get("gaps") or [])[:10]:
+            slug = str(g.get("subject_key") or "").replace("_", " ").replace("/", " ")
+            overlap = turn_tokens & _tokens(slug)
+            if overlap and g.get("status") in ("unknown", "partial", "conflicting"):
+                item = {"title": f"not yet known: {g.get('subject_key')}", "id": g.get("subject_key"),
+                        "why_relevant_now": g.get("why_useful") or "a useful gap this turn touches",
+                        "status": g.get("status"), "confidence": 0.5,
+                        "depth": "projection knowledge_gaps()"}
+                out.append((min(0.8, 0.3 + 0.15 * len(overlap)), item, "knowledge_gap", False, "gaps"))
+        return out
 
     @staticmethod
     def _score(item: Dict[str, Any], turn_tokens: set, *, base: float) -> float:

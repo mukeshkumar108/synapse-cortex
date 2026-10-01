@@ -51,6 +51,8 @@ class OpenLoop(SQLModel, table=True):
     )
     resolution_evidence: Optional[str] = Field(default=None)
     expires_at: Optional[datetime] = Field(default=None, index=True)
+    # Actor direction; see services/actor_direction.py.
+    direction: Optional[str] = Field(default=None, index=True)
     
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)

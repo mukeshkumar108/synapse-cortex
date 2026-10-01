@@ -1,4 +1,4 @@
-"""Background watcher: inspect views, detect change, decide.
+"""Background watcher: inspect AttentionState, detect change, decide.
 
 Pattern: snapshot the eligible proactive set into a DerivedSignal row, diff
 against the previous snapshot, and return newly-eligible items for the
@@ -31,21 +31,35 @@ def _naive_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
 
 
-def _eligible_set(views: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
-    pool = []
-    for section in ("reminder", "calendar", "follow_up", "waiting_on",
-                    "conversation_opportunity"):
-        for item in views.get(section, []) or []:
-            if not isinstance(item, dict):
-                continue
-            signals = item.get("signals", {}) or {}
-            if signals.get("urgent") or signals.get("actionable"):
-                pool.append({
-                    "section": section,
-                    "kind": str(item.get("kind") or ""),
-                    "id": str(item.get("id") or ""),
-                    "title": str(item.get("title") or "")[:160],
-                })
+def _eligible_set(state: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Newly-watchable items from AttentionState: due reminders/pending daily
+    occurrences, planned events, and follow-up-eligible outcomes/clarifications.
+    Deterministic from state provenance — never content inspection."""
+    pool: List[Dict[str, Any]] = []
+
+    def add(section: str, kind: str, item: Dict[str, Any], ident: Any = None) -> None:
+        pool.append({"section": section, "kind": kind,
+                     "id": str(ident if ident is not None else item.get("id") or ""),
+                     "title": str(item.get("title") or item.get("topic") or "")[:160]})
+
+    for item in state.get("commitments") or []:
+        if item.get("state") in ("reminder_due", "overdue"):
+            add("reminder", "reminder", item)
+    for item in state.get("recurring_intentions") or []:
+        if item.get("occurrence_status") == "pending" and item.get("occurrence_id"):
+            add("reminder", "occurrence", {"title": f"recurring occurrence {item.get('user_day')}"},
+                item["occurrence_id"])
+    for item in state.get("events") or []:
+        add("calendar", "event", item)
+    for key in ("active_expectations", "elapsed_expectations"):
+        for item in state.get(key) or []:
+            if item.get("expectation_type") == "planned_event":
+                add("calendar", "expectation", item)
+    for key in ("followups", "window_elapsed_unknown"):
+        for item in state.get(key) or []:
+            add("follow_up", "expectation", item)
+    for item in state.get("clarifications") or []:
+        add("follow_up", "clarification", item)
     seen, out = set(), []
     for item in pool:
         key = (item["section"], item["kind"], item["id"] or item["title"])
@@ -68,12 +82,12 @@ async def background_sweep(
 ) -> Dict[str, Any]:
     """Diff current eligible set vs last snapshot. Returns newly eligible."""
     from src.models.derived_signal import DerivedSignal, DerivedSignalKind
-    from src.services.state_views import compile_views
+    from src.services.attention_state_service import AttentionStateService
 
-    views = await compile_views(
-        db, workspace_id=workspace_id, session_id=session_id,
-        owner_peer_id=owner_peer_id, now=now, timezone_str=timezone_str)
-    current = _eligible_set(views)
+    state = await AttentionStateService().compile_attention_state(
+        db=db, workspace_id=workspace_id, session_id=session_id, now=now,
+        timezone_str=timezone_str, owner_peer_id=owner_peer_id)
+    current = _eligible_set(state)
     current_keys = {i["key"] for i in current}
 
     row = (await db.execute(select(DerivedSignal).where(

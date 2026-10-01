@@ -39,11 +39,18 @@ logger = logging.getLogger(__name__)
 commitment_candidate_service = CommitmentCandidateService()
 
 
-class CortexPacketService:
+class AttentionStateService:
     """
-    Compiles deterministic, prose-free Attention & Continuity Packets.
-    Evaluates dynamic Synapse state (expectations, open loops, suppressions) against `now`.
-    Requires 0 LLM calls.
+    Compiles deterministic, prose-free AttentionState: of everything Cortex
+    knows, what has unusually high relevance in this temporal window?
+
+    Refactored from the old AttentionPacket (docs/CORTEX_ARCHITECTURE.md §8):
+    the lifecycle/temporal machinery is kept; the editorial layers built on it
+    (brief, continuity context, handover) are gone. Output is
+    scoped (immediate / today / upcoming / unresolved / review_needed), linked
+    to Matters, and carries knowledge-gap curiosity. **Eligibility is
+    permission, never an instruction to mention anything** — Runtime/product
+    policy chooses whether and how. Requires 0 LLM calls.
     """
 
     @staticmethod
@@ -53,7 +60,7 @@ class CortexPacketService:
         words = {w for w in re.findall(r"[a-z]+", topic.lower()) if len(w) >= 4 and w not in stop}
         return bool(words & set(re.findall(r"[a-z]+", content.lower())))
 
-    async def compile_attention_packet(
+    async def compile_attention_state(
         self,
         db: AsyncSession,
         workspace_id: str,
@@ -186,7 +193,7 @@ class CortexPacketService:
             # the commitments compile: a stated "remind me" deserves the same
             # reminder_due/overdue attention authority as an app task window.
             # Delivery (/reminders/due) already covers them; this restores
-            # ranking/admission/handover/initiative visibility. They remain
+            # ranking/admission/attention/initiative visibility. They remain
             # in the generic sections too (deduped downstream by content).
             if exp.reminder_windows_json:
                 try:
@@ -402,7 +409,7 @@ class CortexPacketService:
         }
         # Stale/elapsed items must not crowd current and future state out of
         # the capped foreground lists. Elapsed unknowns are reported through
-        # `window_elapsed_unknown` and the brief's unresolved/review horizons;
+        # `window_elapsed_unknown` and the window's unresolved/review scopes;
         # followups and active_expectations carry only live temporal state.
         followups = [
             item for item in followups
@@ -465,18 +472,21 @@ class CortexPacketService:
             ))).scalar_one_or_none()
             if occurrence is None and recurrence.status == OperationalStatus.ACTIVE and recurrence.semantic_type != "observed_pattern":
                 # Deterministic daily occurrence: every active actionable
-                # recurrence owes today a row. Concurrent handover requests can
+                # recurrence owes today a row. Concurrent attention requests can
                 # race here; the loser re-reads instead of failing.
                 occurrence = RecurringOccurrence(
                     recurring_intention_id=recurrence.id,
                     honcho_workspace_id=recurrence.honcho_workspace_id,
                     user_day=user_day,
                 )
-                db.add(occurrence)
                 try:
-                    await db.flush()
+                    # SAVEPOINT, not a session rollback: a rollback would expire every
+                    # loaded row (MissingGreenlet on the next attribute read) when two
+                    # concurrent requests race to create today's occurrence slot.
+                    async with db.begin_nested():
+                        db.add(occurrence)
+                        await db.flush()
                 except Exception:
-                    await db.rollback()
                     occurrence = (await db.execute(select(RecurringOccurrence).where(
                         RecurringOccurrence.recurring_intention_id == recurrence.id,
                         RecurringOccurrence.user_day == user_day,
@@ -547,13 +557,11 @@ class CortexPacketService:
         packet["commitment_candidates"] = await self._compile_commitment_candidates(
             db, workspace_id, owner_peer_id or "", now=now
         )
-        packet["intelligence_brief"] = self._compile_intelligence_brief(
+        packet["window"] = self._compile_window(
             packet, expectations=expectations, now=now,
             timezone_str=timezone_str,
         )
-        packet["continuity_context"] = self._compile_continuity_context(
-            packet, now=now, timezone_str=timezone_str
-        )
+        packet["eligible"] = self._compile_eligible(packet)
         packet["sleep"] = await self._compile_sleep_signal(
             db, workspace_id, session_id, now=now, timezone_str=timezone_str
         )
@@ -579,18 +587,123 @@ class CortexPacketService:
             )
         except Exception:
             packet["current_meaning"] = {"status": "missing"}
+        try:
+            await self._link_matters(db, packet, workspace_id)
+            packet["knowledge_gaps"] = await self._compile_gap_curiosity(
+                db, workspace_id, session_id, owner_peer_id, now)
+            packet["curiosity"] = (packet["curiosity"] + packet["knowledge_gaps"])[:3]
+        except Exception as err:  # matters/coverage are additive; never block attention
+            logger.warning("attention matter/coverage enrichment failed: %s", err)
+            packet.setdefault("matters_in_window", [])
+            packet.setdefault("knowledge_gaps", [])
         return packet
 
+    # ------------------------------------------------------------------
+    # Matter linkage + knowledge-gap curiosity (additive over the lifecycle logic)
+    # ------------------------------------------------------------------
     @staticmethod
-    def _compile_intelligence_brief(
+    def _iter_items(packet: Dict[str, Any]):
+        for key in ("followups", "open_loops", "active_expectations", "elapsed_expectations",
+                    "window_elapsed_unknown", "hard_deadlines", "waiting_on", "recurring_intentions"):
+            for item in packet.get(key) or []:
+                if isinstance(item, dict):
+                    yield key, item
+        for scope, items in ((packet.get("window") or {}).get("scopes") or {}).items():
+            for item in items or []:
+                if isinstance(item, dict):
+                    yield f"scope:{scope}", item
+
+    async def _link_matters(self, db: AsyncSession, packet: Dict[str, Any], workspace_id: str) -> None:
+        """Attach `matter_id` to attention items and summarise the Matters that
+        have unusually relevant items in this window."""
+        from uuid import UUID
+        from src.models.matter import Matter, MatterLink
+        from src.services.matter_service import foreground_rank
+        ids = {}
+        for _, item in self._iter_items(packet):
+            try:
+                ids[str(item.get("id"))] = UUID(str(item.get("id")))
+            except (ValueError, TypeError):
+                continue
+        if not ids:
+            packet["matters_in_window"] = []
+            return
+        links = (await db.execute(select(MatterLink).where(
+            MatterLink.honcho_workspace_id == workspace_id,
+            MatterLink.object_id.in_(list(ids.values()))))).scalars().all()
+        matter_of = {str(l.object_id): l.matter_id for l in links}
+        scopes_by_matter: Dict[Any, set] = {}
+        for key, item in self._iter_items(packet):
+            mid = matter_of.get(str(item.get("id")))
+            if mid is None:
+                continue
+            item["matter_id"] = str(mid)
+            if key.startswith("scope:") or key in ("followups", "window_elapsed_unknown", "hard_deadlines"):
+                scopes_by_matter.setdefault(mid, set()).add(key.replace("scope:", ""))
+        if not scopes_by_matter:
+            packet["matters_in_window"] = []
+            return
+        matters = (await db.execute(select(Matter).where(
+            Matter.id.in_(list(scopes_by_matter)), Matter.merged_into_id.is_(None)))).scalars().all()
+        out = []
+        for m in matters:
+            try:
+                comps = json.loads(m.salience_components_json or "{}")
+            except (TypeError, ValueError):
+                comps = {}
+            out.append({
+                "id": str(m.id), "title": m.title, "kind": m.kind, "status": m.status,
+                "in_scopes": sorted(scopes_by_matter[m.id]),
+                "components": {k: v for k, v in comps.items() if k != "raw"},
+                "rank": foreground_rank(comps),
+            })
+        out.sort(key=lambda x: (-x["rank"], x["title"]))
+        packet["matters_in_window"] = out[:5]
+
+    @staticmethod
+    async def _compile_gap_curiosity(db: AsyncSession, workspace_id: str, session_id: str,
+                                     owner_peer_id: str | None, now: datetime) -> List[Dict[str, Any]]:
+        """Known unknowns that are naturally worth learning (stored coverage;
+        derivation happens on WorldModel compile). Gated by the same surface
+        registry as other curiosity so a gap can never nag. A gap is permission
+        to learn naturally — never a value, never an instruction to ask."""
+        from src.services import knowledge_coverage_service as kcs
+        from src.services.world_scope import resolve_scope
+        scope = await resolve_scope(db, workspace_id, owner_peer_id, session_id)
+        rows = await kcs.read(db, scope)
+        registry = SurfaceRegistry()
+        message_id = f"packet:{int((now.astimezone(timezone.utc).replace(tzinfo=None) if now.tzinfo else now).timestamp())}"
+        out: List[Dict[str, Any]] = []
+        for gap in kcs.gaps(rows, limit=6):
+            if "/" not in gap["subject_key"] and gap["evidence_count"] == 0:
+                continue  # bare frame parents are not natural questions
+            outcome = await registry.eligibility(
+                db, workspace_id=workspace_id, session_id=session_id, message_id=message_id,
+                key=f"gap:{gap['subject_key']}", now=now,
+                cooldown_seconds=CURIOSITY_COOLDOWN_SECONDS, max_count=CURIOSITY_MAX_SURFACES)
+            if outcome != "allowed":
+                continue
+            out.append({
+                "type": "knowledge_gap", "candidate_id": f"gap:{gap['subject_key']}",
+                "subject_key": gap["subject_key"], "status": gap["status"],
+                "topic": gap["subject_key"], "reason": gap["why_useful"] or gap["basis"],
+                "evidence_refs": gap["evidence_refs"], "salience": 0.4,
+                "not_before": now.isoformat(),
+            })
+            if len(out) >= 1:
+                break
+        return out
+
+    @staticmethod
+    def _compile_window(
         packet: Dict[str, Any], *, expectations: List[Expectation],
         now: datetime, timezone_str: str,
     ) -> Dict[str, Any]:
-        """Typed, deterministic chief-of-staff read model.
+        """Temporal window + scoped relevance.
 
-        This is an editorial input, never an instruction to speak or mutate a
-        Task. It separates temporal relevance from durable storage so stale
-        unknown outcomes remain auditable without occupying every turn.
+        Separates temporal relevance from durable storage so stale unknown
+        outcomes remain auditable without occupying every turn. Scopes are
+        permission, never an instruction to speak or mutate a Task.
         """
         try:
             local_now = now.astimezone(ZoneInfo(timezone_str))
@@ -716,25 +829,26 @@ class CortexPacketService:
                 add("today", base)
 
         return {
-            "version": "continuity-brief-v1",
+            "version": "attention-window-v1",
             "generated_at": now.isoformat(),
             "user_day": local_now.date().isoformat(),
+            "local_time": local_now.isoformat(),
+            "timezone": timezone_str,
             "daypart": daypart,
-            "horizons": horizons,
-            "task_candidates": packet.get("commitment_candidates", [])[:8],
-            "open_threads": packet.get("open_loops", [])[:8],
-            # Non-source Sophie attention remains backstage. It may inform an
-            # active user-led conversation but cannot independently trigger
-            # proactive outreach or a daily brief.
-            "backstage_attention": packet.get("sophie_attention", [])[:8],
+            "scopes": {
+                "immediate": horizons["now"],
+                "today": horizons["today"],
+                "upcoming": (horizons["tomorrow"] + horizons["later"])[:12],
+                "unresolved": horizons["unresolved"],
+                "review_needed": horizons["review_needed"],
+            },
             "constraints": {
                 "unknown_is_not_failed": True,
-                "brief_is_permission_not_instruction": True,
+                "eligibility_is_not_instruction": True,
                 "canonical_tasks_require_authority": True,
             },
         }
 
-    @staticmethod
     @staticmethod
     def _parse_reminder_windows(exp: Expectation) -> List[Dict[str, Any]]:
         if not exp.reminder_windows_json:
@@ -771,9 +885,9 @@ class CortexPacketService:
             # in the generic sections; only windowed ones need due-state here.
             if exp.source_system not in (None, "app_task"):
                 continue
-            if exp.source_system is None and not CortexPacketService._parse_reminder_windows(exp):
+            if exp.source_system is None and not AttentionStateService._parse_reminder_windows(exp):
                 continue
-            windows = CortexPacketService._parse_reminder_windows(exp)
+            windows = AttentionStateService._parse_reminder_windows(exp)
             active_window = None
             next_window = None
             for window in windows:
@@ -1084,22 +1198,16 @@ class CortexPacketService:
         return {"signal": signal}
 
     @staticmethod
-    def _compile_continuity_context(
-        packet: Dict[str, Any], *, now: datetime, timezone_str: str
-    ) -> Dict[str, Any]:
-        """Canonical bounded context shared by reactive and proactive callers."""
-        daypart = resolve_daypart(now, timezone_str)
-        try:
-            local_now = now.astimezone(ZoneInfo(timezone_str))
-        except Exception:
-            local_now = now
-
+    def _compile_eligible(packet: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """The few items with unusually high relevance right now (bounded,
+        each with `why_relevant_now` + evidence refs). Permission, not
+        instruction."""
         continuity: List[Dict[str, Any]] = []
-        brief = packet.get("intelligence_brief") or {}
+        brief = packet.get("window") or {}
         has_brief = bool(brief)
-        horizons = brief.get("horizons") or {}
+        horizons = brief.get("scopes") or {}
         brief_now_ids = {
-            str(item.get("id")) for item in horizons.get("now", [])
+            str(item.get("id")) for item in horizons.get("immediate", [])
             if item.get("id")
         }
         brief_unresolved_ids = {
@@ -1262,57 +1370,49 @@ class CortexPacketService:
                 if item.get("honcho_message_id") else [],
             })
             seen_topics.add(str(topic).lower())
-        open_threads = [
-            {
-                "type": "open_loop",
-                "topic": item.get("title") or item.get("summary") or "Open thread",
-                "status": "open",
-                "why_relevant_now": "This conversation thread remains unresolved.",
-                "explicitly_invited": bool(item.get("explicitly_invited")),
-                "evidence_refs": [item.get("honcho_message_id")]
-                if item.get("honcho_message_id") else [],
-            }
-            for item in packet.get("open_loops", [])[:3]
-        ]
-        sophie_attention = packet.get("sophie_attention", [])[:5]
-        recent_resolutions = [
-            {
-                "topic": item.get("title") or "Resolved thread",
-                "status": item.get("outcome_state") or "resolved",
-            }
-            for item in packet.get("recent_resolutions", [])[:3]
-        ]
-        avoid_repeating = [
-            {
-                "topic": item.get("topic_or_entity") or item.get("target_type") or "suppressed topic",
-                "reason": item.get("reason") or "The user asked not to surface this.",
-                "until": item.get("suppressed_until"),
-            }
-            for item in packet.get("suppressed_targets", [])[:5]
-        ]
-        return {
-            "now": {
-                "local_time": local_now.isoformat(),
-                "timezone": timezone_str,
-                "daypart": daypart,
-            },
-            "brief": {
-                "version": brief.get("version"),
-                "user_day": brief.get("user_day"),
-                "daypart": brief.get("daypart"),
-                "horizons": {
-                    key: (horizons.get(key) or [])[:5]
-                    for key in ("now", "today", "tomorrow", "unresolved")
-                },
-                "task_candidates": (brief.get("task_candidates") or [])[:3],
-                "constraints": brief.get("constraints") or {},
-            },
-            "continuity": continuity[:5],
-            "open_threads": open_threads,
-            "sophie_attention": sophie_attention,
-            "recent_resolutions": recent_resolutions,
-            "avoid_repeating": avoid_repeating,
-            "relevant_honcho_message_ids": packet.get(
-                "relevant_honcho_message_ids", []
-            )[:8],
-        }
+        return continuity[:5]
+
+
+attention_state_service = AttentionStateService()
+
+
+async def compile_attention_state_with_follow_through(
+    db: AsyncSession, *, workspace_id: str, session_id: str, now: datetime,
+    timezone_str: str = "UTC", owner_peer_id: str | None = None,
+    current_turn: str = "", evaluation: bool = False, adapter: Any = None,
+) -> Dict[str, Any]:
+    """AttentionState plus the follow-through ledger: which owed items have
+    foreground admission and which are optional capacity.
+
+    This is what the retired handover endpoint computed (agenda -> admission)
+    minus its editorial formatting. Compiling is never asking: only explicit
+    candidate receipts update ask ledgers. `evaluation=True` suppresses
+    background work scheduled on independent sessions (callers also use a
+    rollback session for evaluation)."""
+    from src.services.agenda_service import compile_agenda
+    from src.services.followthrough_service import compute_admission
+
+    state = await attention_state_service.compile_attention_state(
+        db=db, workspace_id=workspace_id, session_id=session_id, now=now,
+        timezone_str=timezone_str, owner_peer_id=owner_peer_id)
+    agenda = await compile_agenda(
+        db, workspace_id=workspace_id, owner_peer_id=owner_peer_id, packet=state,
+        now=now, timezone_str=timezone_str, adapter=adapter, force=False,
+        schedule_background=not evaluation, session_id=session_id)
+    admission = await compute_admission(
+        db, workspace_id=workspace_id, owner_peer_id=owner_peer_id,
+        agenda_items=agenda.get("items") or [], packet=state, now=now,
+        timezone_str=timezone_str, current_turn=current_turn)
+    state["follow_through"] = {
+        "owed": admission["owed"], "optional": admission["optional"],
+        "scene": admission["scene"],
+        "agenda": {"compiled_by": agenda.get("compiled_by", "fallback"),
+                   "count": len(agenda.get("items") or [])},
+        "constraints": {"unknown_is_not_failed": True,
+                        "absence_of_evidence_is_not_missed_obligation": True,
+                        "user_statements_override_context": True,
+                        "eligibility_is_not_instruction": True},
+    }
+    if evaluation:
+        state["evaluation"] = {"mode": "evaluation", "effects_rolled_back": True}
+    return state

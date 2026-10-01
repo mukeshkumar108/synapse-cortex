@@ -77,6 +77,8 @@ class CommitmentCandidate(SQLModel, table=True):
     # violation always names its evidence here; absence plus elapsed due
     # condition is what makes the derivation possible without invention.
     resolution_evidence: Optional[str] = Field(default=None)
+    # Actor direction; see services/actor_direction.py.
+    direction: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 

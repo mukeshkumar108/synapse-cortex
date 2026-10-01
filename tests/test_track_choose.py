@@ -1,78 +1,38 @@
-"""track->choose: ranked optional judgement must reach handover.available,
-and proactive eligibility must speak the agenda's status vocabulary."""
-from src.services.handover_service import compile_handover
+"""track->choose: the agenda's ranked judgement must reach AttentionState's
+follow-through ledger (optional list keeps rank order + why/next_move), and
+proactive eligibility must speak the agenda's status vocabulary."""
+import pytest
+
+from src.db import async_session_maker
+from src.services.followthrough_service import compute_admission
 from src.services.initiative_service import _high_pressure_items
+from tests.cortex_fixtures import NOW, USER, WS
 
 
-def _packet():
-    return {
-        "intelligence_brief": {"daypart": "morning", "user_day": "2026-09-28"},
-        "sophie_attention": [],
-        "open_loops": [
-            {"id": "loop-low", "candidate_id": "open_loop:loop-low",
-             "candidate_version": "v1", "honcho_message_id": "m1",
-             "title": "Low value thread", "summary": "low",
-             "expectation_id": None, "explicitly_invited": False},
-            {"id": "loop-matt", "candidate_id": "open_loop:loop-matt",
-             "candidate_version": "v2", "honcho_message_id": "m2",
-             "title": "Update on Matt's condition", "summary": "waiting",
-             "expectation_id": None, "explicitly_invited": False},
-        ],
-        "suppressed_targets": [],
-        "recurring_intentions": [],
-        "clarifications": [],
-    }
-
-
-def test_available_follows_ranked_optional_not_packet_order():
-    packet = _packet()
-    # Ranked admission optional (agenda order preserved): Matt first despite
-    # being second in raw packet order.
-    optional = [
-        {"what": "Update on Matt's condition", "pressure": 0.45,
-         "followup_state": "optional_background",
+@pytest.mark.asyncio
+async def test_optional_follows_agenda_rank_and_keeps_judgement():
+    agenda = [
+        {"what": "Update on Matt's condition", "pressure": 0.45, "status": "unresolved",
          "why": "unresolved 42h", "next_move": "check back naturally",
-         "item_key": "loop:loop-matt", "horizon": "day"},
-        {"what": "Low value thread", "pressure": 0.27,
-         "followup_state": "optional_background",
+         "item_key": "loop:loop-matt", "candidate_id": "open_loop:loop-matt",
+         "candidate_version": "v2", "horizon": "day"},
+        {"what": "Low value thread", "pressure": 0.27, "status": "unresolved",
          "why": "open thread", "next_move": "return naturally",
-         "item_key": "loop:loop-low", "horizon": "day"},
+         "item_key": "loop:loop-low", "candidate_id": "open_loop:loop-low",
+         "candidate_version": "v1", "horizon": "day"},
     ]
-    h = compile_handover(packet, admission={"owed": [], "optional": optional,
-                                            "scene": {}})
-    assert len(h["available"]) == 1
-    avail = h["available"][0]
-    assert avail["what"] == "Update on Matt's condition"
-    assert avail["pressure"] == 0.45
-    assert avail["why"] == "unresolved 42h"
-    assert avail["next_move"] == "check back naturally"
-    assert avail["candidate_id"] == "open_loop:loop-matt"
-    assert avail["evidence_refs"] == ["m2"]
-
-
-def test_available_skips_terminal_optionals():
-    packet = _packet()
-    optional = [
-        {"what": "Done thing", "pressure": 0.1,
-         "followup_state": "resolved", "why": "done",
-         "next_move": "", "item_key": "loop:loop-low", "horizon": "day"},
-        {"what": "Update on Matt's condition", "pressure": 0.45,
-         "followup_state": "optional_background",
-         "why": "unresolved 42h", "next_move": "check back naturally",
-         "item_key": "loop:loop-matt", "horizon": "day"},
-    ]
-    h = compile_handover(packet, admission={"owed": [], "optional": optional,
-                                            "scene": {}})
-    assert h["available"][0]["what"] == "Update on Matt's condition"
-
-
-def test_available_falls_back_to_legacy_packet_row():
-    packet = _packet()
-    h = compile_handover(packet, admission={"owed": [], "optional": [],
-                                            "scene": {}})
-    # legacy: first packet row (sophie_attention empty -> first open_loop)
-    assert h["available"][0]["what"] == "Low value thread"
-    assert "why" not in h["available"][0]
+    packet = {"window": {"daypart": "morning", "user_day": "2026-09-28"}, "recurring_intentions": [],
+              "recent_progress": []}
+    async with async_session_maker() as db:
+        admission = await compute_admission(
+            db, workspace_id=WS, owner_peer_id=USER, agenda_items=agenda, packet=packet,
+            now=NOW, timezone_str="Europe/London")
+    optional = admission["optional"]
+    assert [o["what"] for o in optional] == ["Update on Matt's condition", "Low value thread"]
+    first = optional[0]
+    assert first["why"] == "unresolved 42h" and first["next_move"] == "check back naturally"
+    assert first["candidate_id"] == "open_loop:loop-matt" and first["candidate_version"] == "v2"
+    assert admission["scene"]["time_of_day"] == "morning"
 
 
 def test_initiative_sees_live_agenda_statuses():
@@ -84,5 +44,4 @@ def test_initiative_sees_live_agenda_statuses():
         {"what": "later", "pressure": 0.9, "status": "scheduled_for_later"},
     ]
     got = _high_pressure_items(items, 0.6)
-    assert {i["what"] for i in got} == {"overdue task", "waiting thread",
-                                        "plain thread"}
+    assert {i["what"] for i in got} == {"overdue task", "waiting thread", "plain thread"}

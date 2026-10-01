@@ -27,9 +27,9 @@ async def test_phase1_ingest_and_context_endpoints(async_client):
     assert resp.status_code == 202
     assert resp.json()["expectation_created"] is True
 
-    # Canonical context path: /v1/cortex/attention-packet owns continuity.
+    # Canonical context path: /v1/cortex/attention-state owns continuity.
     context_resp = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={
             "workspace_id": "ws_123",
             "session_id": "sess_456",

@@ -18,7 +18,7 @@ deterministic validation/invariants -> mutation. The model never writes.
 
 Runs on the ingest (shadow/write, 202-accepted) path — effectively
 nearline already: nothing here blocks foreground generation. The hot
-reads (attention/handshake/handover) are untouched.
+reads (attention/handshake) are untouched.
 """
 
 from __future__ import annotations

@@ -164,6 +164,14 @@ async def _apply_op(db: Any, op: Any, *, workspace_id: str, session_id: str,
     kind = getattr(op, "op", "?")
     data = getattr(op, "data", {}) or {}
     conf = float(getattr(op, "confidence", 0) or 0)
+    from src.services.consolidation_world import WORLD_OPS, apply_world_op
+    if kind in WORLD_OPS:
+        # claims / directed expectations / known-unknowns: the epistemic and
+        # direction-carrying write paths (never a second store).
+        return await apply_world_op(
+            db, op, workspace_id=workspace_id, session_id=session_id,
+            message_id=message_id, user_peer_id=user_peer_id, now=now,
+            create_conf=CREATE_CONFIDENCE)
     ev = data.get("evidence") or {}
     mids = [str(m) for m in (ev.get("message_ids") or [])]
     spans = ev.get("spans") or []
@@ -296,12 +304,14 @@ async def _apply_op(db: Any, op: Any, *, workspace_id: str, session_id: str,
             return {"op": kind, "reason": "target_missing", "data": data}
         from src.models.expectation import OutcomeState
         outcome = str(data.get("outcome") or "unknown")
+        # "violated" is the model-facing word; the stored outcome is NOT_FULFILLED.
         mapping = {"fulfilled": OutcomeState.FULFILLED,
-                   "violated": OutcomeState.VIOLATED,
+                   "violated": OutcomeState.NOT_FULFILLED,
                    "unknown": OutcomeState.UNKNOWN}
         if outcome not in mapping:
             return {"op": kind, "reason": "bad_outcome", "data": data}
         row.outcome_state = mapping[outcome]
+        row.updated_at = _naive_utc(now)
         row.resolution_evidence = (
             f"consolidation:{session_id}#evidence:{','.join(mids)}"
             f"#note:{str(data.get('note') or '')[:200]}")[:500]

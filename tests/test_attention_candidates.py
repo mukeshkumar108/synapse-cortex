@@ -39,7 +39,7 @@ async def test_attention_candidate_is_idempotent_and_reaches_continuity(async_cl
     assert duplicate.json()["candidates_created"] == 0
 
     packet = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={
             "workspace_id": "ws_attention",
             "session_id": "session_attention",
@@ -47,7 +47,7 @@ async def test_attention_candidate_is_idempotent_and_reaches_continuity(async_cl
             "timezone": "Europe/London",
         },
     )
-    attention = packet.json()["continuity_context"]["sophie_attention"]
+    attention = packet.json()["sophie_attention"]
     assert attention[0]["type"] == "pending_question"
     assert "course matters" in attention[0]["content"]
     assert attention[0]["evidence_refs"] == [
@@ -79,11 +79,11 @@ async def test_future_attention_candidate_is_not_yet_visible(async_client):
         },
     )
     packet = await async_client.get(
-        "/v1/cortex/attention-packet",
+        "/v1/cortex/attention-state",
         params={
             "workspace_id": "ws_future_attention",
             "session_id": "session_future_attention",
             "now": now.isoformat(),
         },
     )
-    assert packet.json()["continuity_context"]["sophie_attention"] == []
+    assert packet.json()["sophie_attention"] == []

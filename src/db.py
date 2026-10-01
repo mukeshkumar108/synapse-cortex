@@ -30,6 +30,10 @@ def _engine_kwargs() -> dict:
 
 
 _ENGINE_KWARGS = _engine_kwargs()
+if __import__("os").environ.get("SYNAPSE_DB_NULLPOOL") == "1":
+    # Test harness only: per-test event loops must not share pooled asyncpg connections.
+    from sqlalchemy.pool import NullPool
+    _ENGINE_KWARGS = {**_ENGINE_KWARGS, "poolclass": NullPool}
 
 engine = create_async_engine(
     settings.DATABASE_URL,

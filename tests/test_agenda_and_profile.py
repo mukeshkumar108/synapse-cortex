@@ -1,12 +1,10 @@
-"""Handover v4 + agenda: ONE ranked live attention artifact.
-Sections are retired; the agenda is the center of behavioral attention."""
-
-import json
+"""Agenda: ONE ranked live attention artifact feeding AttentionState's
+follow-through ledger (the handover that used to wrap it is retired), plus
+product policy over generic Matter kinds."""
 
 from src.services.agenda_service import (
     extract_candidates, fallback_rank,
 )
-from src.services.handover_service import compile_handover
 from src.services.product_profile import get_profile
 
 
@@ -18,11 +16,11 @@ def _packet() -> dict:
         "suppressed_targets": [{"id": "s1", "topic_or_entity": "staying at Mum's"}],
         "recurring_intentions": [],
         "window_elapsed_unknown": [],
-        "intelligence_brief": {
+        "window": {
             "daypart": "evening",
-            "horizons": {"now": [], "today": [], "unresolved": [], "review_needed": []},
-            "backstage_attention": [{"id": "b1", "content": "Ask how the meeting prep went"}],
+            "scopes": {"immediate": [], "today": [], "upcoming": [], "unresolved": [], "review_needed": []},
         },
+        "sophie_attention": [{"id": "b1", "content": "Ask how the meeting prep went"}],
     }
 
 
@@ -72,43 +70,13 @@ def test_fallback_rank_orders_by_salience_and_caps_items():
     assert top == sorted(top, key=lambda x: -x["score"])
 
 
-def test_handover_avoids_suppressed_and_ids():
-    packet = _packet()
-    packet["suppressed_targets"] = [
-        {"id": "s1", "topic_or_entity": "user_5377a025-b876-4d1f-bd62-59352da44146"},
-        {"id": "s2", "topic_or_entity": "mother's pressure to stay longer"},
-    ]
-    h = compile_handover(packet, product="sophie", admission={})
-    assert h["avoid"] == ["mother's pressure to stay longer"]
-
-
-def test_handover_patterns_are_context_only():
-    packet = _packet()
-    packet["recurring_intentions"] = [{
-        "id": "r2", "title": "daily talk with Ashley",
-        "semantic_type": "observed_pattern", "occurrence_status": "pending",
-    }]
-    h = compile_handover(packet, product="sophie", admission={})
-    assert any("observed pattern" in l for l in h["patterns"])
-    assert not any("Ashley" in o["what"] for o in h.get("owed", []))
-
-
-def test_handover_budget_trims_agenda_last():
-    packet = _packet()
-    packet["suppressed_targets"] = [
-        {"id": f"s{i}", "topic_or_entity": f"topic number {i} that is suppressed"} for i in range(10)
-    ]
-    admission = {"owed": [{"what": f"item {i}", "followup_state": "outstanding", "pressure": 0.7} for i in range(6)],
-                 "optional": [], "scene": {}}
-    h = compile_handover(packet, product="sophie", admission=admission)
-    assert h["metrics"]["within_budget"]
-    assert h["owed"], "owed survives trimming"
-
-
-def test_handover_is_json_serializable():
-    json.dumps(compile_handover(_packet(), product="sophie", admission={}))
-
-
-def test_product_profiles_change_handover_limits():
-    assert get_profile("sophie").handover_limits["agenda"] >= 2  # agenda cap reused for owed
+def test_product_profiles_weight_generic_matter_kinds_without_new_kinds():
+    from src.models.matter import MATTER_KINDS
+    for name in ("sophie", "bluum", "health", "productivity"):
+        profile = get_profile(name)
+        # policy only multiplies GENERIC kinds: no product-specific Matter kinds in Cortex
+        assert set(profile.matter_kind_weights) <= MATTER_KINDS
+        assert not hasattr(profile, "handover_limits")
+    assert get_profile("health").matter_kind_weights["routine"] > 1.0
+    assert get_profile("productivity").matter_kind_weights["project"] > get_profile("sophie").matter_kind_weights.get("project", 1.0)
     assert get_profile("health").priority("task") < get_profile("sophie").priority("task")

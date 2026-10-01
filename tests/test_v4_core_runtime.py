@@ -32,7 +32,7 @@ async def test_indirect_acceptance_does_not_resolve_unrelated_sole_expectation(a
     })
     assert len(resolved.json()["mutated_expectation_ids"]) == 0
 
-    packet = await async_client.get("/v1/cortex/attention-packet", params={
+    packet = await async_client.get("/v1/cortex/attention-state", params={
         "workspace_id": base["workspace_id"],
         "session_id": base["session_id"],
         "now": "2026-08-14T10:00:00Z",
@@ -41,7 +41,7 @@ async def test_indirect_acceptance_does_not_resolve_unrelated_sole_expectation(a
     # Expectation is still carried (window elapsed, outcome unknown).
     assert any(
         item.get("type") == "expectation_due"
-        for item in packet.json()["continuity_context"]["continuity"]
+        for item in packet.json()["eligible"]
     )
 
 

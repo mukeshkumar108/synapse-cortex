@@ -28,15 +28,15 @@ async def test_handshake_and_packet_agree_on_daypart(async_client):
         **spot, "now": now, "timezone": "Europe/London",
     })
     hs = handshake.json()
-    packet = await async_client.get("/v1/cortex/attention-packet", params={
+    packet = await async_client.get("/v1/cortex/attention-state", params={
         **spot, "now": now, "timezone": "Europe/London",
     })
-    ctx = packet.json()["continuity_context"]
-    assert hs["daypart"] == ctx["now"]["daypart"] == "morning"
+    window = packet.json()["window"]
+    assert hs["daypart"] == window["daypart"] == hs["attention"]["window"]["daypart"] == "morning"
 
 
 @pytest.mark.asyncio
-async def test_continuity_context_is_bounded_with_large_backend_state(async_client):
+async def test_eligible_attention_is_bounded_with_large_backend_state(async_client):
     ws, sess = "ws_bounded", "sess_bounded"
     for index in range(12):
         resp = await async_client.post("/v1/events/turn", json={
@@ -49,12 +49,12 @@ async def test_continuity_context_is_bounded_with_large_backend_state(async_clie
         })
         assert resp.status_code == 202
 
-    packet = await async_client.get("/v1/cortex/attention-packet", params={
+    packet = await async_client.get("/v1/cortex/attention-state", params={
         "workspace_id": ws, "session_id": sess,
         "now": "2026-08-23T09:00:00Z", "timezone": "Europe/London",
     })
     body = packet.json()
-    continuity = body["continuity_context"]["continuity"]
+    continuity = body["eligible"]
     assert len(continuity) <= 5
     assert len(body["followups"]) <= 3
     assert all(item["type"] in {"deadline", "expectation_due", "recurring_intention", "open_loop"}

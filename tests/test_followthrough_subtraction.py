@@ -30,7 +30,7 @@ async def test_answered_ask_remains_durable_but_leaves_foreground():
                 "next_move": "ask status",
             }],
             packet={
-                "intelligence_brief": {"daypart": "evening", "user_day": "2026-09-01"},
+                "window": {"daypart": "evening", "user_day": "2026-09-01"},
                 "recurring_intentions": [{
                     "occurrence_id": occurrence_id,
                     "ask_count": 1,
@@ -93,7 +93,7 @@ async def test_unanswered_ask_remains_foreground_eligible():
                 "occurrence_id": occurrence_id,
             }],
             packet={
-                "intelligence_brief": {"daypart": "evening", "user_day": "2026-09-01"},
+                "window": {"daypart": "evening", "user_day": "2026-09-01"},
                 "recurring_intentions": [{
                     "occurrence_id": occurrence_id,
                     "ask_count": 1,
