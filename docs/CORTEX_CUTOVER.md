@@ -138,12 +138,17 @@ DomainAnnotation/semantic type; never from keyword matching on text.
 
 - `MatterService.sync_primitives(db, ws, owner)` is the single idempotent step that
   resolves unlinked primitives into Matters, updates lifecycle/salience and
-  Matter relations. It is invoked by: session apply (end of run), Sweeper `run`,
-  `WorldModelService.get_world_model/compile` (cheap when nothing changed), and
-  the backfill script. No hooks scattered through `lifecycle_service`.
+  Matter relations. It is owned by **mutation boundaries only**: session
+  consolidation/apply (end of an applied run, via `reconcile_after_writes`), the
+  Lane-2 Sweeper `run` (only when it promoted something), the backfill script, and
+  the explicit `POST /matters/sync`. It commits per primitive (short write
+  transactions) and tolerates lost races via a SAVEPOINT. **Reads never call it:**
+  `WorldModelService.get_world_model/compile` (default `sync=False`) and the
+  projections only rebuild disposable derived state (snapshot, coverage rows) and
+  never reconcile canonical state. No hooks scattered through `lifecycle_service`.
 - `session_consolidation`/`session_apply` write canonical state as before, now with
-  direction stamped, then write a `SessionEpisode` referencing the writes and call
-  `sync_primitives` (+ coverage gap registration from model-proposed gaps).
+  direction stamped, then call `sync_primitives` and write a `SessionEpisode` referencing the writes
+  (+ coverage gap registration from model-proposed gaps).
 - Router: removed `/working-set`, `/session-working-set(+/refresh)`,
   `/handover(+/evaluate,/preview)`, `/attention-packet(+/evaluate)`. Added
   `/attention-state(+/evaluate)`, `/turn-working-set`, `/world-model`
