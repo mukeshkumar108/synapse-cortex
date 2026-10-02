@@ -207,7 +207,9 @@ def _s_recent(p: Projections) -> Dict[str, Any]:
     d3, _ = day.bounds(day.today - timedelta(days=6))
     def digest(w):
         per = p.period(*w)
-        return {"occupied": [{"matter_id": o["id"], "title": o["title"], "touches": o["touch_count"]}
+        # last_touched/status let a consumer say HOW LONG AGO something happened.
+        return {"occupied": [{"matter_id": o["id"], "title": o["title"], "touches": o["touch_count"],
+                              "last_touched": o["last_touched"], "status": o["status"]}
                              for o in per["occupied"][:5]],
                 "resolved": [r["title"] for r in per["resolved"][:4]], "activity": per["activity"]}
     return {"today": digest((t0, t1)), "yesterday": digest((y0, t0)),

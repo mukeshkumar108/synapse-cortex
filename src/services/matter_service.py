@@ -834,6 +834,25 @@ def foreground_rank(components: Dict[str, Any], weights: Optional[Dict[str, floa
 _SOFT_TYPES = ("fact", "model_entry", "domain_annotation")
 
 
+# A user->system open loop is a conversational thread ("the user said something").
+# It is closed when the thread is answered or the user restates/confirms it. That
+# closes the THREAD, not the thing the user was talking about: a plan that has
+# been confirmed is still a plan. These closure evidences therefore never resolve
+# a Matter on their own; only outcome evidence (completion, cancellation,
+# supersession, an elapsed window) does.
+CONVERSATIONAL_CLOSURE_EVIDENCE = ("semantic_proposal:", "answered_in_turn:")
+# Quiet period before a conversationally-closed Matter stops being foreground.
+CONVERSATIONAL_CLOSURE_QUIET = timedelta(hours=24)
+
+
+def _closed_conversationally(m: PrimitiveRef) -> bool:
+    if m.object_type != "open_loop":
+        return False
+    direction = getattr(getattr(m.row, "direction", None), "value", getattr(m.row, "direction", None))
+    evidence = str(getattr(m.row, "resolution_evidence", None) or "")
+    return str(direction) == "user_to_system" and evidence.startswith(CONVERSATIONAL_CLOSURE_EVIDENCE)
+
+
 def derive_status(matter: Matter, members: List[PrimitiveRef], now: datetime) -> Tuple[str, Optional[datetime]]:
     """Lifecycle derived from members (never invented). Returns (status, resolved_at).
 
@@ -849,6 +868,13 @@ def derive_status(matter: Matter, members: List[PrimitiveRef], now: datetime) ->
         return "active", None
     core = [m for m in members if m.object_type not in _SOFT_TYPES]
     idle = (now - max([m.touched_at for m in members] + [matter.last_touched])).days
+    if core and all(m.terminal for m in core) and all(_closed_conversationally(m) for m in core):
+        # Only the conversation about it was closed: stay foreground for a quiet
+        # window, then rest as dormant (history kept) rather than "resolved".
+        if idle > ARCHIVE_DORMANT_AFTER_DAYS:
+            return "archived", matter.resolved_at
+        quiet_for = now - max([m.touched_at for m in members] + [matter.last_touched])
+        return ("active", None) if quiet_for < CONVERSATIONAL_CLOSURE_QUIET else ("dormant", None)
     if core and all(m.terminal for m in core):
         resolved_at = max(m.touched_at for m in core)
         if (now - resolved_at).days > ARCHIVE_RESOLVED_AFTER_DAYS:

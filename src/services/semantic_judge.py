@@ -40,7 +40,10 @@ MIN_CONFIDENCE = 0.6
 
 
 _QUESTIONS = {
-    "resolves": "Does the LATER text settle/answer/complete the EARLIER matter (even in different words)?",
+    "resolves": ("Does the LATER text settle/answer/complete the EARLIER matter (even in different words)? "
+                 "Restating, elaborating, scheduling or confirming a plan or intention that has not happened yet "
+                 "does NOT settle it (answer 'no'); only an answer to a question, a completed or cancelled "
+                 "undertaking, or an explicit outcome does."),
     "fulfils": "Does the LATER text show the earlier undertaking FULLY done/completed (not partial, not planned, not merely related)?",
     "partially_fulfils": "Does the LATER text show PART of the earlier undertaking done, with a remainder still outstanding (amounts, quantities, or explicit 'not all / rest later' language)? Full completion is NOT partial.",
     "factual_claim": "Does the quoted statement assert a biographical or historical FACT about someone or something — past events, background, possessions, losses, biography — as opposed to an intention, plan, feeling, or hypothetical?",

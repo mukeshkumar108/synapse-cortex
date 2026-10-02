@@ -23,7 +23,9 @@ items lose overlap and are dropped unless they are time-critical.
 
 import json
 import re
-from typing import Any, Dict, List, Optional
+from datetime import datetime, time, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 MAX_WARM_ITEMS = 5
 HOT_BUDGET_CHARS = 600
@@ -49,6 +51,58 @@ _TASK_INTENT_TOKENS = {
     "task", "tasks", "todo", "todos", "reminder", "reminders", "deadline",
     "list", "due", "calendar", "schedule", "planned",
 }
+
+
+USER_DAY_START_HOUR = 5
+
+# Deictic recency words. They say WHEN, not WHAT: "our call earlier" must find
+# what happened earlier today, not whichever old item shares the word "call".
+_MORNING = re.compile(r"\bthis morning\b", re.IGNORECASE)
+_AFTERNOON = re.compile(r"\bthis afternoon\b", re.IGNORECASE)
+_EARLIER_TODAY = re.compile(
+    r"\b(earlier|earlier today|today|just now|a (?:little |short )?(?:bit|while) (?:ago|back)|"
+    r"(?:a few|couple of) hours ago|this (?:morning|afternoon))\b", re.IGNORECASE)
+OUT_OF_WINDOW_PENALTY = 0.35
+
+
+def recency_window(turn_text: str, now: Optional[datetime],
+                   tz_name: str) -> Optional[Tuple[datetime, datetime]]:
+    """[start, end) in naive UTC for a deictic recency phrase, else None."""
+    if now is None or not _EARLIER_TODAY.search(turn_text or ""):
+        return None
+    try:
+        zone = ZoneInfo(tz_name)
+    except Exception:
+        zone = ZoneInfo("UTC")
+    aware = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+    local = aware.astimezone(zone)
+    day = local.date() if local.hour >= USER_DAY_START_HOUR else (local - timedelta(days=1)).date()
+    start_local = datetime.combine(day, time(USER_DAY_START_HOUR), tzinfo=zone)
+    end_local = local
+    if _MORNING.search(turn_text):
+        end_local = min(local, datetime.combine(day, time(12), tzinfo=zone))
+    elif _AFTERNOON.search(turn_text):
+        start_local = max(start_local, datetime.combine(day, time(12), tzinfo=zone))
+    to_naive = lambda value: value.astimezone(timezone.utc).replace(tzinfo=None)
+    return to_naive(start_local), to_naive(end_local)
+
+
+def _as_naive_utc(value: Any) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        parsed = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    return parsed.astimezone(timezone.utc).replace(tzinfo=None) if parsed.tzinfo else parsed
+
+
+def _item_time(item: Dict[str, Any]) -> Optional[datetime]:
+    for key in ("touched_at", "last_touched", "updated_at", "created_at"):
+        stamp = _as_naive_utc(item.get(key))
+        if stamp is not None:
+            return stamp
+    return None
 
 
 def _tokens(text: str) -> set:
@@ -130,8 +184,11 @@ class TurnWorkingSetService:
         posture: Optional[str] = None,
         conversational_operation: Optional[str] = None,
         director_hints: Optional[Dict[str, Any]] = None,
+        now: Optional[datetime] = None,
+        timezone_name: str = "Europe/London",
     ) -> Dict[str, Any]:
         hints = director_hints or {}
+        window = recency_window(turn_text, now, timezone_name)
         intent = str(hints.get("intent") or "")
         primary_act = str(hints.get("primary_act") or "")
         turn_tokens = _tokens(turn_text)
@@ -201,6 +258,8 @@ class TurnWorkingSetService:
         # touches (people/title overlap). Never the whole model.
         for item in self._world_candidates(world_model, turn_tokens):
             candidates.append(item)
+        if window is not None:
+            candidates = self._apply_recency(candidates, world_model, window)
 
         candidates.sort(key=lambda pair: -pair[0])
 
@@ -230,6 +289,9 @@ class TurnWorkingSetService:
             if kind in ("matter", "knowledge_gap"):
                 compact["depth"] = item.get("depth")
                 compact["matter_id"] = item.get("matter_id")
+            touched = _item_time(item)
+            if touched is not None:
+                compact["touched_at"] = touched.isoformat()
             item_chars = len(_serialize(compact))
             if warm_chars + item_chars > WARM_BUDGET_CHARS or len(warm) >= MAX_WARM_ITEMS:
                 dropped += 1
@@ -293,6 +355,47 @@ class TurnWorkingSetService:
                 "domains": sorted({item["kind"] for item in warm}),
             },
         }
+
+    @staticmethod
+    def _apply_recency(candidates: List[tuple], world_model: Optional[Dict[str, Any]],
+                       window: Tuple[datetime, datetime]) -> List[tuple]:
+        """A deictic "earlier/today/this morning" turn: admit what was touched in
+        the window (even with no word overlap) and demote dated items outside it."""
+        start, end = window
+        kept: List[tuple] = []
+        for score, item, kind, canonical, horizon in candidates:
+            stamp = _item_time(item)
+            if stamp is not None and not (start <= stamp < end):
+                score *= OUT_OF_WINDOW_PENALTY
+            kept.append((score, item, kind, canonical, horizon))
+        present = {str(item.get("matter_id") or item.get("id")) for _, item, *_ in kept}
+        world = world_model or {}
+        matters = world.get("matters") or {}
+        times: Dict[str, Optional[datetime]] = {}
+        for entry in list(matters.get("active") or []):
+            times[str(entry.get("id"))] = _as_naive_utc(entry.get("last_touched"))
+        for entry in list(matters.get("recently_resolved") or []):
+            times.setdefault(str(entry.get("id")), _as_naive_utc(entry.get("resolved_at")))
+        for entry in list(((world.get("recent") or {}).get("today") or {}).get("occupied") or []):
+            stamp = _as_naive_utc(entry.get("last_touched"))
+            if stamp is not None:
+                times[str(entry.get("matter_id"))] = stamp
+        titles = {str(e.get("matter_id")): e.get("title")
+                  for e in list(((world.get("recent") or {}).get("today") or {}).get("occupied") or [])}
+        titles.update({str(e.get("id")): e.get("title") for e in list(matters.get("active") or [])})
+        titles.update({str(e.get("id")): e.get("title") for e in list(matters.get("recently_resolved") or [])})
+        for matter_id, stamp in times.items():
+            if stamp is None or not (start <= stamp < end) or matter_id in present or not titles.get(matter_id):
+                continue
+            # Newer within the window ranks a hair higher; all outrank an out-of-window lexical match.
+            span = max((end - start).total_seconds(), 1.0)
+            score = 0.8 + 0.15 * ((stamp - start).total_seconds() / span)
+            item = {"title": titles[matter_id], "id": matter_id, "matter_id": matter_id,
+                    "why_relevant_now": "touched within the time the user is referring to",
+                    "status": "touched_in_window", "touched_at": stamp.isoformat(), "confidence": 0.8,
+                    "depth": f"projection matter({matter_id})"}
+            kept.append((min(0.95, score), item, "matter", False, "matters"))
+        return kept
 
     @staticmethod
     def _world_candidates(world_model: Optional[Dict[str, Any]], turn_tokens: set) -> List[tuple]:

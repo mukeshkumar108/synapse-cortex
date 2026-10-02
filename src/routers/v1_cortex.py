@@ -340,6 +340,8 @@ async def get_turn_working_set(
         posture=req.posture,
         conversational_operation=req.conversational_operation,
         director_hints=req.director_hints,
+        now=req.now,
+        timezone_name=req.timezone,
     )
     working_set["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
     return working_set
