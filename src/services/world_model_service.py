@@ -339,6 +339,92 @@ SECTION_BUILDERS = {
 }
 
 
+# ---------------------------------------------------------------------- world layer (docs/WORLD_CONTRACT.md)
+# Compact resident stubs for actors / relationships / events / narrative state + an index manifest + covered_through. Derived and rebuildable
+# like every other section; empty (and therefore invisible to old readers) when the owner has no world rows.
+_NARRATIVE = ("relationship_shift", "trust_change", "disclosure", "concealment", "rupture", "reconciliation", "emotional_state", "ambiguity",
+              "relationship_development", "repair", "perspective", "pattern")
+
+
+async def _world_fingerprint(db: AsyncSession, workspace_id: str, owner: Optional[str]) -> str:
+    from sqlalchemy import func
+    from src.models.identity import Entity, ModelEntry
+    from src.models.world import ProducerRun, WorldEvent
+    if not owner:
+        return ""
+    parts = []
+    for model, cond in ((Entity, Entity.frame_scope == owner), (WorldEvent, WorldEvent.owner_peer_id == owner),
+                        (ModelEntry, ModelEntry.owner_peer_id == owner), (ProducerRun, ProducerRun.owner_peer_id == owner)):
+        row = (await db.execute(select(func.count(), func.max(model.updated_at) if hasattr(model, "updated_at") else func.max(model.created_at))
+                                .where(model.honcho_workspace_id == workspace_id, cond))).one()
+        parts.append(f"{row[0]}:{row[1]}")
+    return "|".join(parts)
+
+
+async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional[str]) -> Dict[str, Any]:
+    import json as _json
+    from src.models.identity import Entity, EntityLink, ModelEntry, RelationshipEdge
+    from src.models.world import ProducerRun, WorldEvent, WorldLink
+    if not owner:
+        return {}
+    ents = (await db.execute(select(Entity).where(Entity.honcho_workspace_id == workspace_id, Entity.frame_scope == owner))).scalars().all()
+    events = (await db.execute(select(WorldEvent).where(
+        WorldEvent.honcho_workspace_id == workspace_id, WorldEvent.owner_peer_id == owner,
+        WorldEvent.superseded_by_id.is_(None)).order_by(WorldEvent.created_at.desc()).limit(12))).scalars().all()
+    if not ents and not events:
+        return {}
+    names = {e.id: e.display_name for e in ents}
+    ids = list(names)
+    edges = (await db.execute(select(RelationshipEdge).where(
+        RelationshipEdge.honcho_workspace_id == workspace_id, RelationshipEdge.from_entity_id.in_(ids)))).scalars().all() if ids else []
+    entries = (await db.execute(select(ModelEntry).where(
+        ModelEntry.honcho_workspace_id == workspace_id, ModelEntry.owner_peer_id == owner,
+        ModelEntry.superseded_by_id.is_(None)).order_by(ModelEntry.updated_at.desc()))).scalars().all()
+    links = (await db.execute(select(EntityLink).where(EntityLink.honcho_workspace_id == workspace_id,
+                                                      EntityLink.entity_id.in_(ids)))).scalars().all() if ids else []
+    wlinks = (await db.execute(select(WorldLink).where(WorldLink.honcho_workspace_id == workspace_id,
+                                                      WorldLink.to_type == "relationship"))).scalars().all()
+    by_event = {ev.id: ev for ev in events}
+    narrative_rows = [e for e in entries if e.claim_kind in _NARRATIVE]
+    edge_states: Dict[Any, List[str]] = {}
+    entry_by_id = {e.id: e for e in entries}
+    for wl in wlinks:
+        entry = entry_by_id.get(wl.from_id)
+        if entry is not None and entry.claim_kind in _NARRATIVE:
+            edge_states.setdefault(wl.to_id, []).append(entry.claim[:110])
+    actors = []
+    for e in ents:
+        mine = [x for x in entries if x.subject_entity_id == e.id and x.claim_kind not in _NARRATIVE and x.epistemic_status != "superseded"]
+        rel = [f"{ed.role} of {names.get(ed.to_entity_id) if ed.from_entity_id == e.id else names.get(ed.from_entity_id)}"
+               for ed in edges if e.id in (ed.from_entity_id, ed.to_entity_id)]
+        event_ids = [l.object_id for l in links if l.entity_id == e.id and l.object_type == "event" and l.object_id in by_event]
+        last = max((by_event[i] for i in event_ids), key=lambda ev: ev.created_at, default=None)
+        matters = len({l.object_id for l in links if l.entity_id == e.id and l.object_type == "matter"})
+        actors.append({"ref": str(e.id), "name": e.display_name, "type": e.entity_type, "provisional": e.provisional,
+                       "relations": rel[:3], "claims": [x.claim[:90] for x in sorted(mine, key=lambda x: -x.confidence)[:3]],
+                       "matters": matters, "last_event": last.label[:80] if last else None})
+    relationships = [{"ref": str(ed.id), "type": ed.role, "parties": [names.get(ed.from_entity_id), names.get(ed.to_entity_id)],
+                      "states": edge_states.get(ed.id, [])[:2]} for ed in edges]
+    ev_stubs = [{"ref": str(ev.id), "label": ev.label[:90], "kind": ev.kind, "when": ev.when_phrase, "where": ev.place, "status": ev.status,
+                 "participants": [names.get(l.entity_id) for l in links if l.object_type == "event" and l.object_id == ev.id and names.get(l.entity_id)]}
+                for ev in events]
+    narrative = [{"ref": str(x.id), "kind": x.claim_kind, "text": x.claim[:130], "formation": x.formation, "status": x.epistemic_status}
+                 for x in sorted(narrative_rows, key=lambda x: (-x.confidence, x.claim))[:8]]
+    runs = (await db.execute(select(ProducerRun).where(ProducerRun.honcho_workspace_id == workspace_id, ProducerRun.owner_peer_id == owner,
+                                                       ProducerRun.status == "applied").order_by(ProducerRun.created_at.desc()))).scalars().all()
+    covered = {}
+    for r in runs:
+        if r.producer not in covered and r.covered_through_json and r.covered_through_json != "{}":
+            covered[r.producer] = {**_json.loads(r.covered_through_json), "run_id": str(r.id), "at": r.created_at.isoformat()}
+    return {
+        "actors": actors, "relationships": relationships, "events": ev_stubs, "narrative": narrative,
+        "world_index": {"actors": [{"ref": a["ref"], "name": a["name"]} for a in actors], "events": len(events), "narrative": len(narrative_rows),
+                        "available_via": {"actor": "projection person(entity_id)", "matter": "projection matter(matter_id)",
+                                          "timeline": "projection timeline", "evidence": "Honcho message ids in evidence_refs"}},
+        "covered_through": covered,
+    }
+
+
 # ---------------------------------------------------------------------- service
 async def _latest(db: AsyncSession, scope: Scope) -> Optional[WorldModelSnapshot]:
     stmt = select(WorldModelSnapshot).where(
@@ -376,13 +462,15 @@ async def compile_world_model(db: AsyncSession, *, workspace_id: str, owner_peer
     tables = await _table_fingerprints(db, scope, now_n, timezone_str)
     fps = _section_fps(tables)
     prim_fp = _primitive_fp(tables)
+    world_fp = await _world_fingerprint(db, workspace_id, owner_peer_id)
     prev_body = json.loads(prev.snapshot_json) if prev else {}
     prev_fps = json.loads(prev.fingerprints_json) if prev else {}
     fresh_age = prev is not None and (now_n - prev.compiled_at) < timedelta(hours=TTL_HOURS) \
         and (now_n - prev.compiled_at) >= timedelta(0)
     stale = list(SECTION_BUILDERS) if (force or prev is None or not fresh_age) else [
         s for s in SECTION_BUILDERS if prev_fps.get(s) != fps[s] or s not in prev_body]
-    if prev is not None and not stale:
+    world_changed = prev is not None and prev_fps.get("_world", "") != world_fp
+    if prev is not None and not stale and not world_changed:
         return _envelope(prev, "fresh", [])
 
     sync_stats = None
@@ -405,6 +493,7 @@ async def compile_world_model(db: AsyncSession, *, workspace_id: str, owner_peer
     body: Dict[str, Any] = {k: v for k, v in prev_body.items() if k not in stale and k in SECTION_BUILDERS}
     for name in stale:
         body[name] = SECTION_BUILDERS[name](projections)
+    body.update(await build_world_layer(db, workspace_id, owner_peer_id))
     body["meta"] = {
         "model_version": WORLD_MODEL_VERSION, "scope": {"workspace_id": workspace_id, "owner_peer_id": owner_peer_id},
         "timezone": timezone_str, "user_day": reader.day.today.isoformat(),
@@ -417,7 +506,7 @@ async def compile_world_model(db: AsyncSession, *, workspace_id: str, owner_peer
         honcho_workspace_id=workspace_id, owner_peer_id=owner_peer_id,
         version=(prev.version + 1) if prev else 1, compiled_at=now_n,
         snapshot_json=json.dumps(body, default=str),
-        fingerprints_json=json.dumps({**fps, "_primitives": _primitive_fp(tables)}))
+        fingerprints_json=json.dumps({**fps, "_primitives": _primitive_fp(tables), "_world": world_fp}))
     db.add(snap)
     await db.flush()
     if prev is not None:

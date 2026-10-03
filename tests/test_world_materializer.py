@@ -211,3 +211,49 @@ async def test_a_failing_judge_fails_open_without_losing_candidates():
         raise RuntimeError("model down")
     receipt = await run(judge=judge)
     assert receipt["counts"]["claims_written"] >= 4 and not [r for r in receipt["rejected"] if r["reason"].startswith("judge")]
+
+
+# ----------------------------------------------------------------------------- resident snapshot / index / receipt / endpoint
+@pytest.mark.asyncio
+async def test_the_resident_snapshot_gets_actor_relationship_event_and_narrative_stubs_with_covered_through():
+    from src.services import world_model_service
+    async with async_session_maker() as db:
+        receipt = await materialize(db, audrey_delta(), compile_snapshot=True)
+    assert receipt["snapshot_version"] and receipt["snapshot_version"] >= 1
+    async with async_session_maker() as db:
+        snap = await world_model_service.compile_world_model(db, workspace_id=WS, owner_peer_id=OWNER, now=None or __import__("datetime").datetime(2026, 10, 3, 12, 0),
+                                                             timezone_str="UTC", session_id="chat_A")
+    actors = {a["name"]: a for a in snap["actors"]}
+    assert set(actors) == {"Audrey", "Kai", "Daniel"}
+    assert actors["Audrey"]["type"] == "character" and any("partners" in r for r in actors["Audrey"]["relations"])
+    assert actors["Audrey"]["last_event"] and actors["Audrey"]["matters"] >= 1                         # stub carries its latest event and its Matter count
+    assert actors["Daniel"]["provisional"] is True and any("coworker" in c for c in actors["Daniel"]["claims"])
+    rel = snap["relationships"][0]
+    assert sorted(rel["parties"]) == ["Audrey", "Kai"] and any("trust" in s for s in rel["states"])      # relationship STATE comes from narrative claims
+    assert {e["label"] for e in snap["events"]} == {"night at the work conference in Bristol", "night after the office party"}
+    assert {n["kind"] for n in snap["narrative"]} >= {"disclosure", "trust_change"}
+    assert all(n["kind"] != "self_expression" for n in snap["narrative"])
+    idx = snap["world_index"]
+    assert {a["name"] for a in idx["actors"]} == {"Audrey", "Kai", "Daniel"} and "evidence" in idx["available_via"]
+    assert snap["covered_through"]["runtime-checkpoint"]["message_id"] == "m8"
+    assert len(json.dumps({k: snap[k] for k in ("actors", "relationships", "events", "narrative", "world_index")})) < 6000   # compact enough to live in Runtime
+
+
+@pytest.mark.asyncio
+async def test_old_readers_are_unaffected_when_an_owner_has_no_world_rows():
+    from src.services import world_model_service
+    async with async_session_maker() as db:
+        snap = await world_model_service.compile_world_model(db, workspace_id="ws-empty", owner_peer_id="user_nobody",
+                                                             now=__import__("datetime").datetime(2026, 10, 3, 12, 0), timezone_str="UTC")
+    assert "actors" not in snap and "world_index" not in snap and "matters" in snap
+
+
+@pytest.mark.asyncio
+async def test_the_endpoint_returns_a_receipt_and_rejects_malformed_deltas(async_client):
+    body = audrey_delta().model_dump()
+    r = await async_client.post("/v1/world/delta", json=body)
+    assert r.status_code == 200, r.text
+    receipt = r.json()
+    assert receipt["covered_through"]["message_id"] == "m8" and receipt["counts"]["actors_created"] == 3 and receipt["refs"]["mc1"]["type"] == "matter"
+    bad = dict(body); bad["claims"] = [{**body["claims"][0], "evidence": []}]
+    assert (await async_client.post("/v1/world/delta", json=bad)).status_code == 422                       # no evidence => rejected at the door
