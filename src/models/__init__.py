@@ -75,3 +75,5 @@ __all__ = [
 # point; see src/services/actor_direction.py).
 from src.services.actor_direction import register_stamping as _register_direction_stamping  # noqa: E402
 _register_direction_stamping()
+
+from src.models.world import ProducerRun, RowProvenance, WorldEvent, WorldLink

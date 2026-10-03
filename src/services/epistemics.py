@@ -48,7 +48,13 @@ STATUSES = ("current", "uncertain", "conflicting", "stale", "superseded")
 CLAIM_KINDS = frozenset({
     "matter_summary", "pattern", "observation", "relationship_development",
     "repair", "perspective", "user_model", "correction", "decision",
+    # World contract (docs/WORLD_CONTRACT.md): propositions about actors/events, commitments held by actors, and typed narrative state.
+    # Narrative kinds are interpretations: they ride the same firmness ladder and never silently become hard facts.
+    "assertion", "attribute", "commitment",
+    "relationship_shift", "trust_change", "disclosure", "concealment", "rupture", "reconciliation", "emotional_state", "ambiguity",
 })
+NARRATIVE_KINDS = frozenset({"relationship_shift", "trust_change", "disclosure", "concealment", "rupture", "reconciliation",
+                             "emotional_state", "ambiguity", "relationship_development", "repair", "perspective", "pattern"})
 STALE_AFTER_DAYS_FIRM = 365
 STALE_AFTER_DAYS_SOFT = 120
 UNCERTAIN_BELOW = 0.5
