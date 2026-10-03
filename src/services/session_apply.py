@@ -43,9 +43,18 @@ ATTENTION_CAP_PER_RUN = 5
 EXTRACTOR_VERSION = "session-consolidation-v1"
 
 
-def apply_enabled() -> bool:
+APPLY_OWNER_PREFIXES_ENV = "SESSION_CONSOLIDATION_APPLY_OWNER_PREFIXES"
+
+
+def apply_enabled(owner: Optional[str] = None) -> bool:
+    """Global switch (SESSION_CONSOLIDATION_APPLY=1), or scoped enablement: apply for owners whose peer id starts with one of the
+    comma-separated prefixes in SESSION_CONSOLIDATION_APPLY_OWNER_PREFIXES (for example `world:` = RPD2's per-chat worlds), leaving
+    every other owner (a real person's world) untouched."""
     import os
-    return os.getenv(APPLY_ENABLED_ENV, "0") == "1"
+    if os.getenv(APPLY_ENABLED_ENV, "0") == "1":
+        return True
+    prefixes = [p.strip() for p in os.getenv(APPLY_OWNER_PREFIXES_ENV, "").split(",") if p.strip()]
+    return bool(owner and prefixes and any(str(owner).startswith(p) for p in prefixes))
 
 
 def _stable_key(*parts: str) -> str:

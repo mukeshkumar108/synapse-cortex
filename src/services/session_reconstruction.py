@@ -876,7 +876,7 @@ async def consolidate_long_session(
         aggregate["would_apply"].extend(result.would_apply)
         seg_applied: list = []
         seg_deferred: list = []
-        if can_apply and apply_enabled():
+        if can_apply and apply_enabled(user_peer_id):
             report = await apply_reconstruction(
                 db, workspace_id=workspace_id, session_id=session_id,
                 result=result, user_peer_id=user_peer_id or "user",
@@ -1247,7 +1247,7 @@ async def retry_long_session(
     authoritative = await capture_snapshot(
         db, workspace_id=workspace_id, session_id=session_id)
     effective_mode = prior_info["mode"]
-    if effective_mode == "apply" and not apply_enabled():
+    if effective_mode == "apply" and not apply_enabled(user_peer_id):
         effective_mode = "shadow"
     aggregate = await consolidate_long_session(
         db, workspace_id=workspace_id, session_id=session_id,

@@ -289,7 +289,7 @@ async def consolidate(
     # partial completion is reported via completion + failed_segments, never
     # by relabeling applied state as shadow.
     if want_apply:
-        if apply_enabled():
+        if apply_enabled(payload.user_peer_id):
             effective_mode = "apply"
         else:
             apply_note = "apply_requested_but_disabled"
