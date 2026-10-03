@@ -37,6 +37,7 @@ class DeltaSource(_Item):
     session_id: str
     messages: List[Message] = Field(default_factory=list)      # optional grounding material (verbatim text of the cited messages)
     covered_through: Optional[CoveredThrough] = None
+    policy: Literal["grounded", "generative"] = "generative"        # product epistemics: grounded = facts the companion merely asserts are not world truth
     owner_actor: Optional[str] = None                          # ref of the actor that IS the owner's own character in this world
     speaker_actors: Dict[str, str] = Field(default_factory=dict)   # speaker -> actor ref (deterministic attribution repair)
 

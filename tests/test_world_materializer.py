@@ -363,3 +363,67 @@ async def test_continuation_projection_is_structured_traceable_and_names_what_is
     assert c["active_intent"]["trajectory_note"]["label"] == "interpretation"
     assert any(o["text"] == "stay close to Kai" for o in c["active_intent"]["objectives"])
     assert c["manifest"]["unresolved"] and c["manifest"]["objectives"] == 4
+
+
+@pytest.mark.asyncio
+async def test_concealment_never_lets_the_other_party_be_assumed_aware_and_matter_title_is_canonical():
+    from src.models.world import RelationshipDimension
+    d = lila_delta()
+    body = d.model_dump()
+    body["dimensions"] = [x for x in body["dimensions"] if x["dimension"] != "awareness"]      # the producer forgot the asymmetry
+    body["matter_candidates"] = [{"ref": "mc1", "concept": "infidelity", "display_title": "Lila's infidelity", "kind": "topic", "actors": ["l", "k"],
+                                  "members": ["n1"], "evidence": ["m3"]}]
+    receipt = await run(WorldDelta(**body))
+    assert receipt["counts"].get("awareness_derived") == 1
+    dims = await all_rows(RelationshipDimension, honcho_workspace_id=WS)
+    aware = [x for x in dims if x.dimension == "awareness"]
+    ents = {e.id: e.display_name for e in await all_rows(Entity, honcho_workspace_id=WS)}
+    assert len(aware) == 1 and ents[aware[0].from_entity_id] == "Kai" and aware[0].value == "not established"      # Kai, not Lila
+    titles = [m.title for m in await all_rows(Matter, honcho_workspace_id=WS)]
+    assert any(t.endswith(": concealed strain") for t in titles) and "Lila's infidelity" not in titles
+
+
+def sophie_delta(policy="grounded") -> WorldDelta:
+    msgs = [
+        {"id": "m1", "speaker": "user", "text": "My sister Maya lives in Leeds. I'm heading to the gym after work."},
+        {"id": "m2", "speaker": "assistant", "text": "Ah yes, your brother Tom in Bristol must be proud of the Bluum launch."},
+        {"id": "m3", "speaker": "user", "text": "Bluum is the app I'm building; I need to ship the onboarding flow by Friday."},
+    ]
+    return WorldDelta(**{
+        "workspace_id": WS, "owner": "person:sam",
+        "source": {"producer": "runtime-checkpoint", "model": "t", "session_id": "chat_S", "messages": msgs, "policy": policy,
+                   "owner_actor": "u", "speaker_actors": {"user": "u", "assistant": "s"}, "covered_through": {"message_id": "m3", "ordinal": 3}},
+        "actors": [{"ref": "u", "name": "Sam", "entity_type": "person", "explicit": True, "evidence": ["m1"]},
+                   {"ref": "s", "name": "Sophie", "entity_type": "character", "explicit": True, "evidence": ["m2"]},
+                   {"ref": "maya", "name": "Maya", "entity_type": "person", "explicit": True, "evidence": ["m1"]}],
+        "events": [{"ref": "e1", "label": "going to the gym after work", "kind": "activity", "participants": ["u"], "holder": "u", "formation": "explicit", "evidence": ["m1"]}],
+        "claims": [
+            {"ref": "c1", "subject": "maya", "text": "Maya is Sam's sister and lives in Leeds", "predicate": "lives_in", "holder": "u", "formation": "explicit", "evidence": ["m1"]},
+            {"ref": "c2", "subject": "u", "text": "Sam has a brother named Tom in Bristol", "predicate": "sibling", "holder": "s", "formation": "explicit", "evidence": ["m2"]}],
+        "commitments": [{"ref": "k1", "committer": "u", "text": "ship the Bluum onboarding flow by Friday", "tentative": False, "evidence": ["m3"]}],
+        "matter_candidates": [
+            {"ref": "mc1", "concept": "bluum", "display_title": "Bluum", "kind": "project", "actors": ["u"], "members": ["k1"], "evidence": ["m3"]}],
+    })
+
+
+@pytest.mark.asyncio
+async def test_grounded_acceptance_person_without_matter_activity_as_event_hallucination_not_truth_and_one_project_matter():
+    receipt = await run(sophie_delta())
+    ents = {e.display_name: e for e in await all_rows(Entity, honcho_workspace_id=WS)}
+    assert "Maya" in ents and not await all_rows(Matter, honcho_workspace_id=WS, kind="person")     # a person needs no Matter
+    entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
+    assert entries["Maya is Sam's sister and lives in Leeds"].formation == "explicit"                  # stable biography = claim from the user
+    tom = entries["Sam has a brother named Tom in Bristol"]
+    assert tom.formation == "hypothesis" and tom.epistemic_status == "uncertain" and tom.confidence <= 0.3   # the companion's assertion is not user-world truth
+    assert receipt["counts"]["assistant_assertions_downgraded"] == 1
+    events = {e.label: e for e in await all_rows(WorldEvent, honcho_workspace_id=WS)}
+    assert "going to the gym after work" in events                                                      # transient activity = Event, not a Matter
+    matters = await all_rows(Matter, honcho_workspace_id=WS)
+    assert [m.title for m in matters if m.kind == "project"] == ["Bluum"] and len(matters) == 1
+
+
+@pytest.mark.asyncio
+async def test_generative_policy_keeps_the_companions_invented_detail_as_canon():
+    await run(sophie_delta("generative"))
+    entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
+    assert entries["Sam has a brother named Tom in Bristol"].formation == "explicit"

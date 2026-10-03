@@ -82,6 +82,7 @@ class _Ctx:
         self.refs: Dict[str, Dict[str, str]] = {}
         self.matters: List[Any] = []
         self.objectives: Dict[str, WorldObjective] = {}
+        self.entities_by_id: Dict[Any, Entity] = {}
         self.rel_entries: Dict[Any, List[ModelEntry]] = {}
         self.rel_edges: Dict[Any, Any] = {}
         self.counts: Dict[str, int] = {}
@@ -143,6 +144,16 @@ def _repair_holder(ctx: _Ctx, item: Any, holder: Optional[str]) -> Optional[str]
     return holder
 
 
+def _assistant_asserted(ctx: _Ctx, item: Any, holder: Optional[str]) -> bool:
+    """Grounded products: something only the COMPANION said about the world is not the user's world. (The companion's own commitments and
+    perspective are handled elsewhere; this is about facts it asserts about the user's life or third parties.)"""
+    if ctx.delta.source.policy != "grounded":
+        return False
+    assistant = ctx.delta.source.speaker_actors.get("assistant")
+    subject = getattr(item, "subject", None)
+    return bool(assistant) and holder == assistant and subject != assistant
+
+
 # ----------------------------------------------------------------------------- materialisation steps
 async def _actors(ctx: _Ctx) -> None:
     for a in ctx.delta.actors:
@@ -177,6 +188,7 @@ async def _actors(ctx: _Ctx) -> None:
         ctx.db.add(ent)
         await ctx.db.commit()
         ctx.entities[a.ref] = ent
+        ctx.entities_by_id[ent.id] = ent
         ctx.refs[a.ref] = {"type": "entity", "id": str(ent.id)}
         await ctx.prov("entity", ent.id)
         ctx.count("actors_created" if created else "actors_linked")
@@ -366,11 +378,16 @@ async def _claims(ctx: _Ctx, verdicts: Dict[str, Dict[str, Any]]) -> None:
             ctx.reject(c.ref, "quote_not_proposition")
             continue
         formation = v.get("formation") or c.formation
-        holder = ctx.holder_name(_repair_holder(ctx, c, c.holder))
+        holder_ref = _repair_holder(ctx, c, c.holder)
+        holder = ctx.holder_name(holder_ref)
+        capped = _assistant_asserted(ctx, c, holder_ref)
+        if capped:                                           # stays on the record as the companion's own statement, never as established fact
+            formation = "hypothesis"
+            ctx.count("assistant_assertions_downgraded")
         kind = "attribute" if c.predicate and c.subject in ctx.entities else "assertion"
         entry = await _write(ctx, ref=c.ref, subject=c.subject, text=c.text, claim_kind=kind, holder=holder, formation=formation,
-                             confidence=c.confidence if v.get("action") != "downgrade" else min(c.confidence, 0.5), evidence=c.evidence,
-                             supersedes=c.supersedes)
+                             confidence=min(c.confidence, 0.3) if capped else (c.confidence if v.get("action") != "downgrade" else min(c.confidence, 0.5)),
+                             evidence=c.evidence, supersedes=c.supersedes, status="uncertain" if capped else None)
         if entry is not None:
             ctx.count("claims_written")
 
@@ -378,6 +395,13 @@ async def _claims(ctx: _Ctx, verdicts: Dict[str, Dict[str, Any]]) -> None:
 async def _attach_to_relationship(ctx: _Ctx, n: Any, entry: ModelEntry, holder: Optional[str]) -> None:
     """Relational narrative belongs to the shared relationship (directional facets hang beneath it): find the edge between the actors involved,
     else between the single involved actor and the owner's own character."""
+    direct = next((ctx.edges[a] for a in n.about if a in ctx.edges), None)       # the producer already pointed at the relationship
+    if direct is not None:
+        ctx.rel_entries.setdefault(direct.id, []).append(entry)
+        ctx.rel_edges[direct.id] = direct
+        await ctx.link("model_entry", entry.id, "relationship", direct.id, "about")
+        await ctx.db.commit()
+        return
     involved = [ctx.entities[a] for a in n.about if a in ctx.entities]
     if holder:
         involved += [e for e in ctx.entities.values() if e.display_name == holder]
@@ -482,12 +506,20 @@ async def _matters(ctx: _Ctx, adapter: Any) -> None:
             continue
         actor_ids = {ctx.entities[a].id for a in mc.actors if a in ctx.entities}
         key = f"concept:{_slug(mc.concept)}"
+        title, upgraded = mc.display_title[:200], False
+        if kind in ("topic", "concern", "other") and len(actor_ids) == 2 and any(e.claim_kind in RELATIONAL_KINDS for e in member_entries):
+            kind, upgraded = "relationship_situation", True                       # what continues is the relationship's state, not the model's topic label
         if kind == "relationship_situation" and len(actor_ids) == 2:
             ids = list(actor_ids)
             edge = await _edge_between(ctx, ids[0], ids[1])
             if edge is not None:
                 key = _relationship_matter_key(ctx, edge)
-        items.append({"ref": mc.ref, "title": mc.display_title[:200], "kind": kind, "key": key, "entries": member_entries,
+                kinds = {e.claim_kind for e in member_entries}
+                label = next((RELATIONAL_LABEL[k] for k in RELATIONAL_PRIORITY if k in kinds), "relationship")
+                names = [ctx.entities_by_id[x].display_name for x in (edge.from_entity_id, edge.to_entity_id) if x in ctx.entities_by_id]
+                if len(names) == 2 and upgraded:
+                    title = f"{names[0]} and {names[1]}: {label}"
+        items.append({"ref": mc.ref, "title": title, "kind": kind, "key": key, "entries": member_entries,
                       "events": [ctx.events[m] for m in mc.members if m in ctx.events], "actors": actor_ids})
     taken = {i["key"] for i in items}
     for edge_id, entries in ctx.rel_entries.items():           # relational state that needs continuity gets its relationship Matter even if no candidate asked
@@ -596,6 +628,37 @@ async def _objectives(ctx: _Ctx) -> None:
         ids = [("constitution" if c == "constitution" else str(ctx.objectives[c].id)) for c in o.conflicts_with if c == "constitution" or c in ctx.objectives]
         row.conflicts_json = json.dumps(ids)
         ctx.db.add(row)
+    await ctx.db.commit()
+
+
+async def _derive_awareness(ctx: _Ctx) -> None:
+    """Concealment implies an asymmetry that must never be assumed away: when the narrative says X is concealing something from Y (a relationship
+    with a concealment entry), and no awareness facet exists for Y, record Y's awareness as 'not established' (inferred, evidence = the narrative's)."""
+    for edge_id, entries in ctx.rel_entries.items():
+        concealments = [e for e in entries if e.claim_kind == "concealment"]
+        if not concealments:
+            continue
+        edge = ctx.rel_edges[edge_id]
+        for entry in concealments:
+            concealer = next((x for x in (edge.from_entity_id, edge.to_entity_id)
+                              if (ctx.entities_by_id.get(x) is not None and ctx.entities_by_id[x].display_name == entry.holder_actor)), None)
+            if concealer is None:                                  # holder is the model: the concealer is whoever the narrative text names first
+                text = _norm(entry.claim)
+                named = sorted(((text.find(_norm(ctx.entities_by_id[x].display_name)), x) for x in (edge.from_entity_id, edge.to_entity_id)
+                                if ctx.entities_by_id.get(x) is not None and _norm(ctx.entities_by_id[x].display_name) in text))
+                concealer = named[0][1] if named else None
+            if concealer is None:
+                continue
+            other = edge.to_entity_id if concealer == edge.from_entity_id else edge.from_entity_id
+            exists = (await ctx.db.execute(select(RelationshipDimension.id).where(
+                RelationshipDimension.honcho_workspace_id == ctx.ws, RelationshipDimension.edge_id == edge.id, RelationshipDimension.from_entity_id == other,
+                RelationshipDimension.dimension == "awareness", RelationshipDimension.superseded_by_id.is_(None)))).first()
+            if exists:
+                continue
+            ctx.db.add(RelationshipDimension(
+                honcho_workspace_id=ctx.ws, owner_peer_id=ctx.owner, edge_id=edge.id, from_entity_id=other, to_entity_id=concealer, dimension="awareness",
+                value="not established", formation="inferred", confidence=0.6, evidence_refs_json=entry.evidence_refs_json, run_id=ctx.run.id))
+            ctx.count("awareness_derived")
     await ctx.db.commit()
 
 
@@ -748,6 +811,7 @@ async def materialize(db: AsyncSession, delta: WorldDelta, *, now: Optional[date
     await _constitution(ctx)
     await _objectives(ctx)
     await _dimensions(ctx)
+    await _derive_awareness(ctx)
     await _matters(ctx, adapter)
     await _reconcile(ctx, note_writer)
     snapshot_version = None
