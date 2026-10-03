@@ -29,6 +29,7 @@ CLARIFICATION_MAX_AGE_HOURS = 168  # 7 days
 TASK_EVENT_HORIZON_HOURS = 48
 EVENT_IMMINENT_MINUTES = 60
 REMINDER_SURFACE_MAX = 1
+LAPSED_OVERDUE_DAYS = 7           # an app task overdue longer than this is "lapsed", not live pressure
 # Ordinary conversational expectations are useful shortly after their window,
 # not forever. Historical rows remain inspectable; this only bounds foreground
 # and proactive eligibility.
@@ -910,7 +911,11 @@ class AttentionStateService:
             overdue = bool(due_at and now_utc > due_at)
             # Overdue outranks an open reminder window: past the due date the
             # honest state is 'overdue', not 'reminder_due'.
-            if overdue:
+            # An app task left open this long past its due date is not a live ask: the honest state is "lapsed"
+            # (the app still owns the task; Cortex just stops presenting a month-old miss as current pressure).
+            if overdue and (now_utc - due_at) > timedelta(days=LAPSED_OVERDUE_DAYS):
+                state = "lapsed"
+            elif overdue:
                 state = "overdue"
             elif active_window is not None:
                 state = "reminder_due"
@@ -968,7 +973,7 @@ class AttentionStateService:
                 "reminder_surfaced": reminder_surfaced,
                 "created_at": exp.created_at.isoformat(),
             })
-        priority = {"reminder_due": 0, "overdue": 1, "upcoming": 2}
+        priority = {"reminder_due": 0, "overdue": 1, "upcoming": 2, "lapsed": 3}
         items.sort(
             key=lambda item: (
                 priority.get(item["state"], 9),

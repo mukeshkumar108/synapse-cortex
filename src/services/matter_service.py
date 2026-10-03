@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # --- policy constants (documented, not tuned per scenario) -------------------
 RECENT_TERMINAL_DAYS = 14        # a recently settled primitive may still found a (resolved) Matter
 HISTORY_HORIZON_DAYS = 120       # older terminal primitives never found Matters
+LAPSED_EXPECTATION_HOURS = 36    # an unresolved expectation whose window passed this long ago is no longer "live" (it rests as dormant)
 DORMANT_AFTER_DAYS = 21          # no live primitive and untouched this long -> dormant
 ARCHIVE_RESOLVED_AFTER_DAYS = 90
 ARCHIVE_DORMANT_AFTER_DAYS = 180
@@ -164,9 +165,16 @@ def describe(object_type: str, row: Any, now: datetime) -> Optional[PrimitiveRef
         etype = _val(row.expectation_type)
         kind = {"planned_event": "life_situation", "user_intention": "goal",
                 "user_commitment": "goal"}.get(etype, "topic")
+        lapsed = False
+        if outcome == "unknown":
+            from src.services.expectation_engine import derive_temporal_state
+            from src.models.expectation import TemporalState
+            if derive_temporal_state(row, now) in (TemporalState.WINDOW_ELAPSED, TemporalState.DEADLINE_PASSED):
+                anchor = _naive(getattr(row, "hard_deadline_at", None)) or _naive(getattr(row, "expected_window_end", None)) or created
+                lapsed = bool(anchor and (now - anchor) > timedelta(hours=LAPSED_EXPECTATION_HOURS))
         return finish(PrimitiveRef(
             "expectation", row.id, row, row.title, f"{row.title}. {row.summary}", kind,
-            live=outcome == "unknown",
+            live=outcome == "unknown" and not lapsed,
             terminal=outcome in ("fulfilled", "cancelled", "superseded"),
             touched_at=touched, created_at=created, message_id=row.honcho_message_id,
             candidate_key=row.candidate_key, session_id=row.honcho_session_id,

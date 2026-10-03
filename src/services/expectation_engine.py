@@ -3,6 +3,13 @@ from typing import Dict, Any
 from src.models.expectation import Expectation, TemporalState, OutcomeState
 
 
+# A relative phrase ("in 5 mins", "now", "later") is only meaningful near the moment it was said. With no explicit window
+# to anchor it, it used to read "not due" forever: a 40-day-old "on the bus, arriving in 5 minutes" stayed an active
+# expectation. Past this age it is history (the window elapsed unobserved). Open-ended plans with NO time phrase (a decision
+# to make, a goal) are not time-bound and stay open.
+UNANCHORED_STALE_HOURS = 36
+
+
 def derive_temporal_state(expectation: Expectation, now: datetime) -> TemporalState:
     """
     Pure deterministic function calculating temporal state relative to `now`.
@@ -53,7 +60,14 @@ def derive_temporal_state(expectation: Expectation, now: datetime) -> TemporalSt
     if window_start and now_cmp < window_start:
         return TemporalState.NOT_DUE
 
-    # 5. Ungrounded relational phrase
+    # 5. Ungrounded relational phrase / open-ended plan: only live near the moment it was said.
+    created = expectation.created_at
+    if created is not None and created.tzinfo is not None:
+        created = created.astimezone(timezone.utc).replace(tzinfo=None)
+    stale = bool(created and expectation.raw_temporal_phrase and not window_start and not window_end and not hard_deadline
+                 and (now_cmp - created) > timedelta(hours=UNANCHORED_STALE_HOURS))
+    if stale:
+        return TemporalState.WINDOW_ELAPSED
     if expectation.raw_temporal_phrase and not window_start and not hard_deadline:
         return TemporalState.NOT_DUE
 
