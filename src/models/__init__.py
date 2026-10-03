@@ -76,4 +76,4 @@ __all__ = [
 from src.services.actor_direction import register_stamping as _register_direction_stamping  # noqa: E402
 _register_direction_stamping()
 
-from src.models.world import ProducerRun, RowProvenance, WorldEvent, WorldLink
+from src.models.world import ProducerRun, RelationshipDimension, RowProvenance, TrajectoryNote, WorldEvent, WorldLink, WorldObjective

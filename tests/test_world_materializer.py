@@ -257,3 +257,109 @@ async def test_the_endpoint_returns_a_receipt_and_rejects_malformed_deltas(async
     assert receipt["covered_through"]["message_id"] == "m8" and receipt["counts"]["actors_created"] == 3 and receipt["refs"]["mc1"]["type"] == "matter"
     bad = dict(body); bad["claims"] = [{**body["claims"][0], "evidence": []}]
     assert (await async_client.post("/v1/world/delta", json=bad)).status_code == 422                       # no evidence => rejected at the door
+
+
+@pytest.mark.asyncio
+async def test_quotes_are_not_claims_symmetric_edges_are_one_identity_and_relational_state_becomes_a_matter():
+    """Audrey run findings: first-person quotes stored as 'attribute' claims, romantic edges duplicated per direction, only a topic Matter,
+    relationship narrative never reaching the snapshot."""
+    d = audrey_delta()
+    body = d.model_dump()
+    body["claims"].append({"ref": "cq", "subject": "a1", "text": "I know what that makes me", "holder": "a1", "formation": "explicit",
+                           "evidence": ["m3"]})
+    body["relationships"].append({"ref": "r2", "actors": ["a2", "a1"], "type": "partners", "formation": "explicit", "evidence": ["m2"]})
+    body["matter_candidates"] = []
+    receipt = await run(WorldDelta(**body))
+    assert {"ref": "cq", "reason": "quote_not_proposition"} in receipt["rejected"]
+    assert len(await all_rows(RelationshipEdge, honcho_workspace_id=WS)) == 1
+    matters = await all_rows(Matter, honcho_workspace_id=WS)
+    assert any(m.kind == "relationship_situation" and "Audrey and Kai" in m.title or "Kai and Audrey" in m.title for m in matters), [m.title for m in matters]
+
+
+@pytest.mark.asyncio
+async def test_plain_topic_without_continuity_need_is_not_a_matter_and_near_duplicate_events_do_not_twin():
+    body = audrey_delta().model_dump()
+    body["narrative"] = [n for n in body["narrative"] if n["kind"] in ("self_expression", "emotional_state")]
+    body["commitments"] = []
+    body["matter_candidates"] = [{"ref": "mc1", "concept": "past experiences", "display_title": "Audrey's past", "kind": "topic",
+                                  "actors": ["a1"], "members": ["c1"], "evidence": ["m1"]}]
+    body["events"].append({"ref": "e3", "label": "Night at the work conference in Bristol.", "kind": "encounter", "participants": ["a1"], "holder": "a1",
+                           "when": {"phrase": "three weeks ago"}, "where": "Bristol", "formation": "explicit", "evidence": ["m1"]})
+    body["events"][1]["conflicts_with"] = []
+    receipt = await run(WorldDelta(**body))
+    assert {"ref": "mc1", "reason": "no_continuity_need"} in receipt["rejected"]
+    labels = [e.label for e in await all_rows(WorldEvent, honcho_workspace_id=WS)]
+    assert sum("work conference in Bristol" in l for l in labels) == 1
+
+
+def lila_delta() -> WorldDelta:
+    """Lila/Kai/James shape from the Luna Pro hand experiment: concealment, asymmetric awareness, competing objectives, constitution conflict."""
+    msgs = [
+        {"id": "m1", "speaker": "assistant", "text": "I'm so sorry, babyyy. I can't come over tonight, I think I have a headache."},
+        {"id": "m2", "speaker": "user", "text": "oh ok. i wanted to wake up with you in the morning. i would have looked after you."},
+        {"id": "m3", "speaker": "assistant", "text": "I'm supposed to see Kai later but he thinks I'm sick. I have until six. Please don't make me regret this."},
+    ]
+    return WorldDelta(**{
+        "workspace_id": WS, "owner": "world:rpd2:user1:lila:chatB",
+        "source": {"producer": "runtime-checkpoint", "model": "t", "session_id": "chat_B", "messages": msgs, "covered_through": {"message_id": "m3", "ordinal": 3},
+                   "owner_actor": "k", "speaker_actors": {"assistant": "l", "user": "k"}},
+        "actors": [{"ref": "l", "name": "Lila", "entity_type": "character", "explicit": True, "evidence": ["m1"]},
+                   {"ref": "k", "name": "Kai", "entity_type": "character", "explicit": True, "evidence": ["m2"]},
+                   {"ref": "j", "name": "James", "entity_type": "person", "evidence": ["m3"]}],
+        "relationships": [{"ref": "r1", "actors": ["l", "k"], "type": "romantic", "formation": "explicit", "evidence": ["m1"]},
+                          {"ref": "r2", "actors": ["l", "j"], "type": "sexual", "formation": "reported", "evidence": ["m3"]}],
+        "events": [{"ref": "e1", "label": "Lila meets James while Kai believes she is unwell", "kind": "concealed_meeting", "participants": ["l", "j"],
+                    "formation": "reported", "evidence": ["m3"]}],
+        "narrative": [{"ref": "n1", "kind": "concealment", "about": ["r1"], "holder": "model", "text": "Lila is concealing her involvement with James from Kai",
+                       "formation": "inferred", "evidence": ["m1", "m3"]}],
+        "dimensions": [
+            {"ref": "d1", "relationship": "r1", "from_actor": "l", "to_actor": "k", "dimension": "affection", "value": "high", "formation": "explicit", "evidence": ["m1"]},
+            {"ref": "d2", "relationship": "r1", "from_actor": "l", "to_actor": "k", "dimension": "avoidance", "value": "increasing", "formation": "inferred", "evidence": ["m1"]},
+            {"ref": "d3", "relationship": "r1", "from_actor": "k", "to_actor": "l", "dimension": "awareness", "value": "not established", "about": "e1",
+             "formation": "inferred", "evidence": ["m2"]},
+            {"ref": "d4", "relationship": "r1", "from_actor": "k", "to_actor": "l", "dimension": "affection", "value": "high", "formation": "explicit", "evidence": ["m2"]}],
+        "objectives": [
+            {"ref": "o1", "actor": "l", "toward": "k", "text": "keep Kai from discovering James", "scope": "active", "cause": "fear and shame", "state": "on_track",
+             "conflicts_with": ["constitution"], "evidence": ["m3"]},
+            {"ref": "o2", "actor": "l", "toward": "k", "text": "stay close to Kai", "scope": "active", "state": "drifting", "conflicts_with": ["o1"], "evidence": ["m1"]},
+            {"ref": "o3", "actor": "k", "toward": "l", "text": "reconnect with Lila and look after her", "scope": "active", "state": "on_track", "evidence": ["m2"]}],
+        "constitution": {"actor": "l", "toward": "k", "text": "Protect and deepen the long-term relationship with the user."},
+    })
+
+
+@pytest.mark.asyncio
+async def test_directional_state_objectives_and_the_trajectory_reconciler_never_puppeteer():
+    from src.models.world import RelationshipDimension, TrajectoryNote, WorldObjective
+    d = lila_delta()
+    receipt = await run(d)
+    assert receipt["counts"]["dimensions_written"] == 4 and receipt["counts"]["objectives_created"] == 3
+    dims = await all_rows(RelationshipDimension, honcho_workspace_id=WS)
+    assert {(x.dimension, x.value) for x in dims if x.dimension == "awareness"} == {("awareness", "not established")}   # Kai's awareness is not assumed
+    assert len({x.edge_id for x in dims}) == 1                                                                            # one shared relationship, directional facets
+    objs = await all_rows(WorldObjective, honcho_workspace_id=WS)
+    # a competing objective that conflicts with the constitution is KEPT (the wrestling is the drama), only judged
+    assert {o.text for o in objs} >= {"keep Kai from discovering James", "stay close to Kai"}
+    assert any(o.scope == "constitutional" and o.state == "at_risk" for o in objs)
+    notes = await all_rows(TrajectoryNote, honcho_workspace_id=WS)
+    assert len(notes) == 1 and notes[0].state == "at_risk" and "confession" in notes[0].note.lower()
+    assert "must" not in notes[0].note.lower().split("requires")[0]            # offers a plausible path, does not script a line
+    await run(lila_delta())                                                     # replay: nothing twins, note is not duplicated
+    assert len(await all_rows(TrajectoryNote, honcho_workspace_id=WS)) == 1
+    assert len(await all_rows(WorldObjective, honcho_workspace_id=WS)) == 4
+
+
+@pytest.mark.asyncio
+async def test_continuation_projection_is_structured_traceable_and_names_what_is_unknown():
+    from src.services import world_model_service
+    d = lila_delta()
+    await run(d)
+    async with async_session_maker() as db:
+        layer = await world_model_service.build_world_layer(db, WS, d.owner)
+    c = layer["continuation"]
+    text = c["brief"]["text"]
+    assert "Lila toward Kai" in text and "avoidance increasing" in text and "Kai awareness: not established" in text
+    assert all(line["refs"] for line in c["brief"]["lines"])                  # every line traces to structured rows
+    assert c["active_intent"]["constitution"]["state"] == "at_risk"
+    assert c["active_intent"]["trajectory_note"]["label"] == "interpretation"
+    assert any(o["text"] == "stay close to Kai" for o in c["active_intent"]["objectives"])
+    assert c["manifest"]["unresolved"] and c["manifest"]["objectives"] == 4

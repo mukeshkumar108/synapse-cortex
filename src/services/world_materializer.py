@@ -15,17 +15,32 @@ from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 from uuid import UUID
 
+from difflib import SequenceMatcher
+
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from src.models.identity import Entity, EntityAlias, EntityLink, ModelEntry
-from src.models.world import ProducerRun, RowProvenance, WorldEvent, WorldLink
+from datetime import timedelta
+
+from src.models.world import ProducerRun, RelationshipDimension, RowProvenance, TrajectoryNote, WorldEvent, WorldLink, WorldObjective
 from src.schemas.world_delta import WorldDelta
 from src.services import entity_service, epistemics
 
 logger = logging.getLogger(__name__)
 
 SELF_EXPRESSION_CONFIDENCE_CAP = 0.4
+DIRECTIONAL_RELATIONSHIPS = {"parent", "child", "manager", "employee", "mentor", "mentee", "employer", "boss", "report", "teacher", "student"}
+RELATIONAL_KINDS = {"rupture", "concealment", "disclosure", "trust_change", "reconciliation", "relationship_shift"}
+CONTINUITY_MEMBER_KINDS = RELATIONAL_KINDS | {"commitment", "ambiguity"}
+CONTINUITY_MATTER_KINDS = {"project", "goal", "routine", "relationship_situation", "relationship_thread", "concern", "life_situation"}
+RELATIONAL_LABEL = {"rupture": "rupture", "concealment": "concealed strain", "trust_change": "trust strain", "reconciliation": "repair",
+                    "disclosure": "disclosure aftermath", "relationship_shift": "changing relationship"}
+RELATIONAL_PRIORITY = ["rupture", "concealment", "trust_change", "disclosure", "relationship_shift", "reconciliation"]
+TRAJECTORY_NOTE_TTL = timedelta(hours=72)
+AT_RISK_STATES = {"at_risk", "failing"}
+EVENT_MERGE_RATIO, EVENT_POSSIBLE_RATIO = 0.9, 0.6
 Judge = Callable[[List[Dict[str, Any]]], Awaitable[Dict[str, Dict[str, Any]]]]
 
 
@@ -66,6 +81,9 @@ class _Ctx:
         self.repaired: List[Dict[str, str]] = []
         self.refs: Dict[str, Dict[str, str]] = {}
         self.matters: List[Any] = []
+        self.objectives: Dict[str, WorldObjective] = {}
+        self.rel_entries: Dict[Any, List[ModelEntry]] = {}
+        self.rel_edges: Dict[Any, Any] = {}
         self.counts: Dict[str, int] = {}
 
     def reject(self, ref: str, reason: str) -> None:
@@ -164,6 +182,17 @@ async def _actors(ctx: _Ctx) -> None:
         ctx.count("actors_created" if created else "actors_linked")
 
 
+async def _edge_between(ctx: _Ctx, x: UUID, y: UUID, role: Optional[str] = None) -> Optional[Any]:
+    from src.models.identity import RelationshipEdge
+    stmt = select(RelationshipEdge).where(
+        RelationshipEdge.honcho_workspace_id == ctx.ws, RelationshipEdge.end_at.is_(None),
+        or_((RelationshipEdge.from_entity_id == x) & (RelationshipEdge.to_entity_id == y),
+            (RelationshipEdge.from_entity_id == y) & (RelationshipEdge.to_entity_id == x)))
+    if role:
+        stmt = stmt.where(RelationshipEdge.role == role)
+    return (await ctx.db.execute(stmt.order_by(RelationshipEdge.created_at))).scalars().first()
+
+
 async def _relationships(ctx: _Ctx) -> None:
     for r in ctx.delta.relationships:
         if not _evidence_ok(ctx, r.ref, r.evidence):
@@ -172,12 +201,42 @@ async def _relationships(ctx: _Ctx) -> None:
         if a is None or b is None:
             ctx.reject(r.ref, "actor_not_materialised")
             continue
-        edge, created = await entity_service.get_or_create_edge(
-            ctx.db, workspace_id=ctx.ws, from_entity_id=a.id, to_entity_id=b.id, role=r.type, message_id=r.evidence[0], confidence=r.confidence)
+        edge, created = None, False
+        if r.type.lower() not in DIRECTIONAL_RELATIONSHIPS:        # symmetric kinds: one canonical identity per (actor set, kind), either direction
+            edge = await _edge_between(ctx, a.id, b.id, role=r.type)
+        if edge is None:
+            edge, created = await entity_service.get_or_create_edge(
+                ctx.db, workspace_id=ctx.ws, from_entity_id=a.id, to_entity_id=b.id, role=r.type, message_id=r.evidence[0], confidence=r.confidence)
+        ctx.rel_edges[edge.id] = edge
         ctx.edges[r.ref] = edge
         ctx.refs[r.ref] = {"type": "edge", "id": str(edge.id)}
         await ctx.prov("edge", edge.id)
         ctx.count("relationships_created" if created else "relationships_linked")
+
+
+async def _similar_event(ctx: _Ctx, ev: Any, parts: List[str]) -> Tuple[Optional[WorldEvent], Optional[WorldEvent]]:
+    """(merge_target, possible_same_as). Merge only on near-identical label + compatible time/place + nested participants; two meetings of the
+    same people at the same place in different months must stay two events, so anything weaker is only linked as possible_same_as."""
+    rows = (await ctx.db.execute(select(WorldEvent).where(
+        WorldEvent.honcho_workspace_id == ctx.ws, WorldEvent.owner_peer_id == ctx.owner, WorldEvent.superseded_by_id.is_(None),
+        WorldEvent.kind == ev.kind))).scalars().all()
+    label, phrase, place = _norm(ev.label), _norm(ev.when.phrase if ev.when and ev.when.phrase else ""), _norm(ev.where or "")
+    mine = set(parts)
+    best_merge, best_possible = None, None
+    for row in rows:
+        ratio = SequenceMatcher(None, label, _norm(row.label)).ratio()
+        if ratio < EVENT_POSSIBLE_RATIO:
+            continue
+        theirs = {str(l) for l in (await ctx.db.execute(select(EntityLink.entity_id).where(
+            EntityLink.object_type == "event", EntityLink.object_id == row.id))).scalars().all()}
+        nested = (not mine or not theirs) or mine <= theirs or theirs <= mine
+        when_ok = not phrase or not _norm(row.when_phrase or "") or phrase == _norm(row.when_phrase or "")
+        place_ok = not place or not _norm(row.place or "") or place == _norm(row.place or "")
+        if ratio >= EVENT_MERGE_RATIO and nested and when_ok and place_ok:
+            best_merge = best_merge or row
+        elif (mine & theirs) or ratio >= 0.75:
+            best_possible = best_possible or row
+    return best_merge, (best_possible if best_merge is None else None)
 
 
 async def _events(ctx: _Ctx) -> None:
@@ -190,6 +249,9 @@ async def _events(ctx: _Ctx) -> None:
             WorldEvent.honcho_workspace_id == ctx.ws, WorldEvent.owner_peer_id == ctx.owner, WorldEvent.canonical_key == key,
             WorldEvent.superseded_by_id.is_(None)))).scalars().first()
         when = ev.when
+        possible = None
+        if existing is None:
+            existing, possible = await _similar_event(ctx, ev, parts)
         if existing is not None:
             refs = list(dict.fromkeys(json.loads(existing.evidence_refs_json or "[]") + ev.evidence))
             existing.evidence_refs_json = json.dumps(refs)
@@ -207,6 +269,9 @@ async def _events(ctx: _Ctx) -> None:
             ctx.db.add(row)
             created = True
         await ctx.db.flush()
+        if possible is not None and possible.id != row.id:      # identity is uncertain: never merge destructively, keep both and say so
+            await ctx.link("event", row.id, "event", possible.id, "possible_same_as")
+            ctx.count("events_possible_same")
         for pref in ev.participants:
             ent = ctx.entities.get(pref)
             if ent is None:
@@ -279,6 +344,16 @@ async def _write(ctx: _Ctx, *, ref: str, subject: str, text: str, claim_kind: st
     return entry
 
 
+def _is_quote(ctx: _Ctx, claim: Any) -> bool:
+    """A claim that merely repeats what was said is evidence, not a proposition about the world."""
+    text = _norm(claim.text)
+    if len(text) < 12 or not ctx.msgs:
+        return False
+    if not re.search(r"\b(i|i m|i ve|i ll|i d|me|my|you|you re|your)\b", text):          # restated in the third person = a proposition
+        return False
+    return text in _norm(" ".join(ctx.msgs[e].text for e in claim.evidence if e in ctx.msgs))
+
+
 async def _claims(ctx: _Ctx, verdicts: Dict[str, Dict[str, Any]]) -> None:
     for c in ctx.delta.claims:
         if not _evidence_ok(ctx, c.ref, c.evidence) or not _span_ok(ctx, c):
@@ -286,6 +361,9 @@ async def _claims(ctx: _Ctx, verdicts: Dict[str, Dict[str, Any]]) -> None:
         v = verdicts.get(c.ref, {})
         if v.get("action") == "reject":
             ctx.reject(c.ref, f"judge:{v.get('reason', 'rejected')}")
+            continue
+        if _is_quote(ctx, c):
+            ctx.reject(c.ref, "quote_not_proposition")
             continue
         formation = v.get("formation") or c.formation
         holder = ctx.holder_name(_repair_holder(ctx, c, c.holder))
@@ -295,6 +373,30 @@ async def _claims(ctx: _Ctx, verdicts: Dict[str, Dict[str, Any]]) -> None:
                              supersedes=c.supersedes)
         if entry is not None:
             ctx.count("claims_written")
+
+
+async def _attach_to_relationship(ctx: _Ctx, n: Any, entry: ModelEntry, holder: Optional[str]) -> None:
+    """Relational narrative belongs to the shared relationship (directional facets hang beneath it): find the edge between the actors involved,
+    else between the single involved actor and the owner's own character."""
+    involved = [ctx.entities[a] for a in n.about if a in ctx.entities]
+    if holder:
+        involved += [e for e in ctx.entities.values() if e.display_name == holder]
+    uniq = list({e.id: e for e in involved}.values())
+    owner_ent = ctx.entities.get(ctx.delta.source.owner_actor or "")
+    if len(uniq) == 1 and owner_ent is not None and owner_ent.id != uniq[0].id:
+        uniq.append(owner_ent)
+    edge = None
+    for i in range(len(uniq)):
+        for j in range(i + 1, len(uniq)):
+            edge = edge or await _edge_between(ctx, uniq[i].id, uniq[j].id)
+    if edge is None and len(ctx.rel_edges) == 1:
+        edge = next(iter(ctx.rel_edges.values()))
+    if edge is None:
+        return
+    ctx.rel_entries.setdefault(edge.id, []).append(entry)
+    ctx.rel_edges[edge.id] = edge
+    await ctx.link("model_entry", entry.id, "relationship", edge.id, "about")
+    await ctx.db.commit()
 
 
 async def _narrative(ctx: _Ctx, verdicts: Dict[str, Dict[str, Any]]) -> None:
@@ -317,6 +419,8 @@ async def _narrative(ctx: _Ctx, verdicts: Dict[str, Dict[str, Any]]) -> None:
                              confidence=confidence, evidence=n.evidence, status="uncertain" if kind == "perspective" and n.kind == "self_expression" else None)
         if entry is not None:
             ctx.count("narrative_written")
+            if kind in RELATIONAL_KINDS:
+                await _attach_to_relationship(ctx, n, entry, holder)
 
 
 async def _commitments(ctx: _Ctx) -> None:
@@ -350,53 +454,253 @@ async def _conflicts(ctx: _Ctx) -> None:
     await ctx.db.commit()
 
 
+def _relationship_matter_key(ctx: _Ctx, edge: Any) -> str:
+    """One relationship situation per related actor: the party that is not the owner's own character."""
+    owner_ent = ctx.entities.get(ctx.delta.source.owner_actor or "")
+    other = edge.to_entity_id if owner_ent is not None and owner_ent.id == edge.from_entity_id else edge.from_entity_id
+    if owner_ent is not None and owner_ent.id == edge.to_entity_id:
+        other = edge.from_entity_id
+    return f"relationship:{other}"
+
+
 async def _matters(ctx: _Ctx, adapter: Any) -> None:
-    if not ctx.delta.matter_candidates:
+    """Matter admission is about CONTINUITY NEED (does future behaviour depend on this unresolved state?), not about topics the model noticed.
+    A topic whose members are only plain facts about the past stays memory; a relational rupture/concealment/commitment is a Matter."""
+    items: List[Dict[str, Any]] = []
+    for mc in ctx.delta.matter_candidates:
+        if not _evidence_ok(ctx, mc.ref, mc.evidence):
+            continue
+        member_entries = [ctx.entries[m] for m in mc.members if m in ctx.entries]
+        if not member_entries:
+            ctx.reject(mc.ref, "matter_candidate_has_no_materialised_claim_members")
+            continue
+        kind = "relationship_situation" if mc.kind == "relationship_thread" else mc.kind
+        needs_continuity = kind in CONTINUITY_MATTER_KINDS or any(
+            e.claim_kind in CONTINUITY_MEMBER_KINDS or e.epistemic_status in ("conflicting", "uncertain") for e in member_entries)
+        if not needs_continuity:
+            ctx.reject(mc.ref, "no_continuity_need")
+            continue
+        actor_ids = {ctx.entities[a].id for a in mc.actors if a in ctx.entities}
+        key = f"concept:{_slug(mc.concept)}"
+        if kind == "relationship_situation" and len(actor_ids) == 2:
+            ids = list(actor_ids)
+            edge = await _edge_between(ctx, ids[0], ids[1])
+            if edge is not None:
+                key = _relationship_matter_key(ctx, edge)
+        items.append({"ref": mc.ref, "title": mc.display_title[:200], "kind": kind, "key": key, "entries": member_entries,
+                      "events": [ctx.events[m] for m in mc.members if m in ctx.events], "actors": actor_ids})
+    taken = {i["key"] for i in items}
+    for edge_id, entries in ctx.rel_entries.items():           # relational state that needs continuity gets its relationship Matter even if no candidate asked
+        edge = ctx.rel_edges[edge_id]
+        key = _relationship_matter_key(ctx, edge)
+        if key in taken:
+            continue
+        kinds = {e.claim_kind for e in entries}
+        label = next((RELATIONAL_LABEL[k] for k in RELATIONAL_PRIORITY if k in kinds), "relationship")
+        names = {e.id: e.display_name for e in ctx.entities.values()}
+        a, b = names.get(edge.from_entity_id, "?"), names.get(edge.to_entity_id, "?")
+        items.append({"ref": f"rel:{edge_id}", "title": f"{a} and {b}: {label}", "kind": "relationship_situation", "key": key,
+                      "entries": entries, "events": [], "actors": {edge.from_entity_id, edge.to_entity_id}})
+        taken.add(key)
+    if not items:
         return
     from src.services import matter_service as ms
     from src.services.world_scope import resolve_scope
     scope = await resolve_scope(ctx.db, ctx.ws, ctx.owner, ctx.sess)
     index = await ms.load_index(ctx.db, scope)
-    for mc in ctx.delta.matter_candidates:
-        if not _evidence_ok(ctx, mc.ref, mc.evidence):
-            continue
-        member_entries = [ctx.entries[m] for m in mc.members if m in ctx.entries]
-        member_events = [ctx.events[m] for m in mc.members if m in ctx.events]
-        if not member_entries:
-            ctx.reject(mc.ref, "matter_candidate_has_no_materialised_claim_members")
-            continue
-        actor_ids = {ctx.entities[a].id for a in mc.actors if a in ctx.entities}
-        kind = "relationship_situation" if mc.kind == "relationship_thread" else mc.kind
-        key = f"concept:{_slug(mc.concept)}"
-        if kind == "relationship_situation" and len(actor_ids) == 2:
-            related = next((m for m in member_entries if m.subject_entity_id), None)
-            if related is not None:
-                key = f"relationship:{related.subject_entity_id}"      # one relationship situation per related actor (existing identity rule)
+    for it in items:
+        member_entries, actor_ids = it["entries"], it["actors"]
         anchor = member_entries[0]
-        text = f"{mc.display_title}. " + " ".join(e.claim for e in member_entries[:6])
-        ref = ms.PrimitiveRef("model_entry", anchor.id, anchor, mc.display_title[:200], text, kind, live=True, terminal=False,
+        text = f"{it['title']}. " + " ".join(e.claim for e in member_entries[:6])
+        ref = ms.PrimitiveRef("model_entry", anchor.id, anchor, it["title"], text, it["kind"], live=True, terminal=False,
                               touched_at=ctx.now, created_at=ctx.now, message_id=anchor.honcho_message_id, session_id=ctx.sess,
-                              formation="inferred", confidence=0.7, key_hint=key, entity_ids=set(actor_ids), link_only=False)
+                              formation="inferred", confidence=0.7, key_hint=it["key"], entity_ids=set(actor_ids), link_only=False)
         res = await ms.resolve_or_create_matter(ctx.db, ref, index, scope, now=ctx.now, adapter=adapter, allow_judge=adapter is not None, create=True)
         matter = res.matter
         if matter is None:
-            ctx.reject(mc.ref, "matter_resolution_skipped")
+            ctx.reject(it["ref"], "matter_resolution_skipped")
             continue
         for i, entry in enumerate(member_entries):
             member = ms.PrimitiveRef("model_entry", entry.id, entry, entry.claim[:200], entry.claim, "other", live=False, terminal=False,
                                      touched_at=ctx.now, created_at=ctx.now, message_id=entry.honcho_message_id, session_id=ctx.sess,
                                      formation=entry.formation or "inferred", confidence=entry.confidence, link_only=True, entity_ids=set(actor_ids))
             await ms.attach(ctx.db, matter, member, index, how=res.how if i == 0 else "key")
-        for ev in member_events:
+        for ev in it["events"]:
             await ctx.link("event", ev.id, "matter", matter.id, "member")
         await ctx.db.commit()
         await ctx.prov("matter", matter.id)
         ctx.matters.append(matter)
-        ctx.refs[mc.ref] = {"type": "matter", "id": str(matter.id), "resolution": res.how}
+        ctx.refs[it["ref"]] = {"type": "matter", "id": str(matter.id), "resolution": res.how}
         ctx.count("matters_created" if res.created else "matters_attached")
     if ctx.matters:
         await ms.refresh_matters(ctx.db, ctx.matters, ctx.now, ctx.owner)
         await ctx.db.commit()
+
+
+# ----------------------------------------------------------------------------- objectives, directional dimensions, trajectory
+def _okey(actor_id: UUID, text: str) -> str:
+    return hashlib.sha1(f"{actor_id}|{_norm(text)[:80]}".encode()).hexdigest()[:20]
+
+
+async def _constitution(ctx: _Ctx) -> None:
+    c = ctx.delta.constitution
+    if c is None or c.actor not in ctx.entities:
+        return
+    actor, toward = ctx.entities[c.actor], ctx.entities.get(c.toward or "")
+    key = f"constitution:{actor.id}"
+    row = (await ctx.db.execute(select(WorldObjective).where(
+        WorldObjective.honcho_workspace_id == ctx.ws, WorldObjective.owner_peer_id == ctx.owner, WorldObjective.canonical_key == key))).scalars().first()
+    if row is None:
+        row = WorldObjective(honcho_workspace_id=ctx.ws, owner_peer_id=ctx.owner, actor_entity_id=actor.id, canonical_key=key, text=c.text, scope="constitutional",
+                             toward_entity_id=toward.id if toward else None, strength=1.0, state="on_track", formation="explicit", confidence=1.0,
+                             run_id=ctx.run.id)
+    else:
+        row.text, row.updated_at = c.text, ctx.now
+    ctx.db.add(row)
+    await ctx.db.commit()
+    ctx.objectives["constitution"] = row
+    await ctx.prov("objective", row.id)
+
+
+async def _objectives(ctx: _Ctx) -> None:
+    pending: List[Tuple[Any, WorldObjective]] = []
+    for o in ctx.delta.objectives:
+        if not _evidence_ok(ctx, o.ref, o.evidence):
+            continue
+        actor, toward = ctx.entities.get(o.actor), ctx.entities.get(o.toward or "")
+        if actor is None:
+            ctx.reject(o.ref, "actor_not_materialised")
+            continue
+        key = _okey(actor.id, o.text)
+        row = (await ctx.db.execute(select(WorldObjective).where(
+            WorldObjective.honcho_workspace_id == ctx.ws, WorldObjective.owner_peer_id == ctx.owner, WorldObjective.canonical_key == key,
+            WorldObjective.status == "current"))).scalars().first()
+        if row is None:
+            row = WorldObjective(honcho_workspace_id=ctx.ws, owner_peer_id=ctx.owner, actor_entity_id=actor.id, canonical_key=key, text=o.text[:300],
+                                 scope=o.scope, toward_entity_id=toward.id if toward else None, strength=o.strength, cause=o.cause, state=o.state,
+                                 formation=epistemics.formation_class(o.formation), confidence=o.confidence, run_id=ctx.run.id,
+                                 evidence_refs_json=json.dumps(o.evidence))
+            ctx.count("objectives_created")
+        else:
+            row.state, row.strength, row.cause = o.state, o.strength, o.cause or row.cause
+            row.evidence_refs_json = json.dumps(list(dict.fromkeys(json.loads(row.evidence_refs_json or "[]") + o.evidence)))
+            row.updated_at = ctx.now
+            ctx.count("objectives_updated")
+        ctx.db.add(row)
+        await ctx.db.flush()
+        ctx.objectives[o.ref] = row
+        pending.append((o, row))
+        ctx.refs[o.ref] = {"type": "objective", "id": str(row.id)}
+        await ctx.prov("objective", row.id)
+    for o, row in pending:                                  # conflicts resolve once every objective of the delta has an id
+        ids = [("constitution" if c == "constitution" else str(ctx.objectives[c].id)) for c in o.conflicts_with if c == "constitution" or c in ctx.objectives]
+        row.conflicts_json = json.dumps(ids)
+        ctx.db.add(row)
+    await ctx.db.commit()
+
+
+async def _dimensions(ctx: _Ctx) -> None:
+    for d in ctx.delta.dimensions:
+        if not _evidence_ok(ctx, d.ref, d.evidence):
+            continue
+        edge, a, b = ctx.edges.get(d.relationship), ctx.entities.get(d.from_actor), ctx.entities.get(d.to_actor)
+        if edge is None or a is None or b is None:
+            ctx.reject(d.ref, "relationship_or_actor_not_materialised")
+            continue
+        about = ctx.events.get(d.about or "")
+        formation = epistemics.formation_class(d.formation)
+        stmt = select(RelationshipDimension).where(
+            RelationshipDimension.honcho_workspace_id == ctx.ws, RelationshipDimension.edge_id == edge.id, RelationshipDimension.from_entity_id == a.id,
+            RelationshipDimension.to_entity_id == b.id, RelationshipDimension.dimension == d.dimension, RelationshipDimension.superseded_by_id.is_(None))
+        stmt = stmt.where(RelationshipDimension.about_event_id == about.id) if about else stmt.where(RelationshipDimension.about_event_id.is_(None))
+        prior = (await ctx.db.execute(stmt)).scalars().first()
+        if prior is not None and _norm(prior.value) == _norm(d.value):
+            prior.evidence_refs_json = json.dumps(list(dict.fromkeys(json.loads(prior.evidence_refs_json or "[]") + d.evidence)))
+            prior.confidence, prior.updated_at = max(prior.confidence, d.confidence), ctx.now
+            ctx.db.add(prior)
+            ctx.count("dimensions_confirmed")
+            continue
+        if prior is not None and epistemics.FORMATION_RANK[formation] < epistemics.FORMATION_RANK[epistemics.formation_class(prior.formation)]:
+            ctx.reject(d.ref, "weaker_than_current_dimension")        # a lower-firmness candidate never replaces a firmer facet
+            continue
+        row = RelationshipDimension(honcho_workspace_id=ctx.ws, owner_peer_id=ctx.owner, edge_id=edge.id, from_entity_id=a.id, to_entity_id=b.id,
+                                    dimension=d.dimension, value=d.value[:200], about_event_id=about.id if about else None, formation=formation,
+                                    confidence=d.confidence, evidence_refs_json=json.dumps(d.evidence), run_id=ctx.run.id)
+        ctx.db.add(row)
+        await ctx.db.flush()
+        if prior is not None:
+            prior.superseded_by_id = row.id
+            ctx.db.add(prior)
+        await ctx.prov("dimension", row.id)
+        ctx.count("dimensions_written")
+    await ctx.db.commit()
+
+
+def default_trajectory_note(actor: str, user: Optional[str], objective: WorldObjective, kinds: List[str]) -> str:
+    """Deterministic interpretation used when no writer model is supplied. It reframes meaning and offers a plausible direction; it never scripts a line."""
+    cause = f" ({objective.cause})" if objective.cause else ""
+    target = f" toward {user}" if user else ""
+    rupture = f" Recent {', '.join(sorted(set(kinds)))} is real and stays on the record." if kinds else ""
+    return (f"{actor}'s current aim \"{objective.text}\"{cause} pulls against the relationship{target} that {actor} ultimately wants to protect.{rupture} "
+            f"Read it as a reaction to what just happened rather than a change in what {actor} wants. A plausible movement is toward honesty or "
+            f"reconnection, at a pace that fits {actor}'s fear and pride; nothing here requires an immediate confession or reconciliation.")
+
+
+async def _reconcile(ctx: _Ctx, note_writer: Optional[Callable[..., Awaitable[str]]]) -> None:
+    """Trajectory reconciler: compares the constitutional objective with active objectives and relational state. It never deletes an objective or
+    edits a fact; it records an expiring, evidence-linked interpretation of the tension and a plausible way back."""
+    const = ctx.objectives.get("constitution")
+    if const is None:
+        const = (await ctx.db.execute(select(WorldObjective).where(
+            WorldObjective.honcho_workspace_id == ctx.ws, WorldObjective.owner_peer_id == ctx.owner, WorldObjective.scope == "constitutional"))).scalars().first()
+    if const is None:
+        return
+    actor_ent = await ctx.db.get(Entity, const.actor_entity_id)
+    user_ent = await ctx.db.get(Entity, const.toward_entity_id) if const.toward_entity_id else None
+    rows = (await ctx.db.execute(select(WorldObjective).where(
+        WorldObjective.honcho_workspace_id == ctx.ws, WorldObjective.owner_peer_id == ctx.owner, WorldObjective.actor_entity_id == const.actor_entity_id,
+        WorldObjective.scope != "constitutional", WorldObjective.status == "current"))).scalars().all()
+    tension = [o for o in rows if o.state in AT_RISK_STATES or "constitution" in json.loads(o.conflicts_json or "[]")]
+    states = {o.state for o in rows}
+    derived = "at_risk" if tension else ("drifting" if "drifting" in states else "on_track")
+    const.state = derived
+    const.updated_at = ctx.now
+    ctx.db.add(const)
+    if not tension or actor_ent is None:
+        await ctx.db.commit()
+        return
+    kinds = sorted({e.claim_kind for es in ctx.rel_entries.values() for e in es if e.claim_kind in RELATIONAL_KINDS})
+    target = max(tension, key=lambda o: o.strength)
+    note = None
+    if note_writer is not None:
+        try:
+            note = await note_writer({"actor": actor_ent.display_name, "user": user_ent.display_name if user_ent else None, "constitution": const.text,
+                                      "objective": target.text, "cause": target.cause, "state": target.state, "relational_state": kinds})
+        except Exception as exc:
+            logger.warning("trajectory note writer failed open: %s", exc)
+    note = (note or default_trajectory_note(actor_ent.display_name, user_ent.display_name if user_ent else None, target, kinds)).strip()
+    for prior in (await ctx.db.execute(select(TrajectoryNote).where(
+            TrajectoryNote.honcho_workspace_id == ctx.ws, TrajectoryNote.owner_peer_id == ctx.owner, TrajectoryNote.actor_entity_id == actor_ent.id,
+            TrajectoryNote.superseded_by_id.is_(None)))).scalars().all():
+        if _norm(prior.note) == _norm(note):
+            prior.expires_at = ctx.now + TRAJECTORY_NOTE_TTL
+            ctx.db.add(prior)
+            await ctx.db.commit()
+            return
+    row = TrajectoryNote(honcho_workspace_id=ctx.ws, owner_peer_id=ctx.owner, actor_entity_id=actor_ent.id, objective_id=target.id, state=derived, note=note,
+                         basis_json=json.dumps({"constitution": str(const.id), "objectives": [str(o.id) for o in tension],
+                                                "relational_entries": [str(e.id) for es in ctx.rel_entries.values() for e in es if e.claim_kind in RELATIONAL_KINDS]}),
+                         run_id=ctx.run.id, expires_at=ctx.now + TRAJECTORY_NOTE_TTL)
+    ctx.db.add(row)
+    await ctx.db.flush()
+    for prior in (await ctx.db.execute(select(TrajectoryNote).where(
+            TrajectoryNote.honcho_workspace_id == ctx.ws, TrajectoryNote.owner_peer_id == ctx.owner, TrajectoryNote.actor_entity_id == actor_ent.id,
+            TrajectoryNote.superseded_by_id.is_(None), TrajectoryNote.id != row.id))).scalars().all():
+        prior.superseded_by_id = row.id
+        ctx.db.add(prior)
+    await ctx.db.commit()
+    await ctx.prov("trajectory_note", row.id)
+    ctx.count("trajectory_notes")
 
 
 # ----------------------------------------------------------------------------- entry point
@@ -415,7 +719,8 @@ def _ambiguous(delta: WorldDelta) -> List[Dict[str, Any]]:
 
 
 async def materialize(db: AsyncSession, delta: WorldDelta, *, now: Optional[datetime] = None, judge: Optional[Judge] = None,
-                      adapter: Any = None, compile_snapshot: bool = True) -> Dict[str, Any]:
+                      adapter: Any = None, compile_snapshot: bool = True,
+                      note_writer: Optional[Callable[..., Awaitable[str]]] = None) -> Dict[str, Any]:
     now_n = _naive(now)
     run = ProducerRun(
         honcho_workspace_id=delta.workspace_id, owner_peer_id=delta.owner, producer=delta.source.producer, model=delta.source.model,
@@ -440,7 +745,11 @@ async def materialize(db: AsyncSession, delta: WorldDelta, *, now: Optional[date
     await _narrative(ctx, verdicts)
     await _commitments(ctx)
     await _conflicts(ctx)
+    await _constitution(ctx)
+    await _objectives(ctx)
+    await _dimensions(ctx)
     await _matters(ctx, adapter)
+    await _reconcile(ctx, note_writer)
     snapshot_version = None
     if compile_snapshot:
         try:

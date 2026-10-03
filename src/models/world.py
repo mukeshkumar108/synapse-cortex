@@ -81,3 +81,73 @@ class WorldLink(SQLModel, table=True):
     to_id: UUID = Field(index=True, nullable=False)
     role: str = Field(default="about", nullable=False)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class WorldObjective(SQLModel, table=True):
+    """What an actor is trying to achieve. Actor-owned, directional (`toward`), many per actor and allowed to conflict (that tension is the drama).
+    scope: constitutional (product-authored, never superseded by an extractor) | enduring | active | immediate. Trajectory `state` is judged
+    PER objective; any character-level summary is derived."""
+    __tablename__ = "world_objectives"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    actor_entity_id: UUID = Field(index=True, nullable=False)
+    toward_entity_id: Optional[UUID] = Field(default=None)
+    canonical_key: str = Field(default="", index=True)
+    text: str = Field(nullable=False)
+    scope: str = Field(default="active", index=True)
+    strength: float = Field(default=0.6)
+    cause: Optional[str] = Field(default=None)
+    state: str = Field(default="unknown")                        # on_track | drifting | at_risk | failing | resolved | unknown
+    conflicts_json: str = Field(default="[]")                    # objective ids, or the literal "constitution"
+    formation: str = Field(default="inferred")
+    confidence: float = Field(default=0.6)
+    status: str = Field(default="current")                       # current | resolved | superseded
+    evidence_refs_json: str = Field(default="[]")
+    run_id: Optional[UUID] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class RelationshipDimension(SQLModel, table=True):
+    """One directional facet of a shared relationship (Audrey->Kai trust, Kai->Audrey awareness of event E). The relationship edge stays one
+    canonical identity; perspective lives here, never flattened into a single relationship state."""
+    __tablename__ = "relationship_dimensions"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    edge_id: UUID = Field(index=True, nullable=False)
+    from_entity_id: UUID = Field(nullable=False)
+    to_entity_id: UUID = Field(nullable=False)
+    dimension: str = Field(index=True, nullable=False)
+    value: str = Field(nullable=False)
+    about_event_id: Optional[UUID] = Field(default=None)
+    formation: str = Field(default="inferred")
+    confidence: float = Field(default=0.6)
+    superseded_by_id: Optional[UUID] = Field(default=None)
+    evidence_refs_json: str = Field(default="[]")
+    run_id: Optional[UUID] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class TrajectoryNote(SQLModel, table=True):
+    """Reconciler output: an INTERPRETATION (never a fact, never a script) of how a character's current behaviour relates to its constitutional
+    objective, plus a plausible way back. Labelled, evidence-linked, expiring."""
+    __tablename__ = "trajectory_notes"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    actor_entity_id: UUID = Field(index=True, nullable=False)
+    objective_id: Optional[UUID] = Field(default=None)
+    state: str = Field(default="at_risk")
+    note: str = Field(nullable=False)
+    basis_json: str = Field(default="{}")                        # objective / entry / dimension ids the note was derived from
+    producer: str = Field(default="trajectory-reconciler")
+    run_id: Optional[UUID] = Field(default=None, index=True)
+    superseded_by_id: Optional[UUID] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    expires_at: Optional[datetime] = Field(default=None)

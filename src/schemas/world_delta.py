@@ -131,6 +131,45 @@ class MatterC(_Item):
     evidence: List[str] = Field(default_factory=list)
 
 
+OBJECTIVE_STATES = ("on_track", "drifting", "at_risk", "failing", "resolved", "unknown")
+DIMENSIONS = ("affection", "trust", "avoidance", "disclosure", "commitment", "awareness", "expectation", "intent")
+
+
+class ObjectiveC(_Item):
+    ref: str
+    actor: str                                # whose objective it is (actor ref)
+    text: str
+    scope: Literal["enduring", "active", "immediate"] = "active"
+    toward: Optional[str] = None              # actor ref the objective is directed at
+    strength: float = 0.6
+    cause: Optional[str] = None               # why the actor wants it (hurt, fear, shame, desire...)
+    state: Literal["on_track", "drifting", "at_risk", "failing", "resolved", "unknown"] = "unknown"
+    conflicts_with: List[str] = Field(default_factory=list)       # other objective refs, or "constitution"
+    formation: Literal["explicit", "reported", "source_linked", "observed", "inferred", "hypothesis"] = "inferred"
+    confidence: float = 0.6
+    evidence: List[str] = Field(default_factory=list)
+
+
+class DimensionC(_Item):
+    ref: str
+    relationship: str                         # relationship ref (the shared identity this facet hangs under)
+    from_actor: str
+    to_actor: str
+    dimension: Literal["affection", "trust", "avoidance", "disclosure", "commitment", "awareness", "expectation", "intent"]
+    value: str
+    about: Optional[str] = None               # event ref (awareness_of / disclosure_of)
+    formation: Literal["explicit", "reported", "source_linked", "observed", "inferred", "hypothesis"] = "inferred"
+    confidence: float = 0.6
+    evidence: List[str] = Field(default_factory=list)
+
+
+class ConstitutionC(_Item):
+    """Product-authored enduring orientation of a companion character (e.g. protect and deepen the long-term relationship with the user)."""
+    actor: str
+    text: str
+    toward: Optional[str] = None
+
+
 class WorldDelta(_Item):
     contract_version: Literal["world-delta-v1"] = "world-delta-v1"
     workspace_id: str
@@ -143,11 +182,14 @@ class WorldDelta(_Item):
     narrative: List[NarrativeC] = Field(default_factory=list)
     commitments: List[CommitmentC] = Field(default_factory=list)
     matter_candidates: List[MatterC] = Field(default_factory=list)
+    objectives: List[ObjectiveC] = Field(default_factory=list)
+    dimensions: List[DimensionC] = Field(default_factory=list)
+    constitution: Optional[ConstitutionC] = None
 
     @model_validator(mode="after")
     def _structure(self) -> "WorldDelta":
         refs: List[str] = []
-        for group in (self.actors, self.relationships, self.events, self.claims, self.narrative, self.commitments, self.matter_candidates):
+        for group in (self.actors, self.relationships, self.events, self.claims, self.narrative, self.commitments, self.matter_candidates, self.objectives, self.dimensions):
             refs += [item.ref for item in group]
         if len(refs) != len(set(refs)):
             raise ValueError("refs must be unique within a delta")
@@ -171,9 +213,23 @@ class WorldDelta(_Item):
         for k in self.commitments:
             if k.committer not in actor_refs:
                 raise ValueError(f"commitment {k.ref}: committer {k.committer} is not an actor in this delta")
-        for item in (*self.actors, *self.relationships, *self.events, *self.claims, *self.narrative, *self.commitments, *self.matter_candidates):
+        for item in (*self.actors, *self.relationships, *self.events, *self.claims, *self.narrative, *self.commitments, *self.matter_candidates, *self.objectives, *self.dimensions):
             if not item.evidence:
                 raise ValueError(f"{item.ref}: evidence is required (a candidate with no evidence is rejected)")
+        objective_refs = {o.ref for o in self.objectives}
+        for o in self.objectives:
+            if o.actor not in actor_refs or (o.toward and o.toward not in actor_refs):
+                raise ValueError(f"objective {o.ref}: actor/toward must be actors in this delta")
+            if any(c != "constitution" and c not in objective_refs for c in o.conflicts_with):
+                raise ValueError(f"objective {o.ref}: unknown conflicts_with ref")
+        relationship_refs = {r.ref for r in self.relationships}
+        for d in self.dimensions:
+            if d.relationship not in relationship_refs or d.from_actor not in actor_refs or d.to_actor not in actor_refs:
+                raise ValueError(f"dimension {d.ref}: relationship/actors must be declared in this delta")
+            if d.about and d.about not in known:
+                raise ValueError(f"dimension {d.ref}: unknown about-ref")
+        if self.constitution and self.constitution.actor not in actor_refs:
+            raise ValueError("constitution: actor must be an actor in this delta")
         for m in self.matter_candidates:
             if any(x not in known for x in (*m.members, *m.actors)):
                 raise ValueError(f"matter candidate {m.ref}: unknown member/actor ref")
