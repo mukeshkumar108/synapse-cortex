@@ -117,9 +117,13 @@ def annotation(message: str, domain: DomainTag, category: CategoryTag, summary: 
 
 def fact(title: str, *, owner: str = USER, session: str = "lane-1", message: Optional[str] = None,
          category: str = "general", key: str = "primary") -> Fact:
+    # Pinned to the fixture clock (not the wall clock): unpinned, these rows only fell inside the fixture's "today" on the
+    # day the tests were written, so the today-projection tests silently started failing a day later.
+    when = ago(hours=1)
     return Fact(honcho_workspace_id=WS, honcho_session_id=session,
                 honcho_message_id=message or f"m-{uuid4().hex[:8]}", owner_peer_id=owner,
-                candidate_key=key, category=category, title=title, evidence_verbatim=title)
+                candidate_key=key, category=category, title=title, evidence_verbatim=title,
+                created_at=when, updated_at=when)
 
 
 async def settle(owner=USER, now=NOW):
