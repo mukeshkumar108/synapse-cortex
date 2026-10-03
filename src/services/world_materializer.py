@@ -507,18 +507,22 @@ async def _matters(ctx: _Ctx, adapter: Any) -> None:
         actor_ids = {ctx.entities[a].id for a in mc.actors if a in ctx.entities}
         key = f"concept:{_slug(mc.concept)}"
         title, upgraded = mc.display_title[:200], False
-        if kind in ("topic", "concern", "other") and len(actor_ids) == 2 and any(e.claim_kind in RELATIONAL_KINDS for e in member_entries):
-            kind, upgraded = "relationship_situation", True                       # what continues is the relationship's state, not the model's topic label
-        if kind == "relationship_situation" and len(actor_ids) == 2:
-            ids = list(actor_ids)
-            edge = await _edge_between(ctx, ids[0], ids[1])
-            if edge is not None:
-                key = _relationship_matter_key(ctx, edge)
+        member_ids = {e.id for e in member_entries}
+        member_edges = [eid for eid, es in ctx.rel_entries.items() if any(x.id in member_ids and x.claim_kind in RELATIONAL_KINDS for x in es)]
+        if kind in ("topic", "concern", "other", "relationship_situation") and len(set(member_edges)) == 1:
+            edge = ctx.rel_edges[member_edges[0]]                  # what continues is the shared relationship's state, not the model's topic label
+            key = _relationship_matter_key(ctx, edge)
+            if kind != "relationship_situation":
                 kinds = {e.claim_kind for e in member_entries}
                 label = next((RELATIONAL_LABEL[k] for k in RELATIONAL_PRIORITY if k in kinds), "relationship")
                 names = [ctx.entities_by_id[x].display_name for x in (edge.from_entity_id, edge.to_entity_id) if x in ctx.entities_by_id]
-                if len(names) == 2 and upgraded:
-                    title = f"{names[0]} and {names[1]}: {label}"
+                if len(names) == 2:
+                    title, kind = f"{names[0]} and {names[1]}: {label}", "relationship_situation"
+            actor_ids = actor_ids | {edge.from_entity_id, edge.to_entity_id}
+        elif kind == "relationship_situation" and len(actor_ids) == 2:
+            edge = await _edge_between(ctx, *list(actor_ids))
+            if edge is not None:
+                key = _relationship_matter_key(ctx, edge)
         items.append({"ref": mc.ref, "title": title, "kind": kind, "key": key, "entries": member_entries,
                       "events": [ctx.events[m] for m in mc.members if m in ctx.events], "actors": actor_ids})
     taken = {i["key"] for i in items}
