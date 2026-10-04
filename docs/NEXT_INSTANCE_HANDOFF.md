@@ -8,6 +8,23 @@ walk+call combined and deferred, passport deferred, James dependency tracked) ->
 nagging. Known miss: interpreter created a replacement instead of completing a listed wait (prompt tightened, not re-verified). The wake heartbeat already lives in
 Cortex (asyncio loop); only delivery depends on the Sophie app (Vercel cron -> app -> Runtime proactive tick): needs the app's production URL + CRON_SECRET or Vercel access.
 
+# UPDATE 2026-10-04 (late night): agency made dependable. Read this first.
+**Repos live on `main` only** (Cortex, Runtime, Sophie app = GitHub `ash-ai` / Vercel `project-z963i`, RPD2 / Vercel `project-4fs1h`). Merging to `main` auto-deploys the Vercel apps (the earlier
+`vercel deploy --prod` from a worktree is no longer needed); merged branches were deleted. Remaining unmerged remote branches (research/evals, left for the user): Cortex
+`claude/zen-archimedes-ufifxq`; Runtime `codex/social-agency-v2-evals`, `v3-evals`; Sophie app `codex/social-agency-v3-evals`, `codex/sophie-eval-harness`; RPD2 `codex/interpretive-trajectory`.
+**Built (deployed):** (1) the foreground now knows what the companion is carrying: `executive_layer` (agenda, waiting-on, raised/said, did, set-aside, plans) is compiled into the resident
+snapshot, recompiled whenever executive state changes (version bump -> Runtime refresh), rendered as a "WHAT YOU ARE CARRYING" block (context, not script). (2) Exact causal chain: the app posts
+the persisted message id + intent id (`/v1/executive/outbound`); that message is annotated in evidence; the user's next message is linked as the reply and wakes the executive with it.
+(3) Plans: `plan` intents, steps via `about:{type:plan}`, in-response `ref:`s, `depends_on`, and a mechanical `dependency_cleared` wake (also on receipts). (4) Restart safety: interrupted
+passes re-woken; claimed-but-unreported actions failed, surfaced, never auto-retried; identical tool calls never created twice. (5) Confirmation: an `ask` carrying a catalogued tool is a
+confirmation request; `confirmed_by_user` is honoured ONLY with a reply linked to that intent by message id; the product-declared risk is never lowered. (6) `/v1/world/version` reports
+`awaiting_reply`; while something raised is unanswered the Runtime interprets the user's next turn immediately. (7) Capabilities for Sophie (catalogue in world policy): task.create (low),
+task.list (query, observation in receipt detail), task.reschedule (low), task.cancel (moderate, irreversible -> needs confirmation); app worker `/api/cron/executive-actions`.
+**Verified:** real-model: operational review coverage; the confirmation round trip (explicit request + irreversible tool -> question with the exact task id from `source.object_id`; linked
+"Yes" -> `confirmed_by_user` -> pending action). Live: task.create loop earlier; task.list query (see report). **Open at handoff:** a real confirmation question about deleting the duplicate
+"Evening walk" task (id 701c2972-...) is queued behind the 4h proactive cadence gap (about 18:36 UTC); the user's "yes" in chat should delete it end to end. Not yet observed live: the foreground
+block in a real Sophie turn; plans with a real model in production; task.reschedule / task.cancel executions.
+
 # UPDATE 2026-10-04 (night): the agency loop closed in production. Read this first.
 **Delivery (fixed, root cause):** the Sophie app (GitHub `mukeshkumar108/ash-ai`, Vercel project `project-z963i`, local worktree `llm-agent-test-consumer-cutover`, branch
 `consumer-cutover`, deployed with `vercel deploy --prod` from that worktree) only built proactive candidates from its OWN tables (RelationshipOpportunity, TaskReminder,
