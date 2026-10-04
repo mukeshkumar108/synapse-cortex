@@ -38,6 +38,7 @@ class InterpretRequest(BaseModel):
     covered_ordinal: int = 0
     user_actor: Optional[str] = None            # product-supplied identity of the human's actor in this world (never inferred from prose)
     companion_actor: Optional[str] = None       # product-supplied identity of the companion's actor
+    timezone: str = "UTC"                       # the user's timezone, used to ground time phrases of operational items
 
 
 @router.post("/interpret")
@@ -54,7 +55,7 @@ async def interpret_world(req: InterpretRequest, db: AsyncSession = Depends(get_
         receipt = await world_interpreter.interpret(
             db, workspace_id=req.workspace_id, owner=req.owner, session_id=req.session_id, messages=req.messages, speakers=req.speakers,
             policy=req.policy, constitution=req.constitution, adapter=adapter, covered_ordinal=req.covered_ordinal, matter_adapter=adapter,
-            user_actor=req.user_actor, companion_actor=req.companion_actor)
+            user_actor=req.user_actor, companion_actor=req.companion_actor, timezone=req.timezone)
         return receipt
     except HTTPException:
         raise

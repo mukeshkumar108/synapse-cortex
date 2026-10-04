@@ -20,6 +20,7 @@ class ExecutiveWake(SQLModel, table=True):
     due_at: datetime = Field(index=True, nullable=False)
     reason: str = Field(default="")
     attempts: int = Field(default=0)
+    detail_json: Optional[str] = Field(default=None)       # an external event's content (calendar change, tool result, product signal), shown to the executive
     consumed_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
 

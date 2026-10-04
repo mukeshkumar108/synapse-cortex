@@ -53,6 +53,7 @@ _ADDITIVE_COLUMNS = (
     ("producer_runs", "detail_json", "TEXT DEFAULT '{}'"),
     ("producer_runs", "started_at", "TIMESTAMP"),
     ("producer_runs", "finished_at", "TIMESTAMP"),
+    ("executive_wakes", "detail_json", "TEXT"),
     ("work_items", "kind", "VARCHAR"),
     ("work_items", "wake_at", "TIMESTAMP"),
     ("work_items", "waiting_on", "TEXT"),

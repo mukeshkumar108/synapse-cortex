@@ -205,6 +205,22 @@ class ReviewC(_Item):
     note: Optional[str] = None
 
 
+class OperationalC(_Item):
+    """A time-bound thing someone will be held to or must remember (reminder, plan, commitment, appointment), or the completion / cancellation /
+    reschedule of a known open item. The model decides THAT it is one and which open item it closes; code grounds the time phrase and runs the lifecycle."""
+    decision: Literal["create", "complete", "cancel", "progress", "reschedule"]
+    kind: str = "commitment"                  # reminder | event | deadline | commitment
+    title: Optional[str] = None
+    temporal_phrase: Optional[str] = None     # the speaker's own words about when; never a computed timestamp
+    target: Optional[str] = None              # id of a listed open operational item (complete / cancel / progress / reschedule)
+    canonical_title: Optional[str] = None
+    new_temporal_phrase: Optional[str] = None
+    progress_amount: Optional[float] = None
+    progress_unit: Optional[str] = None
+    confidence: float = 0.8
+    evidence: List[str] = Field(default_factory=list)
+
+
 class WorldDelta(_Item):
     contract_version: Literal["world-delta-v1"] = "world-delta-v1"
     workspace_id: str
@@ -222,6 +238,7 @@ class WorldDelta(_Item):
     trajectory: List[TrajectoryC] = Field(default_factory=list)
     brief: Optional[BriefC] = None
     reviews: List[ReviewC] = Field(default_factory=list)
+    operational: List[OperationalC] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _structure(self) -> "WorldDelta":

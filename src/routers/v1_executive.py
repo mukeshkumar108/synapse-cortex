@@ -28,6 +28,7 @@ class PolicyRequest(WorldRef):
 class WakeRequest(WorldRef):
     reason: str = "external_event"
     delay_seconds: int = 5
+    detail: Optional[Dict[str, Any]] = None       # what happened (calendar change, tool result, product signal): shown to the executive
 
 
 class ReceiptRequest(WorldRef):
@@ -59,19 +60,26 @@ async def get_policy(workspace_id: str, owner: str, db: AsyncSession = Depends(g
 @router.post("/wake")
 async def wake(req: WakeRequest, db: AsyncSession = Depends(get_async_session)):
     """An external reason to reconsider a world (calendar change, tool event, product signal). Recorded only if the world's policy enables the executive."""
-    await executive.note_changed(db, req.workspace_id, req.owner, req.reason, delay_seconds=req.delay_seconds)
+    await executive.note_changed(db, req.workspace_id, req.owner, req.reason, delay_seconds=req.delay_seconds, detail=req.detail)
     return {"ok": True}
 
 
 @router.get("/intents")
 async def intents(workspace_id: str, owner: str, active_only: bool = True, db: AsyncSession = Depends(get_async_session)):
-    stmt = select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.source_agent == "executive")
+    stmt = select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.source_agent == "executive", WorkItem.kind != "agenda")
     if active_only:
         stmt = stmt.where(WorkItem.status.in_(executive.ACTIVE_STATUSES))
     rows = (await db.execute(stmt.order_by(WorkItem.updated_at.desc()).limit(100))).scalars().all()
     return [{"id": str(r.id), "kind": r.kind, "title": r.action, "status": r.status, "importance": r.importance, "wake_at": r.wake_at.isoformat() if r.wake_at else None,
              "waiting_on": r.waiting_on, "tool": json.loads(r.tool_json) if r.tool_json else None, "receipt": json.loads(r.receipt_json) if r.receipt_json else None,
              "extra": json.loads(r.extra_json or "{}"), "run_id": r.run_id} for r in rows]
+
+
+@router.get("/agenda")
+async def agenda(workspace_id: str, owner: str, db: AsyncSession = Depends(get_async_session)):
+    """What the companion is currently carrying across all concerns (its attention state), as last written by the executive."""
+    row = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.kind == "agenda"))).scalars().first()
+    return (json.loads(row.extra_json or "{}").get("agenda") if row else None) or {"carrying": [], "sequence_note": None}
 
 
 @router.get("/pending-actions")

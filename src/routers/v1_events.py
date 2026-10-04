@@ -1,5 +1,6 @@
 import logging
 import json
+from typing import Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -166,9 +167,14 @@ async def ingest_turn_event(
 _MESSAGE_LOCKS: dict = {}
 
 
+class _SkipLegacy(Exception):
+    pass
+
+
 async def _ingest_turn_event_locked(
     payload: TurnEventIngest,
     db: AsyncSession,
+    candidates_override: Optional[list] = None,
 ):
     """
     Ingests shadow turn event from Sophie/Honcho.
@@ -176,287 +182,294 @@ async def _ingest_turn_event_locked(
     """
     if payload.is_assistant_turn:
         return await ingest_assistant_turn(db=db, payload=payload)
-    # Turn stamp: the turn's own timestamp (injectable clock), consumed by
-    # the initiative engine's user-recently-active guard.
-    stamp_values = {
-        "honcho_workspace_id": payload.workspace_id,
-        "owner_peer_id": payload.peer_id,
-        "honcho_message_id": payload.honcho_message_id,
-        "turn_at": _naive_utc(payload.now),
-    }
-    dialect_name = db.get_bind().dialect.name
-    stamp_insert = sqlite_insert if dialect_name == "sqlite" else insert
-    await db.execute(
-        stamp_insert(TurnStamp).values(**stamp_values).on_conflict_do_nothing(
-            index_elements=["honcho_workspace_id", "honcho_message_id"]
-        )
-    )
-    await db.commit()
-    # LANE 2 trigger: (re)arm the sweeper debounce/turn-count for this workspace.
-    try:
-        from src.services.sweeper_triggers import schedule_after_turn
-        schedule_after_turn(payload.workspace_id, payload.session_id, payload.peer_id)
-    except Exception as err:
-        logger.warning("Lane 2 trigger scheduling failed: %s", err)
-    # 1. Multi-pass Turn Extraction
-    await operational_state_service.sweep(db, workspace_id=payload.workspace_id, now=payload.now)
-    await lifecycle_service.apply_reopen_conditions(
-        db, workspace_id=payload.workspace_id, session_id=payload.session_id, text=payload.text, owner_peer_id=payload.peer_id,
-    )
-    await sleep_tracker.observe(
-        db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-        message_id=payload.honcho_message_id, text=payload.text, now=payload.now,
-        timezone_str=payload.timezone,
-    )
-    prior_shapes = (await db.execute(select(ExtractionTrace).where(
-        ExtractionTrace.honcho_workspace_id == payload.workspace_id,
-        ExtractionTrace.honcho_message_id == payload.honcho_message_id,
-        ExtractionTrace.stage == "shape",
-    ).order_by(ExtractionTrace.created_at.asc()))).scalars().all()
-    if prior_shapes:
-        candidates = [ExtractionCandidate(**json.loads(item.detail_json)) for item in prior_shapes]
-        extraction_result = ExtractionResult(
-            candidates=candidates, backend="trace_replay",
-            model=prior_shapes[0].model,
-        )
-        turn_context: dict = {}
+    if candidates_override is not None:
+        # Candidates formed by the interpreter (the one semantic reader): reuse the shaping / temporal-grounding / lifecycle commit path below, and
+        # skip every legacy reading step (extractors, lexical loop closing, semantic reconciliation, turn interpretation, CurrentMeaning).
+        candidates, suppressed, turn_context = list(candidates_override), [], {}
+        extraction_result = ExtractionResult(candidates=candidates, observations=[], backend="interpreter", model=None, failure=None)
+        closed_loop_ids, violated_ids, narrow_shadow_summary, semantic_reconciliation_summary = [], [], None, {}
     else:
-        turn_context = await turn_context_assembler.assemble(
-            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-            peer_id=payload.peer_id, now=payload.now,
-            current_message_id=payload.honcho_message_id, current_text=payload.text,
-            timezone_str=payload.timezone,
+        # Turn stamp: the turn's own timestamp (injectable clock), consumed by
+        # the initiative engine's user-recently-active guard.
+        stamp_values = {
+            "honcho_workspace_id": payload.workspace_id,
+            "owner_peer_id": payload.peer_id,
+            "honcho_message_id": payload.honcho_message_id,
+            "turn_at": _naive_utc(payload.now),
+        }
+        dialect_name = db.get_bind().dialect.name
+        stamp_insert = sqlite_insert if dialect_name == "sqlite" else insert
+        await db.execute(
+            stamp_insert(TurnStamp).values(**stamp_values).on_conflict_do_nothing(
+                index_elements=["honcho_workspace_id", "honcho_message_id"]
+            )
         )
-        from src.services.narrow_realtime import NarrowRealtimeExtractor, narrow_mode
-        mode = narrow_mode()
-        narrow_extractor = None
-        if mode in ("shadow", "on"):
-            narrow_extractor = getattr(ingest_turn_event, "_narrow_extractor", None)
-            if narrow_extractor is None:
-                narrow_extractor = NarrowRealtimeExtractor()
-                setattr(ingest_turn_event, "_narrow_extractor", narrow_extractor)
-        if mode == "on":
-            # NARROW REAL-TIME LANE IS PRIMARY: one narrow decision per turn,
-            # projected into the EXISTING deterministic commit machinery
-            # (shaping, grounding, lifecycle, admission). Open-ended per-turn
-            # ontology discovery is retired from the real-time lane; discovery
-            # belongs to the async Honcho-backed sweeper (Lane 2).
-            narrow_decision = narrow_extractor.classify(
-                payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
-                now=payload.now, timezone_str=payload.timezone,
-            )
-            narrow_candidate = narrow_extractor.to_candidate(narrow_decision)
-            candidates = [narrow_candidate] if narrow_candidate is not None else []
-            extraction_result = ExtractionResult(
-                candidates=candidates,
-                observations=[],
-                backend="narrow",
-                model=narrow_extractor.last_model_used,
-                failure=None if narrow_decision.valid else (
-                    ";".join(narrow_decision.validation_notes)[:300] or "narrow_decision_invalid"
-                ),
-            )
-            await db.execute(stamp_insert(ExtractionTrace).values(
-                honcho_workspace_id=payload.workspace_id,
-                honcho_session_id=payload.session_id,
-                honcho_message_id=payload.honcho_message_id,
-                stage="narrow",
-                item_key="narrow",
-                status="ok" if narrow_decision.valid else "rejected",
-                model=narrow_extractor.last_model_used,
-                detail_json=json.dumps(narrow_decision.model_dump(), default=str),
-            ))
-            await db.commit()
-            narrow_shadow_summary = narrow_decision.summary()
-        else:
-            candidates = turn_extractor.extract_candidates(
-                payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
-            )
-            extraction_result = turn_extractor.extraction_result(candidates)
-    await operational_state_service.trace_result(
-        db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-        message_id=payload.honcho_message_id, result=extraction_result,
-    )
-    # Turn speaking stance for identity scoping (Step 3A). One row per turn;
-    # replays are idempotent. Scene assembly (3D) consumes these later.
-    if extraction_result.frame:
-        from src.models.identity import TurnFrame
-        existing_frame = (await db.execute(select(ExtractionTrace).where(
-            ExtractionTrace.honcho_workspace_id == payload.workspace_id,
-            ExtractionTrace.honcho_message_id == payload.honcho_message_id,
-            ExtractionTrace.stage == "frame",
-        ))).scalar_one_or_none()
-        if existing_frame is None:
-            db.add(TurnFrame(
-                honcho_workspace_id=payload.workspace_id,
-                honcho_session_id=payload.session_id,
-                honcho_message_id=payload.honcho_message_id,
-                frame=extraction_result.frame,
-                confidence=extraction_result.frame_confidence,
-            ))
-            await db.execute(stamp_insert(ExtractionTrace).values(
-                honcho_workspace_id=payload.workspace_id,
-                honcho_session_id=payload.session_id,
-                honcho_message_id=payload.honcho_message_id,
-                stage="frame",
-                item_key="frame",
-                status="ok",
-                model=extraction_result.model,
-                detail_json=json.dumps({"frame": extraction_result.frame,
-                                        "confidence": extraction_result.frame_confidence}),
-            ))
-            await db.commit()
-    # NARROW REAL-TIME CONTRACT (shadow mode). Non-destructive: runs the narrow
-    # classifier alongside the current extractor, validates deterministically,
-    # and traces the result. It NEVER mutates state or alters the existing
-    # pipeline. Cutover is gated on the comparison harness results.
-    narrow_shadow_summary: dict | None = None
-    from src.services.narrow_realtime import NarrowRealtimeExtractor, narrow_mode
-    if narrow_mode() == "shadow":
+        await db.commit()
+        # LANE 2 trigger: (re)arm the sweeper debounce/turn-count for this workspace.
         try:
-            narrow_extractor = getattr(ingest_turn_event, "_narrow_extractor", None)
-            if narrow_extractor is None:
-                narrow_extractor = NarrowRealtimeExtractor()
-                setattr(ingest_turn_event, "_narrow_extractor", narrow_extractor)
-            narrow_decision = narrow_extractor.classify(
-                payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
-                now=payload.now, timezone_str=payload.timezone,
-            )
-            await db.execute(stamp_insert(ExtractionTrace).values(
-                honcho_workspace_id=payload.workspace_id,
-                honcho_session_id=payload.session_id,
-                honcho_message_id=payload.honcho_message_id,
-                stage="narrow_shadow",
-                item_key="narrow",
-                status="ok" if narrow_decision.valid else "rejected",
-                model=narrow_extractor.last_model_used,
-                detail_json=json.dumps(narrow_decision.model_dump(), default=str),
-            ))
-            await db.commit()
-            narrow_shadow_summary = narrow_decision.summary()
-        except Exception as err:  # fail-open: shadow never breaks the real path
-            logger.warning("Narrow shadow extraction failed: %s", err)
-            narrow_shadow_summary = {"error": str(err)[:300]}
-    # Fast→slow reconciliation: deterministic suppression of conversation-derived
-    # candidates that would duplicate canonical actions already committed from
-    # this exact turn by the real-time interpreter. Applied after tracing (so
-    # replay re-applies identically) and before any lifecycle mutation.
-    candidates, suppressed = suppress_materialized_duplicates(
-        candidates, payload.materialized_actions
-    )
-    # Structural release + due evaluation (deterministic maintenance). Runs
-    # even when this turn extracted nothing: later evidence closes loops
-    # and passes due conditions regardless of what the current turn says.
-    closed_loop_ids: list = []
-    violated_ids: list = []
-    try:
-        # New-matter texts this turn declares: structural release must not
-        # close a vocabulary neighbour on shared words (payment vs form).
-        new_matter_texts = [
-            f"{cand.canonical_title or ''} {cand.open_loop_hint or ''}".strip()
-            for cand in candidates
-            if cand.open_loop_hint
-        ]
-        closed_loop_ids = await lifecycle_service.close_answered_loops(
+            from src.services.sweeper_triggers import schedule_after_turn
+            schedule_after_turn(payload.workspace_id, payload.session_id, payload.peer_id)
+        except Exception as err:
+            logger.warning("Lane 2 trigger scheduling failed: %s", err)
+        # 1. Multi-pass Turn Extraction
+        await operational_state_service.sweep(db, workspace_id=payload.workspace_id, now=payload.now)
+        await lifecycle_service.apply_reopen_conditions(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id, text=payload.text, owner_peer_id=payload.peer_id,
+        )
+        await sleep_tracker.observe(
             db, workspace_id=payload.workspace_id, session_id=payload.session_id,
             message_id=payload.honcho_message_id, text=payload.text, now=payload.now,
-            skip_overlapping=new_matter_texts)
-    except Exception as err:
-        logger.warning("Loop release failed: %s", err)
-    try:
-        violated_ids = await commitment_candidate_service.evaluate_due(
-            db, workspace_id=payload.workspace_id, now=payload.now)
-    except Exception as err:
-        logger.warning("Due evaluation failed: %s", err)
-    # Semantic reconciliation (event-driven, bounded, fail-open): open matters
-    # the deterministic pass left open get one semantic judgement each against
-    # this turn's evidence. Model understands; deterministic promotion governs.
-    semantic_reconciliation_summary: dict = {}
-    try:
-        from src.services.semantic_reconciliation import reconcile_turn
-        from src.services.evidence_recruitment import default_history_provider
-        semantic_reconciliation_summary = await reconcile_turn(
-            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-            message_id=payload.honcho_message_id, text=payload.text,
-            peer_id=payload.peer_id, now=payload.now,
-            closed_loop_ids=[str(lid) for lid in closed_loop_ids],
-            history_provider=default_history_provider(),
+            timezone_str=payload.timezone,
         )
-    except Exception as err:
-        logger.warning("Semantic reconciliation failed: %s", err)
-        semantic_reconciliation_summary = {"error": str(err)[:200]}
-    if not candidates:
-        logger.info("No state candidates extracted from turn msg_id=%s", payload.honcho_message_id)
-        # Live-boundary turn interpretation (Track E): a pure reference
-        # ("How's he doing?") contains no NEW state, so the new-state
-        # extractor correctly emits nothing — but the turn still needs
-        # interpretation against EXISTING state. One bounded semantic
-        # judgement over (raw utterance + live matters); code owns routing
-        # and mutation, the model owns meaning. Fail-open: any failure
-        # preserves today's silent-hold behaviour exactly.
-        interp_summary: dict = {"interpreted": False}
-        try:
-            from src.services.turn_interpretation import (
-                already_interpreted,
-                apply_interpretation,
-                fetch_live_matters,
-                interpret_turn,
-                interpretation_enabled,
+        prior_shapes = (await db.execute(select(ExtractionTrace).where(
+            ExtractionTrace.honcho_workspace_id == payload.workspace_id,
+            ExtractionTrace.honcho_message_id == payload.honcho_message_id,
+            ExtractionTrace.stage == "shape",
+        ).order_by(ExtractionTrace.created_at.asc()))).scalars().all()
+        if prior_shapes:
+            candidates = [ExtractionCandidate(**json.loads(item.detail_json)) for item in prior_shapes]
+            extraction_result = ExtractionResult(
+                candidates=candidates, backend="trace_replay",
+                model=prior_shapes[0].model,
             )
-            if interpretation_enabled() and not await already_interpreted(
-                db, workspace_id=payload.workspace_id,
-                message_id=payload.honcho_message_id,
-            ):
-                live_matters = await fetch_live_matters(
-                    db, workspace_id=payload.workspace_id,
-                    session_id=payload.session_id)
-                interp = await interpret_turn(payload.text, live_matters)
-                if interp is not None:
-                    interp_summary = await apply_interpretation(
-                        db, workspace_id=payload.workspace_id,
-                        session_id=payload.session_id,
-                        message_id=payload.honcho_message_id,
-                        peer_id=payload.peer_id, text=payload.text,
-                        now=payload.now, interp=interp,
-                        matters=live_matters)
-                    interp_summary["interpreted"] = True
-        except Exception as err:
-            logger.warning("Turn interpretation failed (fail-open): %s", err)
-            interp_summary = {"interpreted": False,
-                              "error": str(err)[:200]}
-        try:
-            from src.services.current_meaning_service import maybe_revise_after_turn
-            t2_summary = await maybe_revise_after_turn(
+            turn_context: dict = {}
+        else:
+            turn_context = await turn_context_assembler.assemble(
                 db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-                peer_id=payload.peer_id, message_id=payload.honcho_message_id,
-                turn_text=payload.text, now=payload.now,
-                mutated=bool(closed_loop_ids or violated_ids
-                             or semantic_reconciliation_summary.get("promoted")
-                             or semantic_reconciliation_summary.get("closed")
-                             or semantic_reconciliation_summary.get("judged")
-                             or interp_summary.get("mutated")),
+                peer_id=payload.peer_id, now=payload.now,
+                current_message_id=payload.honcho_message_id, current_text=payload.text,
+                timezone_str=payload.timezone,
+            )
+            from src.services.narrow_realtime import NarrowRealtimeExtractor, narrow_mode
+            mode = narrow_mode()
+            narrow_extractor = None
+            if mode in ("shadow", "on"):
+                narrow_extractor = getattr(ingest_turn_event, "_narrow_extractor", None)
+                if narrow_extractor is None:
+                    narrow_extractor = NarrowRealtimeExtractor()
+                    setattr(ingest_turn_event, "_narrow_extractor", narrow_extractor)
+            if mode == "on":
+                # NARROW REAL-TIME LANE IS PRIMARY: one narrow decision per turn,
+                # projected into the EXISTING deterministic commit machinery
+                # (shaping, grounding, lifecycle, admission). Open-ended per-turn
+                # ontology discovery is retired from the real-time lane; discovery
+                # belongs to the async Honcho-backed sweeper (Lane 2).
+                narrow_decision = narrow_extractor.classify(
+                    payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
+                    now=payload.now, timezone_str=payload.timezone,
+                )
+                narrow_candidate = narrow_extractor.to_candidate(narrow_decision)
+                candidates = [narrow_candidate] if narrow_candidate is not None else []
+                extraction_result = ExtractionResult(
+                    candidates=candidates,
+                    observations=[],
+                    backend="narrow",
+                    model=narrow_extractor.last_model_used,
+                    failure=None if narrow_decision.valid else (
+                        ";".join(narrow_decision.validation_notes)[:300] or "narrow_decision_invalid"
+                    ),
+                )
+                await db.execute(stamp_insert(ExtractionTrace).values(
+                    honcho_workspace_id=payload.workspace_id,
+                    honcho_session_id=payload.session_id,
+                    honcho_message_id=payload.honcho_message_id,
+                    stage="narrow",
+                    item_key="narrow",
+                    status="ok" if narrow_decision.valid else "rejected",
+                    model=narrow_extractor.last_model_used,
+                    detail_json=json.dumps(narrow_decision.model_dump(), default=str),
+                ))
+                await db.commit()
+                narrow_shadow_summary = narrow_decision.summary()
+            else:
+                candidates = turn_extractor.extract_candidates(
+                    payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
+                )
+                extraction_result = turn_extractor.extraction_result(candidates)
+        await operational_state_service.trace_result(
+            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+            message_id=payload.honcho_message_id, result=extraction_result,
+        )
+        # Turn speaking stance for identity scoping (Step 3A). One row per turn;
+        # replays are idempotent. Scene assembly (3D) consumes these later.
+        if extraction_result.frame:
+            from src.models.identity import TurnFrame
+            existing_frame = (await db.execute(select(ExtractionTrace).where(
+                ExtractionTrace.honcho_workspace_id == payload.workspace_id,
+                ExtractionTrace.honcho_message_id == payload.honcho_message_id,
+                ExtractionTrace.stage == "frame",
+            ))).scalar_one_or_none()
+            if existing_frame is None:
+                db.add(TurnFrame(
+                    honcho_workspace_id=payload.workspace_id,
+                    honcho_session_id=payload.session_id,
+                    honcho_message_id=payload.honcho_message_id,
+                    frame=extraction_result.frame,
+                    confidence=extraction_result.frame_confidence,
+                ))
+                await db.execute(stamp_insert(ExtractionTrace).values(
+                    honcho_workspace_id=payload.workspace_id,
+                    honcho_session_id=payload.session_id,
+                    honcho_message_id=payload.honcho_message_id,
+                    stage="frame",
+                    item_key="frame",
+                    status="ok",
+                    model=extraction_result.model,
+                    detail_json=json.dumps({"frame": extraction_result.frame,
+                                            "confidence": extraction_result.frame_confidence}),
+                ))
+                await db.commit()
+        # NARROW REAL-TIME CONTRACT (shadow mode). Non-destructive: runs the narrow
+        # classifier alongside the current extractor, validates deterministically,
+        # and traces the result. It NEVER mutates state or alters the existing
+        # pipeline. Cutover is gated on the comparison harness results.
+        narrow_shadow_summary: dict | None = None
+        from src.services.narrow_realtime import NarrowRealtimeExtractor, narrow_mode
+        if narrow_mode() == "shadow":
+            try:
+                narrow_extractor = getattr(ingest_turn_event, "_narrow_extractor", None)
+                if narrow_extractor is None:
+                    narrow_extractor = NarrowRealtimeExtractor()
+                    setattr(ingest_turn_event, "_narrow_extractor", narrow_extractor)
+                narrow_decision = narrow_extractor.classify(
+                    payload.text, peer_id=payload.peer_id, prior_state=turn_context or None,
+                    now=payload.now, timezone_str=payload.timezone,
+                )
+                await db.execute(stamp_insert(ExtractionTrace).values(
+                    honcho_workspace_id=payload.workspace_id,
+                    honcho_session_id=payload.session_id,
+                    honcho_message_id=payload.honcho_message_id,
+                    stage="narrow_shadow",
+                    item_key="narrow",
+                    status="ok" if narrow_decision.valid else "rejected",
+                    model=narrow_extractor.last_model_used,
+                    detail_json=json.dumps(narrow_decision.model_dump(), default=str),
+                ))
+                await db.commit()
+                narrow_shadow_summary = narrow_decision.summary()
+            except Exception as err:  # fail-open: shadow never breaks the real path
+                logger.warning("Narrow shadow extraction failed: %s", err)
+                narrow_shadow_summary = {"error": str(err)[:300]}
+        # Fast→slow reconciliation: deterministic suppression of conversation-derived
+        # candidates that would duplicate canonical actions already committed from
+        # this exact turn by the real-time interpreter. Applied after tracing (so
+        # replay re-applies identically) and before any lifecycle mutation.
+        candidates, suppressed = suppress_materialized_duplicates(
+            candidates, payload.materialized_actions
+        )
+        # Structural release + due evaluation (deterministic maintenance). Runs
+        # even when this turn extracted nothing: later evidence closes loops
+        # and passes due conditions regardless of what the current turn says.
+        closed_loop_ids: list = []
+        violated_ids: list = []
+        try:
+            # New-matter texts this turn declares: structural release must not
+            # close a vocabulary neighbour on shared words (payment vs form).
+            new_matter_texts = [
+                f"{cand.canonical_title or ''} {cand.open_loop_hint or ''}".strip()
+                for cand in candidates
+                if cand.open_loop_hint
+            ]
+            closed_loop_ids = await lifecycle_service.close_answered_loops(
+                db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                message_id=payload.honcho_message_id, text=payload.text, now=payload.now,
+                skip_overlapping=new_matter_texts)
+        except Exception as err:
+            logger.warning("Loop release failed: %s", err)
+        try:
+            violated_ids = await commitment_candidate_service.evaluate_due(
+                db, workspace_id=payload.workspace_id, now=payload.now)
+        except Exception as err:
+            logger.warning("Due evaluation failed: %s", err)
+        # Semantic reconciliation (event-driven, bounded, fail-open): open matters
+        # the deterministic pass left open get one semantic judgement each against
+        # this turn's evidence. Model understands; deterministic promotion governs.
+        semantic_reconciliation_summary: dict = {}
+        try:
+            from src.services.semantic_reconciliation import reconcile_turn
+            from src.services.evidence_recruitment import default_history_provider
+            semantic_reconciliation_summary = await reconcile_turn(
+                db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                message_id=payload.honcho_message_id, text=payload.text,
+                peer_id=payload.peer_id, now=payload.now,
+                closed_loop_ids=[str(lid) for lid in closed_loop_ids],
+                history_provider=default_history_provider(),
             )
         except Exception as err:
-            logger.warning("T2 revise failed: %s", err)
-            t2_summary = {"revised": False, "reason": "error"}
-        return {
-            "status": "accepted",
-            "expectation_created": False,
-            "candidates_extracted": 0,
-            "candidates_suppressed_by_reconciliation": len(suppressed),
-            "extraction_backend": extraction_result.backend,
-            "extraction_failure": extraction_result.failure,
-            "closed_loop_ids": [str(lid) for lid in closed_loop_ids],
-            "violated_commitment_ids": [str(vid) for vid in violated_ids],
-            "narrow_shadow": narrow_shadow_summary,
-            "semantic_reconciliation": semantic_reconciliation_summary,
-            "turn_interpretation": interp_summary,
-            "current_meaning": t2_summary,
-            "context": {
-                "status": turn_context.get("status"),
-                "honcho_status": turn_context.get("honcho_status"),
-            } if turn_context else None,
-        }
+            logger.warning("Semantic reconciliation failed: %s", err)
+            semantic_reconciliation_summary = {"error": str(err)[:200]}
+        if not candidates:
+            logger.info("No state candidates extracted from turn msg_id=%s", payload.honcho_message_id)
+            # Live-boundary turn interpretation (Track E): a pure reference
+            # ("How's he doing?") contains no NEW state, so the new-state
+            # extractor correctly emits nothing — but the turn still needs
+            # interpretation against EXISTING state. One bounded semantic
+            # judgement over (raw utterance + live matters); code owns routing
+            # and mutation, the model owns meaning. Fail-open: any failure
+            # preserves today's silent-hold behaviour exactly.
+            interp_summary: dict = {"interpreted": False}
+            try:
+                from src.services.turn_interpretation import (
+                    already_interpreted,
+                    apply_interpretation,
+                    fetch_live_matters,
+                    interpret_turn,
+                    interpretation_enabled,
+                )
+                if interpretation_enabled() and not await already_interpreted(
+                    db, workspace_id=payload.workspace_id,
+                    message_id=payload.honcho_message_id,
+                ):
+                    live_matters = await fetch_live_matters(
+                        db, workspace_id=payload.workspace_id,
+                        session_id=payload.session_id)
+                    interp = await interpret_turn(payload.text, live_matters)
+                    if interp is not None:
+                        interp_summary = await apply_interpretation(
+                            db, workspace_id=payload.workspace_id,
+                            session_id=payload.session_id,
+                            message_id=payload.honcho_message_id,
+                            peer_id=payload.peer_id, text=payload.text,
+                            now=payload.now, interp=interp,
+                            matters=live_matters)
+                        interp_summary["interpreted"] = True
+            except Exception as err:
+                logger.warning("Turn interpretation failed (fail-open): %s", err)
+                interp_summary = {"interpreted": False,
+                                  "error": str(err)[:200]}
+            try:
+                from src.services.current_meaning_service import maybe_revise_after_turn
+                t2_summary = await maybe_revise_after_turn(
+                    db, workspace_id=payload.workspace_id, session_id=payload.session_id,
+                    peer_id=payload.peer_id, message_id=payload.honcho_message_id,
+                    turn_text=payload.text, now=payload.now,
+                    mutated=bool(closed_loop_ids or violated_ids
+                                 or semantic_reconciliation_summary.get("promoted")
+                                 or semantic_reconciliation_summary.get("closed")
+                                 or semantic_reconciliation_summary.get("judged")
+                                 or interp_summary.get("mutated")),
+                )
+            except Exception as err:
+                logger.warning("T2 revise failed: %s", err)
+                t2_summary = {"revised": False, "reason": "error"}
+            return {
+                "status": "accepted",
+                "expectation_created": False,
+                "candidates_extracted": 0,
+                "candidates_suppressed_by_reconciliation": len(suppressed),
+                "extraction_backend": extraction_result.backend,
+                "extraction_failure": extraction_result.failure,
+                "closed_loop_ids": [str(lid) for lid in closed_loop_ids],
+                "violated_commitment_ids": [str(vid) for vid in violated_ids],
+                "narrow_shadow": narrow_shadow_summary,
+                "semantic_reconciliation": semantic_reconciliation_summary,
+                "turn_interpretation": interp_summary,
+                "current_meaning": t2_summary,
+                "context": {
+                    "status": turn_context.get("status"),
+                    "honcho_status": turn_context.get("honcho_status"),
+                } if turn_context else None,
+            }
 
     expectations_created = []
     mutated_ids = []
@@ -757,6 +770,8 @@ async def _ingest_turn_event_locked(
     # persist as facts via the idempotent writer. Fail-open.
     factual_rescue_summary: dict = {"rescued": 0}
     try:
+        if candidates_override is not None:
+            raise _SkipLegacy()
         from src.services.semantic_reconciliation import rescue_zero_yield_turn
 
         def _yielded() -> bool:
@@ -778,6 +793,8 @@ async def _ingest_turn_event_locked(
             message_id=payload.honcho_message_id, peer_id=payload.peer_id,
             now=payload.now, candidates=candidates, had_durable_yield=_yielded(),
         )
+    except _SkipLegacy:
+        pass
     except Exception as err:
         logger.warning("Factual rescue failed: %s", err)
         factual_rescue_summary = {"rescued": 0, "error": str(err)[:200]}
@@ -785,6 +802,8 @@ async def _ingest_turn_event_locked(
     # created/mutated/closed rows, relations the semantic pass promoted,
     # or facts the rescue path persisted.
     try:
+        if candidates_override is not None:
+            raise _SkipLegacy()
         from src.services.current_meaning_service import maybe_revise_after_turn
         t2_summary = await maybe_revise_after_turn(
             db, workspace_id=payload.workspace_id, session_id=payload.session_id,
@@ -797,6 +816,8 @@ async def _ingest_turn_event_locked(
                          or semantic_reconciliation_summary.get("judged")
                          or factual_rescue_summary.get("rescued")),
         )
+    except _SkipLegacy:
+        t2_summary = {"revised": False, "reason": "interpreter_owns_meaning"}
     except Exception as err:
         logger.warning("T2 revise failed: %s", err)
         t2_summary = {"revised": False, "reason": "error"}

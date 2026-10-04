@@ -88,10 +88,15 @@ PRINCIPLES
   something changes when the evidence shows they now do, however it happened.
 - Anywhere a reference is expected (actor, relationship, event), you may use either a short local ref declared in this response or the id of a known
   item from CURRENT WORLD STATE. Prefer the known id when the thing already exists.
+- OPERATIONAL: things someone will be held to or must remember (a reminder the user asked for, a plan with a time, a promise, an appointment, a routine) and
+  what happens to those already listed under OPERATIONAL STATE (done, called off, postponed, progressing). Emit `operational` items only for those, not
+  for every idea or topic. `temporal_phrase` is the speaker's own words about when (never compute a timestamp: code grounds it). To act on a listed open
+  item use its id in `target`. In a grounded world, something only the companion asserts about the user's life is not the user's commitment; the companion's
+  own promises are its own. An item that merely repeats one already listed is not new.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
 OUTPUT: ONE JSON object with these arrays (empty when nothing applies): actors, relationships, events, claims, narrative, commitments,
-dimensions, objectives, matter_candidates, trajectory, state_review, and an optional brief. Shapes:
+dimensions, objectives, matter_candidates, trajectory, state_review, operational, and an optional brief. Shapes:
 actors:[{ref,name,aliases[],entity_type(person|character|organisation|team),explicit(bool),existing_id|null,confidence,evidence[]}]
 relationships:[{ref,actors[a,b],type,directional(bool),existing_id|null,formation,confidence,evidence[]}]
 events:[{ref,label,kind,when_phrase|null,where|null,participants[],holder|null,formation,confidence,evidence[],conflicts_with[],same_as|null,possibly_same_as|null}]
@@ -103,6 +108,7 @@ objectives:[{ref,op(create|update|resolve),existing_id|null,actor,toward|null,te
 matter_candidates:[{ref,concept,display_title,kind(project|topic|concern|relationship_situation|goal|life_situation|routine|other),actors[],members[refs],continuity_required(bool),continuity_reason,attach_to_existing_matter_id|null,evidence[]}]
 trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,objectives[],evidence[]}]
 state_review:[{id(of a listed objective or dimension),status(holds|superseded|resolved|unclear),note}]
+operational:[{decision(create|complete|cancel|progress|reschedule),kind(reminder|event|deadline|commitment),title,temporal_phrase|null,target(id of a listed open item)|null,canonical_title|null,new_temporal_phrase|null,progress_amount|null,progress_unit|null,confidence,evidence[]}]
 brief:{text,lines:[{text,refs[]}]}"""
 
 
@@ -385,6 +391,25 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
         elif fresh("trajectory", t):
             trajectory.append({"ref": t["ref"], "actor": t_actor, "state": t.get("state") if t.get("state") in ("on_track", "drifting", "at_risk", "failing") else "unknown",
                                "note": t["note"].strip(), "objectives": [x for x in _list(t.get("objectives")) if isinstance(x, str)], "evidence": ev(t)})
+    operational = []
+    open_ids = (known.get("operational") or {})
+    for o in dict_items("operational", "operational"):
+        decision = str(o.get("decision") or "").lower()
+        target = _str(o.get("target"))
+        if decision not in ("create", "complete", "cancel", "progress", "reschedule"):
+            drops("operational", o, "bad_decision")
+        elif decision != "create" and target not in open_ids:
+            drops("operational", o, "target_not_a_listed_open_item")
+        elif decision == "create" and not _str(o.get("title")):
+            drops("operational", o, "create_without_title")
+        elif not ev(o):
+            drops("operational", o, "no_valid_evidence")
+        else:
+            operational.append({"decision": decision, "kind": (_str(o.get("kind")) or "commitment").lower(), "title": _str(o.get("title")),
+                                "temporal_phrase": _str(o.get("temporal_phrase")), "target": target if decision != "create" else None,
+                                "canonical_title": _str(o.get("canonical_title")) or (open_ids.get(target) if target else None),
+                                "new_temporal_phrase": _str(o.get("new_temporal_phrase")), "progress_amount": o.get("progress_amount") if isinstance(o.get("progress_amount"), (int, float)) else None,
+                                "progress_unit": _str(o.get("progress_unit")), "confidence": _num(o.get("confidence"), 0.8), "evidence": ev(o)})
     reviews = []
     for r in dict_items("state_review", "state_review"):
         if r.get("status") in ("holds", "superseded", "resolved", "unclear") and _str(r.get("id")):
@@ -404,6 +429,7 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                    "owner_actor": speaker_actors.get("user"), "speaker_actors": speaker_actors},
         "actors": actors, "relationships": rels, "events": events, "claims": claims, "narrative": narrative, "commitments": commitments,
         "dimensions": dims, "objectives": objectives, "matter_candidates": matters, "trajectory": trajectory, "brief": brief, "reviews": reviews,
+        "operational": operational,
     }
 
 
@@ -465,19 +491,50 @@ async def honcho_context(workspace_id: str, owner: str, session_id: str, evidenc
         return None
 
 
+def message_hash(speaker: str, text: str) -> str:
+    import hashlib
+    return hashlib.sha1(f"{speaker}|{' '.join(str(text).split()).lower()}".encode()).hexdigest()[:20]
+
+
 async def covered_message_ids(db: AsyncSession, workspace_id: str, owner: str) -> set:
     """Evidence this world has already been interpreted over: the message ids of its applied interpreter runs. Pure ledger arithmetic."""
+    return (await _coverage(db, workspace_id, owner))[0]
+
+
+async def _coverage(db: AsyncSession, workspace_id: str, owner: str):
+    from collections import Counter
     from src.models.world import ProducerRun
     rows = (await db.execute(select(ProducerRun.input_json).where(
         ProducerRun.honcho_workspace_id == workspace_id, ProducerRun.owner_peer_id == owner, ProducerRun.producer == "world-interpreter",
         ProducerRun.status == "applied"))).scalars().all()
     covered: set = set()
+    synthetic: Counter = Counter()
     for blob in rows:
         try:
-            covered.update(json.loads(blob or "{}").get("message_ids") or [])
+            data = json.loads(blob or "{}")
         except ValueError:
             continue
-    return covered
+        covered.update(data.get("message_ids") or [])
+        synthetic.update(data.get("synthetic_hashes") or [])
+    return covered, synthetic
+
+
+def split_fresh(messages: List[Dict[str, str]], covered: set, synthetic: Any) -> List[bool]:
+    """For each offered message: is it still uninterpreted? Covered by id, or (persisted message only) by matching an already-interpreted SYNTHETIC
+    message of the same speaker and text, consumed one-for-one. Mechanical identity; no similarity judgement."""
+    pool = dict(synthetic)
+    out = []
+    for m in messages:
+        if m["id"] in covered:
+            out.append(False)
+            continue
+        h = message_hash(m["speaker"], m["text"])
+        if m.get("synthetic") != "true" and pool.get(h, 0) > 0:
+            pool[h] -= 1
+            out.append(False)
+            continue
+        out.append(True)
+    return out
 
 
 def _utc() -> datetime:
@@ -509,7 +566,7 @@ def _busy_receipt(run_id: str, model: str) -> Dict[str, Any]:
 async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_id: str, messages: List[Dict[str, str]], speakers: Dict[str, str],
                     policy: str, constitution: Optional[Dict[str, str]], adapter: Any, covered_ordinal: int = 0, model: Optional[str] = None,
                     now: Optional[datetime] = None, matter_adapter: Any = None, user_actor: Optional[str] = None,
-                    companion_actor: Optional[str] = None) -> Dict[str, Any]:
+                    companion_actor: Optional[str] = None, timezone: str = "UTC") -> Dict[str, Any]:
     """One interpretation pass as a transaction over a world.
 
     Protocol: open a run (queued) -> take the world's cross-process lease -> under the lease compute, by message id, what is still uninterpreted
@@ -528,23 +585,25 @@ async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_
         await _finish(db, rid, "deferred", {"reason": "lease_timeout"}, {"deferred": "lease_timeout"})
         return _busy_receipt(holder, model_id)
     try:
-        covered = await covered_message_ids(db, workspace_id, owner)
-        fresh_msgs = [m for m in messages if m["id"] not in covered]
+        covered, synthetic = await _coverage(db, workspace_id, owner)
+        flags = split_fresh(messages, covered, synthetic)
+        fresh_msgs = [m for m, f in zip(messages, flags) if f]
         if not fresh_msgs:
             await _finish(db, rid, "skipped", {"reason": "already_interpreted", "offered": len(messages)})
             return {"status": "already_interpreted", "run_id": holder, "counts": {}, "rejected": [], "repaired": [], "refs": {}, "covered_through": None,
                     "snapshot_version": None, "model": model_id, "interpreted": {}}
-        first_new = next(i for i, m in enumerate(messages) if m["id"] not in covered)
-        context = [m for m in messages[:first_new] if m["id"] in covered][-CONTEXT_MESSAGES:]
-        fresh = [m for m in messages[first_new:] if m["id"] not in covered]
+        first_new = flags.index(True)
+        context = [m for m, f in zip(messages[:first_new], flags[:first_new]) if not f][-CONTEXT_MESSAGES:]
+        fresh = [m for m, f in zip(messages[first_new:], flags[first_new:]) if f]
         run.status, run.started_at = "running", _utc()
         run.input_json = json.dumps({"session_id": session_id, "message_ids": [m["id"] for m in fresh][:world_materializer.MAX_RUN_MESSAGE_IDS],
+                                     "synthetic_hashes": [message_hash(m["speaker"], m["text"]) for m in fresh if m.get("synthetic") == "true"],
                                      "context_ids": [m["id"] for m in context], "offered_ids": [m["id"] for m in messages][:world_materializer.MAX_RUN_MESSAGE_IDS]})
         db.add(run)
         await db.commit()
         return await _interpret_locked(db, run=run, rid=rid, workspace_id=workspace_id, owner=owner, session_id=session_id, context=context, fresh=fresh,
                                        speakers=speakers, policy=policy, constitution=constitution, adapter=adapter, covered_ordinal=covered_ordinal,
-                                       model_id=model_id, now=now, matter_adapter=matter_adapter, user_actor=user_actor, companion_actor=companion_actor)
+                                       model_id=model_id, now=now, matter_adapter=matter_adapter, user_actor=user_actor, companion_actor=companion_actor, timezone=timezone)
     except Exception as exc:
         await _finish(db, rid, "failed", {"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, {"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
         raise
@@ -555,7 +614,7 @@ async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_
 async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_id: str, owner: str, session_id: str, context: List[Dict[str, str]],
                             fresh: List[Dict[str, str]], speakers: Dict[str, str], policy: str, constitution: Optional[Dict[str, str]], adapter: Any,
                             covered_ordinal: int, model_id: str, now: Optional[datetime], matter_adapter: Any, user_actor: Optional[str],
-                            companion_actor: Optional[str]) -> Dict[str, Any]:
+                            companion_actor: Optional[str], timezone: str = "UTC") -> Dict[str, Any]:
     from src.models.world_model import WorldModelSnapshot
     from src.services import world_identity
     first_id = (context + fresh)[0]["id"]
@@ -565,7 +624,9 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
         WorldModelSnapshot.honcho_workspace_id == workspace_id, WorldModelSnapshot.owner_peer_id == owner,
         WorldModelSnapshot.superseded_by_id.is_(None)).order_by(WorldModelSnapshot.compiled_at.desc()).limit(1))).scalars().first()
     messages = context + fresh
+    from src.services import executive
     state = await world_state_for_prompt(db, workspace_id, owner)
+    state["operational_state"] = await executive.operational_snapshot(db, workspace_id, owner)
     speaker_label = {"user": user_actor or "the user (name not supplied)", "assistant": companion_actor or speakers.get("assistant", "the companion")}
     line = lambda m: f"[{m['id']}] {speaker_label.get(m['speaker'], speakers.get(m['speaker'], m['speaker']))} ({'user' if m['speaker'] == 'user' else 'companion'}): {m['text']}"
     evidence = "\n".join(line(m) for m in fresh)
@@ -575,7 +636,7 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
               f"IDENTITIES (product-supplied): `user` = {user_actor or 'the human (name not supplied)'}; `companion` = {companion_actor or speakers.get('assistant', 'the companion')}\n"
               f"CHARACTER CONSTITUTIONAL ORIENTATION (product-authored; {constitution.get('actor') if constitution else 'the companion'} toward "
               f"{toward or 'the user'}): {constitution.get('text') if constitution else 'none'}\n\n"
-              f"CURRENT WORLD STATE (ids are real):\n{json.dumps(state, ensure_ascii=False, default=str)}\n\n"
+              f"CURRENT WORLD STATE (ids are real; `operational_state` lists the open time-bound items):\n{json.dumps(state, ensure_ascii=False, default=str)}\n\n"
               + (f"HONCHO CONTEXT (long-term store):\n{json.dumps(honcho, ensure_ascii=False)}\n\n" if honcho else "")
               + (("EARLIER MESSAGES (already interpreted; context only, do not re-derive what the CURRENT WORLD STATE already holds):\n"
                   + "\n".join(line(m) for m in context) + "\n\n") if context else "")
@@ -587,9 +648,12 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     delta_dict = normalize(raw, messages=messages, speakers=speakers, workspace_id=workspace_id, owner=owner, session_id=session_id, model=model_id,
                            run_id=str(rid), policy=policy, covered_ordinal=covered_ordinal, pinned=pinned, drops=drops,
                            known={"actors": {a["id"]: a["name"] for a in state["actors"]}, "relationships": {r["id"]: r["type"] for r in state["relationships"]},
-                                  "events": {e["id"]: e["label"] for e in state["events"]}})
+                                  "events": {e["id"]: e["label"] for e in state["events"]},
+                                  "operational": {x["id"]: x["title"] for kind in ("expectations", "open_loops", "commitments") for x in state["operational_state"][kind]}})
     delta = WorldDelta(**delta_dict)
     receipt = await world_materializer.materialize(db, delta, now=now, adapter=matter_adapter, constitution=constitution, run=run)
+    receipt["operational"] = await commit_operational(db, delta.operational, messages=messages, workspace_id=workspace_id, owner=owner, session_id=session_id,
+                                                      timezone=timezone, now=now)
     kinds = ("actors", "relationships", "events", "claims", "narrative", "commitments", "dimensions", "objectives", "matter_candidates", "trajectory")
     receipt["usage"] = getattr(adapter, "last_usage", None)
     receipt["model"] = model_id
@@ -607,10 +671,49 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
         "honcho": {"used": bool(honcho), "summaries": sorted((honcho or {}).get("summary", {}).keys()), "earlier_hits": len((honcho or {}).get("earlier_evidence", []))},
         "state_shown": {k: len(v) for k, v in state.items() if isinstance(v, list)} | {"review_ids": shown},
         "proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": drops.items, "rejected": receipt["rejected"], "repaired": receipt["repaired"],
-        "superseded": receipt.get("superseded", []), "reviews": receipt.get("reviews", []), "review_coverage": receipt["review_coverage"],
+        "operational": receipt["operational"], "superseded": receipt.get("superseded", []), "reviews": receipt.get("reviews", []), "review_coverage": receipt["review_coverage"],
         "snapshot": {"before": prior_snap, "after": receipt.get("snapshot_version")}, "model": model_id, "usage": receipt["usage"],
     }
     await _finish(db, rid, "applied", detail, {"proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": len(drops.items)})
     from src.services import executive
     await executive.note_changed(db, workspace_id, owner, "world_interpreted")      # the world changed: the executive reconsiders (no-op unless its policy enables it)
     return receipt
+
+
+async def commit_operational(db: AsyncSession, items: List[Any], *, messages: List[Dict[str, str]], workspace_id: str, owner: str, session_id: str,
+                             timezone: str, now: Optional[datetime]) -> Dict[str, Any]:
+    """The interpreter decided these are operational (a reminder, a commitment, a completion...). Each becomes the same typed candidate the narrow lane
+    produced and goes through the SAME deterministic commit path: temporal grounding, shaping, lifecycle, idempotent persistence. Per-item failures are
+    recorded, never fatal to the run."""
+    if not items:
+        return {"committed": [], "failed": []}
+    from datetime import timezone as dt_tz
+    from src.routers import v1_events
+    from src.schemas.expectation import TurnEventIngest
+    from src.services.narrow_realtime import NarrowDecision, NarrowRealtimeExtractor
+    by_id = {m["id"]: m for m in messages}
+    stamp = now or datetime.now(dt_tz.utc)
+    committed, failed = [], []
+    for it in items:
+        try:
+            msg = by_id[it.evidence[0]]
+            decision = NarrowDecision(decision=it.decision, kind=it.kind if it.kind in ("reminder", "event", "deadline", "commitment") else "commitment", title=it.title,
+                                      temporal_phrase=it.temporal_phrase, target_key=it.target, canonical_title=it.canonical_title, evidence_text=msg["text"][:500],
+                                      new_temporal_phrase=it.new_temporal_phrase, progress_amount=it.progress_amount, progress_unit=it.progress_unit,
+                                      confidence=it.confidence, valid=True)
+            cand = NarrowRealtimeExtractor.to_candidate(None, decision)
+            if cand is None:
+                failed.append({"title": it.title, "reason": "no_candidate"})
+                continue
+            if cand.resolution_hint is not None and it.target:
+                cand.resolution_hint["target_id"] = it.target       # exact id: the lifecycle mutates precisely this item
+            payload = TurnEventIngest(workspace_id=workspace_id, session_id=session_id, honcho_message_id=msg["id"], peer_id=owner, text=msg["text"],
+                                      now=stamp if stamp.tzinfo else stamp.replace(tzinfo=dt_tz.utc), timezone=timezone or "UTC")
+            result = await v1_events._ingest_turn_event_locked(payload, db, candidates_override=[cand])
+            committed.append({"decision": it.decision, "title": it.title or it.canonical_title, "mutations": [m.get("mutation") for m in result.get("operational_mutations", []) if isinstance(m, dict)],
+                              "expectations": result.get("expectations_created_count", 0), "closed": len(result.get("mutated_expectation_ids", []))})
+        except Exception as exc:
+            await db.rollback()
+            logger.warning("operational commit failed: %s", exc)
+            failed.append({"title": it.title, "reason": f"{type(exc).__name__}: {str(exc)[:160]}"})
+    return {"committed": committed, "failed": failed}

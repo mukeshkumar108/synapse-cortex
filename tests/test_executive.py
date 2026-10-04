@@ -98,3 +98,45 @@ async def test_only_a_receipt_completes_an_action_and_a_surfaced_intent_is_not_r
         item = (await executive.surfaced_agenda(db, WS, owner))[0]
         await executive.mark_surfaced(db, item["work_item_id"], now())
         assert await executive.surfaced_agenda(db, WS, owner) == []                                              # raised once; the executive decides if it deserves raising again
+
+
+def test_standing_delegated_authority_lets_a_scoped_action_proceed_without_a_fresh_confirmation():
+    act = {"kind": "act", "consequence": "low", "reversible": True, "authority_basis": "inferred", "action": {"tool": "calendar.create", "args": {}}}
+    assert executive.permission(act)["mode"] == "needs_confirmation"                                              # inferred authority alone is not enough
+    grant = [{"tool": "calendar.", "max_consequence": "low"}]
+    assert executive.permission(act, grant) == {"mode": "autonomous", "basis": "delegation"}
+    assert executive.permission({**act, "consequence": "moderate"}, grant)["mode"] == "needs_confirmation"      # outside the delegated scope
+    assert executive.permission({**act, "action": {"tool": "email.send"}}, grant)["mode"] == "needs_confirmation"
+
+
+@pytest.mark.asyncio
+async def test_the_agenda_persists_what_is_being_carried_and_a_set_aside_concern_is_remembered_not_reconsidered():
+    owner = "user_exec5"
+    first = Model({"intents": [{"op": "create", "kind": "check_in", "title": "Ask about the gym", "horizon": "this_week", "stance": "pursue"}],
+                   "agenda": {"carrying": [{"title": "Ask about the gym", "horizon": "this_week", "stance": "pursue", "why": "weekly goal"}], "sequence_note": "gym after the deadline"}})
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=first)
+        item = (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner, WorkItem.kind == "check_in"))).scalars().one()
+        second = Model({"intents": [{"op": "cancel", "id": str(item.id), "reason": "user said the gym is off this month"}], "agenda": {"carrying": [], "sequence_note": "nothing carried"}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t2"], adapter=second)
+        third = Model({"intents": []})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t3"], adapter=third)
+    ctx2 = json.loads(second.calls[0]["prompt"].split("CONTEXT (ids are real):\n")[1])
+    ctx3 = json.loads(third.calls[0]["prompt"].split("CONTEXT (ids are real):\n")[1])
+    assert ctx2["agenda"]["carrying"][0]["title"] == "Ask about the gym"                                          # the last agenda is handed back to the executive
+    assert ctx3["set_aside"] == [{"id": str(item.id), "title": "Ask about the gym", "reason": "user said the gym is off this month"}]
+    assert ctx3["agenda"]["sequence_note"] == "nothing carried" and ctx3["intents"] == []                         # agenda bookkeeping never shows up as an intent
+
+
+@pytest.mark.asyncio
+async def test_an_external_event_reaches_the_executive_and_outreach_is_followed_by_raw_outcome_facts():
+    owner = "user_exec6"
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}})
+        await executive.note_changed(db, WS, owner, "calendar_changed", delay_seconds=0, detail={"event": "3pm meeting moved to 5pm"})
+    model = Model({"intents": []})
+    async with async_session_maker() as db:
+        await executive.tick(db, adapter=model, now=now() + timedelta(seconds=5))
+    ctx = json.loads(model.calls[0]["prompt"].split("CONTEXT (ids are real):\n")[1])
+    assert ctx["external_events"][0]["event"] == "3pm meeting moved to 5pm" and "calendar_changed" in ctx["woken_because"]

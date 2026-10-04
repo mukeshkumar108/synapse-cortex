@@ -421,7 +421,7 @@ async def test_the_interpreter_gets_state_with_ids_and_only_structure_is_validat
                                           messages=INTERP_MESSAGES + [{"id": "m3", "speaker": "assistant", "text": "thank you, that is kind."}],
                                           speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter,
                                           user_actor="Kai", companion_actor="Lila")
-    state = json.loads(adapter.calls[1]["prompt"].split("CURRENT WORLD STATE (ids are real):\n")[1].split("\n\n")[0])
+    state = json.loads(adapter.calls[1]["prompt"].split("open time-bound items):\n")[1].split("\n\n")[0])
     assert {a["name"] for a in state["actors"]} == {"Lila", "Kai"} and state["actors"][0]["id"] and state["objectives"][0]["text"] == "keep distance tonight"
     assert state["last_brief"] == "Lila is pulling back; Kai is caring."
 
@@ -779,3 +779,34 @@ async def test_a_name_the_product_supplies_later_pins_the_actor_the_world_alread
         ents = (await db.execute(select(Entity).where(Entity.frame_scope == owner))).scalars().all()
         pins = {r.role: r.entity_id for r in (await db.execute(select(WorldIdentity).where(WorldIdentity.owner_peer_id == owner))).scalars().all()}
     assert [e.display_name for e in ents].count("Kai") == 1 and pins["user_actor"] == existing.id
+
+
+@pytest.mark.asyncio
+async def test_an_operational_item_commits_through_the_shared_lifecycle_with_the_time_grounded_by_code_and_redelivery_creates_no_twin():
+    from src.models.expectation import Expectation
+    owner = "world:rpd2:u:ops:c1"
+    msgs = [{"id": "m1", "speaker": "user", "text": "Remind me to call mum tomorrow at 5pm."}, {"id": "m2", "speaker": "assistant", "text": "I'll remind you."}]
+    raw = {"operational": [{"decision": "create", "kind": "reminder", "title": "Call mum", "temporal_phrase": "tomorrow at 5pm", "evidence": ["m1"]},
+                           {"decision": "complete", "target": "not-a-listed-item", "evidence": ["m2"]}]}
+    first = await _run(FakeInterpreter(raw), msgs, owner=owner)
+    async with async_session_maker() as db:
+        rows = (await db.execute(select(Expectation).where(Expectation.honcho_workspace_id == WS, Expectation.owner_peer_id == owner))).scalars().all()
+        run = (await db.execute(select(ProducerRun).where(ProducerRun.id == __import__("uuid").UUID(first["run_id"])))).scalars().one()
+    assert len(rows) == 1 and rows[0].title.lower().startswith("call mum") and rows[0].expected_window_end is not None and rows[0].raw_temporal_phrase == "tomorrow at 5pm"
+    detail = json.loads(run.detail_json)
+    assert len(detail["operational"]["committed"]) == 1 and {d["reason"] for d in detail["dropped"]} == {"target_not_a_listed_open_item"}
+    assert (await _run(FakeInterpreter(raw), msgs, owner=owner))["status"] == "already_interpreted"
+
+
+@pytest.mark.asyncio
+async def test_a_persisted_message_matching_an_already_interpreted_synthetic_one_is_not_interpreted_twice_but_a_genuinely_new_one_is():
+    owner = "world:rpd2:u:syn:c1"
+    base = [{"id": "p1", "speaker": "assistant", "text": "hello there"}]
+    turn = base + [{"id": "t5-u", "speaker": "user", "text": "I promise to call mum on Sunday.", "synthetic": "true"},
+                   {"id": "t5-a", "speaker": "assistant", "text": "That's a good plan.", "synthetic": "true"}]
+    adapter = FakeInterpreter(_raw("t5-u"))
+    assert (await _run(adapter, turn, owner=owner))["status"] == "applied"
+    persisted = base + [{"id": "db-9", "speaker": "user", "text": "I promise to call mum on Sunday."}, {"id": "db-10", "speaker": "assistant", "text": "That's a good plan."}]
+    assert (await _run(adapter, persisted, owner=owner))["status"] == "already_interpreted" and len(adapter.calls) == 1        # same messages under their real ids
+    more = persisted + [{"id": "db-11", "speaker": "user", "text": "Actually make it Monday."}]
+    assert (await _run(FakeInterpreter(_raw("db-11")), more, owner=owner))["status"] == "applied"

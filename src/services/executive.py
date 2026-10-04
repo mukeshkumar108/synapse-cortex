@@ -34,6 +34,8 @@ EXECUTIVE_TIMEOUT = float(os.getenv("WORLD_EXECUTIVE_TIMEOUT_SECONDS", "120"))
 DEFAULT_POLICY: Dict[str, Any] = {
     "executive": {"enabled": False, "daily_review_hours": 24, "timezone": "Europe/London"},
     "proactive": {"quiet_hours": [22, 8], "min_gap_hours": 4.0, "max_per_day": 2, "pressure_threshold": 0.6},
+    # delegated authority as state: scoped standing permission, e.g. {"tool": "calendar.", "max_consequence": "low", "allow_irreversible": false}
+    "autonomy": {"delegations": []},
 }
 ACTIVE_STATUSES = ("proposed", "surfaced", "in_progress", "waiting")
 MAX_RETRIES = 3
@@ -54,12 +56,21 @@ Return typed INTENTS: what the companion should attend to, raise, prepare, do, o
   is `reversible`, and the `authority_basis`: explicit_request | delegated | inferred. Do not claim anything was done: results arrive later as receipts.
 - Observation and revision: update or close existing intents by id (`op` update|done|cancel|fail) when evidence or receipts changed them. A fictional world
   follows the same logic, grounded in that world's own relationships; the character's behaviour is not yours to script.
+- Keep an AGENDA: what the companion is carrying across all concerns, not one reaction at a time. Each concern has a `horizon` (now | today | this_week |
+  ongoing) and a `stance` (pursue | defer | set_aside). Choose among concerns and sequence them: the closest deadline must not always win over the
+  important-but-not-urgent thing; look for opportunities (two things that combine, a quiet window, a dependency that just cleared) and for concerns that
+  have become relevant again. Setting something aside is a decision: close the intent (`op: cancel`) with a `reason`, and it is remembered so you do not
+  keep reconsidering it. `agenda` is your current view; replace it each pass.
+- Learn from what happened: `recent_outcomes` shows what followed earlier outreach (answered, ignored, completed, still open) and `set_aside` shows what
+  was deliberately dropped. Adjust future initiative to it, in your own judgement; do not repeat what already failed to land. `external_events` are things
+  that happened outside the conversation that may change what matters.
 - Be concise. Every intent needs `rationale`.
 
 OUTPUT: ONE JSON object: {"intents":[{"op":"create|update|done|cancel|fail","id":null|"<existing intent id>","kind":"ask|remind|check_in|prepare|act|wait|reconsider|<other>",
 "title":"","rationale":"","about":{"type":"expectation|open_loop|commitment|objective|matter|event|null","id":null},"importance":0.0-1.0,
 "urgency":"normal|acute","surface_now":false,"message_gist":null,"wake_at":null|"<ISO 8601 with offset>","waiting_on":null,"expected_observation":null,
-"consequence":"none|low|moderate|high","reversible":true,"authority_basis":null,"action":null|{"tool":"","args":{}}}],"next_review_at":null|"<ISO 8601>","note":""}"""
+"consequence":"none|low|moderate|high","reversible":true,"authority_basis":null,"action":null|{"tool":"","args":{}},"horizon":"now|today|this_week|ongoing","stance":"pursue|defer|set_aside","reason":null}],
+"agenda":{"carrying":[{"title":"","horizon":"","stance":"","why":""}],"sequence_note":""},"next_review_at":null|"<ISO 8601>","note":""}"""
 
 
 def _naive(dt: datetime) -> datetime:
@@ -110,39 +121,38 @@ async def set_policy(db: AsyncSession, workspace_id: str, owner: str, policy: Di
 
 
 # ----------------------------------------------------------------------------- wakes
-async def add_wake(db: AsyncSession, workspace_id: str, owner: str, due_at: datetime, reason: str, *, attempts: int = 0, dedupe: bool = True) -> None:
+async def add_wake(db: AsyncSession, workspace_id: str, owner: str, due_at: datetime, reason: str, *, attempts: int = 0, dedupe: bool = True,
+                   detail: Optional[Dict[str, Any]] = None) -> None:
     due_at = _naive(due_at)
-    if dedupe:
+    if dedupe and not detail:
         existing = (await db.execute(select(ExecutiveWake.id).where(
             ExecutiveWake.honcho_workspace_id == workspace_id, ExecutiveWake.owner_peer_id == owner, ExecutiveWake.consumed_at.is_(None),
             ExecutiveWake.reason == reason, ExecutiveWake.due_at <= due_at + timedelta(minutes=5), ExecutiveWake.due_at >= due_at - timedelta(minutes=5)))).first()
         if existing:
             return
-    db.add(ExecutiveWake(honcho_workspace_id=workspace_id, owner_peer_id=owner, due_at=due_at, reason=reason[:200], attempts=attempts))
+    db.add(ExecutiveWake(honcho_workspace_id=workspace_id, owner_peer_id=owner, due_at=due_at, reason=reason[:200], attempts=attempts,
+                          detail_json=json.dumps(detail, default=str)[:4000] if detail else None))
     await db.commit()
 
 
-async def note_changed(db: AsyncSession, workspace_id: str, owner: str, reason: str = "world_changed", delay_seconds: int = 90) -> None:
+async def note_changed(db: AsyncSession, workspace_id: str, owner: str, reason: str = "world_changed", delay_seconds: int = 90,
+                       detail: Optional[Dict[str, Any]] = None) -> None:
     """Something relevant to this world changed (new interpretation, a receipt, an external event): reconsider soon. A no-op unless the world's policy
     enables the executive, so it costs one row read for worlds that have not opted in."""
     try:
         if (await get_policy(db, workspace_id, owner))["executive"].get("enabled"):
-            await add_wake(db, workspace_id, owner, _utc() + timedelta(seconds=delay_seconds), reason)
+            await add_wake(db, workspace_id, owner, _utc() + timedelta(seconds=delay_seconds), reason, detail=detail)
     except Exception as exc:
         logger.warning("executive wake not recorded: %s", exc)
 
 
-# ----------------------------------------------------------------------------- context
-async def build_context(db: AsyncSession, workspace_id: str, owner: str, *, now: datetime, policy: Dict[str, Any], reasons: List[str]) -> Dict[str, Any]:
+async def operational_snapshot(db: AsyncSession, workspace_id: str, owner: str) -> Dict[str, Any]:
+    """Open time-bound state with ids: expectations (reminders/plans with windows), open loops, commitments. Read by the interpreter (to close/update by id)
+    and by the executive (to decide attention)."""
     from sqlalchemy import or_
     from src.models.commitment_candidate import CommitmentCandidate, CommitmentCandidateStatus
     from src.models.expectation import Expectation, OutcomeState
     from src.models.open_loop import OpenLoop, OpenLoopStatus
-    from src.models.operational_state import ProactiveLog, TurnStamp
-    from src.services.world_interpreter import world_state_for_prompt
-    tz = ZoneInfo(policy["executive"].get("timezone") or "Europe/London")
-    local = now.replace(tzinfo=timezone.utc).astimezone(tz)
-    world = await world_state_for_prompt(db, workspace_id, owner)
     exps = (await db.execute(select(Expectation).where(
         Expectation.honcho_workspace_id == workspace_id, or_(Expectation.owner_peer_id == owner, Expectation.subject_peer_id == owner),
         Expectation.outcome_state == OutcomeState.UNKNOWN, Expectation.superseded_by_id.is_(None)).order_by(Expectation.expected_window_end.asc().nullslast()).limit(25))).scalars().all()
@@ -151,34 +161,70 @@ async def build_context(db: AsyncSession, workspace_id: str, owner: str, *, now:
     commits = (await db.execute(select(CommitmentCandidate).where(
         CommitmentCandidate.honcho_workspace_id == workspace_id, CommitmentCandidate.owner_peer_id == owner,
         CommitmentCandidate.status.in_((CommitmentCandidateStatus.PENDING, CommitmentCandidateStatus.MATERIALIZED))).order_by(CommitmentCandidate.created_at.desc()).limit(20))).scalars().all()
+    return {
+        "expectations": [{"id": str(e.id), "title": e.title, "summary": (e.summary or "")[:160], "window": [_iso(e.expected_window_start), _iso(e.expected_window_end)],
+                          "deadline": _iso(e.hard_deadline_at), "phrase": e.raw_temporal_phrase, "direction": e.direction} for e in exps],
+        "open_loops": [{"id": str(l.id), "title": l.title, "summary": (l.summary or "")[:160], "expires_at": _iso(l.expires_at)} for l in loops],
+        "commitments": [{"id": str(c.id), "title": c.title, "phrase": c.raw_temporal_phrase, "status": getattr(c.status, "value", c.status)} for c in commits],
+    }
+
+
+# ----------------------------------------------------------------------------- context
+async def build_context(db: AsyncSession, workspace_id: str, owner: str, *, now: datetime, policy: Dict[str, Any], reasons: List[str],
+                        external_events: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    from src.models.operational_state import ProactiveLog, TurnStamp
+    from src.services.world_interpreter import world_state_for_prompt
+    external_events = external_events or []
+    tz = ZoneInfo(policy["executive"].get("timezone") or "Europe/London")
+    local = now.replace(tzinfo=timezone.utc).astimezone(tz)
+    world = await world_state_for_prompt(db, workspace_id, owner)
+    ops = await operational_snapshot(db, workspace_id, owner)
     items = (await db.execute(select(WorkItem).where(
         WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.status.in_(ACTIVE_STATUSES)).order_by(WorkItem.updated_at.desc()).limit(30))).scalars().all()
     raised = (await db.execute(select(ProactiveLog).where(
         ProactiveLog.honcho_workspace_id == workspace_id, ProactiveLog.owner_peer_id == owner).order_by(ProactiveLog.at.desc()).limit(8))).scalars().all()
     last_turn = (await db.execute(select(TurnStamp.turn_at).where(
         TurnStamp.honcho_workspace_id == workspace_id, TurnStamp.owner_peer_id == owner).order_by(TurnStamp.turn_at.desc()).limit(1))).scalar()
-    ops = {
-        "expectations": [{"id": str(e.id), "title": e.title, "summary": (e.summary or "")[:160], "window": [_iso(e.expected_window_start), _iso(e.expected_window_end)],
-                          "deadline": _iso(e.hard_deadline_at), "phrase": e.raw_temporal_phrase, "direction": e.direction} for e in exps],
-        "open_loops": [{"id": str(l.id), "title": l.title, "summary": (l.summary or "")[:160], "expires_at": _iso(l.expires_at)} for l in loops],
-        "commitments": [{"id": str(c.id), "title": c.title, "phrase": c.raw_temporal_phrase, "status": getattr(c.status, "value", c.status)} for c in commits],
-    }
+    since = now - timedelta(days=14)
+    past = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.source_agent == "executive",
+                                                    WorkItem.updated_at >= since).order_by(WorkItem.updated_at.desc()).limit(60))).scalars().all()
+    turns_after = {}
+    for i in past:       # raw facts only: did the user say anything after we raised it? the executive judges what that means
+        if i.last_surfaced_at:
+            nxt = (await db.execute(select(TurnStamp.turn_at).where(TurnStamp.honcho_workspace_id == workspace_id, TurnStamp.owner_peer_id == owner,
+                                                                    TurnStamp.turn_at > i.last_surfaced_at).order_by(TurnStamp.turn_at.asc()).limit(1))).scalar()
+            turns_after[i.id] = nxt
+    outcomes = [{"id": str(i.id), "title": i.action, "kind": i.kind, "raised_at": _iso(i.last_surfaced_at), "times_raised": i.surfaced_count, "status_now": i.status,
+                 "user_next_active_after": _iso(turns_after.get(i.id)), "receipt": json.loads(i.receipt_json) if i.receipt_json else None}
+                for i in past if i.last_surfaced_at][:20]
+    set_aside = [{"id": str(i.id), "title": i.action, "reason": json.loads(i.extra_json or "{}").get("reason")} for i in past if i.status == "cancelled"][:15]
+    agenda_row = next((i for i in past if i.kind == "agenda"), None)
+    agenda_prev = json.loads(agenda_row.extra_json or "{}").get("agenda") if agenda_row else None
     intents = [{"id": str(i.id), "kind": i.kind, "title": i.action, "status": i.status, "wake_at": _iso(i.wake_at), "waiting_on": i.waiting_on,
                 "importance": i.importance, "surfaced_count": i.surfaced_count, "last_surfaced_at": _iso(i.last_surfaced_at), "receipt": json.loads(i.receipt_json) if i.receipt_json else None}
-               for i in items]
+               for i in items if i.kind != "agenda"]
     return {"now": {"utc": now.isoformat() + "Z", "local": local.isoformat(), "weekday": local.strftime("%A")}, "woken_because": reasons, "world": world,
             "operational": ops, "intents": intents,
             "already_raised": [{"at": _iso(r.at), "what": r.item_key, "decision": r.decision} for r in raised],
-            "user_last_active": _iso(last_turn), "policy": {"proactive": policy["proactive"]}}
+            "user_last_active": _iso(last_turn), "policy": {"proactive": policy["proactive"], "delegations": policy["autonomy"].get("delegations") or []},
+            "recent_outcomes": outcomes, "set_aside": set_aside, "external_events": external_events, "agenda": agenda_prev}
 
 
 # ----------------------------------------------------------------------------- autonomy
-def permission(intent: Dict[str, Any]) -> Dict[str, Any]:
+CONSEQUENCE_RANK = {"none": 0, "low": 1, "moderate": 2, "high": 3}
+
+
+def permission(intent: Dict[str, Any], delegations: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Explicit product policy over what the model labelled: authority comes from consequence, reversibility and the basis of authorisation, never from
     how confident the inference was. Internal cognition, scheduling and in-policy outreach are autonomous; consequential, external or irreversible
     actions need confirmation unless authority was explicitly delegated."""
     if intent.get("kind") != "act":
         return {"mode": "autonomous"}
+    tool = str((intent.get("action") or {}).get("tool") or "")
+    for d in delegations or []:        # standing, scoped authority granted earlier: within it the action needs no fresh confirmation
+        if tool and tool.startswith(str(d.get("tool") or "\0")) and CONSEQUENCE_RANK.get(intent.get("consequence") or "low", 1) <= CONSEQUENCE_RANK.get(d.get("max_consequence") or "none", 0) \
+                and (bool(intent.get("reversible")) or bool(d.get("allow_irreversible"))):
+            return {"mode": "autonomous", "basis": "delegation"}
     low_risk = intent.get("consequence") in ("none", "low") and bool(intent.get("reversible"))
     authorised = intent.get("authority_basis") in ("explicit_request", "delegated")
     if low_risk and authorised:
@@ -195,7 +241,8 @@ def _known_ids(ctx: Dict[str, Any]) -> Dict[str, set]:
             "matter": {m["id"] for m in w["matters"]}, "event": {e["id"] for e in w["events"]}}
 
 
-async def run_pass(db: AsyncSession, *, workspace_id: str, owner: str, reasons: List[str], adapter: Any, now: Optional[datetime] = None) -> Dict[str, Any]:
+async def run_pass(db: AsyncSession, *, workspace_id: str, owner: str, reasons: List[str], adapter: Any, now: Optional[datetime] = None,
+                   external_events: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     now = _naive(now) if now else _utc()
     policy = await get_policy(db, workspace_id, owner)
     run = ProducerRun(honcho_workspace_id=workspace_id, owner_peer_id=owner, producer="executive", model=EXECUTIVE_MODEL, version="ex-1", status="queued",
@@ -211,7 +258,7 @@ async def run_pass(db: AsyncSession, *, workspace_id: str, owner: str, reasons: 
         run.status, run.started_at = "running", _utc()
         db.add(run)
         await db.commit()
-        ctx = await build_context(db, workspace_id, owner, now=now, policy=policy, reasons=reasons)
+        ctx = await build_context(db, workspace_id, owner, now=now, policy=policy, reasons=reasons, external_events=external_events)
         prompt = "CONTEXT (ids are real):\n" + json.dumps(ctx, ensure_ascii=False, default=str)
         raw = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"type": "object"}, model_id=EXECUTIVE_MODEL, max_tokens=4000,
                                                 temperature=0.2, strict=False, timeout=EXECUTIVE_TIMEOUT)
@@ -254,11 +301,11 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
             action = it.get("action") if isinstance(it.get("action"), dict) else None
             kind = (_str(it.get("kind")) or "reconsider").lower()
             decision = permission({"kind": kind, "consequence": _str(it.get("consequence")) or "low", "reversible": bool(it.get("reversible", False)),
-                                   "authority_basis": _str(it.get("authority_basis"))})
+                                   "authority_basis": _str(it.get("authority_basis")), "action": action}, ctx["policy"].get("delegations"))
             if kind == "act" and not (action and _str(action.get("tool"))):
                 dropped.append({"reason": "act_without_tool", "title": title})
                 continue
-            extra = {"rationale": _str(it.get("rationale")), "surface_now": bool(it.get("surface_now")), "urgency": _str(it.get("urgency")) or "normal",
+            extra = {"horizon": _str(it.get("horizon")), "stance": _str(it.get("stance")), "rationale": _str(it.get("rationale")), "surface_now": bool(it.get("surface_now")), "urgency": _str(it.get("urgency")) or "normal",
                      "message_gist": _str(it.get("message_gist")), "expected_observation": _str(it.get("expected_observation")),
                      "consequence": _str(it.get("consequence")), "reversible": bool(it.get("reversible", False)), "authority_basis": _str(it.get("authority_basis")),
                      "permission": decision}
@@ -308,11 +355,23 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
                 extra["surface_now"] = bool(it.get("surface_now"))
         else:
             row.status = {"done": "done", "cancel": "cancelled", "fail": "failed"}[op]
+            if _str(it.get("reason")):
+                extra["reason"] = _str(it.get("reason"))
             extra["surface_now"] = False
             row.wake_at = None
         row.run_id, row.updated_at, row.extra_json = run_id, _utc(), json.dumps(extra)
         db.add(row)
         applied.append({"op": op, "id": target_id, "status": getattr(row.status, "value", row.status)})
+    agenda = raw.get("agenda") if isinstance(raw.get("agenda"), dict) else None
+    if agenda and isinstance(agenda.get("carrying"), list):
+        row = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.kind == "agenda"))).scalars().first()
+        payload = {"agenda": {"carrying": [c for c in agenda["carrying"] if isinstance(c, dict)][:25], "sequence_note": _str(agenda.get("sequence_note")), "as_of": now.isoformat()}}
+        if row is None:
+            row = WorkItem(honcho_workspace_id=workspace_id, owner_peer_id=owner, parent_type="world", parent_id=owner, owner="sophie", action="agenda", status="in_progress",
+                           source_agent="executive", kind="agenda", provenance_json=json.dumps({"run_id": run_id}), run_id=run_id, extra_json=json.dumps(payload))
+        else:
+            row.extra_json, row.run_id, row.updated_at = json.dumps(payload), run_id, _utc()
+        db.add(row)
     await db.commit()
     nxt = _parse(raw.get("next_review_at"))
     if nxt and nxt > now:
@@ -358,7 +417,8 @@ async def tick(db: AsyncSession, *, adapter: Any, now: Optional[datetime] = None
             skipped += 1
             continue
         try:
-            result = await run_pass(db, workspace_id=ws, owner=owner, reasons=sorted({w.reason.split(":")[0] for w in claimed}), adapter=adapter, now=now)
+            events = [{"reason": w.reason, "at": _iso(w.created_at), **(json.loads(w.detail_json) if w.detail_json else {})} for w in claimed if w.detail_json]
+            result = await run_pass(db, workspace_id=ws, owner=owner, reasons=sorted({w.reason.split(":")[0] for w in claimed}), adapter=adapter, now=now, external_events=events)
             if result["status"] == "deferred":
                 await add_wake(db, ws, owner, now + timedelta(minutes=2), "retry:lease", attempts=max(w.attempts for w in claimed) + 1)
             ran.append({"workspace_id": ws, "owner": owner, "status": result["status"], "run_id": result.get("run_id")})
@@ -394,7 +454,7 @@ async def _daily_reviews(db: AsyncSession, now: datetime) -> None:
 async def surfaced_agenda(db: AsyncSession, workspace_id: str, owner: str) -> List[Dict[str, Any]]:
     """Executive intents that want to reach the user, shaped for the initiative gate (which owns quiet hours, budget and cadence)."""
     rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner,
-                                                    WorkItem.source_agent == "executive", WorkItem.status.in_(ACTIVE_STATUSES)).order_by(WorkItem.importance.desc()))).scalars().all()
+                                                    WorkItem.source_agent == "executive", WorkItem.kind != "agenda", WorkItem.status.in_(ACTIVE_STATUSES)).order_by(WorkItem.importance.desc()))).scalars().all()
     out = []
     for r in rows:
         extra = json.loads(r.extra_json or "{}")
