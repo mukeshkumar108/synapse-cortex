@@ -573,7 +573,8 @@ async def mark_surfaced(db: AsyncSession, work_item_id: str, now: datetime) -> N
         await note_changed(db, row.honcho_workspace_id, row.owner_peer_id, "intent_surfaced", delay_seconds=1800)
 
 
-async def record_receipt(db: AsyncSession, *, workspace_id: str, owner: str, work_item_id: str, status: str, result_ref: Optional[str], detail: Optional[str]) -> Dict[str, Any]:
+async def record_receipt(db: AsyncSession, *, workspace_id: str, owner: str, work_item_id: str, status: str, result_ref: Optional[str], detail: Optional[str],
+                         side_effects: bool = True) -> Dict[str, Any]:
     """What actually happened to an action intent. Stored as a receipt, never inferred; the executive observes and revises on its next pass."""
     row = await db.get(WorkItem, uuid.UUID(work_item_id))
     if row is None or row.honcho_workspace_id != workspace_id or row.owner_peer_id != owner:
@@ -583,11 +584,17 @@ async def record_receipt(db: AsyncSession, *, workspace_id: str, owner: str, wor
     row.updated_at = _utc()
     db.add(row)
     await db.commit()
+    if side_effects:
+        await after_receipt(db, workspace_id, owner, row.id, row.status)
+    return {"ok": True, "status": row.status}
+
+
+async def after_receipt(db: AsyncSession, workspace_id: str, owner: str, work_item_id: Any, status: str) -> None:
+    """What follows a receipt (snapshot recompile, wake, dependents). Kept OFF the request path: the app reports receipts under a short timeout."""
     await refresh_snapshot(db, workspace_id, owner)
     await note_changed(db, workspace_id, owner, "receipt", delay_seconds=5)
-    if row.status in ("done", "failed"):
-        await notify_dependents(db, workspace_id, owner, row.id)
-    return {"ok": True, "status": row.status}
+    if status in ("done", "failed"):
+        await notify_dependents(db, workspace_id, owner, work_item_id if isinstance(work_item_id, uuid.UUID) else uuid.UUID(str(work_item_id)))
 
 
 async def speak_candidates(db: AsyncSession, workspace_id: str, now: Optional[datetime] = None) -> List[Dict[str, Any]]:

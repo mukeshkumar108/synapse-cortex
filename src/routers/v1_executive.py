@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -119,12 +119,19 @@ async def pending_actions(workspace_id: str, owner: str, db: AsyncSession = Depe
 
 
 @router.post("/receipt")
-async def receipt(req: ReceiptRequest, db: AsyncSession = Depends(get_async_session)):
+async def receipt(req: ReceiptRequest, background: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):
     out = await executive.record_receipt(db, workspace_id=req.workspace_id, owner=req.owner, work_item_id=req.work_item_id, status=req.status,
-                                         result_ref=req.result_ref, detail=req.detail)
+                                         result_ref=req.result_ref, detail=req.detail, side_effects=False)
     if not out.get("ok"):
         raise HTTPException(status_code=404, detail=out.get("reason"))
+    background.add_task(_after_receipt, req.workspace_id, req.owner, req.work_item_id, out["status"])
     return out
+
+
+async def _after_receipt(workspace_id: str, owner: str, work_item_id: str, status: str) -> None:
+    from src.db import async_session_maker
+    async with async_session_maker() as db:
+        await executive.after_receipt(db, workspace_id, owner, work_item_id, status)
 
 
 class ApprovalRequest(WorldRef):
