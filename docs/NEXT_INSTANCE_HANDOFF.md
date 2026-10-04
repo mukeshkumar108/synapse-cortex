@@ -8,6 +8,26 @@ walk+call combined and deferred, passport deferred, James dependency tracked) ->
 nagging. Known miss: interpreter created a replacement instead of completing a listed wait (prompt tightened, not re-verified). The wake heartbeat already lives in
 Cortex (asyncio loop); only delivery depends on the Sophie app (Vercel cron -> app -> Runtime proactive tick): needs the app's production URL + CRON_SECRET or Vercel access.
 
+# UPDATE 2026-10-04 (night): the agency loop closed in production. Read this first.
+**Delivery (fixed, root cause):** the Sophie app (GitHub `mukeshkumar108/ash-ai`, Vercel project `project-z963i`, local worktree `llm-agent-test-consumer-cutover`, branch
+`consumer-cutover`, deployed with `vercel deploy --prod` from that worktree) only built proactive candidates from its OWN tables (RelationshipOpportunity, TaskReminder,
+calendar follow-ups) and only asked Cortex's gate per candidate. Crons were firing fine (every minute); the executive was simply never a candidate source. Now
+`fetchExecutiveSpeakCandidates()` (app) polls Cortex `POST /v1/executive/speak-candidates` (SQL only) and each owner becomes a candidate on their most recently active chat;
+claim -> Runtime compose (model, in voice, now fed the intent's gist) -> persist -> complete is unchanged. Heartbeat for wakes stays in Cortex (asyncio loop).
+**Proven live:** an executive intent ("Take a daytime walk") was raised through the real gate and delivered; ledger `appeared`; intent SURFACED. Runtime records what it composed on the
+exact intent (`POST /v1/executive/outbound`, called with the intent id it was given; the earlier timing-heuristic link was removed).
+**Action loop (proven live):** product-declared capability catalogue in world policy (`capabilities.tools`; the PRODUCT declares each tool's consequence/reversibility, the model's
+claim can never lower it; unknown tools are dropped). Executive chose `task.create` -> autonomous (explicit request + low + reversible) -> app cron `/api/cron/executive-actions`
+claims with a `started` receipt (never twice), executes `createTask`, posts a real receipt (task id) -> intent `done` -> the task flows back to Cortex via the existing object push.
+Inferred-authority actions become a confirmation request; when the executive judges the user said yes it updates the intent with `authority_basis` and permission is re-derived.
+**Bug found by that proof and fixed:** the receipt woke the executive but completed actions were not in its context, so it re-proposed the same action and a DUPLICATE task was created.
+Fixed: `recent_actions` (with receipts) in context + prompt rule, and an exact-duplicate guard (identical tool+args never created twice). Cleanup: the stray confirmation request was
+cancelled; the duplicate task could not be removed from here (production DB password is a sensitive Vercel var): **delete the task titled "Evening walk" with the note "Take the planned
+evening walk at 7pm." (id 701c2972-38d8-4f33-bd59-84ee59d7d755); keep "Evening walk at 7pm" (76fe87a1-...).**
+**Operational reconciliation contract:** the interpreter must return a verdict for EVERY listed open operational item (holds/updated/completed/cancelled/superseded/unclear; closing verdicts
+need evidence and apply by exact id; coverage recorded); creating a new item is a separate act. **Not done:** executive ask/confirm round-trip with a real user reply; second capability;
+executive reasoning over action failures; per-message intent id on the app message (the link is recorded in Cortex on the intent instead).
+
 # UPDATE 2026-10-04 (evening): Sophie convergence + executive layer. Read after the update below; see COGNITION_ARCHITECTURE.md "Layer 3 and Sophie convergence".
 Deployed: Cortex `main` (executive, operational output, close-by-id, per-world operational owner), Runtime `2bd09f2` (all owners interpreted, Jev `time_bound`). Rollback images:
 `*:pre-sophie-converge`. Sophie's world (`llm-test-agent` / `user_5377a025-...`): executive enabled, `operational.owner=interpreter`, Honcho `observe_me=false` (revert: PUT peer
