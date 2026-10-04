@@ -55,7 +55,7 @@ PRINCIPLES
   constitution; judge the situation). If there is tension, explain what is driving the behaviour (hurt, fear, shame...) and describe what
   psychologically plausible movement could restore coherence. This is an interpretation, not an instruction: never script a line, never require
   a confession or reconciliation, never rewrite or soften what happened. If behaviour is coherent, say so with state on_track.
-- BRIEF: 80-150 neutral words, what has happened and where each person stands now, including what is unknown. Each line cites refs.
+- BRIEF: 80-150 neutral words, what has happened and where each person stands now, including what is unknown and any contradictions left unresolved. The text is plain prose with NO refs or ids in it; the refs go only in `lines[].refs`.
 - Epistemic policy 'grounded' (a real person's life): facts that only the companion asserted about the user's life or other people are
   hypotheses, not facts. Policy 'generative' (collaborative fiction): story events and invented detail are canon, still attributed.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
