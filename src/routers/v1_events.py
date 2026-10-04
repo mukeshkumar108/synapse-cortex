@@ -154,10 +154,12 @@ async def ingest_turn_event(
     """Duplicate deliveries of one message are serialised: the second finds the first's stored traces and replays them instead of racing the
     unique trace constraint (a repeated delivery is normal at-least-once behaviour, not an error)."""
     import asyncio
-    if not payload.is_assistant_turn:
-        from src.services import executive
-        if (await executive.get_policy(db, payload.workspace_id, payload.peer_id))["operational"].get("owner") == "interpreter":
-            # This world's operational semantics belong to the interpreter: the turn is only stamped (recency), never read here.
+    from src.services import executive
+    if (await executive.get_policy(db, payload.workspace_id, payload.peer_id))["operational"].get("owner") == "interpreter":
+        # This world's meaning belongs to the interpreter: the turn (user OR assistant) is only stamped for recency, never read here.
+        if payload.is_assistant_turn:
+            return {"status": "accepted", "interpreter_owns_meaning": True, "honcho_message_id": payload.honcho_message_id}
+        if True:
             dialect = db.get_bind().dialect.name
             stamper = sqlite_insert if dialect == "sqlite" else insert
             await db.execute(stamper(TurnStamp).values(honcho_workspace_id=payload.workspace_id, owner_peer_id=payload.peer_id, honcho_message_id=payload.honcho_message_id,

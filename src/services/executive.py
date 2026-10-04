@@ -64,6 +64,10 @@ Return typed INTENTS: what the companion should attend to, raise, prepare, do, o
   important-but-not-urgent thing; look for opportunities (two things that combine, a quiet window, a dependency that just cleared) and for concerns that
   have become relevant again. Setting something aside is a decision: close the intent (`op: cancel`) with a `reason`, and it is remembered so you do not
   keep reconsidering it. `agenda` is your current view; replace it each pass.
+- PLAN ACROSS CONCERNS, not one at a time. When several things compete, decide together: which is urgent now, which matters but can wait (`defer` with a
+  `wake_at`), which is blocked on someone or something (`waiting_on`, and `depends_on`: titles/ids of the intents it needs first), and which can be done
+  together (`combine_with`: titles/ids of intents that fit into one move or one window). Reflect the sequence in the `agenda`. A good plan reduces what
+  the user has to carry and what the companion raises; it does not multiply reminders.
 - Learn from what happened: `recent_outcomes` shows what followed earlier outreach (answered, ignored, completed, still open) and `set_aside` shows what
   was deliberately dropped. Adjust future initiative to it, in your own judgement; do not repeat what already failed to land. `external_events` are things
   that happened outside the conversation that may change what matters.
@@ -72,7 +76,7 @@ Return typed INTENTS: what the companion should attend to, raise, prepare, do, o
 OUTPUT: ONE JSON object: {"intents":[{"op":"create|update|done|cancel|fail","id":null|"<existing intent id>","kind":"ask|remind|check_in|prepare|act|wait|reconsider|<other>",
 "title":"","rationale":"","about":{"type":"expectation|open_loop|commitment|objective|matter|event|null","id":null},"importance":0.0-1.0,
 "urgency":"normal|acute","surface_now":false,"message_gist":null,"wake_at":null|"<ISO 8601 with offset>","waiting_on":null,"expected_observation":null,
-"consequence":"none|low|moderate|high","reversible":true,"authority_basis":null,"action":null|{"tool":"","args":{}},"horizon":"now|today|this_week|ongoing","stance":"pursue|defer|set_aside","reason":null}],
+"consequence":"none|low|moderate|high","reversible":true,"authority_basis":null,"action":null|{"tool":"","args":{}},"horizon":"now|today|this_week|ongoing","stance":"pursue|defer|set_aside","reason":null,"depends_on":[],"combine_with":[]}],
 "agenda":{"carrying":[{"title":"","horizon":"","stance":"","why":""}],"sequence_note":""},"next_review_at":null|"<ISO 8601>","note":""}"""
 
 
@@ -308,7 +312,8 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
             if kind == "act" and not (action and _str(action.get("tool"))):
                 dropped.append({"reason": "act_without_tool", "title": title})
                 continue
-            extra = {"horizon": _str(it.get("horizon")), "stance": _str(it.get("stance")), "rationale": _str(it.get("rationale")), "surface_now": bool(it.get("surface_now")), "urgency": _str(it.get("urgency")) or "normal",
+            extra = {"horizon": _str(it.get("horizon")), "stance": _str(it.get("stance")), "depends_on": [str(x)[:120] for x in (it.get("depends_on") or []) if x][:6],
+                     "combine_with": [str(x)[:120] for x in (it.get("combine_with") or []) if x][:6], "rationale": _str(it.get("rationale")), "surface_now": bool(it.get("surface_now")), "urgency": _str(it.get("urgency")) or "normal",
                      "message_gist": _str(it.get("message_gist")), "expected_observation": _str(it.get("expected_observation")),
                      "consequence": _str(it.get("consequence")), "reversible": bool(it.get("reversible", False)), "authority_basis": _str(it.get("authority_basis")),
                      "permission": decision}
@@ -322,7 +327,7 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
                            action=title[:300], status=status, importance=max(0.0, min(1.0, float(it.get("importance") or 0.5))),
                            authority="ask" if extra.get("requires_confirmation") else ("act" if kind == "act" else "prepare"), source_agent="executive",
                            evidence_text=_str(it.get("rationale")), provenance_json=json.dumps({"run_id": run_id}), kind=kind, wake_at=wake_at,
-                           waiting_on=_str(it.get("waiting_on")), run_id=run_id, tool_json=json.dumps(action) if action else None, extra_json=json.dumps(extra))
+                           waiting_on=_str(it.get("waiting_on")) or (("; ".join(extra["depends_on"])) if extra.get("depends_on") else None), run_id=run_id, tool_json=json.dumps(action) if action else None, extra_json=json.dumps(extra))
             db.add(row)
             await db.flush()
             applied.append({"op": "create", "id": str(row.id), "kind": kind, "status": status, "permission": decision["mode"]})
@@ -464,7 +469,8 @@ async def surfaced_agenda(db: AsyncSession, workspace_id: str, owner: str) -> Li
         if not extra.get("surface_now"):
             continue
         out.append({"what": r.action, "pressure": r.importance, "status": "outstanding", "severity": "acute" if extra.get("urgency") == "acute" else "normal",
-                    "work_item_id": str(r.id), "kind": r.kind, "message_gist": extra.get("message_gist"), "rationale": r.evidence_text,
+                    "id": str(r.id), "work_item_id": str(r.id), "kind": r.kind, "title": r.action, "message_gist": extra.get("message_gist"), "rationale": r.evidence_text,
+                    "next_move": extra.get("message_gist"), "why": r.evidence_text,       # the fields the Runtime composer forwards to the foreground model
                     "requires_confirmation": bool(extra.get("requires_confirmation"))})
     return out
 

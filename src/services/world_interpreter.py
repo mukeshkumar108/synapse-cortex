@@ -92,7 +92,7 @@ PRINCIPLES
   what happens to those already listed under OPERATIONAL STATE (done, called off, postponed, progressing). Emit `operational` items only for those, not
   for every idea or topic. `temporal_phrase` is the speaker's own words about when (never compute a timestamp: code grounds it). To act on a listed open
   item use its id in `target`. In a grounded world, something only the companion asserts about the user's life is not the user's commitment; the companion's
-  own promises are its own. An item that merely repeats one already listed is not new.
+  own promises are its own. An item that merely repeats one already listed is not new. When new evidence RESOLVES a listed item (including something someone was waiting on), complete or cancel THAT item by its id in addition to recording anything new; do not leave it open and create a replacement.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
 OUTPUT: ONE JSON object with these arrays (empty when nothing applies): actors, relationships, events, claims, narrative, commitments,
