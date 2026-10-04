@@ -74,12 +74,13 @@ Method: read the function bodies below (not docs). ~45 decision points across bo
 beyond `_rank`, Honcho adapter `_retrieve_relevant_memory`, `evidence_recruitment`, `surface_lifecycle.resolve`, `semantic_promotion` (bounded
 vocabulary of relations, deterministic edge persistence), session extractor prompts, Jev vector pack contents, Honcho deriver/dream prompts.
 
-## E. Counts
+## E. Counts (counted from the tables above)
 
-45 decision points traced: 17 VIOLATION, 11 POLICY / POLICY-OK, 8 OK/MECHANICAL, 4 OK-by-design (C6, C8, B5, B7 shape), 5 gaps/partial/unread.
-Of the 17 violations, 12 are in code I wrote this week (A1-A12) and C9; B3 and B4 were mine from earlier; B1, C1, C2, C3, C4, C5 predate this
-conversation. The pattern is the same everywhere: an open semantic question was answered by a list, regex, threshold or template, and a fixture
-that matched the answer was taken as proof.
+43 decision points traced (A 19, B 10, C 14). **22 are violations** (A1-A12 and A15, B1, B3, B4, C1, C2, C3, C4, C5, C9); the rest are mechanical,
+explicit policy, correct model-owned shapes (C6, C8, B7, C7 primary), gaps (A13, A14, A18, A19) or partly unread (C14).
+Authorship of the 22: 14 are code I wrote this week (A1-A12, A15, C9), 2 are mine from earlier weeks (B3, B4), 6 predate this conversation (B1, C1,
+C2, C3, C4, C5). The pattern is identical everywhere: an open semantic question was answered by a list, regex, threshold or template, and a
+fixture that matched the answer was taken as proof.
 
 ## F. Where the model-owned shape already exists (copy these)
 
