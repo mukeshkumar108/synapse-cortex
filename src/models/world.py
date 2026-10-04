@@ -100,6 +100,7 @@ class WorldObjective(SQLModel, table=True):
     strength: float = Field(default=0.6)
     cause: Optional[str] = Field(default=None)
     state: str = Field(default="unknown")                        # on_track | drifting | at_risk | failing | resolved | unknown
+    durability: str = Field(default="unknown")                   # acute | provisional | durable | unknown (the interpreter's judgement)
     conflicts_json: str = Field(default="[]")                    # objective ids, or the literal "constitution"
     formation: str = Field(default="inferred")
     confidence: float = Field(default=0.6)
@@ -123,6 +124,7 @@ class RelationshipDimension(SQLModel, table=True):
     to_entity_id: UUID = Field(nullable=False)
     dimension: str = Field(index=True, nullable=False)
     value: str = Field(nullable=False)
+    durability: str = Field(default="unknown")                   # acute | provisional | durable | unknown (the interpreter's judgement)
     about_event_id: Optional[UUID] = Field(default=None)
     formation: str = Field(default="inferred")
     confidence: float = Field(default=0.6)

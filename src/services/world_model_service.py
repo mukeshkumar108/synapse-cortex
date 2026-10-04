@@ -15,7 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import func
@@ -423,7 +423,7 @@ async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional
     for r in runs:
         if r.producer not in covered and r.covered_through_json and r.covered_through_json != "{}":
             covered[r.producer] = {**_json.loads(r.covered_through_json), "run_id": str(r.id), "at": r.created_at.isoformat()}
-    continuation = await build_continuation(db, workspace_id, owner, names, edges, narrative_rows, actors, now=None)
+    continuation = await build_continuation(db, workspace_id, owner, names, edges, narrative_rows, actors, now=datetime.now(timezone.utc).replace(tzinfo=None))
     return {
         "actors": actors, "relationships": relationships, "events": ev_stubs, "narrative": narrative, **continuation,
         "world_index": {"actors": [{"ref": a["ref"], "name": a["name"]} for a in actors], "events": len(events), "narrative": len(narrative_rows),
@@ -431,6 +431,9 @@ async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional
                                           "timeline": "projection timeline", "evidence": "Honcho message ids in evidence_refs"}},
         "covered_through": covered,
     }
+
+
+ACUTE_TTL = timedelta(hours=72)     # explicit lifecycle policy: a moment-in-time reading lapses unless a later pass re-affirms it
 
 
 async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, names: Dict[Any, str], edges: List[Any], narrative_rows: List[Any],
@@ -454,12 +457,14 @@ async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, na
         TrajectoryNote.superseded_by_id.is_(None)).order_by(TrajectoryNote.created_at.desc()))).scalars().all()
     if now is not None:
         notes = [n for n in notes if n.expires_at is None or n.expires_at > now]
+        dims = [d for d in dims if d.durability != "acute" or now - d.updated_at < ACUTE_TTL]
+        objectives = [o for o in objectives if o.durability != "acute" or o.scope == "constitutional" or now - o.updated_at < ACUTE_TTL]
     const = next((o for o in objectives if o.scope == "constitutional"), None)
     intent: Dict[str, Any] = {"constitution": ({"actor": names.get(const.actor_entity_id), "text": const.text, "state": const.state, "ref": str(const.id)}
                                               if const else None), "objectives": [], "trajectory_note": None}
     for o in [o for o in objectives if o.scope != "constitutional"][:10]:
         intent["objectives"].append({"ref": str(o.id), "actor": names.get(o.actor_entity_id), "toward": names.get(o.toward_entity_id) if o.toward_entity_id else None,
-                                     "text": o.text, "scope": o.scope, "state": o.state, "strength": o.strength, "cause": o.cause,
+                                     "text": o.text, "scope": o.scope, "state": o.state, "durability": o.durability, "strength": o.strength, "cause": o.cause,
                                      "conflicts": _json_list(o.conflicts_json)})
     mine = [n for n in notes if const is not None and n.actor_entity_id == const.actor_entity_id] or notes     # the constitutional actor's own note
     if mine:
@@ -474,7 +479,7 @@ async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, na
         "brief": {"text": brief.text if brief else "", "lines": _json_list(brief.lines_json) if brief else [], "version": str(brief.id) if brief else None,
                   "derived_from": "interpreter projection of structured world state"},
         "dimensions": [{"ref": str(d.id), "from": names.get(d.from_entity_id), "to": names.get(d.to_entity_id), "dimension": d.dimension, "value": d.value,
-                        "formation": d.formation} for d in dims],
+                        "durability": d.durability, "formation": d.formation} for d in dims],
         "active_intent": intent, "manifest": manifest}}
 
 

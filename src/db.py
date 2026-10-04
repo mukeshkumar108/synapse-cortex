@@ -47,10 +47,20 @@ async_session_maker = sessionmaker(
 )
 
 
+_ADDITIVE_COLUMNS = (
+    ("world_objectives", "durability", "VARCHAR DEFAULT 'unknown'"),
+    ("relationship_dimensions", "durability", "VARCHAR DEFAULT 'unknown'"),
+)
+
+
 async def init_db() -> None:
-    """Initialize database tables for development/testing."""
+    """Initialize database tables for development/testing, plus idempotent additive columns for tables created by an earlier release
+    (create_all never alters an existing table)."""
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
+        if conn.dialect.name == "postgresql":
+            for table, column, ddl in _ADDITIVE_COLUMNS:
+                await conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {ddl}")
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:

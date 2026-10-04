@@ -448,3 +448,77 @@ async def test_a_directional_facet_is_one_identity_even_if_a_later_pass_files_it
     await run(WorldDelta(**body))
     live = [d for d in await all_rows(RelationshipDimension, honcho_workspace_id=WS) if d.superseded_by_id is None and d.dimension == "avoidance"]
     assert len(live) == 1 and live[0].value == "weakening"
+
+
+@pytest.mark.asyncio
+async def test_a_chaotic_turn_is_recorded_as_acute_overlay_and_never_supersedes_a_durable_facet_or_the_constitution():
+    """Promotion policy over the interpreter's durability judgement: an acute reading coexists with a durable one (it does not replace it), and the
+    constitutional orientation is untouched however dramatic the turn."""
+    from src.models.world import RelationshipDimension, WorldObjective
+    base = lila_delta().model_dump()
+    base["dimensions"] = [{"ref": "d1", "relationship": "r1", "from_actor": "l", "to_actor": "k", "dimension": "attachment", "value": "strong", "durability": "durable",
+                           "formation": "explicit", "evidence": ["m1"]}]
+    base["trajectory"], base["brief"] = [], None
+    await run(WorldDelta(**base), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    chaos = lila_delta().model_dump()
+    chaos["dimensions"] = [{"ref": "d1", "relationship": "r1", "from_actor": "l", "to_actor": "k", "dimension": "attachment", "value": "she says it is over", "durability": "acute",
+                            "formation": "explicit", "evidence": ["m1"]}]
+    chaos["objectives"] = [{"ref": "o9", "op": "create", "actor": "l", "toward": "k", "text": "end the relationship now", "scope": "immediate", "state": "on_track",
+                            "durability": "acute", "evidence": ["m1"]}]
+    chaos["trajectory"], chaos["brief"] = [], None
+    await run(WorldDelta(**chaos), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    live = {(d.value, d.durability) for d in await all_rows(RelationshipDimension, honcho_workspace_id=WS) if d.superseded_by_id is None and d.dimension == "attachment"}
+    assert live == {("strong", "durable"), ("she says it is over", "acute")}
+    const = next(o for o in await all_rows(WorldObjective, honcho_workspace_id=WS) if o.scope == "constitutional")
+    assert const.text == "Protect the relationship."
+    assert any(o.text == "end the relationship now" and o.durability == "acute" for o in await all_rows(WorldObjective, honcho_workspace_id=WS))
+
+
+@pytest.mark.asyncio
+async def test_acute_state_lapses_from_the_projection_unless_reaffirmed():
+    from datetime import datetime, timedelta
+    from src.models.world import RelationshipDimension
+    from src.services import world_model_service
+    d = lila_delta()
+    body = d.model_dump()
+    body["dimensions"] = [{"ref": "d1", "relationship": "r1", "from_actor": "l", "to_actor": "k", "dimension": "anger", "value": "furious", "durability": "acute",
+                           "formation": "explicit", "evidence": ["m1"]}]
+    body["trajectory"], body["brief"] = [], None
+    await run(WorldDelta(**body))
+    async with async_session_maker() as db:
+        row = (await db.execute(select(RelationshipDimension).where(RelationshipDimension.dimension == "anger"))).scalars().first()
+        row.updated_at = datetime.utcnow() - timedelta(hours=100)
+        db.add(row)
+        await db.commit()
+        layer = await world_model_service.build_world_layer(db, WS, d.owner)
+    assert "anger" not in {x["dimension"] for x in layer["continuation"]["dimensions"]}
+
+
+@pytest.mark.asyncio
+async def test_honcho_context_is_given_to_the_interpreter_as_lower_grade_input_and_failures_open(monkeypatch):
+    from src.services import world_interpreter, turn_context
+
+    class FakeHoncho:
+        async def session_summaries(self, ws, sid):
+            return {"short_summary": "Lila and Kai are partners.", "long_summary": None}
+
+        async def peer_search(self, ws, peer, query, limit=6):
+            return [{"content": "Earlier: Lila said she hates hiding things.", "created_at": "2026-09-01", "session_id": "chat_old"}]
+
+    monkeypatch.setattr(turn_context, "_honcho_client", lambda: FakeHoncho())
+    adapter = FakeInterpreter({"actors": []})
+    async with async_session_maker() as db:
+        await world_interpreter.interpret(db, workspace_id=WS, owner="world:h", session_id="c", messages=INTERP_MESSAGES,
+                                          speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter)
+    prompt = adapter.calls[0]["prompt"]
+    assert "HONCHO CONTEXT" in prompt and "Lila and Kai are partners." in prompt and "hates hiding things" in prompt
+    assert "never as fresher" in " ".join(adapter.calls[0]["system"].split())
+
+    class Broken:
+        async def session_summaries(self, *a): raise RuntimeError("down")
+    monkeypatch.setattr(turn_context, "_honcho_client", lambda: Broken())
+    adapter2 = FakeInterpreter({"actors": []})
+    async with async_session_maker() as db:
+        await world_interpreter.interpret(db, workspace_id=WS, owner="world:h", session_id="c", messages=INTERP_MESSAGES,
+                                          speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter2)
+    assert "HONCHO CONTEXT" not in adapter2.calls[0]["prompt"]

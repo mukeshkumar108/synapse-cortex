@@ -153,6 +153,7 @@ class ObjectiveC(_Item):
     cause: Optional[str] = None               # why the actor wants it (hurt, fear, shame, desire...)
     state: Literal["on_track", "drifting", "at_risk", "failing", "resolved", "unknown"] = "unknown"
     conflicts_with: Optional[List[str]] = None                    # other objective refs/ids, or "constitution"; None = leave the recorded conflicts unchanged
+    durability: Literal["acute", "provisional", "durable", "unknown"] = "unknown"   # the interpreter's judgement: a moment, unconfirmed, or sustained
     formation: Literal["explicit", "reported", "source_linked", "observed", "inferred", "hypothesis"] = "inferred"
     confidence: float = 0.6
     evidence: List[str] = Field(default_factory=list)
@@ -166,6 +167,7 @@ class DimensionC(_Item):
     dimension: str                            # open vocabulary: affection, trust, resentment, dependency, respect, awareness-of-X ...
     value: str
     about: Optional[str] = None               # event ref (awareness_of / disclosure_of)
+    durability: Literal["acute", "provisional", "durable", "unknown"] = "unknown"
     formation: Literal["explicit", "reported", "source_linked", "observed", "inferred", "hypothesis"] = "inferred"
     confidence: float = 0.6
     evidence: List[str] = Field(default_factory=list)

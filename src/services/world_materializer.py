@@ -542,12 +542,13 @@ async def _objectives(ctx: _Ctx) -> None:
         if row is None:
             row = WorldObjective(honcho_workspace_id=ctx.ws, owner_peer_id=ctx.owner, actor_entity_id=actor.id,
                                  canonical_key=hashlib.sha1(f"{actor.id}|{o.ref}|{ctx.run.id}".encode()).hexdigest()[:20], text=o.text[:300],
-                                 scope=o.scope, toward_entity_id=toward.id if toward else None, strength=o.strength, cause=o.cause, state=o.state,
+                                 scope=o.scope, toward_entity_id=toward.id if toward else None, strength=o.strength, cause=o.cause, state=o.state, durability=o.durability,
                                  formation=epistemics.formation_class(o.formation), confidence=o.confidence, run_id=ctx.run.id,
                                  evidence_refs_json=json.dumps(o.evidence))
             ctx.count("objectives_created")
         else:
             row.text, row.scope, row.state, row.strength = o.text[:300] or row.text, o.scope, o.state, o.strength
+            row.durability = o.durability if o.durability != "unknown" else row.durability
             row.cause = o.cause or row.cause
             row.toward_entity_id = toward.id if toward else row.toward_entity_id
             row.evidence_refs_json = json.dumps(list(dict.fromkeys(json.loads(row.evidence_refs_json or "[]") + o.evidence)))
@@ -590,8 +591,10 @@ async def _dimensions(ctx: _Ctx) -> None:
         about = ctx.events.get(d.about or "")
         formation = epistemics.formation_class(d.formation)
         name = _slug(d.dimension).replace("-", "_") or "dimension"
+        tier_durable = d.durability == "durable"          # promotion policy: a moment or an unconfirmed reading never supersedes a sustained facet; they coexist
         stmt = select(RelationshipDimension).where(
-            RelationshipDimension.honcho_workspace_id == ctx.ws, RelationshipDimension.owner_peer_id == ctx.owner, RelationshipDimension.from_entity_id == a.id,
+            RelationshipDimension.honcho_workspace_id == ctx.ws, RelationshipDimension.owner_peer_id == ctx.owner,
+            (RelationshipDimension.durability == "durable") if tier_durable else (RelationshipDimension.durability != "durable"), RelationshipDimension.from_entity_id == a.id,
             RelationshipDimension.to_entity_id == b.id, RelationshipDimension.dimension == name, RelationshipDimension.superseded_by_id.is_(None))
         stmt = stmt.where(RelationshipDimension.about_event_id == about.id) if about else stmt.where(RelationshipDimension.about_event_id.is_(None))
         prior = (await ctx.db.execute(stmt)).scalars().first()
@@ -605,7 +608,7 @@ async def _dimensions(ctx: _Ctx) -> None:
             ctx.reject(d.ref, "weaker_than_current_dimension")        # a lower-firmness candidate never replaces a firmer facet
             continue
         row = RelationshipDimension(honcho_workspace_id=ctx.ws, owner_peer_id=ctx.owner, edge_id=edge.id, from_entity_id=a.id, to_entity_id=b.id,
-                                    dimension=name, value=d.value[:200], about_event_id=about.id if about else None, formation=formation,
+                                    dimension=name, value=d.value[:200], durability=d.durability, about_event_id=about.id if about else None, formation=formation,
                                     confidence=d.confidence, evidence_refs_json=json.dumps(d.evidence), run_id=ctx.run.id)
         ctx.db.add(row)
         await ctx.db.flush()

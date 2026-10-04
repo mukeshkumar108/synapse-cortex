@@ -44,8 +44,16 @@ PRINCIPLES
 - Claims are propositions about the world restated neutrally in the third person, not quotes. A quote or outburst is evidence, not a claim,
   unless it establishes lasting relational state (then say that state).
 - Dimensions are directional facets of a relationship (from_actor toward to_actor) with an open vocabulary: affection, trust, resentment,
-  dependency, avoidance, respect, awareness of a specific event ("aware" / "unaware" / "not established"), expectation, intent, and so on.
-  NEVER assume someone knows something the evidence does not show.
+  dependency, avoidance, respect, awareness of a specific event, expectation, intent, and so on. For awareness use: "aware" only when the
+  evidence shows they know; "not established" when there is NO evidence either way (the default for anyone absent from a concealed matter); and
+  "unaware" ONLY when the evidence positively shows they do not know (they say they had no idea, or are plainly misled in a way they act on).
+  Absence of evidence is never evidence of absence: never write "unaware" just because the text does not show them knowing.
+- DURABILITY (objectives and dimensions carry `durability`): acute = a reaction in the moment; provisional = supported but not yet confirmed over
+  time; durable = sustained across the evidence; unknown. A single dramatic turn (a furious "we're done", an abrupt reversal, a theatrical line
+  from the character) HAPPENED and is recorded as an event and as acute state, but it does not by itself become a durable objective or end a
+  relationship: say what it most plausibly is (acute rupture, withdrawal, performance) and what would confirm it. If similar behaviour is sustained
+  across later evidence, mark it durable then. The foreground is a less constrained model whose turns can be erratic or self-contradictory;
+  treat what the character says as evidence of what occurred, never as authority about what is true or what the character durably wants.
 - Objectives: each actor can have several, they may compete, and short-term behaviour may conflict with long-term orientation: keep both sides.
   scope = enduring | active | immediate. state = on_track | drifting | at_risk | failing | resolved | unknown, judged against what the actor
   wants. Reconcile against the known objectives: update or resolve them by id when the evidence changes them; create only genuinely new ones.
@@ -55,6 +63,8 @@ PRINCIPLES
   constitution; judge the situation). If there is tension, explain what is driving the behaviour (hurt, fear, shame...) and describe what
   psychologically plausible movement could restore coherence. This is an interpretation, not an instruction: never script a line, never require
   a confession or reconciliation, never rewrite or soften what happened. If behaviour is coherent, say so with state on_track.
+- HONCHO CONTEXT (when present) is earlier evidence and summaries retrieved from the long-term store: use it to recognise continuity, never as
+  fresher than the NEW EVIDENCE and never to invent ids.
 - BRIEF: 80-150 neutral words, what has happened and where each person stands now, including what is unknown and any contradictions left unresolved. The text is plain prose with NO refs or ids in it; the refs go only in `lines[].refs`.
 - Epistemic policy 'grounded' (a real person's life): facts that only the companion asserted about the user's life or other people are
   hypotheses, not facts. Policy 'generative' (collaborative fiction): story events and invented detail are canon, still attributed.
@@ -68,8 +78,8 @@ events:[{ref,label,kind,when_phrase|null,where|null,participants[],holder|null,f
 claims:[{ref,subject(ref of actor/event/relationship),text,kind(assertion|attribute),holder(actor ref|null),formation,confidence,evidence[],span|null(verbatim),conflicts_with[]}]
 narrative:[{ref,kind(open: rupture, concealment, resentment, self_expression, ...),about[refs],holder(actor ref|null),text,formation,confidence,evidence[]}]
 commitments:[{ref,committer,to|null,text,tentative(bool),confidence,evidence[]}]
-dimensions:[{ref,relationship(ref),from_actor,to_actor,dimension,value,about(event ref)|null,formation,confidence,evidence[]}]
-objectives:[{ref,op(create|update|resolve),existing_id|null,actor,toward|null,text,scope,cause|null,state,strength(0-1),conflicts_with[objective refs|known ids|"constitution"; omit the field to leave recorded conflicts unchanged],formation,confidence,evidence[]}]
+dimensions:[{ref,relationship(ref),from_actor,to_actor,dimension,value,about(event ref)|null,durability(acute|provisional|durable|unknown),formation,confidence,evidence[]}]
+objectives:[{ref,op(create|update|resolve),existing_id|null,actor,toward|null,text,scope,cause|null,state,durability(acute|provisional|durable|unknown),strength(0-1),conflicts_with[objective refs|known ids|"constitution"; omit the field to leave recorded conflicts unchanged],formation,confidence,evidence[]}]
 matter_candidates:[{ref,concept,display_title,kind(project|topic|concern|relationship_situation|goal|life_situation|routine|other),actors[],members[refs],continuity_required(bool),continuity_reason,attach_to_existing_matter_id|null,evidence[]}]
 trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,objectives[],evidence[]}]
 brief:{text,lines:[{text,refs[]}]}"""
@@ -89,6 +99,11 @@ def _num(value: Any, default: float) -> float:
         return max(0.0, min(1.0, float(value)))
     except (TypeError, ValueError):
         return default
+
+
+def _durability(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in ("acute", "provisional", "durable") else "unknown"
 
 
 def _formation(value: Any, default: str) -> str:
@@ -168,7 +183,8 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                    for k in _list(raw.get("commitments")) if isinstance(k, dict) and _str(k.get("text")) and k.get("committer") in actor_refs and ev(k)
                    and fresh(k.get("ref"))]
     dims = [{"ref": d["ref"], "relationship": d["relationship"], "from_actor": d["from_actor"], "to_actor": d["to_actor"], "dimension": d["dimension"].strip(),
-             "value": d["value"].strip(), "about": d.get("about") if d.get("about") in event_refs else None, "formation": _formation(d.get("formation"), "inferred"),
+             "value": d["value"].strip(), "about": d.get("about") if d.get("about") in event_refs else None,
+             "durability": _durability(d.get("durability")), "formation": _formation(d.get("formation"), "inferred"),
              "confidence": _num(d.get("confidence"), 0.6), "evidence": ev(d)}
             for d in _list(raw.get("dimensions")) if isinstance(d, dict) and d.get("relationship") in rel_refs and d.get("from_actor") in actor_refs
             and d.get("to_actor") in actor_refs and _str(d.get("dimension")) and _str(d.get("value")) and ev(d) and fresh(d.get("ref"))]
@@ -185,6 +201,7 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                                "toward": o.get("toward") if o.get("toward") in actor_refs else None, "text": o["text"].strip(),
                                "scope": scope if scope in ("enduring", "active", "immediate") else "active", "cause": _str(o.get("cause")),
                                "state": state if state in ("on_track", "drifting", "at_risk", "failing", "resolved", "unknown") else "unknown",
+                               "durability": _durability(o.get("durability")),
                                "strength": _num(o.get("strength"), 0.6), "conflicts_with": ([x for x in _list(o.get("conflicts_with")) if isinstance(x, str)] if isinstance(o.get("conflicts_with"), list) else None),
                                "formation": _formation(o.get("formation"), "inferred"), "confidence": _num(o.get("confidence"), 0.6), "evidence": ev(o)})
     all_refs = known | {n["ref"] for n in narrative} | {k["ref"] for k in commitments}
@@ -255,6 +272,24 @@ async def world_state_for_prompt(db: AsyncSession, workspace_id: str, owner: str
     }
 
 
+async def honcho_context(workspace_id: str, owner: str, session_id: str, evidence_text: str) -> Optional[Dict[str, Any]]:
+    """Long-horizon input from Honcho (derived summaries + semantic search over the stored raw evidence). Honcho is evidence storage and retrieval
+    for these worlds; this interpreter remains the single semantic author. Bounded, fail-open."""
+    try:
+        from src.services.turn_context import _honcho_client
+        client = _honcho_client()
+        if client is None:
+            return None
+        summaries = await client.session_summaries(workspace_id, session_id)
+        hits = await client.peer_search(workspace_id, owner, evidence_text[-450:], limit=6)
+        earlier = [{"text": str(h.get("content") or "")[:300], "when": h.get("created_at"), "session": h.get("session_id")} for h in (hits or [])]
+        out = {"summary": {k: (v or "")[:900] for k, v in (summaries or {}).items() if v}, "earlier_evidence": earlier}
+        return out if out["summary"] or earlier else None
+    except Exception as exc:
+        logger.warning("honcho context failed open: %s", exc)
+        return None
+
+
 async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_id: str, messages: List[Dict[str, str]], speakers: Dict[str, str],
                     policy: str, constitution: Optional[Dict[str, str]], adapter: Any, covered_ordinal: int = 0, model: Optional[str] = None,
                     now: Optional[datetime] = None, matter_adapter: Any = None) -> Dict[str, Any]:
@@ -262,11 +297,14 @@ async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_
     model_id = model or INTERPRETER_MODEL
     state = await world_state_for_prompt(db, workspace_id, owner)
     evidence = "\n".join(f"[{m['id']}] {speakers.get(m['speaker'], m['speaker'])}: {m['text']}" for m in messages)
+    honcho = await honcho_context(workspace_id, owner, session_id, evidence)
     prompt = (f"PRODUCT POLICY: {policy}\n"
               f"CHARACTER CONSTITUTIONAL ORIENTATION (product-authored; {constitution.get('actor') if constitution else 'the companion'} toward "
               f"{constitution.get('toward') if constitution else 'the user'}): {constitution.get('text') if constitution else 'none'}\n"
               f"SPEAKERS: user = {speakers.get('user', 'the user')}; assistant = {speakers.get('assistant', 'the companion')}\n\n"
-              f"CURRENT WORLD STATE (ids are real):\n{json.dumps(state, ensure_ascii=False, default=str)}\n\nNEW EVIDENCE:\n{evidence}")
+              f"CURRENT WORLD STATE (ids are real):\n{json.dumps(state, ensure_ascii=False, default=str)}\n\n"
+              + (f"HONCHO CONTEXT (long-term store):\n{json.dumps(honcho, ensure_ascii=False)}\n\n" if honcho else "")
+              + f"NEW EVIDENCE:\n{evidence}")
     raw = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"type": "object"}, model_id=model_id, max_tokens=9000,
                                             temperature=0.1, strict=False, timeout=INTERPRETER_TIMEOUT)
     delta_dict = normalize(raw if isinstance(raw, dict) else {}, messages=messages, speakers=speakers, workspace_id=workspace_id, owner=owner,
