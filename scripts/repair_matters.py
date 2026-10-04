@@ -41,7 +41,7 @@ async def _label_call(adapter, title: str):
         system=("Give a short neutral label (at most 8 words, same language as the text) for the matter described. Keep its meaning; add no facts; "
                 "no quotes."),
         prompt=f"TEXT: {title}", json_schema={"type": "object", "properties": {"label": {"type": "string"}}, "required": ["label"]},
-        model_id=LABEL_MODEL, max_tokens=60, temperature=0.0, strict=True, timeout=20.0)
+        model_id=LABEL_MODEL, max_tokens=500, temperature=0.0, strict=True, timeout=20.0)
 
 
 async def main(owner_prefix: str, apply: bool) -> None:
