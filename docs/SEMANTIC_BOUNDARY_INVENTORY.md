@@ -87,6 +87,17 @@ fixture that matched the answer was taken as proof.
 C6 matter identity (nominate deterministically, a model judges same/different, ambiguity stays separate), C8 narrow lane (model decides, validator
 grounds), C7 agenda (model selects/orders, code owns text), B7 gate (model answers questions, policy owns thresholds), the epistemics ladder.
 
+## F2. Disposition after the rebuild (2026-10-04)
+
+Removed with the code that held them: A1-A12, A15 (template, thresholds, kind lists and label tables, closed dimension vocabulary, awareness rule,
+quote regex, `difflib` event merge, brief filter/ordering, claim-kind rule, the second "judge" hook). Their decisions are now the interpreter's
+(`world_interpreter.py`). Fixed: A13 (constitution is registry config, supplied by the trusted caller, never in the delta), A14 (events as well as
+claims), A19 (version probe refreshes the resident packet), B3 (overview intent is Jev's `overview_scope`; production-smoked on 6 phrasings
+including Spanish and a negated cue-word case), B4 (extraction gated by the model, not a length rule). A18: `covered_through` is per producer
+only and nothing retires on it yet.
+**Still open:** B1 and C1 (lexical relevance), C2 and C3 (completion/negation/counterfactual marker lists), C4 (entity-provisioning regex),
+C5 (salience arithmetic: recency/frequency/unresolved counts feeding rank), C7 fallback, C9 (36h relative-phrase expiry), section D (untraced).
+
 ## G. Everything still to build (so none of it is lost)
 
 1. **Semantic authoring step** (Luna Pro, async, once per checkpoint; Flash Lite recall-only): objective reconciliation, open-vocabulary directional

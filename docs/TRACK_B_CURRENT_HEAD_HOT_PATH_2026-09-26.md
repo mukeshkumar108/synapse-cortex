@@ -52,8 +52,11 @@ Classifications: `REQUIRED` is on the live reply path and affects its result;
      the Honcho peer (durable side effect). The packet reaches the foreground only
      when `select_prompt_modules` sees a Director plan whose `primaryAct` is
      `callback` or `objectAction` is `advance|close`; otherwise it is fetched but
-     omitted. Thus Honcho is **REQUIRED conditionally**, with per-turn compiler
-     cost even when prompt selection later omits it.
+     omitted. Before plan construction, non-ordinary `evaluate_session` receives
+     the boolean `grounded_context.memoryAvailable`, so prompt omission does not
+     prove the call had no routing/planning consumer. Thus Honcho is **REQUIRED
+     conditionally**, with per-turn compiler cost even when prompt selection later
+     omits it.
 
 5. **Cortex fan-out — REQUIRED container with duplicate/live edges**
    - Caller: `run_cortex` ->
@@ -326,3 +329,137 @@ rollback window, delete the default-off candidates compatibility fetch and its
 inert `neutralCandidates`/rejected-candidate plumbing. Revisit packet reuse only
 with an explicitly authorized cross-request contract; do not introduce an
 implicit cache.
+
+## Session 5 verified cut — likely-garbled memory skip
+
+Current HEAD tracing confirms `run_memory` begins in the initial gather beside
+epistemic, Cortex and current-meaning work. When Honcho is configured,
+`HonchoAdapter.prepare_turn_memory` first makes one structured provider call,
+default model `deepseek/deepseek-v4-flash`, capped at 200 tokens and guarded by
+`MEMORY_COMPILER_TIMEOUT_MS` (default 10s). `needsMemory=true`, a non-empty
+question and confidence >= `MEMORY_DECISION_THRESHOLD` (default 0.65) are all
+required before retrieval.
+
+Positive retrieval uses one 12s aggregate timeout. Live mode first POSTs the
+user peer get-or-create (the only durable side effect in this foreground path),
+then either:
+
+- `targeted_chat`: POST peer `/chat`; or
+- default `targeted_conclusions`: POST `/conclusions/query` with 20 candidates,
+  retain up to 10 normalized unique conclusions, and if empty POST peer
+  `/search` with limit 6.
+
+Evaluation mode omits peer creation. Compiler or retrieval exceptions warn and
+fail open to no packet. A compiler-negative decision makes no Honcho request.
+No delivery receipt or lifecycle transition depends on the call. The durable
+terminal Runtime record does include `honcho_memory_packet`, but no subsequent
+consumer or receipt dependency on that diagnostic payload was found.
+
+The prompt rule is verified at current HEAD: memory renders only for
+`primaryAct=callback` or `objectAction=advance|close`. A fetched packet on the
+ordinary social/emotional bypass plan (`primaryAct=react`,
+`objectAction=none`) is omitted, and the foreground prompt is byte-identical to
+the no-packet arm at a fixed clock. However, that plan is constructed only
+after the initial gather. Moving all memory work behind it would serialize
+eligible retrieval. Additionally, non-ordinary Director evaluation consumes
+`grounded_context.memoryAvailable`; a fetched packet can therefore affect plan
+selection even when the later prompt rule omits the memory module. No broad
+ordinary-turn or prompt-eligibility gate is authorized.
+
+Focused three-case evidence:
+
+- A, genuinely needed/rendered: compiler + retrieval each ran once; callback
+  plan selected `memory` and rendered the compact packet.
+- B, paid then omitted: the same compiler + retrieval ran, but ordinary
+  `react/none` omitted `memory`; prompt bytes and lane routing matched a
+  no-packet arm.
+- C, no retrieval required: compiler ran once with `needsMemory=false`;
+  retrieval count stayed zero and `retrieval_ms` stayed absent.
+
+One narrower deterministic precondition is safe. A `likely_garbled` transcript
+is already forced by `apply_transcript_reliability_guard` to reply/social
+ordinary bypass and is rejected by `is_transcript_memory_eligible`, so its
+Honcho result cannot reach TurnEvent, Director evaluation or the prompt.
+Companion Runtime now defaults
+`HONCHO_SKIP_INELIGIBLE_TRANSCRIPT_MEMORY=true`; `false` restores the old call.
+The gate intentionally does not cover `uncertain`: that status can still enter
+non-ordinary Director evaluation, where `memoryAvailable` is live input.
+
+Compatibility-on versus default-skip parity held for normalized foreground
+prompt bytes, selected/omitted modules, execution lane/model, decision record,
+assistant response and warnings. The skip removed one synthetic 40ms
+compiler/retrieval barrier member and eliminated any possible peer creation.
+The expected durable-record difference is an empty Honcho packet instead of
+retrieved text that was already ineligible for every live consumer. Focused
+Honcho/memory/telemetry/guard/contracts suite: 34 passed. A broader unrelated
+parity sweep had 41 passes and one pre-existing isolated emotional-fallback
+assertion failure; the current lane code returns the pinned Gemini fallback
+where the older fixture expects `chat-model`.
+
+Next smallest Track B step: measure the production frequency and critical-path
+share of fetched-but-omitted ordinary-bypass memory. A broader cut requires an
+existing pre-gather authority that preserves non-ordinary `memoryAvailable` and
+does not serialize genuinely eligible retrieval; this session found none.
+
+## Session 6 verified fix — counterparty promise authority
+
+Bootstrap used `/Users/mukeshkumar/play` on `main`: synapse-cortex `e2f0c50`,
+companion-runtime `118d249`, rpd2 `7e5167b`. Canon baseline `6ae9df9` is an
+ancestor of the Cortex HEAD. Existing dirty work was preserved.
+
+The blinded failure is produced by this live semantic path:
+
+1. `evals/sophie_longitudinal/runner.py::SophieScenarioRunner.run` sends email,
+   SMS, message and payment-feed evidence to `/v1/events/turn` with
+   `peer_id="external:<sender>"`. The input source type and sender are collapsed
+   into this peer id; the turn-ingest schema has no separate source field.
+2. `src/routers/v1_events.py::ingest_turn_event` invokes
+   `TurnExtractor.extract_candidates`. The loose/shaping model may classify
+   first-person external text as `character_promise + act`. It can also classify
+   user-reported speech such as “Sam said he’d send” as a commitment.
+3. The same router calls `resolve_owner(sender, actor, evidence_peer_ids)`.
+   Direct external speech remains owned by `external:<sender>`. A reported but
+   not yet evidenced actor is intentionally rejected as a ghost and falls back
+   to the user sender; the candidate still retains its original actor id.
+4. `CommitmentCandidateService.upsert_from_candidate` previously copied the
+   extractor's class and authority without considering either trusted external
+   provenance or the retained actor/sender mismatch. It could also promote a
+   repeated ASK row to ACT from later model output.
+5. `CommitmentCandidateService.evaluate_due` selects every workspace temporal
+   `ACT + PENDING` commitment, irrespective of owner identity, and changes it
+   to `VIOLATED` when its grounded due passes without resolution evidence.
+
+The earliest reliable correction is the commitment persistence boundary: it is
+the first point where resolved provenance and model-derived authority coexist.
+It now recognizes three equivalent counterparty signals: trusted
+`external:*` ownership, explicit `counterparty_promise` class, or reported
+future speech attributed to an actor distinct from the resolved owner. Such a
+row is stored as `counterparty_promise + ASK`; title, verbatim evidence,
+temporal phrase and pending longitudinal state are preserved. Existing pending
+rows encountered again are corrected and cannot be promoted back to ACT.
+
+Failing-first endpoint fixtures reproduced:
+
+- Carlos direct external promise: before `character_promise / ACT / PENDING`,
+  later `VIOLATED`; after `counterparty_promise / ASK / PENDING`, never due.
+- Studio Sam direct external promise: the same before/after result.
+- Studio Sam user-reported promise with unknown actor: ownership still safely
+  falls back to the user (no ghost row), but class/authority becomes
+  `counterparty_promise / ASK`, so it cannot become the user's violation.
+- Positive control, genuine user “I’ll confirm the chairs tomorrow”: remains
+  `implicit_self_commitment / ACT / PENDING` and becomes `VIOLATED` after the due date,
+  preserving the established lifecycle. Existing companion-owned promise tests
+  also remain green.
+
+Focused tests: `tests/test_counterparty_commitment_authority.py`,
+`tests/test_violation_lifecycle.py`, `tests/test_bilateral_state.py`, and
+`tests/test_surface_lifecycle.py`: 27 passed. Only existing `utcnow()`
+deprecation warnings appeared. Paid model-mode Sophie scenarios were not rerun;
+the regression fixtures use the exact candidate/state shapes captured in the
+blinded raw checkpoints.
+
+Separate downstream findings were deliberately not patched. Scenario 3 also
+contains Studio Sam's external promise as a wrongly user-owned
+`USER_INTENTION` expectation, and later counterparty evidence does not
+necessarily retire the preserved ASK proposal. These belong to expectation
+classification/reconciliation and closure, not this commitment-authority cut.
