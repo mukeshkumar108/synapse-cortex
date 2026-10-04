@@ -168,6 +168,7 @@ class ContinuationBrief(SQLModel, table=True):
     owner_peer_id: Optional[str] = Field(default=None, index=True)
     text: str = Field(nullable=False)
     lines_json: str = Field(default="[]")
+    scene_json: str = Field(default="{}")          # the live scene: now / unresolved / transient / changed / raw_turns (+reason)
     producer: str = Field(default="interpreter")
     run_id: Optional[UUID] = Field(default=None, index=True)
     superseded_by_id: Optional[UUID] = Field(default=None)

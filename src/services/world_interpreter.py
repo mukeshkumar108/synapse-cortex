@@ -97,6 +97,13 @@ PRINCIPLES
   is), updated (its timing or substance changed: also emit the change in `operational`), completed (it happened / was resolved, including something someone was
   waiting on), cancelled (called off), superseded (replaced by a newer item you create), unclear. completed / cancelled / superseded / updated need `evidence`
   (message ids). Resolving an item and creating a new one are separate acts and can both happen in one response. Silence is not a verdict.
+- SCENE (inside `brief`): `text` is the durable story so far. Separately describe the LIVE scene: `now` = what is actually happening in the most recent exchange, in
+  plain neutral terms (who is doing what to whom, in what register); `unresolved` = what is genuinely still open between the people; `transient` = recent
+  reactions, moods or frustration that were observed but should not be treated as lasting state unless sustained; `changed` = what materially changed in this
+  stretch (omit when nothing). `raw_turns` = how many of the latest user/assistant turns (0-3) are still worth showing the foreground word for word: 0 when
+  your `now` summary already carries everything that matters, up to 3 when exact wording matters (a request, a promise, a delicate moment). If the recent turns
+  are circular, escalating by momentum, or being pulled by a local pattern that your wider reading does not support, prefer fewer raw turns and say why in
+  `raw_reason`. This is a description for the character's voice to draw on, never an instruction about what it should do.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
 OUTPUT: ONE JSON object with these arrays (empty when nothing applies): actors, relationships, events, claims, narrative, commitments,
@@ -114,7 +121,7 @@ trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,obj
 state_review:[{id(of a listed objective or dimension),status(holds|superseded|resolved|unclear),note}]
 operational_review:[{id(of a listed open item),status(holds|updated|completed|cancelled|superseded|unclear),note,evidence[]}]
 operational:[{decision(create|complete|cancel|progress|reschedule),kind(reminder|event|deadline|commitment),title,temporal_phrase|null,target(id of a listed open item)|null,canonical_title|null,new_temporal_phrase|null,progress_amount|null,progress_unit|null,confidence,evidence[]}]
-brief:{text,lines:[{text,refs[]}]}"""
+brief:{text,lines:[{text,refs[]}],now,unresolved[],transient[],changed[],raw_turns(0-3),raw_reason}"""
 
 
 def _list(value: Any) -> List[Any]:
@@ -433,8 +440,14 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
     brief = None
     b = raw.get("brief")
     if isinstance(b, dict) and _str(b.get("text")):
+        raw_turns = b.get("raw_turns")
         brief = {"text": b["text"].strip(), "lines": [{"text": str(l.get("text")).strip(), "refs": [r for r in _list(l.get("refs")) if isinstance(r, str)]}
-                                                      for l in _list(b.get("lines")) if isinstance(l, dict) and _str(l.get("text"))]}
+                                                      for l in _list(b.get("lines")) if isinstance(l, dict) and _str(l.get("text"))],
+                 "now": _str(b.get("now")), "unresolved": [str(x).strip() for x in _list(b.get("unresolved")) if _str(x)][:6],
+                 "transient": [str(x).strip() for x in _list(b.get("transient")) if _str(x)][:6],
+                 "changed": [str(x).strip() for x in _list(b.get("changed")) if _str(x)][:6],
+                 "raw_turns": raw_turns if isinstance(raw_turns, int) and not isinstance(raw_turns, bool) and 0 <= raw_turns <= 3 else None,
+                 "raw_reason": _str(b.get("raw_reason"))}
     return {
         "contract_version": "world-delta-v1", "workspace_id": workspace_id, "owner": owner,
         "source": {"producer": "world-interpreter", "model": model, "version": "wi-2", "run_id": run_id, "session_id": session_id,

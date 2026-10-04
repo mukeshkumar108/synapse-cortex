@@ -477,6 +477,7 @@ async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, na
                 "matters": [{"ref": str(m.id), "title": m.title} for m in matters[:8]], "objectives": len(objectives)}
     return {"continuation": {
         "brief": {"text": brief.text if brief else "", "lines": _json_list(brief.lines_json) if brief else [], "version": str(brief.id) if brief else None,
+                  "scene": (json.loads(brief.scene_json or "{}") if brief and getattr(brief, "scene_json", None) else {}),
                   "derived_from": "interpreter projection of structured world state"},
         "dimensions": [{"ref": str(d.id), "from": names.get(d.from_entity_id), "to": names.get(d.to_entity_id), "dimension": d.dimension, "value": d.value,
                         "durability": d.durability, "formation": d.formation} for d in dims],

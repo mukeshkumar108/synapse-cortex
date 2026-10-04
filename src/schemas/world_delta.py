@@ -195,6 +195,14 @@ class BriefC(_Item):
     versioned; it carries no independent truth."""
     text: str
     lines: List[BriefLineC] = Field(default_factory=list)
+    # The live scene, separate from the long story: what is happening right now, what is unresolved, which recent reactions are only transient,
+    # what materially changed, and how many recent raw turns (0-3) are still worth showing the foreground verbatim.
+    now: Optional[str] = None
+    unresolved: List[str] = Field(default_factory=list)
+    transient: List[str] = Field(default_factory=list)
+    changed: List[str] = Field(default_factory=list)
+    raw_turns: Optional[int] = Field(default=None, ge=0, le=3)
+    raw_reason: Optional[str] = None
 
 
 class ReviewC(_Item):

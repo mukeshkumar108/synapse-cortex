@@ -856,3 +856,20 @@ async def test_every_listed_open_item_gets_a_verdict_and_resolving_one_while_cre
     assert cov["listed"] == 2 and cov["reviewed"] == 1 and cov["unreviewed_ids"] == [passport]                                                         # silence is visible, not assumed
     prompt = adapter.calls[0]["prompt"]
     assert "operational_review" in adapter.calls[0]["system"] and james in prompt and passport in prompt
+
+
+@pytest.mark.asyncio
+async def test_the_live_scene_travels_with_the_brief_and_is_projected_to_the_foreground_untouched():
+    from src.services import world_model_service
+    d = lila_delta()
+    body = d.model_dump()
+    body["brief"] = {"text": "Story so far.", "lines": [], "now": "Kai is pressing; Lila is deflecting with humour.", "unresolved": ["whether Kai knows"],
+                     "transient": ["Kai's irritation at the delay"], "changed": [], "raw_turns": 1, "raw_reason": "the last exchange is a pattern, not new information"}
+    await run(WorldDelta.model_validate(body), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    async with async_session_maker() as db:
+        layer = await world_model_service.build_world_layer(db, WS, d.owner)
+    scene = layer["continuation"]["brief"]["scene"]
+    assert scene["now"].startswith("Kai is pressing") and scene["raw_turns"] == 1 and scene["transient"] == ["Kai's irritation at the delay"]
+    assert WorldDelta.model_validate({**body, "brief": {**body["brief"], "raw_turns": 3}}) and True
+    with pytest.raises(Exception):
+        WorldDelta.model_validate({**body, "brief": {**body["brief"], "raw_turns": 9}})
