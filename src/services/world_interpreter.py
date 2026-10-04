@@ -525,7 +525,7 @@ async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_
     rid = run.id                  # read now: later rollbacks expire the instance
     key, holder = world_lease.lease_key(workspace_id, owner), str(rid)
     if not await world_lease.acquire(db, key, holder, wait_seconds=LEASE_WAIT_SECONDS):
-        await _finish(db, rid, "failed", {"reason": "lease_timeout"}, {"error": "lease_timeout"})
+        await _finish(db, rid, "deferred", {"reason": "lease_timeout"}, {"deferred": "lease_timeout"})
         return _busy_receipt(holder, model_id)
     try:
         covered = await covered_message_ids(db, workspace_id, owner)

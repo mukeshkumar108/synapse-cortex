@@ -27,7 +27,7 @@ class ProducerRun(SQLModel, table=True):
     input_json: str = Field(default="{}")                        # session id + message id range
     covered_through_json: str = Field(default="{}")
     counts_json: str = Field(default="{}")
-    status: str = Field(default="applied")                       # queued | running | applied | failed | skipped | retracted | rejected
+    status: str = Field(default="applied")                       # queued | running | applied | failed | skipped (nothing new) | deferred (world busy) | retracted | rejected
     detail_json: str = Field(default="{}")                       # the run's full trace: evidence range, candidates kept/dropped/rejected + reasons, reviews
     started_at: Optional[datetime] = Field(default=None)
     finished_at: Optional[datetime] = Field(default=None)

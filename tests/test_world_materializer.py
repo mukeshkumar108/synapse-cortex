@@ -634,7 +634,7 @@ async def test_a_world_is_leased_across_processes_a_busy_world_defers_without_lo
     assert busy["status"] == "busy" and adapter.calls == []                   # no model call, nothing mutated
     async with async_session_maker() as db:
         runs = (await db.execute(select(ProducerRun).where(ProducerRun.owner_peer_id == owner))).scalars().all()
-        assert [r.status for r in runs] == ["failed"] and "lease_timeout" in runs[0].detail_json
+        assert [r.status for r in runs] == ["deferred"] and "lease_timeout" in runs[0].detail_json
         assert await world_interpreter.covered_message_ids(db, WS, owner) == set()
         lease = await db.get(world_lease.WorldLease, key)                     # the holder died: its lease simply expires
         lease.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=1)
