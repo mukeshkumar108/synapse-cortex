@@ -435,3 +435,16 @@ async def test_the_interpret_endpoint_runs_the_pass_and_rejects_malformed_reques
                                                               "speakers": {"user": "Kai", "assistant": "Lila"}, "policy": "generative"})
         bad = await client.post("/v1/world/interpret", json={"workspace_id": WS, "owner": "world:x", "session_id": "s", "messages": [{"id": "m1"}]})
     assert ok.status_code == 200 and ok.json()["counts"]["actors_created"] == 1 and bad.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_a_directional_facet_is_one_identity_even_if_a_later_pass_files_it_under_another_relationship():
+    from src.models.world import RelationshipDimension
+    await run(lila_delta(), constitution=None)
+    body = lila_delta().model_dump()
+    body["dimensions"] = [{"ref": "d1", "relationship": "r2", "from_actor": "l", "to_actor": "k", "dimension": "avoidance", "value": "weakening", "formation": "inferred",
+                           "evidence": ["m1"]}]                                                    # same facet, filed under the Lila-James relationship this time
+    body["trajectory"], body["brief"] = [], None
+    await run(WorldDelta(**body))
+    live = [d for d in await all_rows(RelationshipDimension, honcho_workspace_id=WS) if d.superseded_by_id is None and d.dimension == "avoidance"]
+    assert len(live) == 1 and live[0].value == "weakening"

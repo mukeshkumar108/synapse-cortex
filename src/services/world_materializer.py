@@ -591,7 +591,7 @@ async def _dimensions(ctx: _Ctx) -> None:
         formation = epistemics.formation_class(d.formation)
         name = _slug(d.dimension).replace("-", "_") or "dimension"
         stmt = select(RelationshipDimension).where(
-            RelationshipDimension.honcho_workspace_id == ctx.ws, RelationshipDimension.edge_id == edge.id, RelationshipDimension.from_entity_id == a.id,
+            RelationshipDimension.honcho_workspace_id == ctx.ws, RelationshipDimension.owner_peer_id == ctx.owner, RelationshipDimension.from_entity_id == a.id,
             RelationshipDimension.to_entity_id == b.id, RelationshipDimension.dimension == name, RelationshipDimension.superseded_by_id.is_(None))
         stmt = stmt.where(RelationshipDimension.about_event_id == about.id) if about else stmt.where(RelationshipDimension.about_event_id.is_(None))
         prior = (await ctx.db.execute(stmt)).scalars().first()
