@@ -168,6 +168,7 @@ class DimensionC(_Item):
     value: str
     about: Optional[str] = None               # event ref (awareness_of / disclosure_of)
     durability: Literal["acute", "provisional", "durable", "unknown"] = "unknown"
+    supersedes: Optional[str] = None          # id of a known facet this one REPLACES (the interpreter's judgement that the state changed)
     formation: Literal["explicit", "reported", "source_linked", "observed", "inferred", "hypothesis"] = "inferred"
     confidence: float = 0.6
     evidence: List[str] = Field(default_factory=list)

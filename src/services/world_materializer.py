@@ -615,6 +615,11 @@ async def _dimensions(ctx: _Ctx) -> None:
         if prior is not None:
             prior.superseded_by_id = row.id
             ctx.db.add(prior)
+        replaced = await _known(ctx, RelationshipDimension, d.supersedes)      # the interpreter says this replaces a known facet (state changed)
+        if replaced is not None and replaced.owner_peer_id == ctx.owner and replaced.id != row.id and replaced.superseded_by_id is None:
+            replaced.superseded_by_id = row.id
+            ctx.db.add(replaced)
+            ctx.count("dimensions_superseded_by_interpreter")
         await ctx.prov("dimension", row.id)
         ctx.count("dimensions_written")
     await ctx.db.commit()

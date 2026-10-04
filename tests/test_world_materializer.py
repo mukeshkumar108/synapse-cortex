@@ -522,3 +522,23 @@ async def test_honcho_context_is_given_to_the_interpreter_as_lower_grade_input_a
         await world_interpreter.interpret(db, workspace_id=WS, owner="world:h", session_id="c", messages=INTERP_MESSAGES,
                                           speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter2)
     assert "HONCHO CONTEXT" not in adapter2.calls[0]["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_the_interpreter_retires_a_known_facet_by_id_when_the_state_changed():
+    """Facets tied to different events are different identities, so only the interpreter (which sees the current facets with ids) can say a newer
+    reading REPLACES an older one."""
+    from src.models.world import RelationshipDimension
+    first = lila_delta().model_dump()
+    first["dimensions"] = [{"ref": "d1", "relationship": "r1", "from_actor": "l", "to_actor": "k", "dimension": "avoidance", "value": "declines a visit", "about": "e1",
+                            "durability": "acute", "formation": "inferred", "evidence": ["m1"]}]
+    first["trajectory"], first["brief"] = [], None
+    await run(WorldDelta(**first))
+    old = next(d for d in await all_rows(RelationshipDimension, honcho_workspace_id=WS) if d.dimension == "avoidance")
+    second = lila_delta().model_dump()
+    second["dimensions"] = [{"ref": "d1", "relationship": "r1", "from_actor": "l", "to_actor": "k", "dimension": "avoidance", "value": "asks to talk", "durability": "acute",
+                             "supersedes": str(old.id), "formation": "inferred", "evidence": ["m1"]}]
+    second["trajectory"], second["brief"] = [], None
+    receipt = await run(WorldDelta(**second))
+    live = [d.value for d in await all_rows(RelationshipDimension, honcho_workspace_id=WS) if d.superseded_by_id is None and d.dimension == "avoidance"]
+    assert live == ["asks to talk"] and receipt["counts"]["dimensions_superseded_by_interpreter"] == 1

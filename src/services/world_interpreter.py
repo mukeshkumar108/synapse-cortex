@@ -44,7 +44,8 @@ PRINCIPLES
 - Claims are propositions about the world restated neutrally in the third person, not quotes. A quote or outburst is evidence, not a claim,
   unless it establishes lasting relational state (then say that state).
 - Dimensions are directional facets of a relationship (from_actor toward to_actor) with an open vocabulary: affection, trust, resentment,
-  dependency, avoidance, respect, awareness of a specific event, expectation, intent, and so on. For awareness use: "aware" only when the
+  dependency, avoidance, respect, awareness of a specific event, expectation, intent, and so on. When the state of a known facet has CHANGED
+  (the CURRENT WORLD STATE lists facets with ids), set `supersedes` to its id so the old reading is retired; if both readings still hold, omit it. For awareness use: "aware" only when the
   evidence shows they know; "not established" when there is NO evidence either way (the default for anyone absent from a concealed matter); and
   "unaware" ONLY when the evidence positively shows they do not know (they say they had no idea, or are plainly misled in a way they act on).
   Absence of evidence is never evidence of absence: never write "unaware" just because the text does not show them knowing.
@@ -78,7 +79,7 @@ events:[{ref,label,kind,when_phrase|null,where|null,participants[],holder|null,f
 claims:[{ref,subject(ref of actor/event/relationship),text,kind(assertion|attribute),holder(actor ref|null),formation,confidence,evidence[],span|null(verbatim),conflicts_with[]}]
 narrative:[{ref,kind(open: rupture, concealment, resentment, self_expression, ...),about[refs],holder(actor ref|null),text,formation,confidence,evidence[]}]
 commitments:[{ref,committer,to|null,text,tentative(bool),confidence,evidence[]}]
-dimensions:[{ref,relationship(ref),from_actor,to_actor,dimension,value,about(event ref)|null,durability(acute|provisional|durable|unknown),formation,confidence,evidence[]}]
+dimensions:[{ref,relationship(ref),from_actor,to_actor,dimension,value,about(event ref)|null,durability(acute|provisional|durable|unknown),supersedes(known facet id)|null,formation,confidence,evidence[]}]
 objectives:[{ref,op(create|update|resolve),existing_id|null,actor,toward|null,text,scope,cause|null,state,durability(acute|provisional|durable|unknown),strength(0-1),conflicts_with[objective refs|known ids|"constitution"; omit the field to leave recorded conflicts unchanged],formation,confidence,evidence[]}]
 matter_candidates:[{ref,concept,display_title,kind(project|topic|concern|relationship_situation|goal|life_situation|routine|other),actors[],members[refs],continuity_required(bool),continuity_reason,attach_to_existing_matter_id|null,evidence[]}]
 trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,objectives[],evidence[]}]
@@ -184,7 +185,7 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                    and fresh(k.get("ref"))]
     dims = [{"ref": d["ref"], "relationship": d["relationship"], "from_actor": d["from_actor"], "to_actor": d["to_actor"], "dimension": d["dimension"].strip(),
              "value": d["value"].strip(), "about": d.get("about") if d.get("about") in event_refs else None,
-             "durability": _durability(d.get("durability")), "formation": _formation(d.get("formation"), "inferred"),
+             "durability": _durability(d.get("durability")), "supersedes": _str(d.get("supersedes")), "formation": _formation(d.get("formation"), "inferred"),
              "confidence": _num(d.get("confidence"), 0.6), "evidence": ev(d)}
             for d in _list(raw.get("dimensions")) if isinstance(d, dict) and d.get("relationship") in rel_refs and d.get("from_actor") in actor_refs
             and d.get("to_actor") in actor_refs and _str(d.get("dimension")) and _str(d.get("value")) and ev(d) and fresh(d.get("ref"))]
@@ -265,7 +266,7 @@ async def world_state_for_prompt(db: AsyncSession, workspace_id: str, owner: str
         "events": [{"id": str(e.id), "label": e.label, "kind": e.kind, "when": e.when_phrase, "where": e.place, "status": e.status} for e in events],
         "objectives": [{"id": str(o.id), "actor": names.get(o.actor_entity_id), "toward": names.get(o.toward_entity_id), "text": o.text, "scope": o.scope,
                         "state": o.state, "cause": o.cause} for o in objs],
-        "dimensions": [{"from": names.get(d.from_entity_id), "to": names.get(d.to_entity_id), "dimension": d.dimension, "value": d.value} for d in dims],
+        "dimensions": [{"id": str(d.id), "from": names.get(d.from_entity_id), "to": names.get(d.to_entity_id), "dimension": d.dimension, "value": d.value, "durability": d.durability} for d in dims],
         "recent_entries": [{"kind": e.claim_kind, "text": e.claim[:160], "holder": e.holder_actor, "formation": e.formation, "status": e.epistemic_status} for e in entries],
         "matters": [{"id": str(m.id), "title": m.title, "kind": m.kind} for m in matters],
         "last_brief": brief.text if brief else None, "last_trajectory_note": note.note if note else None,
