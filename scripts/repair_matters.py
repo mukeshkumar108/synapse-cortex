@@ -20,19 +20,28 @@ from src.models.matter import Matter  # noqa: E402
 from src.runtime_model import get_agenda_adapter  # noqa: E402
 from src.services import matter_service, semantic_judge  # noqa: E402
 
-LABEL_MODEL = "google/gemini-3.7-flash"
+import os
+LABEL_MODEL = os.getenv("SYNAPSE_EXTRACTOR_MODEL") or "deepseek/deepseek-v4-flash"
 NOMINATE_RATIO = 0.55
 LONG_TITLE = 90
 
 
 async def relabel(adapter, title: str) -> str | None:
-    raw = await adapter.generate_structured(
+    try:
+        raw = await _label_call(adapter, title)
+    except Exception as exc:
+        print(f"    (label call failed: {type(exc).__name__})")
+        return None
+    label = str((raw or {}).get("label") or "").strip().strip('"')
+    return label if 3 <= len(label) <= 80 else None
+
+
+async def _label_call(adapter, title: str):
+    return await adapter.generate_structured(
         system=("Give a short neutral label (at most 8 words, same language as the text) for the matter described. Keep its meaning; add no facts; "
                 "no quotes."),
         prompt=f"TEXT: {title}", json_schema={"type": "object", "properties": {"label": {"type": "string"}}, "required": ["label"]},
-        model_id=LABEL_MODEL, max_tokens=60, temperature=0.0, strict=True, timeout=15.0)
-    label = str((raw or {}).get("label") or "").strip().strip('"')
-    return label if 3 <= len(label) <= 80 else None
+        model_id=LABEL_MODEL, max_tokens=60, temperature=0.0, strict=True, timeout=20.0)
 
 
 async def main(owner_prefix: str, apply: bool) -> None:
