@@ -95,8 +95,19 @@ quote regex, `difflib` event merge, brief filter/ordering, claim-kind rule, the 
 claims), A19 (version probe refreshes the resident packet), B3 (overview intent is Jev's `overview_scope`; production-smoked on 6 phrasings
 including Spanish and a negated cue-word case), B4 (extraction gated by the model, not a length rule). A18: `covered_through` is per producer
 only and nothing retires on it yet.
-**Still open:** B1 and C1 (lexical relevance), C2 and C3 (completion/negation/counterfactual marker lists), C4 (entity-provisioning regex),
-C5 (salience arithmetic: recency/frequency/unresolved counts feeding rank), C7 fallback, C9 (36h relative-phrase expiry), section D (untraced).
+**Second pass (2026-10-04):** B1 and C1 (relevance is now a model judgement: Cortex working set `judge`, Jev engagement widens the Runtime slice;
+no lexical overlap, no phrase regexes, no wording-based dedupe), C2 and C3 (outcome fulfilled / not_fulfilled / counterfactual is the extractor
+model's reading; marker lists deleted), C4 (entity provisioning trusts the extractor's `subject_refs` contract; prompts exclude topics/pronouns;
+works for any script), C14 duplicates (model-judged repair script, applied to the real account: 53 -> 49 live Matters, merges non-destructive).
+**Reclassified as explicit POLICY with rationale, not meaning:** C5 (Matter activity components are measured counts and recency, weights are
+product policy, and the ordering is labelled activity, not importance), C7 fallback (arithmetic over model-assigned importance/urgency/pressure
+when the ranker model is down), C9 (a VAGUE relative phrase with no anchoring window lapses after 36h; anchored phrases use the model's window).
+**Traced (section D):** `shadow_a` was not on any live path and is deleted. `longitudinal_read` is an eval scaffold (fixture corpus, frozen F1-F10
+battery), not a live reader. `knowledge_coverage.rank` and `surface_lifecycle.resolve` are mechanical. `evidence_recruitment` nominates then uses
+the `same_matter`-style judge (correct shape). `semantic_promotion` is a bounded relation vocabulary with deterministic persistence. The
+rule-based extractor remains as an explicit test/offline provider only (not a live path; model failure only falls back to it when explicitly
+configured). Still untraced: Honcho deriver/dream prompts, the Jev pack contents beyond what was changed, extractor prompt wording beyond the
+sections edited.
 
 ## G. Everything still to build (so none of it is lost)
 

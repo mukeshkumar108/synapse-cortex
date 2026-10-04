@@ -1,4 +1,4 @@
-# Companion cognition architecture (as built, 2026-10-04)
+# Companion cognition architecture (as built and live for `world:` owners, 2026-10-04)
 
 Principle: **models own open-ended meaning; code owns mechanics.** Code validates, grounds, canonicalises identity, versions, expires, caches and
 renders. It never decides what something means, why someone acted, whether it matters, whether two accounts are the same event, or what a
@@ -14,7 +14,20 @@ plausible way forward is. (Audit: `SEMANTIC_BOUNDARY_INVENTORY.md`. Rule saved a
 | **Cortex world interpreter** (Luna Pro by default, async, one call per checkpoint) | The semantic pass: reads new evidence + current world state with ids + product policy; returns actors, relationships and **directional open-vocabulary dimensions**, events (incl. same_as / possibly_same_as against known events), propositions, narrative state (open kinds), commitments, **objective reconciliation** (create / update / resolve by id), **Matter continuity judgement**, **trajectory assessment** for the companion character, and the **brief** | Storage |
 | **Cortex materialiser** | Mechanics only: evidence grounding (ids, verbatim spans), speaker attribution repair, identity by echoed id or exact key, firmness ladder (a weaker candidate never replaces a firmer one), grounded-policy downgrade of companion assertions, provenance per run, versioning, expiry, supersession | Any meaning |
 | **Cortex projections / resident snapshot** | Renders stored state: brief (the interpreter's text), objectives, directional dimensions, trajectory note, routing manifest, `covered_through` per producer | Selecting meaning |
-| **Honcho** | Raw evidence store and its own derivations; not yet an input to the interpreter (see limitations) | |
+| **Honcho** | Raw evidence store and long-horizon retrieval. For `world:` owners Runtime writes every exchange (`observe_me=false`: stored, embedded, searchable, summarised, **never reasoned over**); the interpreter reads its session summaries and semantic search as lower-grade context. Honcho is not a second semantic author for these worlds. Peer ids are encoded (`honcho_peer_id`) because Honcho rejects `:`. | A second interpreter |
+
+## Semantic ownership (decided)
+Honcho = evidence store + retrieval. Cortex interpreter = the single canonical semantic author at checkpoints. Jev = fast per-turn typed judgements.
+For `world:` owners the legacy Cortex consolidation reader is retired (the interpreter replaces it at checkpoints and session ends). Sophie
+(`user_*` owners) keeps the legacy readers (narrow lane, 3-stage consolidation) because the interpreter does not yet emit Expectations/OpenLoops
+lifecycle objects; converging them is the next step and needs a product decision about her reminder semantics.
+
+## Durability and promotion policy
+The interpreter judges `durability` (acute / provisional / durable) on objectives and dimensions. Explicit code policy over that judgement: an
+acute or provisional facet never supersedes a durable one (they coexist), acute state lapses from the projection after 72h unless re-affirmed,
+a facet is only retired when the interpreter says so by id (`supersedes`) or by exact identity, relationship edges are never ended by code, the
+constitutional objective is never writable. A chaotic foreground turn is therefore preserved as an event and as acute state, and only sustained
+evidence becomes durable.
 
 ## Flow
 1. Every turn: Runtime serves from the resident packet (brief + what each person is trying to do + trajectory note + manifest), Jev decides routing.
@@ -29,4 +42,4 @@ trajectory note is an expiring, evidence-linked **interpretation**, not a fact o
 recorded as conflicts, never silently resolved.
 
 ## Switches
-`WORLD_INTERPRETATION_ENABLED` (Runtime, **default off**), `WORLD_INTERPRETER_MODEL` (default `openai/gpt-5.6-luna-pro`).
+`WORLD_INTERPRETATION_ENABLED` (Runtime; **on in production since 2026-10-04**), `WORLD_EVIDENCE_MIRROR_ENABLED` (on), `WORLD_INTERPRETER_MODEL` (default `openai/gpt-5.6-luna-pro`), `WORKING_SET_MODEL`.
