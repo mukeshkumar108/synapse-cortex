@@ -71,6 +71,8 @@ Return typed INTENTS: what the companion should attend to, raise, prepare, do, o
   `wake_at`), which is blocked on someone or something (`waiting_on`, and `depends_on`: titles/ids of the intents it needs first), and which can be done
   together (`combine_with`: titles/ids of intents that fit into one move or one window). Reflect the sequence in the `agenda`. A good plan reduces what
   the user has to carry and what the companion raises; it does not multiply reminders.
+- Initiative memory for ACTIONS: `recent_actions` lists what the companion already did or asked to do, with receipts. A succeeded receipt IS the outcome:
+  never propose the same or an equivalent action again, and never re-ask for permission you already used; observe the result and update the agenda instead.
 - Learn from what happened: `recent_outcomes` shows what followed earlier outreach (answered, ignored, completed, still open) and `set_aside` shows what
   was deliberately dropped. Adjust future initiative to it, in your own judgement; do not repeat what already failed to land. `external_events` are things
   that happened outside the conversation that may change what matters.
@@ -208,6 +210,9 @@ async def build_context(db: AsyncSession, workspace_id: str, owner: str, *, now:
                  "user_next_active_after": _iso(turns_after.get(i.id)), "what_was_said": json.loads(i.extra_json or "{}").get("outbound_text"), "receipt": json.loads(i.receipt_json) if i.receipt_json else None}
                 for i in past if i.last_surfaced_at][:20]
     set_aside = [{"id": str(i.id), "title": i.action, "reason": json.loads(i.extra_json or "{}").get("reason")} for i in past if i.status == "cancelled"][:15]
+    recent_actions = [{"id": str(i.id), "title": i.action, "tool": json.loads(i.tool_json) if i.tool_json else None, "status": i.status,
+                       "receipt": json.loads(i.receipt_json) if i.receipt_json else None, "at": _iso(i.updated_at)}
+                      for i in past if i.tool_json and i.status in ("done", "failed", "in_progress", "cancelled", "proposed", "surfaced")][:20]
     agenda_row = next((i for i in past if i.kind == "agenda"), None)
     agenda_prev = json.loads(agenda_row.extra_json or "{}").get("agenda") if agenda_row else None
     intents = [{"id": str(i.id), "kind": i.kind, "title": i.action, "status": i.status, "wake_at": _iso(i.wake_at), "waiting_on": i.waiting_on,
@@ -217,7 +222,7 @@ async def build_context(db: AsyncSession, workspace_id: str, owner: str, *, now:
             "operational": ops, "intents": intents,
             "already_raised": [{"at": _iso(r.at), "what": r.item_key, "decision": r.decision} for r in raised],
             "user_last_active": _iso(last_turn), "policy": {"proactive": policy["proactive"], "delegations": policy["autonomy"].get("delegations") or [], "capabilities": policy["capabilities"].get("tools") or []},
-            "recent_outcomes": outcomes, "set_aside": set_aside, "external_events": external_events, "agenda": agenda_prev}
+            "recent_outcomes": outcomes, "recent_actions": recent_actions, "set_aside": set_aside, "external_events": external_events, "agenda": agenda_prev}
 
 
 # ----------------------------------------------------------------------------- autonomy
@@ -315,6 +320,12 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
                 continue
             catalog = {c.get("tool"): c for c in (ctx["policy"].get("capabilities") or []) if isinstance(c, dict)}
             if kind == "act":
+                fingerprint = (_str((action or {}).get("tool")), json.dumps((action or {}).get("args") or {}, sort_keys=True, default=str).lower())
+                prior = [a for a in ctx.get("recent_actions", []) if a.get("tool") and (a["tool"].get("tool"), json.dumps(a["tool"].get("args") or {}, sort_keys=True, default=str).lower()) == fingerprint
+                         and a.get("status") in ("done", "in_progress", "proposed", "surfaced")]
+                if prior:
+                    dropped.append({"reason": "duplicate_action", "title": title, "of": prior[0]["id"]})        # mechanical idempotency: an identical call is never created twice
+                    continue
                 spec = catalog.get(_str((action or {}).get("tool")))
                 if spec is None:
                     dropped.append({"reason": "unknown_tool", "title": title, "tool": _str((action or {}).get("tool"))})

@@ -207,3 +207,21 @@ async def test_a_tool_must_be_in_the_product_catalogue_its_risk_is_the_products_
         await executive.record_receipt(db, workspace_id=WS, owner=owner, work_item_id=pending[0]["work_item_id"], status="succeeded", result_ref="task-1", detail=None)
         done = await db.get(WorkItem, __import__("uuid").UUID(pending[0]["work_item_id"]))
         assert done.status == "done" and json.loads(done.receipt_json)["result_ref"] == "task-1"
+
+
+@pytest.mark.asyncio
+async def test_the_executive_sees_its_own_completed_actions_and_an_identical_call_is_never_created_twice():
+    owner = "user_exec9"
+    cat = [{"tool": "task.create", "consequence": "low", "reversible": True}]
+    act = {"op": "create", "kind": "act", "title": "Add walk task", "authority_basis": "explicit_request", "action": {"tool": "task.create", "args": {"title": "Evening walk"}}}
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}, "capabilities": {"tools": cat}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=Model({"intents": [act]}))
+        item = (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner, WorkItem.kind == "act"))).scalars().one()
+        await executive.record_receipt(db, workspace_id=WS, owner=owner, work_item_id=str(item.id), status="succeeded", result_ref="task-9", detail=None)
+        again = Model({"intents": [act]})
+        res = await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["receipt"], adapter=again)
+        rows = (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner, WorkItem.kind == "act"))).scalars().all()
+    ctx = json.loads(again.calls[0]["prompt"].split("CONTEXT (ids are real):\n")[1])
+    assert ctx["recent_actions"][0]["receipt"]["result_ref"] == "task-9" and ctx["recent_actions"][0]["status"] == "done"          # it can see what it already did
+    assert [d["reason"] for d in res["dropped"]] == ["duplicate_action"] and len(rows) == 1                                      # and a repeat is refused mechanically
