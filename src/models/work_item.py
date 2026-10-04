@@ -37,6 +37,8 @@ class WorkStatus(str, enum.Enum):
     PROPOSED = "proposed"
     SURFACED = "surfaced"
     IN_PROGRESS = "in_progress"
+    WAITING = "waiting"
+    FAILED = "failed"
     DONE = "done"
     CANCELLED = "cancelled"
     SUPERSEDED = "superseded"
@@ -79,3 +81,11 @@ class WorkItem(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     extra_json: str = Field(default="{}", nullable=False)
+
+    # executive layer (additive): what the companion intends, when it will reconsider, what it waits on, and the action/receipt trail
+    kind: Optional[str] = Field(default=None, index=True)      # open vocabulary from the executive: ask | remind | check_in | prepare | act | wait | reconsider ...
+    wake_at: Optional[datetime] = Field(default=None, index=True)
+    waiting_on: Optional[str] = None
+    run_id: Optional[str] = Field(default=None, index=True)    # executive producer_run that wrote/last changed it
+    tool_json: Optional[str] = None                            # {tool, args} for an action intent
+    receipt_json: Optional[str] = None                         # what actually happened (receipt), never a claim

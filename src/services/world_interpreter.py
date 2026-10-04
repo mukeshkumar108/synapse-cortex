@@ -611,4 +611,6 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
         "snapshot": {"before": prior_snap, "after": receipt.get("snapshot_version")}, "model": model_id, "usage": receipt["usage"],
     }
     await _finish(db, rid, "applied", detail, {"proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": len(drops.items)})
+    from src.services import executive
+    await executive.note_changed(db, workspace_id, owner, "world_interpreted")      # the world changed: the executive reconsiders (no-op unless its policy enables it)
     return receipt

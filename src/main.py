@@ -7,6 +7,7 @@ import hmac
 from src.db import init_db
 from src.config import settings
 from src.routers import health_router, events_router, debug_router, cortex_router, sessions_router, world_router, world_delta_router
+from src.routers.v1_executive import router as executive_router
 from src.services.turn_extractor import extractor_config_status
 
 
@@ -30,7 +31,13 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).warning(
             "synapse-cortex starting in degraded extractor state: %s", status["reason"]
         )
-    yield
+    import asyncio
+    from src.services import executive_loop
+    task = asyncio.create_task(executive_loop.run_forever())
+    try:
+        yield
+    finally:
+        task.cancel()
 
 
 app = FastAPI(
@@ -58,3 +65,4 @@ app.include_router(debug_router)
 app.include_router(sessions_router)
 app.include_router(world_router)
 app.include_router(world_delta_router)
+app.include_router(executive_router)

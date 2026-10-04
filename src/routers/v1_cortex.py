@@ -528,22 +528,18 @@ async def initiative_tick(req: WorkingSetRequest, db: AsyncSession = Depends(get
     scheduler/cron and by the scenario harness. 'Nothing worth pushing' is a
     first-class outcome."""
     from src.services.initiative_service import evaluate_initiative
-    from src.services.agenda_service import compile_agenda
+    from src.services import executive
 
-    packet = await attention_service.compile_attention_state(
-        db=db, workspace_id=req.workspace_id, session_id=req.session_id,
-        now=req.now, timezone_str=req.timezone, owner_peer_id=req.peer_id,
-    )
-    agenda_result = await compile_agenda(
-        db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id,
-        packet=packet, now=req.now, timezone_str=req.timezone,
-        adapter=get_agenda_adapter(),
-        session_id=req.session_id,
-    )
+    # Delivery is fed by the executive's intents (what deserves reaching out about, decided by the model); the gate below owns only explicit product
+    # policy: quiet hours, daily budget, cadence gap, user-recently-active, and the ledger.
+    items = await executive.surfaced_agenda(db, req.workspace_id, req.peer_id or "")
+    policy = (await executive.get_policy(db, req.workspace_id, req.peer_id or ""))["proactive"]
     decision = await evaluate_initiative(
         db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id or "",
-        agenda=agenda_result.get("items") or [], now=req.now, timezone_str=req.timezone,
+        agenda=items, now=req.now, timezone_str=req.timezone, policy=policy,
     )
+    if decision.get("should_appear") and (decision.get("item") or {}).get("work_item_id"):
+        await executive.mark_surfaced(db, decision["item"]["work_item_id"], req.now)
     return decision
 
 
