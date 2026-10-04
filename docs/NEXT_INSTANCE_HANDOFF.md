@@ -1,3 +1,13 @@
+**Agency-loop pass (later the same evening, deployed: Cortex `80f7ad2`, Runtime `31f48e5`):** writer audit for Sophie done (live writers now: the interpreter; app-owned objects via
+`/v1/events/object`; user-accepted commitment candidates; the executive's own work_items): the assistant-turn lane was the last legacy writer and is closed for
+interpreter-owned worlds. Deep-memory retrieval (A3) no longer returns Honcho's derived conclusions (default mode was `conclusions/query`, i.e. old Honcho reasoning about
+Sophie): it is raw message search. Delivery composer is model-composed (not a template); it now forwards the intent's gist/why, uses `companion_id`, and returns
+`intent_id` (the app must persist it on the outbound message to link replies to the move: app change pending). Executive plans across concerns (`depends_on`,
+`combine_with`, horizons/stances, agenda). Real-model loop replay (scratch): 5 operational items captured -> executive planned (urgent surfaced with a pre-deadline wake,
+walk+call combined and deferred, passport deferred, James dependency tracked) -> reply closed the deliverable by id -> executive closed its intent and replanned without
+nagging. Known miss: interpreter created a replacement instead of completing a listed wait (prompt tightened, not re-verified). The wake heartbeat already lives in
+Cortex (asyncio loop); only delivery depends on the Sophie app (Vercel cron -> app -> Runtime proactive tick): needs the app's production URL + CRON_SECRET or Vercel access.
+
 # UPDATE 2026-10-04 (evening): Sophie convergence + executive layer. Read after the update below; see COGNITION_ARCHITECTURE.md "Layer 3 and Sophie convergence".
 Deployed: Cortex `main` (executive, operational output, close-by-id, per-world operational owner), Runtime `2bd09f2` (all owners interpreted, Jev `time_bound`). Rollback images:
 `*:pre-sophie-converge`. Sophie's world (`llm-test-agent` / `user_5377a025-...`): executive enabled, `operational.owner=interpreter`, Honcho `observe_me=false` (revert: PUT peer
