@@ -697,6 +697,13 @@ async def commit_operational(db: AsyncSession, items: List[Any], *, messages: Li
     for it in items:
         try:
             msg = by_id[it.evidence[0]]
+            if it.decision in ("complete", "cancel") and it.target:
+                # The interpreter named exactly which listed item this closes: applying a known id is mechanics, not interpretation (and works across
+                # sessions, unlike the fuzzy session-scoped matchers).
+                applied = await _close_by_id(db, it.target, it.decision, msg["text"][:500], stamp)
+                (committed if applied else failed).append({"decision": it.decision, "title": it.canonical_title or it.title, **applied} if applied else
+                                                          {"title": it.title, "reason": "target_not_found"})
+                continue
             decision = NarrowDecision(decision=it.decision, kind=it.kind if it.kind in ("reminder", "event", "deadline", "commitment") else "commitment", title=it.title,
                                       temporal_phrase=it.temporal_phrase, target_key=it.target, canonical_title=it.canonical_title, evidence_text=msg["text"][:500],
                                       new_temporal_phrase=it.new_temporal_phrase, progress_amount=it.progress_amount, progress_unit=it.progress_unit,
@@ -717,3 +724,40 @@ async def commit_operational(db: AsyncSession, items: List[Any], *, messages: Li
             logger.warning("operational commit failed: %s", exc)
             failed.append({"title": it.title, "reason": f"{type(exc).__name__}: {str(exc)[:160]}"})
     return {"committed": committed, "failed": failed}
+
+
+async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: str, now: Any) -> Optional[Dict[str, Any]]:
+    """Complete / cancel one open operational item (expectation, open loop, or commitment candidate) by its exact id, and close what hangs off it."""
+    from uuid import UUID
+    from src.models.commitment_candidate import CommitmentCandidate, CommitmentCandidateStatus
+    from src.models.expectation import Expectation, OutcomeState
+    from src.models.open_loop import OpenLoop, OpenLoopStatus
+    try:
+        tid = UUID(str(target))
+    except (TypeError, ValueError):
+        return None
+    done = decision == "complete"
+    stamp = now.replace(tzinfo=None) if getattr(now, "tzinfo", None) else now
+    exp = await db.get(Expectation, tid)
+    if exp is not None:
+        exp.outcome_state = OutcomeState.FULFILLED if done else OutcomeState.CANCELLED
+        exp.resolution_evidence, exp.updated_at = evidence, stamp
+        db.add(exp)
+        for loop in (await db.execute(select(OpenLoop).where(OpenLoop.expectation_id == tid, OpenLoop.status == OpenLoopStatus.OPEN))).scalars().all():
+            loop.status, loop.resolution_evidence = (OpenLoopStatus.RESOLVED if done else OpenLoopStatus.ABANDONED), evidence
+            db.add(loop)
+        await db.commit()
+        return {"closed": "expectation", "id": str(tid), "outcome": exp.outcome_state.value if hasattr(exp.outcome_state, "value") else str(exp.outcome_state)}
+    loop = await db.get(OpenLoop, tid)
+    if loop is not None:
+        loop.status, loop.resolution_evidence, loop.updated_at = (OpenLoopStatus.RESOLVED if done else OpenLoopStatus.ABANDONED), evidence, stamp
+        db.add(loop)
+        await db.commit()
+        return {"closed": "open_loop", "id": str(tid)}
+    cc = await db.get(CommitmentCandidate, tid)
+    if cc is not None:
+        cc.status, cc.resolution_evidence, cc.updated_at = (CommitmentCandidateStatus.FULFILLED if done else CommitmentCandidateStatus.DISMISSED), evidence, stamp
+        db.add(cc)
+        await db.commit()
+        return {"closed": "commitment", "id": str(tid)}
+    return None

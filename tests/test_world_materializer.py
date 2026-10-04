@@ -810,3 +810,22 @@ async def test_a_persisted_message_matching_an_already_interpreted_synthetic_one
     assert (await _run(adapter, persisted, owner=owner))["status"] == "already_interpreted" and len(adapter.calls) == 1        # same messages under their real ids
     more = persisted + [{"id": "db-11", "speaker": "user", "text": "Actually make it Monday."}]
     assert (await _run(FakeInterpreter(_raw("db-11")), more, owner=owner))["status"] == "applied"
+
+
+@pytest.mark.asyncio
+async def test_a_completion_names_the_exact_open_item_and_closes_it_even_from_another_session():
+    from src.models.expectation import Expectation, OutcomeState
+    owner = "world:rpd2:u:close:c1"
+    create = {"operational": [{"decision": "create", "kind": "reminder", "title": "Call mum", "temporal_phrase": "tomorrow at 5pm", "evidence": ["m1"]}]}
+    await _run(FakeInterpreter(create), [{"id": "m1", "speaker": "user", "text": "Remind me to call mum tomorrow at 5pm."}], owner=owner)
+    async with async_session_maker() as db:
+        exp = (await db.execute(select(Expectation).where(Expectation.honcho_workspace_id == WS, Expectation.owner_peer_id == owner))).scalars().one()
+    assert exp.outcome_state == OutcomeState.UNKNOWN
+    from src.services import world_interpreter
+    done = {"operational": [{"decision": "complete", "target": str(exp.id), "evidence": ["m2"]}]}
+    async with async_session_maker() as db:           # a DIFFERENT session id than the one that created it
+        await world_interpreter.interpret(db, workspace_id=WS, owner=owner, session_id="another-session", messages=[{"id": "m2", "speaker": "user", "text": "I rang mum already, done."}],
+                                          speakers=SPEAKERS, policy="grounded", constitution=None, adapter=FakeInterpreter(done), user_actor="Kai", companion_actor="Lila")
+    async with async_session_maker() as db:
+        row = await db.get(Expectation, exp.id)
+    assert row.outcome_state == OutcomeState.FULFILLED and "rang mum" in row.resolution_evidence
