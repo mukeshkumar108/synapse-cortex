@@ -1,3 +1,5 @@
+> **STATUS (2026-10-04): design history, partly superseded.** The Flash Lite producer and the conditional judge described below were replaced by the Cortex world interpreter (Luna Pro) with a mechanics-only materialiser. The as-built description is `COGNITION_ARCHITECTURE.md` Part A; the handoff is `NEXT_INSTANCE_HANDOFF.md`.
+
 # World contract and materialiser (design, 2026-10-03; nothing here is implemented)
 
 Status: design for review. It extends `CORTEX_ARCHITECTURE.md` (§2 actors and direction, §3 Matter, §4 epistemics, §5 authoritative vs derived,
