@@ -225,3 +225,127 @@ async def test_the_executive_sees_its_own_completed_actions_and_an_identical_cal
     ctx = json.loads(again.calls[0]["prompt"].split("CONTEXT (ids are real):\n")[1])
     assert ctx["recent_actions"][0]["receipt"]["result_ref"] == "task-9" and ctx["recent_actions"][0]["status"] == "done"          # it can see what it already did
     assert [d["reason"] for d in res["dropped"]] == ["duplicate_action"] and len(rows) == 1                                      # and a repeat is refused mechanically
+
+
+@pytest.mark.asyncio
+async def test_a_reply_is_linked_to_the_exact_intent_by_message_id_and_wakes_the_executive_with_it():
+    owner = "user_exec10"
+    model = Model({"intents": [{"op": "create", "kind": "check_in", "title": "Ask about the gym", "importance": 0.8, "surface_now": True, "message_gist": "gym"}]})
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=model)
+        item = (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner, WorkItem.kind == "check_in"))).scalars().one()
+        await executive.mark_surfaced(db, str(item.id), now())
+        await executive.record_outbound(db, WS, owner, str(item.id), "How's the gym going?", "dec-1", "msg-out-1")
+        msgs = [{"id": "msg-out-1", "speaker": "assistant", "text": "How's the gym going?"}, {"id": "u-9", "speaker": "user", "text": "Skipped it again, honestly."}]
+        index = await executive.outbound_index(db, WS, owner, [m["id"] for m in msgs])
+        assert index == {"msg-out-1": {"intent_id": str(item.id), "title": "Ask about the gym"}}
+        assert await executive.link_replies(db, WS, owner, msgs, index) == 1
+        assert await executive.link_replies(db, WS, owner, msgs, index) == 0                                  # the same reply is never linked twice
+        row = await db.get(WorkItem, item.id)
+        assert json.loads(row.extra_json)["reply"] == {"message_id": "u-9", "text": "Skipped it again, honestly."}
+        follow = Model({"intents": []})
+        await executive.tick(db, adapter=follow, now=now() + timedelta(minutes=2))
+    ctx = json.loads(follow.calls[0]["prompt"].split("CONTEXT (ids are real):\n")[1])
+    assert ctx["external_events"][0]["user_reply"] == "Skipped it again, honestly." and "reply_to_intent" in ctx["woken_because"]
+    assert ctx["recent_outcomes"][0]["what_was_said"] == "How's the gym going?" and ctx["recent_outcomes"][0]["user_reply"] == "Skipped it again, honestly."
+
+
+@pytest.mark.asyncio
+async def test_the_foreground_picture_shows_what_is_carried_waited_on_raised_done_and_set_aside_and_the_snapshot_version_moves():
+    from src.services import world_model_service
+    owner = "user_exec11"
+    cat = [{"tool": "task.create", "consequence": "low", "reversible": True}]
+    model = Model({"intents": [
+        {"op": "create", "kind": "wait", "title": "James to confirm the viewing", "waiting_on": "James replying"},
+        {"op": "create", "kind": "check_in", "title": "Ask about the portfolio", "surface_now": True, "message_gist": "portfolio"},
+        {"op": "create", "kind": "act", "title": "Add walk task", "authority_basis": "explicit_request", "action": {"tool": "task.create", "args": {"title": "walk"}}}],
+        "agenda": {"carrying": [{"title": "Ask about the portfolio", "horizon": "now", "stance": "pursue", "why": "deadline today"}], "sequence_note": "portfolio first"}})
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}, "capabilities": {"tools": cat}})
+        before = (await world_model_service.compile_world_model(db, workspace_id=WS, owner_peer_id=owner, now=now(), timezone_str="UTC", force=True))["meta"]["version"]
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=model)
+        rows = {r.action: r for r in (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner))).scalars().all()}
+        await executive.record_receipt(db, workspace_id=WS, owner=owner, work_item_id=str(rows["Add walk task"].id), status="succeeded", result_ref="t1", detail=None)
+        await executive.mark_surfaced(db, str(rows["Ask about the portfolio"].id), now())
+        layer = await executive.executive_layer(db, WS, owner)
+        snap = await world_model_service.get_world_model(db, workspace_id=WS, owner_peer_id=owner, now=now(), timezone_str="UTC")
+    assert layer["carrying"][0]["title"] == "Ask about the portfolio" and layer["sequence_note"] == "portfolio first"
+    assert layer["waiting_on"][0]["waiting_on"] == "James replying" and layer["raised_recently"][0]["title"] == "Ask about the portfolio"
+    assert layer["did_recently"] == [{"title": "Add walk task", "outcome": "succeeded"}]
+    assert snap["meta"]["version"] > before and snap["executive"]["carrying"]                                  # the resident snapshot carries it and its version moved
+
+
+@pytest.mark.asyncio
+async def test_a_plan_groups_its_steps_refs_resolve_inside_one_response_and_a_cleared_dependency_wakes_the_executive():
+    owner = "user_exec12"
+    first = Model({"intents": [
+        {"op": "create", "ref": "p1", "kind": "plan", "title": "Get the flat viewing sorted", "rationale": "goal"},
+        {"op": "create", "ref": "s1", "kind": "wait", "title": "James confirms the viewing", "about": {"type": "plan", "id": "ref:p1"}, "waiting_on": "James"},
+        {"op": "create", "ref": "s2", "kind": "check_in", "title": "Arrange the Saturday morning around it", "about": {"type": "plan", "id": "ref:p1"}, "depends_on": ["ref:s1", "ref:ghost"]}]})
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=first)
+        rows = {r.action: r for r in (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner, WorkItem.kind != "agenda"))).scalars().all()}
+        plan, step1, step2 = rows["Get the flat viewing sorted"], rows["James confirms the viewing"], rows["Arrange the Saturday morning around it"]
+        assert step1.parent_type == "plan" and step1.parent_id == str(plan.id) and step2.parent_id == str(plan.id)              # steps hang under the plan created in the same response
+        deps = json.loads(step2.extra_json)["depends_on_ids"]
+        assert deps == [str(step1.id)] and step2.status == "waiting"                                                            # the ghost ref was not trusted
+        layer = await executive.executive_layer(db, WS, owner)
+        assert layer["plans"][0]["goal"] == "Get the flat viewing sorted" and len(layer["plans"][0]["steps"]) == 2
+        second = Model({"intents": [{"op": "done", "id": str(step1.id)}]})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["reply"], adapter=second)
+        follow = Model({"intents": []})
+        await executive.tick(db, adapter=follow, now=now() + timedelta(minutes=2))
+    ctx = json.loads(follow.calls[0]["prompt"].split("CONTEXT (ids are real):\n")[1])
+    event = next(e for e in ctx["external_events"] if e["reason"] == "dependency_cleared")
+    assert event["cleared"] == "James confirms the viewing" and event["unblocked"] == ["Arrange the Saturday morning around it"]       # the executive is told what was unblocked
+
+
+@pytest.mark.asyncio
+async def test_an_interrupted_pass_and_a_claimed_but_unreported_action_are_recovered_not_lost_or_repeated():
+    from src.models.world import ProducerRun
+    owner = "user_exec13"
+    old = now() - timedelta(minutes=40)
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}, "capabilities": {"tools": [{"tool": "task.create", "consequence": "low", "reversible": True}]}})
+        db.add(ProducerRun(honcho_workspace_id=WS, owner_peer_id=owner, producer="executive", status="running", created_at=old, input_json=json.dumps({"reasons": ["world_interpreted"]})))
+        await db.commit()
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=Model({"intents": [
+            {"op": "create", "kind": "act", "title": "Add task", "authority_basis": "explicit_request", "action": {"tool": "task.create", "args": {"title": "x"}}}]}))
+        act = (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner, WorkItem.kind == "act"))).scalars().one()
+        act.receipt_json = json.dumps({"status": "started", "at": old.isoformat()})            # claimed by the app, then the app died
+        db.add(act)
+        await db.commit()
+        model = Model({"intents": []})
+        await executive.tick(db, adapter=model, now=now())
+        runs = (await db.execute(select(ProducerRun).where(ProducerRun.owner_peer_id == owner, ProducerRun.producer == "executive"))).scalars().all()
+        await db.refresh(act)
+        assert [r.status for r in runs].count("failed") == 1 and act.status == "failed"                              # nothing hangs forever
+        assert await executive.pending_actions_all(db, WS) == [] or all(p["owner"] != owner for p in await executive.pending_actions_all(db, WS))   # and it is NOT re-executed automatically
+        await executive.tick(db, adapter=model, now=now() + timedelta(minutes=1))
+    reasons = " ".join(" ".join(c["prompt"].split("woken_because")[1][:200].split()) for c in model.calls)
+    assert "recovered" in reasons or "action_stalled" in reasons                                                    # the executive was woken to deal with both
+
+
+@pytest.mark.asyncio
+async def test_a_consequential_action_needs_the_users_linked_reply_and_then_runs_without_ever_lowering_the_products_declared_risk():
+    owner = "user_exec14"
+    cat = [{"tool": "task.cancel", "consequence": "moderate", "reversible": False}]
+    ask = {"op": "create", "kind": "act", "title": "Remove the passport task", "authority_basis": "explicit_request", "surface_now": True, "message_gist": "confirm removal",
+           "action": {"tool": "task.cancel", "args": {"task_id": "t-1"}}}
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}, "capabilities": {"tools": cat}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=Model({"intents": [ask]}))
+        item = (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner, WorkItem.kind == "ask"))).scalars().one()
+        assert json.loads(item.extra_json)["requires_confirmation"]                                             # even an explicit request does not clear an irreversible tool
+        claim = {"intents": [{"op": "update", "id": str(item.id), "authority_basis": "confirmed_by_user"}]}
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t2"], adapter=Model(claim))
+        assert [p for p in await executive.pending_actions_all(db, WS) if p["owner"] == owner] == []             # claiming confirmation WITHOUT a linked reply does nothing
+        await executive.mark_surfaced(db, str(item.id), now())
+        await executive.record_outbound(db, WS, owner, str(item.id), "Remove the passport task for good?", "d", "out-5")
+        await executive.link_replies(db, WS, owner, [{"id": "out-5", "speaker": "assistant", "text": "x"}, {"id": "u-5", "speaker": "user", "text": "yes, remove it"}],
+                                     {"out-5": {"intent_id": str(item.id), "title": "Remove the passport task"}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["reply"], adapter=Model(claim))
+        pending = [p for p in await executive.pending_actions_all(db, WS) if p["owner"] == owner]
+    assert len(pending) == 1 and pending[0]["tool"]["tool"] == "task.cancel"                                      # linked reply + confirmation: cleared

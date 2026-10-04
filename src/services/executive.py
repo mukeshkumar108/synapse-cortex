@@ -58,8 +58,12 @@ Return typed INTENTS: what the companion should attend to, raise, prepare, do, o
   companion stays active between conversations without being polled. `waiting_on` says what an intent is waiting for.
 - Initiative: `surface_now=true` only if reaching out to the user now is genuinely worthwhile, given what was already raised (do not nag; an ignored item
   needs more reason, not repetition), the user's recent activity, and whether silence is kinder. `message_gist` is the substance in neutral words, never a script.
-- Actions: `act` is for something the companion itself can do with a tool listed in `capabilities` (and only those). State `tool` and `args`, the `consequence` (none|low|moderate|high), whether it
+- Actions: `act` is for something the companion itself can do with a tool listed in `capabilities` (and only those). A query tool (e.g. a list) returns its result in the receipt
+  `detail`: that is an OBSERVATION to reason over. Ids of existing app objects appear in `operational.expectations[].source.object_id` and in query observations. State `tool` and `args`, the `consequence` (none|low|moderate|high), whether it
   is `reversible`, and the `authority_basis`: explicit_request | delegated | inferred. Do not claim anything was done: results arrive later as receipts.
+- Confirmation: an action that needs the user's go-ahead becomes a question (`ask`) that you raise. When their reply arrives it is shown as `user_reply` (in `recent_outcomes`
+  and `external_events`). If it clearly says yes to THIS action, update that intent with `authority_basis: "confirmed_by_user"`; if no, cancel it with a `reason`; if unclear, ask again
+  or clarify. Never use `confirmed_by_user` without a linked reply.
 - Observation and revision: update or close existing intents by id (`op` update|done|cancel|fail) when evidence or receipts changed them. A fictional world
   follows the same logic, grounded in that world's own relationships; the character's behaviour is not yours to script.
 - Keep an AGENDA: what the companion is carrying across all concerns, not one reaction at a time. Each concern has a `horizon` (now | today | this_week |
@@ -73,6 +77,10 @@ Return typed INTENTS: what the companion should attend to, raise, prepare, do, o
   the user has to carry and what the companion raises; it does not multiply reminders.
 - Initiative memory for ACTIONS: `recent_actions` lists what the companion already did or asked to do, with receipts. A succeeded receipt IS the outcome:
   never propose the same or an equivalent action again, and never re-ask for permission you already used; observe the result and update the agenda instead.
+- PLANS: a goal with several steps is ONE plan, not unrelated items. Create a `plan` intent (title = the goal) and give each step `about: {"type":"plan","id":"<plan id>"}`.
+  Give any intent you create a short `ref` ("p1", "s1") so others in the same response can refer to it as "ref:p1"; refer to existing intents by id. `depends_on` lists the intents
+  (ids or refs) that must finish first; a step blocked on one is `waiting` and you will be woken when the dependency clears. Close the plan (`op: done` / `cancel`) when its steps
+  are finished or abandoned, and replan by updating or cancelling steps, not by creating parallel copies.
 - Learn from what happened: `recent_outcomes` shows what followed earlier outreach (answered, ignored, completed, still open) and `set_aside` shows what
   was deliberately dropped. Adjust future initiative to it, in your own judgement; do not repeat what already failed to land. `external_events` are things
   that happened outside the conversation that may change what matters.
@@ -81,7 +89,7 @@ Return typed INTENTS: what the companion should attend to, raise, prepare, do, o
 OUTPUT: ONE JSON object: {"intents":[{"op":"create|update|done|cancel|fail","id":null|"<existing intent id>","kind":"ask|remind|check_in|prepare|act|wait|reconsider|<other>",
 "title":"","rationale":"","about":{"type":"expectation|open_loop|commitment|objective|matter|event|null","id":null},"importance":0.0-1.0,
 "urgency":"normal|acute","surface_now":false,"message_gist":null,"wake_at":null|"<ISO 8601 with offset>","waiting_on":null,"expected_observation":null,
-"consequence":"none|low|moderate|high","reversible":true,"authority_basis":null,"action":null|{"tool":"","args":{}},"horizon":"now|today|this_week|ongoing","stance":"pursue|defer|set_aside","reason":null,"depends_on":[],"combine_with":[]}],
+"consequence":"none|low|moderate|high","reversible":true,"authority_basis":null,"action":null|{"tool":"","args":{}},"horizon":"now|today|this_week|ongoing","stance":"pursue|defer|set_aside","reason":null,"ref":null,"depends_on":[],"combine_with":[]}],
 "agenda":{"carrying":[{"title":"","horizon":"","stance":"","why":""}],"sequence_note":""},"next_review_at":null|"<ISO 8601>","note":""}"""
 
 
@@ -175,7 +183,8 @@ async def operational_snapshot(db: AsyncSession, workspace_id: str, owner: str) 
         CommitmentCandidate.status.in_((CommitmentCandidateStatus.PENDING, CommitmentCandidateStatus.MATERIALIZED))).order_by(CommitmentCandidate.created_at.desc()).limit(20))).scalars().all()
     return {
         "expectations": [{"id": str(e.id), "title": e.title, "summary": (e.summary or "")[:160], "window": [_iso(e.expected_window_start), _iso(e.expected_window_end)],
-                          "deadline": _iso(e.hard_deadline_at), "phrase": e.raw_temporal_phrase, "direction": e.direction} for e in exps],
+                          "deadline": _iso(e.hard_deadline_at), "phrase": e.raw_temporal_phrase, "direction": e.direction,
+                          **({"source": {"system": e.source_system, "object_id": e.source_object_id}} if e.source_system else {})} for e in exps],
         "open_loops": [{"id": str(l.id), "title": l.title, "summary": (l.summary or "")[:160], "expires_at": _iso(l.expires_at)} for l in loops],
         "commitments": [{"id": str(c.id), "title": c.title, "phrase": c.raw_temporal_phrase, "status": getattr(c.status, "value", c.status)} for c in commits],
     }
@@ -207,7 +216,7 @@ async def build_context(db: AsyncSession, workspace_id: str, owner: str, *, now:
                                                                     TurnStamp.turn_at > i.last_surfaced_at).order_by(TurnStamp.turn_at.asc()).limit(1))).scalar()
             turns_after[i.id] = nxt
     outcomes = [{"id": str(i.id), "title": i.action, "kind": i.kind, "raised_at": _iso(i.last_surfaced_at), "times_raised": i.surfaced_count, "status_now": i.status,
-                 "user_next_active_after": _iso(turns_after.get(i.id)), "what_was_said": json.loads(i.extra_json or "{}").get("outbound_text"), "receipt": json.loads(i.receipt_json) if i.receipt_json else None}
+                 "user_next_active_after": _iso(turns_after.get(i.id)), "what_was_said": json.loads(i.extra_json or "{}").get("outbound_text"), "user_reply": (json.loads(i.extra_json or "{}").get("reply") or {}).get("text"), "receipt": json.loads(i.receipt_json) if i.receipt_json else None}
                 for i in past if i.last_surfaced_at][:20]
     set_aside = [{"id": str(i.id), "title": i.action, "reason": json.loads(i.extra_json or "{}").get("reason")} for i in past if i.status == "cancelled"][:15]
     recent_actions = [{"id": str(i.id), "title": i.action, "tool": json.loads(i.tool_json) if i.tool_json else None, "status": i.status,
@@ -216,7 +225,8 @@ async def build_context(db: AsyncSession, workspace_id: str, owner: str, *, now:
     agenda_row = next((i for i in past if i.kind == "agenda"), None)
     agenda_prev = json.loads(agenda_row.extra_json or "{}").get("agenda") if agenda_row else None
     intents = [{"id": str(i.id), "kind": i.kind, "title": i.action, "status": i.status, "wake_at": _iso(i.wake_at), "waiting_on": i.waiting_on,
-                "importance": i.importance, "surfaced_count": i.surfaced_count, "last_surfaced_at": _iso(i.last_surfaced_at), "receipt": json.loads(i.receipt_json) if i.receipt_json else None}
+                "importance": i.importance, "surfaced_count": i.surfaced_count, "last_surfaced_at": _iso(i.last_surfaced_at), "receipt": json.loads(i.receipt_json) if i.receipt_json else None,
+                "plan_id": i.parent_id if i.parent_type == "plan" else None, "depends_on": json.loads(i.extra_json or "{}").get("depends_on_ids") or []}
                for i in items if i.kind != "agenda"]
     return {"now": {"utc": now.isoformat() + "Z", "local": local.isoformat(), "weekday": local.strftime("%A")}, "woken_because": reasons, "world": world,
             "operational": ops, "intents": intents,
@@ -235,6 +245,8 @@ def permission(intent: Dict[str, Any], delegations: Optional[List[Dict[str, Any]
     actions need confirmation unless authority was explicitly delegated."""
     if intent.get("kind") != "act":
         return {"mode": "autonomous"}
+    if intent.get("authority_basis") == "confirmed_by_user" and intent.get("reply_linked"):
+        return {"mode": "autonomous", "basis": "user_confirmation"}      # the user answered THIS request (their reply is linked to the intent by message id)
     tool = str((intent.get("action") or {}).get("tool") or "")
     for d in delegations or []:        # standing, scoped authority granted earlier: within it the action needs no fresh confirmation
         if tool and tool.startswith(str(d.get("tool") or "\0")) and CONSEQUENCE_RANK.get(intent.get("consequence") or "low", 1) <= CONSEQUENCE_RANK.get(d.get("max_consequence") or "none", 0) \
@@ -253,7 +265,8 @@ def _known_ids(ctx: Dict[str, Any]) -> Dict[str, set]:
     w = ctx["world"]
     return {"expectation": {e["id"] for e in ctx["operational"]["expectations"]}, "open_loop": {l["id"] for l in ctx["operational"]["open_loops"]},
             "commitment": {c["id"] for c in ctx["operational"]["commitments"]}, "objective": {o["id"] for o in w["objectives"]},
-            "matter": {m["id"] for m in w["matters"]}, "event": {e["id"] for e in w["events"]}}
+            "matter": {m["id"] for m in w["matters"]}, "event": {e["id"] for e in w["events"]},
+            "plan": {i["id"] for i in ctx["intents"] if i.get("kind") == "plan"}}
 
 
 async def run_pass(db: AsyncSession, *, workspace_id: str, owner: str, reasons: List[str], adapter: Any, now: Optional[datetime] = None,
@@ -282,6 +295,7 @@ async def run_pass(db: AsyncSession, *, workspace_id: str, owner: str, reasons: 
         await _finish(db, rid, "applied", {"reasons": reasons, "context": {"expectations": len(ctx["operational"]["expectations"]), "open_loops": len(ctx["operational"]["open_loops"]),
                       "commitments": len(ctx["operational"]["commitments"]), "intents_in": len(ctx["intents"])}, **outcome, "note": _str((raw or {}).get("note")), "usage": usage},
                       {"intents_applied": len(outcome["applied"]), "dropped": len(outcome["dropped"])})
+        await refresh_snapshot(db, workspace_id, owner)
         return {"status": "applied", "run_id": holder, **outcome}
     except Exception as exc:
         await _finish(db, rid, "failed", {"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
@@ -296,6 +310,9 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
     applied: List[Dict[str, Any]] = []
     dropped: List[Dict[str, Any]] = []
     wakes: List[Dict[str, Any]] = []
+    refs: Dict[str, uuid.UUID] = {}
+    pending_links: List[Dict[str, Any]] = []
+    cleared: List[uuid.UUID] = []
     for it in (raw.get("intents") if isinstance(raw.get("intents"), list) else []):
         if not isinstance(it, dict):
             dropped.append({"reason": "not_an_object"})
@@ -311,8 +328,11 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
                 continue
             about = it.get("about") if isinstance(it.get("about"), dict) else {}
             a_type, a_id = _str(about.get("type")), _str(about.get("id"))
-            if a_type and a_id and a_id not in known.get(a_type, set()):
+            plan_ref = a_id[4:] if (a_type == "plan" and a_id and a_id.startswith("ref:")) else None
+            if a_type and a_id and not plan_ref and a_id not in known.get(a_type, set()):
                 a_type = a_id = None             # an id that was not shown is never trusted
+            if plan_ref:
+                a_type, a_id = "plan", None      # resolved after the loop, once the plan created in this response has an id
             action = it.get("action") if isinstance(it.get("action"), dict) else None
             kind = (_str(it.get("kind")) or "reconsider").lower()
             if kind == "act" and not (action and _str(action.get("tool"))):
@@ -354,6 +374,10 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
                            waiting_on=_str(it.get("waiting_on")) or (("; ".join(extra["depends_on"])) if extra.get("depends_on") else None), run_id=run_id, tool_json=json.dumps(action) if action else None, extra_json=json.dumps(extra))
             db.add(row)
             await db.flush()
+            if _str(it.get("ref")):
+                refs[_str(it.get("ref"))] = row.id
+            if plan_ref or it.get("depends_on"):
+                pending_links.append({"row": row, "plan_ref": plan_ref, "deps": [str(x) for x in (it.get("depends_on") or []) if x][:8]})
             applied.append({"op": "create", "id": str(row.id), "kind": kind, "status": status, "permission": decision["mode"]})
             if wake_at:
                 wakes.append({"due": wake_at, "reason": f"intent:{row.id}"})
@@ -385,18 +409,20 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
                     extra[key] = _str(it.get(key))
             if "surface_now" in it:
                 extra["surface_now"] = bool(it.get("surface_now"))
-            if extra.get("requires_confirmation") and row.tool_json and _str(it.get("authority_basis")) in ("explicit_request", "delegated"):
+            if extra.get("requires_confirmation") and row.tool_json and _str(it.get("authority_basis")) in ("explicit_request", "delegated", "confirmed_by_user"):
                 # The executive judged that authority has now been given (e.g. the user said yes). The permission is re-derived from the PRODUCT's declared risk.
                 tool = (json.loads(row.tool_json) or {}).get("tool")
                 spec = next((c for c in (ctx["policy"].get("capabilities") or []) if isinstance(c, dict) and c.get("tool") == tool), None)
                 if spec is not None:
                     again = permission({"kind": "act", "consequence": spec.get("consequence") or "high", "reversible": bool(spec.get("reversible", False)),
-                                        "authority_basis": _str(it.get("authority_basis")), "action": {"tool": tool}}, ctx["policy"].get("delegations"))
+                                        "authority_basis": _str(it.get("authority_basis")), "action": {"tool": tool}, "reply_linked": bool(extra.get("reply"))},
+                                       ctx["policy"].get("delegations"))
                     if again["mode"] == "autonomous":
                         row.kind, row.status = "act", "in_progress"
-                        extra.update({"requires_confirmation": False, "surface_now": False, "authority_granted": _str(it.get("authority_basis"))})
+                        extra.update({"requires_confirmation": False, "surface_now": False, "authority_granted": _str(it.get("authority_basis")), "permission": again})
         else:
             row.status = {"done": "done", "cancel": "cancelled", "fail": "failed"}[op]
+            cleared.append(row.id)
             if _str(it.get("reason")):
                 extra["reason"] = _str(it.get("reason"))
             extra["surface_now"] = False
@@ -404,6 +430,22 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
         row.run_id, row.updated_at, row.extra_json = run_id, _utc(), json.dumps(extra)
         db.add(row)
         applied.append({"op": op, "id": target_id, "status": getattr(row.status, "value", row.status)})
+    live = {i["id"] for i in ctx["intents"]} | {str(v) for v in refs.values()}
+    for link in pending_links:         # plan parent and dependencies: refs resolve to the intents created in this response, ids must be intents we know
+        row = link["row"]
+        if link["plan_ref"] and link["plan_ref"] in refs:
+            row.parent_type, row.parent_id = "plan", str(refs[link["plan_ref"]])
+        deps = []
+        for d in link["deps"]:
+            target = str(refs.get(d[4:])) if d.startswith("ref:") else d
+            if target in live and target != str(row.id):
+                deps.append(target)
+        extra = json.loads(row.extra_json or "{}")
+        extra["depends_on_ids"] = deps
+        if deps and row.status == "proposed":
+            row.status = "waiting"
+        row.extra_json = json.dumps(extra)
+        db.add(row)
     agenda = raw.get("agenda") if isinstance(raw.get("agenda"), dict) else None
     if agenda and isinstance(agenda.get("carrying"), list):
         row = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.kind == "agenda"))).scalars().first()
@@ -420,6 +462,8 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
         wakes.append({"due": nxt, "reason": "next_review"})
     for w in wakes:
         await add_wake(db, workspace_id, owner, w["due"], w["reason"])
+    for done_id in cleared:
+        await notify_dependents(db, workspace_id, owner, done_id)
     return {"applied": applied, "dropped": dropped, "wakes": [{"due": w["due"].isoformat(), "reason": w["reason"]} for w in wakes]}
 
 
@@ -440,6 +484,7 @@ async def _finish(db: AsyncSession, rid: Any, status: str, detail: Dict[str, Any
 # ----------------------------------------------------------------------------- tick (cheap scan; model only when a world has a reason)
 async def tick(db: AsyncSession, *, adapter: Any, now: Optional[datetime] = None, max_worlds: int = 5) -> Dict[str, Any]:
     now = _naive(now) if now else _utc()
+    await _recover(db, now)
     await _daily_reviews(db, now)
     due = (await db.execute(select(ExecutiveWake).where(ExecutiveWake.consumed_at.is_(None), ExecutiveWake.due_at <= now).order_by(ExecutiveWake.due_at.asc()).limit(100))).scalars().all()
     worlds: Dict[tuple, List[ExecutiveWake]] = {}
@@ -517,6 +562,7 @@ async def mark_surfaced(db: AsyncSession, work_item_id: str, now: datetime) -> N
         row.status, row.surfaced_count, row.last_surfaced_at, row.extra_json = "surfaced", (row.surfaced_count or 0) + 1, _naive(now), json.dumps(extra)
         db.add(row)
         await db.commit()
+        await refresh_snapshot(db, row.honcho_workspace_id, row.owner_peer_id)
         await note_changed(db, row.honcho_workspace_id, row.owner_peer_id, "intent_surfaced", delay_seconds=1800)
 
 
@@ -525,12 +571,15 @@ async def record_receipt(db: AsyncSession, *, workspace_id: str, owner: str, wor
     row = await db.get(WorkItem, uuid.UUID(work_item_id))
     if row is None or row.honcho_workspace_id != workspace_id or row.owner_peer_id != owner:
         return {"ok": False, "reason": "unknown_work_item"}
-    row.receipt_json = json.dumps({"status": status, "result_ref": result_ref, "detail": (detail or "")[:500], "at": _utc().isoformat()})
+    row.receipt_json = json.dumps({"status": status, "result_ref": result_ref, "detail": (detail or "")[:2000], "at": _utc().isoformat()})
     row.status = "done" if status == "succeeded" else ("failed" if status == "failed" else row.status)
     row.updated_at = _utc()
     db.add(row)
     await db.commit()
+    await refresh_snapshot(db, workspace_id, owner)
     await note_changed(db, workspace_id, owner, "receipt", delay_seconds=5)
+    if row.status in ("done", "failed"):
+        await notify_dependents(db, workspace_id, owner, row.id)
     return {"ok": True, "status": row.status}
 
 
@@ -557,7 +606,8 @@ async def speak_candidates(db: AsyncSession, workspace_id: str, now: Optional[da
     return out
 
 
-async def record_outbound(db: AsyncSession, workspace_id: str, owner: str, intent_id: str, text: str, decision_id: Optional[str] = None) -> bool:
+async def record_outbound(db: AsyncSession, workspace_id: str, owner: str, intent_id: str, text: str, decision_id: Optional[str] = None,
+                          message_id: Optional[str] = None) -> bool:
     """Exact causal link: the Runtime composed this text to carry out THIS intent (it holds the intent id), so record what was actually said on the intent.
     The executive then sees its own move, and later evidence can be related to it. No matching, no timing heuristics."""
     try:
@@ -567,7 +617,9 @@ async def record_outbound(db: AsyncSession, workspace_id: str, owner: str, inten
     if row is None or row.honcho_workspace_id != workspace_id or row.owner_peer_id != owner:
         return False
     extra = json.loads(row.extra_json or "{}")
-    extra["outbound_text"], extra["outbound_decision_id"] = (text or "")[:600], decision_id
+    extra["outbound_text"], extra["outbound_decision_id"] = (text or "")[:600], decision_id or extra.get("outbound_decision_id")
+    if message_id:
+        extra["outbound_message_id"] = message_id
     row.extra_json, row.updated_at = json.dumps(extra), _utc()
     db.add(row)
     await db.commit()
@@ -580,3 +632,135 @@ async def pending_actions_all(db: AsyncSession, workspace_id: str) -> List[Dict[
     rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.source_agent == "executive", WorkItem.kind == "act",
                                                     WorkItem.status == "in_progress", WorkItem.receipt_json.is_(None)).limit(50))).scalars().all()
     return [{"work_item_id": str(r.id), "owner": r.owner_peer_id, "title": r.action, "tool": json.loads(r.tool_json or "{}")} for r in rows]
+
+
+async def executive_layer(db: AsyncSession, workspace_id: str, owner: str, now: Optional[datetime] = None) -> Dict[str, Any]:
+    """What the companion is carrying, as the foreground should know it (no ids, no model): its agenda, what it waits on, what it raised and said recently, what it did,
+    and what it deliberately set aside. Compiled into the resident snapshot so the conversational voice speaks as ONE self with the executive."""
+    now = _naive(now) if now else _utc()
+    since = now - timedelta(days=2)
+    rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.source_agent == "executive",
+                                                    WorkItem.updated_at >= now - timedelta(days=14)).order_by(WorkItem.updated_at.desc()).limit(80))).scalars().all()
+    agenda = next((json.loads(r.extra_json or "{}").get("agenda") for r in rows if r.kind == "agenda"), None) or {}
+    out: Dict[str, Any] = {"carrying": [{k: c.get(k) for k in ("title", "horizon", "stance", "why")} for c in (agenda.get("carrying") or [])[:6]],
+                           "sequence_note": agenda.get("sequence_note"), "waiting_on": [], "raised_recently": [], "did_recently": [], "set_aside": []}
+    for r in rows:
+        if r.kind == "agenda":
+            continue
+        extra = json.loads(r.extra_json or "{}")
+        if r.status in ACTIVE_STATUSES and r.waiting_on:
+            out["waiting_on"].append({"title": r.action, "waiting_on": r.waiting_on})
+        if r.last_surfaced_at and r.last_surfaced_at >= since:
+            out["raised_recently"].append({"title": r.action, "said": extra.get("outbound_text"), "at": _iso(r.last_surfaced_at), "status": r.status})
+        if r.tool_json and r.status in ("done", "failed") and r.updated_at >= since:
+            receipt = json.loads(r.receipt_json) if r.receipt_json else {}
+            out["did_recently"].append({"title": r.action, "outcome": receipt.get("status") or r.status})
+        if r.status == "cancelled" and extra.get("reason"):
+            out["set_aside"].append({"title": r.action, "reason": extra.get("reason")})
+    plans = [r for r in rows if r.kind == "plan" and r.status in ACTIVE_STATUSES]
+    out["plans"] = [{"goal": p.action, "steps": [{"title": r.action, "status": r.status} for r in rows
+                                                  if r.parent_type == "plan" and r.parent_id == str(p.id) and r.kind != "agenda"][:8]} for p in plans[:3]]
+    for key in ("waiting_on", "raised_recently", "did_recently", "set_aside"):
+        out[key] = out[key][:5]
+    return out
+
+
+async def refresh_snapshot(db: AsyncSession, workspace_id: str, owner: str) -> None:
+    """The executive's state changed: recompile the resident snapshot (DB only, no model) so its version bumps and the Runtime refreshes the foreground's picture."""
+    try:
+        from src.services import world_model_service
+        await world_model_service.compile_world_model(db, workspace_id=workspace_id, owner_peer_id=owner, now=_utc(), timezone_str="UTC", force=True)
+    except Exception as exc:
+        logger.warning("snapshot refresh after executive change failed: %s", exc)
+
+
+async def outbound_index(db: AsyncSession, workspace_id: str, owner: str, message_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    """Which of these message ids are proactive messages that carried out an executive intent: {message_id: {intent_id, title}} (exact ids, no matching)."""
+    if not message_ids:
+        return {}
+    rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.source_agent == "executive",
+                                                    WorkItem.updated_at >= _utc() - timedelta(days=14)))).scalars().all()
+    wanted = set(message_ids)
+    out = {}
+    for r in rows:
+        mid = json.loads(r.extra_json or "{}").get("outbound_message_id")
+        if mid in wanted:
+            out[mid] = {"intent_id": str(r.id), "title": r.action}
+    return out
+
+
+async def link_replies(db: AsyncSession, workspace_id: str, owner: str, messages: List[Dict[str, str]], index: Dict[str, Dict[str, Any]]) -> int:
+    """The user's next message after a proactive message IS the reply to the intent it carried out (it follows it in the conversation). Record it on the intent
+    and wake the executive with it, so observation is causal and exact, not inferred from timing."""
+    linked = 0
+    for i, m in enumerate(messages):
+        hit = index.get(m["id"])
+        if not hit:
+            continue
+        reply = next((x for x in messages[i + 1:] if x["speaker"] == "user"), None)
+        if reply is None:
+            continue
+        row = await db.get(WorkItem, uuid.UUID(hit["intent_id"]))
+        if row is None:
+            continue
+        extra = json.loads(row.extra_json or "{}")
+        if extra.get("reply", {}).get("message_id") == reply["id"]:
+            continue
+        extra["reply"] = {"message_id": reply["id"], "text": reply["text"][:400]}
+        row.extra_json, row.updated_at = json.dumps(extra), _utc()
+        db.add(row)
+        await db.commit()
+        await note_changed(db, workspace_id, owner, "reply_to_intent", delay_seconds=20,
+                           detail={"intent_id": hit["intent_id"], "intent": hit["title"], "user_reply": reply["text"][:400], "reply_message_id": reply["id"]})
+        linked += 1
+    return linked
+
+
+async def notify_dependents(db: AsyncSession, workspace_id: str, owner: str, finished_id: uuid.UUID) -> int:
+    """An intent finished (done, cancelled, failed, or its action got a receipt): wake the executive for each active intent that was waiting on it. Mechanical: it only
+    reads the declared depends_on links; what the dependency clearing MEANS is for the executive to decide."""
+    finished = await db.get(WorkItem, finished_id)
+    rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.source_agent == "executive",
+                                                    WorkItem.status.in_(ACTIVE_STATUSES)))).scalars().all()
+    blocked = [r for r in rows if str(finished_id) in (json.loads(r.extra_json or "{}").get("depends_on_ids") or [])]
+    if blocked:
+        await note_changed(db, workspace_id, owner, "dependency_cleared", delay_seconds=10,
+                           detail={"cleared": finished.action if finished else str(finished_id), "outcome": finished.status if finished else None, "unblocked": [r.action for r in blocked]})
+    return len(blocked)
+
+
+async def _recover(db: AsyncSession, now: datetime) -> None:
+    """Restart safety. (1) An executive pass that never finished (process died) is marked failed and its reasons re-woken, so a consumed wake is never silently lost.
+    (2) An action that was CLAIMED ('started') but never reported is failed and the executive is told, so it is not stuck forever; the idempotency guard means a retry
+    is a deliberate new decision, never an automatic repeat."""
+    stale = (await db.execute(select(ProducerRun).where(ProducerRun.producer == "executive", ProducerRun.status.in_(("queued", "running")),
+                                                         ProducerRun.created_at < now - timedelta(minutes=10)).limit(20))).scalars().all()
+    for r in stale:
+        r.status, r.finished_at = "failed", now
+        r.detail_json = json.dumps({**json.loads(r.detail_json or "{}"), "error": "recovered_after_interruption"})
+        db.add(r)
+        await db.commit()
+        reasons = json.loads(r.input_json or "{}").get("reasons") or ["recovered"]
+        await add_wake(db, r.honcho_workspace_id, r.owner_peer_id, now, "recovered:" + ",".join(str(x) for x in reasons)[:120])
+    rows = (await db.execute(select(WorkItem).where(WorkItem.source_agent == "executive", WorkItem.kind == "act", WorkItem.status == "in_progress",
+                                                    WorkItem.receipt_json.is_not(None)).limit(50))).scalars().all()
+    for row in rows:
+        receipt = json.loads(row.receipt_json or "{}")
+        at = _parse(receipt.get("at"))
+        if receipt.get("status") == "started" and at and at < now - timedelta(minutes=15):
+            receipt = {**receipt, "status": "failed", "detail": "claimed but never reported (interrupted); not retried automatically"}
+            row.receipt_json, row.status, row.updated_at = json.dumps(receipt), "failed", now
+            db.add(row)
+            await db.commit()
+            await refresh_snapshot(db, row.honcho_workspace_id, row.owner_peer_id)
+            await note_changed(db, row.honcho_workspace_id, row.owner_peer_id, "action_stalled", delay_seconds=0, detail={"action": row.action, "tool": json.loads(row.tool_json or "{}")})
+            await notify_dependents(db, row.honcho_workspace_id, row.owner_peer_id, row.id)
+
+
+async def awaiting_reply(db: AsyncSession, workspace_id: str, owner: str, now: Optional[datetime] = None) -> bool:
+    """Is there something the companion raised in the last day that the user has not answered yet? A cheap mechanical probe (no model): while true, the Runtime
+    interprets the user's next turn immediately, so a reply to a question is never stuck waiting for the next checkpoint."""
+    now = _naive(now) if now else _utc()
+    rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.source_agent == "executive",
+                                                    WorkItem.status == "surfaced", WorkItem.last_surfaced_at >= now - timedelta(hours=24)).limit(20))).scalars().all()
+    return any(not json.loads(r.extra_json or "{}").get("reply") for r in rows)

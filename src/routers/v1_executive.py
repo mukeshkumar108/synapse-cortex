@@ -33,6 +33,7 @@ class OutboundRequest(WorldRef):
     intent_id: str
     text: str
     decision_id: Optional[str] = None
+    message_id: Optional[str] = None            # the persisted app message that carried the intent out (exact causal link)
 
 
 class WakeRequest(WorldRef):
@@ -66,7 +67,7 @@ async def speak_candidates(req: SpeakCandidatesRequest, db: AsyncSession = Depen
 @router.post("/outbound")
 async def outbound(req: OutboundRequest, db: AsyncSession = Depends(get_async_session)):
     """The Runtime composed a message to carry out an intent: record what was actually said (exact link, called with the intent id the Runtime was given)."""
-    return {"ok": await executive.record_outbound(db, req.workspace_id, req.owner, req.intent_id, req.text, req.decision_id)}
+    return {"ok": await executive.record_outbound(db, req.workspace_id, req.owner, req.intent_id, req.text, req.decision_id, req.message_id)}
 
 
 @router.post("/pending-actions-all")

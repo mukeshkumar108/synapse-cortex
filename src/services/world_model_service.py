@@ -559,6 +559,11 @@ async def compile_world_model(db: AsyncSession, *, workspace_id: str, owner_peer
     for name in stale:
         body[name] = SECTION_BUILDERS[name](projections)
     body.update(await build_world_layer(db, workspace_id, owner_peer_id))
+    try:
+        from src.services import executive
+        body["executive"] = await executive.executive_layer(db, workspace_id, owner_peer_id or "", now_n)
+    except Exception:
+        body["executive"] = {}
     body["meta"] = {
         "model_version": WORLD_MODEL_VERSION, "scope": {"workspace_id": workspace_id, "owner_peer_id": owner_peer_id},
         "timezone": timezone_str, "user_day": reader.day.today.isoformat(),

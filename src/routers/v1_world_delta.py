@@ -77,7 +77,8 @@ async def world_version(req: Dict[str, str], db: AsyncSession = Depends(get_asyn
     snap = (await db.execute(select(WorldModelSnapshot).where(
         WorldModelSnapshot.honcho_workspace_id == workspace_id, WorldModelSnapshot.owner_peer_id == owner,
         WorldModelSnapshot.superseded_by_id.is_(None)).order_by(WorldModelSnapshot.compiled_at.desc()).limit(1))).scalars().first()
-    return {"version": snap.version if snap else None}
+    from src.services import executive
+    return {"version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner)}
 
 
 @router.get("/trace")

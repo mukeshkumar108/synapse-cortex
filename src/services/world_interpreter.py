@@ -642,7 +642,8 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     state = await world_state_for_prompt(db, workspace_id, owner)
     state["operational_state"] = await executive.operational_snapshot(db, workspace_id, owner)
     speaker_label = {"user": user_actor or "the user (name not supplied)", "assistant": companion_actor or speakers.get("assistant", "the companion")}
-    line = lambda m: f"[{m['id']}] {speaker_label.get(m['speaker'], speakers.get(m['speaker'], m['speaker']))} ({'user' if m['speaker'] == 'user' else 'companion'}): {m['text']}"
+    proactive = await executive.outbound_index(db, workspace_id, owner, [m["id"] for m in context + fresh])
+    line = lambda m: f"[{m['id']}] {speaker_label.get(m['speaker'], speakers.get(m['speaker'], m['speaker']))} ({'user' if m['speaker'] == 'user' else 'companion'}): {m['text']}" + (f"  [a proactive message you sent to carry out: {proactive[m['id']]['title']}]" if m['id'] in proactive else "")
     evidence = "\n".join(line(m) for m in fresh)
     honcho = await honcho_context(workspace_id, owner, session_id, evidence)
     toward = constitution.get("toward") if constitution else None
@@ -695,6 +696,7 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     }
     await _finish(db, rid, "applied", detail, {"proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": len(drops.items)})
     from src.services import executive
+    await executive.link_replies(db, workspace_id, owner, messages, proactive)
     await executive.note_changed(db, workspace_id, owner, "world_interpreted")      # the world changed: the executive reconsiders (no-op unless its policy enables it)
     return receipt
 
