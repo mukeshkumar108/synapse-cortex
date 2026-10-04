@@ -140,3 +140,21 @@ async def test_an_external_event_reaches_the_executive_and_outreach_is_followed_
         await executive.tick(db, adapter=model, now=now() + timedelta(seconds=5))
     ctx = json.loads(model.calls[0]["prompt"].split("CONTEXT (ids are real):\n")[1])
     assert ctx["external_events"][0]["event"] == "3pm meeting moved to 5pm" and "calendar_changed" in ctx["woken_because"]
+
+
+@pytest.mark.asyncio
+async def test_a_world_whose_operational_semantics_belong_to_the_interpreter_is_only_stamped_by_the_turn_endpoint(async_client, monkeypatch):
+    from src.models.expectation import Expectation
+    from src.models.operational_state import TurnStamp
+    from src.routers import v1_events
+    called = []
+    monkeypatch.setattr(v1_events.turn_extractor, "extract_candidates", lambda *a, **kw: called.append(1) or [])
+    payload = {"workspace_id": "ws-own", "session_id": "s", "honcho_message_id": "m-own", "peer_id": "user_own", "text": "Remind me to call mum at 5pm.",
+               "now": "2026-10-04T12:00:00+01:00", "timezone": "Europe/London"}
+    async with async_session_maker() as db:
+        await executive.set_policy(db, "ws-own", "user_own", {"operational": {"owner": "interpreter"}})
+    r = await async_client.post("/v1/events/turn", json=payload)
+    assert r.status_code == 202 and r.json()["interpreter_owns_meaning"] is True and called == []                   # no legacy reader ran
+    async with async_session_maker() as db:
+        assert (await db.execute(select(TurnStamp).where(TurnStamp.honcho_workspace_id == "ws-own"))).scalars().one().honcho_message_id == "m-own"
+        assert (await db.execute(select(Expectation).where(Expectation.honcho_workspace_id == "ws-own"))).scalars().all() == []

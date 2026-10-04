@@ -36,6 +36,9 @@ DEFAULT_POLICY: Dict[str, Any] = {
     "proactive": {"quiet_hours": [22, 8], "min_gap_hours": 4.0, "max_per_day": 2, "pressure_threshold": 0.6},
     # delegated authority as state: scoped standing permission, e.g. {"tool": "calendar.", "max_consequence": "low", "allow_irreversible": false}
     "autonomy": {"delegations": []},
+    # who reads conversation into operational state (reminders, loops, completions): "legacy" (turn-by-turn narrow lane) or "interpreter" (the one semantic
+    # reader). Transitional: removed together with the legacy ingestion once its tests are migrated.
+    "operational": {"owner": "legacy"},
 }
 ACTIVE_STATUSES = ("proposed", "surfaced", "in_progress", "waiting")
 MAX_RETRIES = 3
