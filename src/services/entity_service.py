@@ -29,21 +29,6 @@ _NAMING_RE = re.compile(
 _ROLE_LIKE_RE = re.compile(
     r"^(my|her|his|their|your|our|the)\s+[a-z]+", re.IGNORECASE
 )
-# Closed generic set: role words that never denote a resolvable referent.
-# (Pronouns/role fillers, not semantic classification.)
-_GENERIC_REFS = frozenset({
-    "user", "assistant", "speaker", "listener", "someone", "everyone",
-    "everybody", "nobody", "anyone", "you", "they", "he", "she", "it",
-    "we", "them", "us",
-})
-_PROPER_NAME_RE = re.compile(r"^[A-Z][A-Za-z'-]+$")
-# Possessive role phrases denote someone's person ("my brother"); bare
-# "the X" forms ("the house") do not — they provision nothing.
-_POSSESSIVE_ROLE_RE = re.compile(
-    r"^(my|her|his|their|your|our)\s+[a-z]+", re.IGNORECASE
-)
-
-
 def normalize_alias(value: str) -> str:
     return " ".join((value or "").split()).lower()
 
@@ -102,27 +87,23 @@ async def resolve_mention(
 ) -> Tuple[Optional[Entity], str]:
     """Returns (entity, status) with status in linked/provisioned/ambiguous/skipped.
 
-    Provisioning gate: unknown mentions become provisional entities ONLY when
-    shaped like a proper name ("Ashley", "Leo") or a possessive role phrase
-    ("my brother"). Bare topics, things and generic role words ("tabs",
-    "love", "the house", "you") resolve against existing entities or are
-    skipped — never provisioned. Callers invoke this per persisted row, so
-    participation in durable state is proven by construction.
+    Provisioning: an unknown mention becomes a PROVISIONAL entity. Whether a mention is a named referent at all (a person, character, place,
+    project) rather than a topic, thing or pronoun is the extractor MODEL's decision (its `subject_refs` contract); code does not second-guess it
+    from capitalisation or word lists (which would fail for other languages and scripts). Provisional entities are cheap to correct and never
+    asserted as established. Callers invoke this per persisted row, so participation in durable state is proven by construction.
     """
     norm = normalize_alias(mention)
-    if not norm or norm in _GENERIC_REFS:
+    if not norm:
         return None, "skipped"
     hits = await find_entities(db, workspace_id=workspace_id, alias=mention, frame=frame)
     if len(hits) == 1:
         return hits[0], "linked"
     if len(hits) > 1:
         return None, "ambiguous"
-    if _PROPER_NAME_RE.match(mention.strip()) or _POSSESSIVE_ROLE_RE.match(mention.strip()):
-        entity = await _provision(
-            db, workspace_id=workspace_id, session_id=session_id,
-            display_name=mention.strip(), frame=frame, message_id=message_id)
-        return entity, "provisioned"
-    return None, "skipped"
+    entity = await _provision(
+        db, workspace_id=workspace_id, session_id=session_id,
+        display_name=mention.strip(), frame=frame, message_id=message_id)
+    return entity, "provisioned"
 
 
 async def apply_naming_assertion(

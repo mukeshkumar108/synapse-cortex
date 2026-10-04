@@ -226,7 +226,9 @@ async def test_new_watch_links_subjects_matt_links_neck_skips():
     neck_links = [x for x in links
                   if str(x.object_id) == str(by_title["Neck pain and poor sleep"].id)]
     assert len(matt_links) == 1, "proper-name subjects must link for later reattachment"
-    assert neck_links == [], "bare-topic subjects skip gracefully, watch still created"
+    # Whether a subject is a named referent is the reconstruction model's contract (see its prompt), not a regex here: whatever subjects the model
+    # returns are linked (as provisional entities), and the watch is created either way.
+    assert "Neck pain and poor sleep" in by_title
 
 
 @pytest.mark.asyncio

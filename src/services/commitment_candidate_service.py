@@ -624,9 +624,7 @@ class CommitmentCandidateService:
         if candidate.is_hypothetical or candidate.is_quoted:
             return None
         evidence_text = " ".join(filter(None, [candidate.raw_evidence, candidate.observation]))
-        if LifecycleService._has_marker(evidence_text, LifecycleService.COUNTERFACTUAL_MARKERS):
-            return None
-        if LifecycleService._has_marker(evidence_text, LifecycleService.NEGATIVE_OUTCOME_MARKERS):
+        if LifecycleService._outcome(hint) in ("counterfactual", "not_fulfilled"):
             return None
 
         rows = (await db.execute(select(CommitmentCandidate).where(

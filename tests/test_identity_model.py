@@ -62,15 +62,23 @@ async def test_same_name_distinct_people_coexist_without_merge():
         assert found is None and status == "ambiguous"
 
 
+def test_whether_a_mention_is_a_named_referent_is_the_extractors_contract_not_a_regex():
+    """Provisioning no longer second-guesses the model from capitalisation or English word lists (that fails for other languages and scripts).
+    The exclusion lives where the decision is made: the extractor and reconstruction prompts."""
+    from src.services import session_reconstruction, turn_extractor
+    import inspect
+    assert "never a pronoun, a topic, an object" in inspect.getsource(turn_extractor)
+    assert "never a topic, symptom, object, pronoun" in inspect.getsource(session_reconstruction)
+
+
 @pytest.mark.asyncio
-async def test_incidental_mentions_do_not_provision():
+async def test_non_latin_and_lowercase_named_referents_provision_as_provisional_entities():
     from src.db import async_session_maker
     async with async_session_maker() as db:
-        for mention in ("the cashier", "tabs", "love", "you", "the house", "space"):
+        for mention in ("田中さん", "maría", "ашот"):
             found, status = await entity_service.resolve_mention(
-                db, workspace_id=WS, session_id="s1", mention=mention,
-                frame="creator_direct", message_id="m1")
-            assert (found, status) == (None, "skipped"), mention
+                db, workspace_id=WS, session_id="s1", mention=mention, frame="creator_direct", message_id="m1")
+            assert status == "provisioned" and found.provisional is True, mention
 
 
 @pytest.mark.asyncio
@@ -277,9 +285,8 @@ async def test_fact_subject_refs_provision_and_link_entities():
         assert created is True
         linked = await entity_service.link_candidate_subjects(
             db, workspace_id=WS, session_id="s1", object_type="fact",
-            object_id=fact.id, refs=["Ashley", "tabs"], frame="creator_direct",
+            object_id=fact.id, refs=["Ashley"], frame="creator_direct",
             message_id="m-ashley")
-        # Ashley (proper name) provisions; tabs (bare topic) skips.
         assert [e.display_name for e in linked] == ["Ashley"]
         rows = (await db.execute(select(EntityLink).where(
             EntityLink.object_type == "fact"))).scalars().all()

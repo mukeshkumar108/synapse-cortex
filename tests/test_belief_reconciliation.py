@@ -29,8 +29,10 @@ def make_exp(session, title, summary, *, subject="mother", msg="m"):
     return exp
 
 
-def make_candidate(observation, *, kind="completion", title=None):
+def make_candidate(observation, *, kind="completion", title=None, outcome=None):
+    """`outcome` is the extractor MODEL's reading (fulfilled | not_fulfilled | counterfactual); lifecycle code never infers it from the words."""
     return ExtractionCandidate(
+        resolution_hint=({"action": "fulfill", "outcome": outcome} if outcome else None),
         candidate_key=f"c_{abs(hash(observation)) % 10**10}",
         observation=observation,
         raw_evidence=observation,
@@ -44,7 +46,7 @@ def make_candidate(observation, *, kind="completion", title=None):
 @pytest.mark.asyncio
 async def test_counterfactual_text_never_fulfills():
     """'without the car then had to do the buses and then stay at my mum's'
-    describes what WOULD have happened. It must not complete anything."""
+    describes what WOULD have happened. The extractor model reads it as counterfactual; that must not complete anything."""
     from src.db import async_session_maker
     async with async_session_maker() as session:
         exp = make_exp(
@@ -56,6 +58,7 @@ async def test_counterfactual_text_never_fulfills():
         cand = make_candidate(
             "without the car then had to do the buses and then stay at "
             "my mum's, which was the part I wasn't looking forward to",
+            outcome="counterfactual",
         )
         mutated = await LifecycleService().resolve_explicit_completions(
             session, workspace_id=WS, session_id="s1",
@@ -83,6 +86,7 @@ async def test_negative_outcome_maps_to_not_fulfilled():
         cand = make_candidate(
             "I was meant to go to my mum's tonight, today. Earlier in the "
             "day, I didn't go. She rang me this morning.",
+            outcome="not_fulfilled",
         )
         mutated = await LifecycleService().resolve_explicit_completions(
             session, workspace_id=WS, session_id="s1",
@@ -193,3 +197,19 @@ async def test_new_expectation_supersedes_stale_sibling():
         assert old.outcome_state == OutcomeState.SUPERSEDED
         assert old.superseded_by_id == new.id
         assert new.outcome_state == OutcomeState.UNKNOWN
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_code_never_reads_wording_the_models_outcome_decides():
+    """Same sentence, different model reading, different result: identical text with no counterfactual/negative reading proceeds as completion."""
+    from src.db import async_session_maker
+    from src.models.expectation import OutcomeState
+    text = "I was meant to go to my mum's tonight, today. I didn't go."
+    async with async_session_maker() as session:
+        exp = make_exp(session, "User had an obligation to go to their mother's house tonight", "User planned action: go to mother's house tonight")
+        await session.commit()
+        mutated = await LifecycleService().resolve_explicit_completions(
+            session, workspace_id=WS, session_id="s1", message_id="m-x", candidate=make_candidate(text), now=NOW)
+        assert mutated == [exp.id]
+        await session.refresh(exp)
+        assert exp.outcome_state == OutcomeState.FULFILLED          # no model outcome supplied: code does not second-guess the lane by keyword

@@ -725,7 +725,9 @@ the user to state an established repeating practice with cadence evidence ("ever
 When a current user reports an outcome, abandonment or replacement of a prior standalone
 open loop or Sophie attention item, use resolution_hint with target_kind (open_loop,
 attention or clarification), target_id copied EXACTLY from PRIOR STATE, action (fulfill, cancel or
-supersede), and verbatim current-user evidence. Do not infer resolution from silence,
+supersede), outcome (fulfilled | not_fulfilled | counterfactual: fulfilled = the user reports it really happened; not_fulfilled =
+it really did not happen or was missed; counterfactual = what would/could have happened or a plan not carried out as a real event),
+and verbatim current-user evidence. Do not infer resolution from silence,
 from an assistant question, or from hypothetical/negated completion. Uncertain target
 means a clarification, never a guessed mutation. When the user answers an existing
 clarification, fulfill that exact clarification ID; preserve the source trace. Existing app_task objects are owned
@@ -985,7 +987,8 @@ formation (exactly "explicit" when the current turn states the content outright,
 canonical_title, actor_peer_id, subject_peer_id, subject_refs (REQUIRED array of the
 named people, characters, places or projects this content is about, using their exact
 surface forms from the turn, e.g. ["Ashley", "Leo"]; empty array only when the content
-is about no named referent at all), temporal_phrase, expectation_type_hint,
+is about no named referent at all; ONLY proper names, characters or possessive relations such as "my brother" - never a pronoun, a topic, an object,
+a generic noun or the speakers themselves), temporal_phrase, expectation_type_hint,
 evidence_class, authority, cadence, interval_days, days_of_week, preferred_window,
 target_amount, target_unit, progress_amount, progress_unit, expiry_phrase, open_loop_hint,
 suppression_hint, resolution_hint, reminder_request. Use null/[] when absent. reminder_request

@@ -130,7 +130,7 @@ async def test_unknown_rel_type_and_empty_content_rejected():
         assert claims == [] and rels == []
 
 
-def test_vocab_matches_shadow_and_has_no_attention_columns():
+def test_vocab_is_the_bounded_relation_set_and_has_no_attention_columns():
     assert set(RELATION_VOCAB) == {
         "same_as", "refines", "contradicts", "supersedes", "depends_on",
         "part_of", "conditioned_on", "fulfils", "partially_fulfils",

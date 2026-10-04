@@ -143,29 +143,12 @@ class LifecycleService:
     - Epistemic & Domain annotation persistence
     """
 
-    # Counterfactual/hypothetical language: text shaped like a completed event
-    # but actually describing what WOULD have happened. Must never become
-    # fulfillment evidence.
-    COUNTERFACTUAL_MARKERS = (
-        "would have", "would've", "had to do", "would have had to",
-        "was meant to", "were meant to", "if he'd", "if she'd", "if i'd",
-        "if we'd", "nearly", "could have", "almost went", "the plan was to",
-        "was supposed to", "were supposed to", "otherwise i",
-    )
-    # Explicit negative outcome: the expected thing did NOT occur. Strong
-    # evidence — maps to NOT_FULFILLED, never to FULFILLED/UNKNOWN.
-    NEGATIVE_OUTCOME_MARKERS = (
-        "didn't go", "did not go", "didnt go", "gave it a miss",
-        "give it a miss", "won't be going", "wont be going", "not going",
-        "didn't happen", "did not happen", "didnt happen", "called it off",
-        "can't get there", "cant get there", "no way of getting there",
-        "have to give it a miss", "didn't make it", "did not make it",
-    )
-
     @staticmethod
-    def _has_marker(text: str, markers) -> bool:
-        lowered = (text or "").lower()
-        return any(marker in lowered for marker in markers)
+    def _outcome(hint: Optional[Dict[str, Any]]) -> Optional[str]:
+        """The extractor MODEL's reading of what the user reported: fulfilled | not_fulfilled | counterfactual (what would/could have happened, a
+        plan not carried out as a real event). Code never infers this from wording."""
+        value = str((hint or {}).get("outcome") or "").strip().lower()
+        return value if value in ("fulfilled", "not_fulfilled", "counterfactual") else None
 
     async def _fulfill_grounded(self, db, *, exp, evidence_text: str,
                                candidate, message_id: str) -> bool:
@@ -247,9 +230,9 @@ class LifecycleService:
         kind = hint.get("target_kind")
         if kind in ("open_loop", "attention", "clarification"):
             evidence_text = " ".join(filter(None, [candidate.raw_evidence, candidate.observation]))
-            if self._has_marker(evidence_text, self.COUNTERFACTUAL_MARKERS):
+            if self._outcome(hint) == "counterfactual":
                 return []
-            if hint.get("action") == "fulfill" and self._has_marker(evidence_text, self.NEGATIVE_OUTCOME_MARKERS):
+            if hint.get("action") == "fulfill" and self._outcome(hint) == "not_fulfilled":
                 return []
             # The existing semantic extractor supplies identity and user evidence;
             # deterministic code requires an exact owner-scoped target.
@@ -341,11 +324,11 @@ class LifecycleService:
         if action == "cancel":
             exp.outcome_state = OutcomeState.CANCELLED
         elif action == "fulfill":
-            if self._has_marker(evidence_text, self.NEGATIVE_OUTCOME_MARKERS):
-                # "I was meant to go but I didn't" — explicit negative outcome,
-                # never fulfillment.
+            if self._outcome(candidate.resolution_hint) == "not_fulfilled":
+                # "I was meant to go but I didn't" — explicit negative outcome
+                # (the extractor model's reading), never fulfillment.
                 exp.outcome_state = OutcomeState.NOT_FULFILLED
-            elif self._has_marker(evidence_text, self.COUNTERFACTUAL_MARKERS):
+            elif self._outcome(candidate.resolution_hint) == "counterfactual":
                 # Counterfactual/hypothetical text ("would have had to...")
                 # is context, not completion evidence. Leave the belief
                 # UNKNOWN and let reconciliation decide.
@@ -639,15 +622,6 @@ class LifecycleService:
             loop.resolution_evidence = evidence
             db.add(loop)
 
-    # Strong completion markers. Used only as a deterministic post-pass to
-    # convert progress/completion-shaped turns into genuine fulfillments of a
-    # matched open expectation; never to invent state.
-    COMPLETION_MARKERS = (
-        " done", "finished", "completed", "completed all", "fixed",
-        "pushed it", "pushed it live", "shipped", "submitted", "went well",
-        "managed to", "got it working", "all 14", "made it",
-    )
-
     async def resolve_explicit_completions(
         self,
         db: AsyncSession,
@@ -658,31 +632,20 @@ class LifecycleService:
         candidate: Any,
         now: datetime,
     ) -> List[UUID]:
-        """Deterministic completion pass for progress/completion-shaped
-        candidates.
+        """Completion pass for candidates the extractor MODEL classified as progress/completion.
 
         The lane shaper routes accomplishments ('migration checklist done!')
         to `progress`, which has its own objective handling and therefore
         skips generic outcome mutations. Without this pass the completed plan
         stays UNKNOWN forever. Here we fulfill an open expectation only when
-        the candidate text contains a strong completion marker and exactly one
-        open expectation matches; ambiguity stays unresolved on purpose."""
+        exactly one open expectation matches; ambiguity stays unresolved on purpose."""
         if candidate.operational_kind not in ("progress", "completion"):
             return []
-        text = (
-            f"{candidate.canonical_title or ''} {candidate.observation}".lower()
-        )
-        negative = self._has_marker(text, self.NEGATIVE_OUTCOME_MARKERS)
-        counterfactual = self._has_marker(text, self.COUNTERFACTUAL_MARKERS)
-        has_completion = any(
-            marker in text for marker in self.COMPLETION_MARKERS
-        )
-        if counterfactual and not negative:
-            # Counterfactual/hypothetical framing ("I would have had to...")
-            # must never become completion or negative-outcome evidence by
-            # itself: it is context about a plan that may or may not exist.
-            return []
-        if not negative and not has_completion:
+        outcome = self._outcome(candidate.resolution_hint)
+        negative = outcome == "not_fulfilled"
+        if outcome == "counterfactual" or getattr(candidate, "is_hypothetical", False):
+            # Counterfactual/hypothetical framing ("I would have had to...") is the model's call and must never become completion or
+            # negative-outcome evidence: it is context about a plan that may or may not exist.
             return []
         stmt = select(Expectation).where(
             Expectation.honcho_workspace_id == workspace_id,
@@ -1692,9 +1655,7 @@ class LifecycleService:
         if candidate.is_hypothetical or candidate.is_quoted:
             return None
         evidence_text = " ".join(filter(None, [candidate.raw_evidence, candidate.observation]))
-        if self._has_marker(evidence_text, self.COUNTERFACTUAL_MARKERS):
-            return None
-        if self._has_marker(evidence_text, self.NEGATIVE_OUTCOME_MARKERS):
+        if self._outcome(hint) in ("counterfactual", "not_fulfilled"):
             return None
 
         rows = (await db.execute(select(OpenLoop).where(
