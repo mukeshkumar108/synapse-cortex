@@ -18,6 +18,8 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+import re
+
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -127,7 +129,7 @@ async def write_claim(
     db: AsyncSession, *, workspace_id: str, session_id: str, message_id: str,
     owner_peer_id: Optional[str], model_kind: str, claim: str,
     evidence_verbatim: str, formation: str, confidence: float,
-    claim_kind: Optional[str] = None, subject_entity_id: Optional[UUID] = None,
+    claim_kind: Optional[str] = None, open_kind: bool = False, subject_entity_id: Optional[UUID] = None,
     subject_matter_id: Optional[UUID] = None, holder_actor: Optional[str] = None,
     direction: Optional[str] = None, evidence_refs: Optional[List[str]] = None,
     supersedes_id: Optional[UUID] = None, effective_at: Optional[datetime] = None,
@@ -147,7 +149,9 @@ async def write_claim(
         kind = "perspective"
         if fclass in (EXPLICIT, REPORTED, SOURCE_LINKED):
             fclass = INFERRED  # the system's own thought is never user testimony
-    if kind is not None and kind not in CLAIM_KINDS:
+    if kind is not None and open_kind:
+        kind = re.sub(r"[^a-z0-9_]+", "_", str(kind).lower()).strip("_")[:40] or "narrative"   # model-authored narrative vocabulary is open
+    elif kind is not None and kind not in CLAIM_KINDS:
         raise ValueError(f"unknown claim_kind {kind!r}")
     # Idempotent per (workspace, message, claim text): re-applying the same
     # consolidation run never duplicates a claim.

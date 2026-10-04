@@ -15,7 +15,7 @@ class AgendaRankerAdapter:
 
     async def generate_structured(self, *, system: str, prompt: str, json_schema: dict,
                                   model_id: str, max_tokens: int = 900,
-                                  temperature: float = 0.2, strict: bool = True, **_: object):
+                                  temperature: float = 0.2, strict: bool = True, timeout: float | None = None, **_: object):
         api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
         url = ("https://openrouter.ai/api/v1/chat/completions"
                if os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY")
@@ -36,10 +36,12 @@ class AgendaRankerAdapter:
             "temperature": temperature,
             "response_format": {"type": "json_object"},
         }
-        async with httpx.AsyncClient(timeout=float(os.getenv("AGENDA_RANKER_TIMEOUT_SECONDS", "12"))) as client:
+        async with httpx.AsyncClient(timeout=timeout or float(os.getenv("AGENDA_RANKER_TIMEOUT_SECONDS", "12"))) as client:
             resp = await client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"] or "{}"
+            body = resp.json()
+            self.last_usage = body.get("usage")
+            content = body["choices"][0]["message"]["content"] or "{}"
             parsed = json.loads(content)
             if not isinstance(parsed, dict):
                 raise ValueError("agenda ranker returned non-object")

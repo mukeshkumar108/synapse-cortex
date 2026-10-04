@@ -342,21 +342,26 @@ SECTION_BUILDERS = {
 # ---------------------------------------------------------------------- world layer (docs/WORLD_CONTRACT.md)
 # Compact resident stubs for actors / relationships / events / narrative state + an index manifest + covered_through. Derived and rebuildable
 # like every other section; empty (and therefore invisible to old readers) when the owner has no world rows.
-_NARRATIVE = ("relationship_shift", "trust_change", "disclosure", "concealment", "rupture", "reconciliation", "emotional_state", "ambiguity",
-              "relationship_development", "repair", "perspective", "pattern")
+# Claim kinds that state plain propositions or operational facts. Every other kind written through the world path is model-authored narrative
+# state (open vocabulary: rupture, resentment, ...), so there is no closed list of narrative kinds to fall out of date.
+_PROPOSITION_KINDS = frozenset({"assertion", "attribute", "commitment", "user_model", "correction", "decision", "matter_summary", "observation"})
+
+
+def _is_narrative(kind: Optional[str]) -> bool:
+    return bool(kind) and kind not in _PROPOSITION_KINDS
 
 
 async def _world_fingerprint(db: AsyncSession, workspace_id: str, owner: Optional[str]) -> str:
     from sqlalchemy import func
     from src.models.identity import Entity, ModelEntry
-    from src.models.world import ProducerRun, RelationshipDimension, TrajectoryNote, WorldEvent, WorldObjective
+    from src.models.world import ContinuationBrief, ProducerRun, RelationshipDimension, TrajectoryNote, WorldEvent, WorldObjective
     if not owner:
         return ""
     parts = []
     for model, cond in ((Entity, Entity.frame_scope == owner), (WorldEvent, WorldEvent.owner_peer_id == owner),
                         (ModelEntry, ModelEntry.owner_peer_id == owner), (ProducerRun, ProducerRun.owner_peer_id == owner),
                         (WorldObjective, WorldObjective.owner_peer_id == owner), (RelationshipDimension, RelationshipDimension.owner_peer_id == owner),
-                        (TrajectoryNote, TrajectoryNote.owner_peer_id == owner)):
+                        (TrajectoryNote, TrajectoryNote.owner_peer_id == owner), (ContinuationBrief, ContinuationBrief.owner_peer_id == owner)):
         row = (await db.execute(select(func.count(), func.max(model.updated_at) if hasattr(model, "updated_at") else func.max(model.created_at))
                                 .where(model.honcho_workspace_id == workspace_id, cond))).one()
         parts.append(f"{row[0]}:{row[1]}")
@@ -387,16 +392,16 @@ async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional
     wlinks = (await db.execute(select(WorldLink).where(WorldLink.honcho_workspace_id == workspace_id,
                                                       WorldLink.to_type == "relationship"))).scalars().all()
     by_event = {ev.id: ev for ev in events}
-    narrative_rows = [e for e in entries if e.claim_kind in _NARRATIVE]
+    narrative_rows = [e for e in entries if _is_narrative(e.claim_kind)]
     edge_states: Dict[Any, List[str]] = {}
     entry_by_id = {e.id: e for e in entries}
     for wl in wlinks:
         entry = entry_by_id.get(wl.from_id)
-        if entry is not None and entry.claim_kind in _NARRATIVE:
+        if entry is not None and _is_narrative(entry.claim_kind):
             edge_states.setdefault(wl.to_id, []).append(entry.claim[:110])
     actors = []
     for e in ents:
-        mine = [x for x in entries if x.subject_entity_id == e.id and x.claim_kind not in _NARRATIVE and x.epistemic_status != "superseded"]
+        mine = [x for x in entries if x.subject_entity_id == e.id and not _is_narrative(x.claim_kind) and x.epistemic_status != "superseded"]
         rel = [f"{ed.role} of {names.get(ed.to_entity_id) if ed.from_entity_id == e.id else names.get(ed.from_entity_id)}"
                for ed in edges if e.id in (ed.from_entity_id, ed.to_entity_id)]
         event_ids = [l.object_id for l in links if l.entity_id == e.id and l.object_type == "event" and l.object_id in by_event]
@@ -428,58 +433,48 @@ async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional
     }
 
 
-_BRIEF_NARRATIVE = ("rupture", "concealment", "trust_change", "disclosure", "reconciliation", "relationship_shift")
-
-
 async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, names: Dict[Any, str], edges: List[Any], narrative_rows: List[Any],
                              actors: List[Dict[str, Any]], now: Optional[datetime] = None) -> Dict[str, Any]:
-    """Continuation projection: a deterministic, traceable rendering of STRUCTURED state (directional relationship dimensions, relational narrative,
-    objectives, trajectory notes). The brief is a projection, never a source of truth: every line carries the refs it came from, and nothing here is
-    free prose that could later be mistaken for a fact. Layers: brief (always resident), active_intent (always resident), manifest (routing)."""
+    """Continuation projection: the interpreter's versioned brief (a projection of structured state, never a source of truth), plus the current
+    objectives, directional relationship dimensions and the live trajectory note, plus a routing manifest. Code only reads, orders by recency and
+    renders: it chooses no meaning."""
     from src.models.matter import Matter
-    from src.models.world import RelationshipDimension, TrajectoryNote, WorldObjective
+    from src.models.world import ContinuationBrief, RelationshipDimension, TrajectoryNote, WorldObjective
+    brief = (await db.execute(select(ContinuationBrief).where(
+        ContinuationBrief.honcho_workspace_id == workspace_id, ContinuationBrief.owner_peer_id == owner,
+        ContinuationBrief.superseded_by_id.is_(None)).order_by(ContinuationBrief.created_at.desc()).limit(1))).scalars().first()
     dims = (await db.execute(select(RelationshipDimension).where(
         RelationshipDimension.honcho_workspace_id == workspace_id, RelationshipDimension.owner_peer_id == owner,
-        RelationshipDimension.superseded_by_id.is_(None)).order_by(RelationshipDimension.created_at))).scalars().all()
+        RelationshipDimension.superseded_by_id.is_(None)).order_by(RelationshipDimension.updated_at.desc()).limit(40))).scalars().all()
     objectives = (await db.execute(select(WorldObjective).where(
         WorldObjective.honcho_workspace_id == workspace_id, WorldObjective.owner_peer_id == owner,
-        WorldObjective.status == "current"))).scalars().all()
+        WorldObjective.status == "current").order_by(WorldObjective.updated_at.desc()))).scalars().all()
     notes = (await db.execute(select(TrajectoryNote).where(
         TrajectoryNote.honcho_workspace_id == workspace_id, TrajectoryNote.owner_peer_id == owner,
         TrajectoryNote.superseded_by_id.is_(None)).order_by(TrajectoryNote.created_at.desc()))).scalars().all()
     if now is not None:
         notes = [n for n in notes if n.expires_at is None or n.expires_at > now]
-    lines: List[Dict[str, Any]] = []
-    by_dir: Dict[Any, List[Any]] = {}
-    for d in dims:
-        by_dir.setdefault((d.from_entity_id, d.to_entity_id), []).append(d)
-    for (a, b), ds in by_dir.items():
-        facets = [f"{d.dimension.replace('_', ' ')} {d.value}" for d in ds if d.dimension != "awareness"][:5]
-        if facets:
-            lines.append({"text": f"{names.get(a)} toward {names.get(b)}: " + "; ".join(facets), "refs": [str(d.id) for d in ds]})
-        for d in ds:
-            if d.dimension == "awareness":
-                lines.append({"text": f"{names.get(a)} awareness: {d.value}", "refs": [str(d.id)]})
-    for e in sorted([n for n in narrative_rows if n.claim_kind in _BRIEF_NARRATIVE and n.epistemic_status != "superseded"],
-                    key=lambda n: (-n.confidence, n.claim))[:4]:
-        lines.append({"text": e.claim[:160], "refs": [str(e.id)], "formation": e.formation})
     const = next((o for o in objectives if o.scope == "constitutional"), None)
     intent: Dict[str, Any] = {"constitution": ({"actor": names.get(const.actor_entity_id), "text": const.text, "state": const.state, "ref": str(const.id)}
                                               if const else None), "objectives": [], "trajectory_note": None}
-    for o in sorted([o for o in objectives if o.scope != "constitutional"], key=lambda o: -o.strength)[:8]:
+    for o in [o for o in objectives if o.scope != "constitutional"][:10]:
         intent["objectives"].append({"ref": str(o.id), "actor": names.get(o.actor_entity_id), "toward": names.get(o.toward_entity_id) if o.toward_entity_id else None,
                                      "text": o.text, "scope": o.scope, "state": o.state, "strength": o.strength, "cause": o.cause,
                                      "conflicts": _json_list(o.conflicts_json)})
     if notes:
         intent["trajectory_note"] = {"ref": str(notes[0].id), "state": notes[0].state, "text": notes[0].note, "label": "interpretation",
                                       "expires_at": notes[0].expires_at.isoformat() if notes[0].expires_at else None}
-    matters = (await db.execute(select(Matter).where(Matter.honcho_workspace_id == workspace_id, Matter.owner_peer_id == owner, Matter.status == "active"))).scalars().all()
+    matters = (await db.execute(select(Matter).where(Matter.honcho_workspace_id == workspace_id, Matter.owner_peer_id == owner,
+                                                    Matter.status == "active"))).scalars().all()
     manifest = {"actors": [{"ref": a["ref"], "name": a["name"]} for a in actors],
                 "relationships": [{"ref": str(ed.id), "type": ed.role} for ed in edges],
-                "matters": [{"ref": str(m.id), "title": m.title} for m in matters[:8]],
-                "objectives": len(objectives), "unresolved": [l["text"][:80] for l in lines if "unaware" in l["text"] or "not established" in l["text"]][:4]}
-    return {"continuation": {"brief": {"text": " ".join(l["text"] for l in lines)[:900], "lines": lines[:14], "derived_from": "structured world state"},
-                             "active_intent": intent, "manifest": manifest}}
+                "matters": [{"ref": str(m.id), "title": m.title} for m in matters[:8]], "objectives": len(objectives)}
+    return {"continuation": {
+        "brief": {"text": brief.text if brief else "", "lines": _json_list(brief.lines_json) if brief else [], "version": str(brief.id) if brief else None,
+                  "derived_from": "interpreter projection of structured world state"},
+        "dimensions": [{"ref": str(d.id), "from": names.get(d.from_entity_id), "to": names.get(d.to_entity_id), "dimension": d.dimension, "value": d.value,
+                        "formation": d.formation} for d in dims],
+        "active_intent": intent, "manifest": manifest}}
 
 
 def _json_list(raw: Optional[str]) -> List[Any]:

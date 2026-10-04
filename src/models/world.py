@@ -151,3 +151,19 @@ class TrajectoryNote(SQLModel, table=True):
     superseded_by_id: Optional[UUID] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     expires_at: Optional[datetime] = Field(default=None)
+
+
+class ContinuationBrief(SQLModel, table=True):
+    """The interpreter's compact rendering of the current situation for the foreground. Versioned; a PROJECTION of structured state (lines cite
+    the rows they derive from), never a source of truth."""
+    __tablename__ = "continuation_briefs"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    text: str = Field(nullable=False)
+    lines_json: str = Field(default="[]")
+    producer: str = Field(default="interpreter")
+    run_id: Optional[UUID] = Field(default=None, index=True)
+    superseded_by_id: Optional[UUID] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)

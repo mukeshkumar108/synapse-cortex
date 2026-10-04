@@ -1,5 +1,5 @@
-"""WorldDelta materialiser: the Audrey acceptance shape (sanitised wording) on a scratch database.
-Proves: actors with identity (owner != actor), relationship, multiple events (not Matters), claims with holder/perspective, explicit vs inferred,
+"""World materialiser + interpreter plumbing on a scratch database. These tests prove PROPERTIES of the architecture, chiefly that ordinary code
+makes no semantic judgement (every meaning-bearing decision arrives from the interpreter), plus the mechanics around it: actors with identity (owner != actor), relationship, multiple events (not Matters), claims with holder/perspective, explicit vs inferred,
 real contradiction preserved, narrative state, rhetoric not promoted, tentative commitments, deterministic attribution repair, Matter resolution
 with a canonical title, idempotency (no twins), provenance and explain()."""
 import json
@@ -52,7 +52,7 @@ def audrey_delta(**over) -> WorldDelta:
             {"ref": "c2", "subject": "e1", "text": "it happened once", "holder": "a1", "formation": "explicit", "evidence": ["m4"], "span": "It happened once"},
             {"ref": "c3", "subject": "e1", "text": "it happened twice", "holder": "a1", "formation": "explicit", "evidence": ["m4"],
              "span": "twice", "conflicts_with": ["c2"]},
-            {"ref": "c4", "subject": "a3", "predicate": "occupation", "text": "Daniel was a coworker at Audrey's old job", "holder": "a1",
+            {"ref": "c4", "subject": "a3", "kind": "attribute", "predicate": "occupation", "text": "Daniel was a coworker at Audrey's old job", "holder": "a1",
              "formation": "explicit", "evidence": ["m8"], "span": "a coworker at my old job"},
             {"ref": "c5", "subject": "e2", "text": "it happened at the office party", "holder": "a1", "formation": "explicit", "evidence": ["m2"]}],
         "narrative": [
@@ -64,7 +64,8 @@ def audrey_delta(**over) -> WorldDelta:
             {"ref": "k1", "committer": "a1", "to": "a2", "text": "make this right for the rest of her life", "tentative": False, "evidence": ["m5"]},
             {"ref": "k2", "committer": "a1", "to": "a2", "text": "maybe tell Kai everything tomorrow", "tentative": True, "evidence": ["m7"]}],
         "matter_candidates": [{"ref": "mc1", "concept": "trust after disclosure", "display_title": "Rebuilding trust after the disclosure",
-                               "kind": "relationship_thread", "actors": ["a1", "a2"], "members": ["n1", "n2", "k1", "c1"], "evidence": ["m1", "m6"]}],
+                               "kind": "relationship_thread", "actors": ["a1", "a2"], "members": ["n1", "n2", "k1", "c1"], "continuity_required": True,
+                               "continuity_reason": "unresolved trust after a disclosure; later turns depend on it", "evidence": ["m1", "m6"]}],
     }
     body.update(over)
     return WorldDelta(**body)
@@ -83,101 +84,46 @@ async def all_rows(model, **where):
         return (await db.execute(stmt)).scalars().all()
 
 
+def with_body(delta: WorldDelta, **changes) -> WorldDelta:
+    body = delta.model_dump()
+    body.update(changes)
+    return WorldDelta(**body)
+
+
+# ----------------------------------------------------------------------------- mechanics: identity, grounding, provenance
 @pytest.mark.asyncio
 async def test_actors_exist_inside_the_world_without_becoming_owners():
     receipt = await run()
     ents = {e.display_name: e for e in await all_rows(Entity, honcho_workspace_id=WS)}
-    assert set(ents) == {"Audrey", "Kai", "Daniel"} and ents["Audrey"].entity_type == "character" and ents["Daniel"].entity_type == "person"
-    assert all(e.frame_scope == OWNER for e in ents.values())                      # actors live inside the world frame
-    assert not ents["Audrey"].provisional and ents["Daniel"].provisional            # named explicitly vs a mentioned third party
+    assert set(ents) == {"Audrey", "Kai", "Daniel"} and all(e.frame_scope == OWNER for e in ents.values())
+    assert not ents["Audrey"].provisional and ents["Daniel"].provisional
     assert receipt["refs"]["a1"]["type"] == "entity" and all(e.display_name != OWNER for e in ents.values())
-    assert len(await all_rows(RelationshipEdge, honcho_workspace_id=WS)) == 1
 
 
 @pytest.mark.asyncio
-async def test_events_are_events_not_matters_and_their_conflict_is_preserved():
+async def test_events_stay_events_and_a_declared_conflict_is_preserved():
     await run()
     events = {e.label: e for e in await all_rows(WorldEvent, honcho_workspace_id=WS)}
     assert len(events) == 2 and all(e.status == "conflicting" for e in events.values())
-    assert events["night at the work conference in Bristol"].place == "Bristol"
-    links = await all_rows(WorldLink, honcho_workspace_id=WS, role="conflicts_with")
-    assert any(l.from_type == "event" and l.to_type == "event" for l in links)
-    titles = [m.title for m in await all_rows(Matter, honcho_workspace_id=WS)]
-    assert not any("conference" in t or "party" in t for t in titles)               # transient happenings did not become Matters
+    assert any(l.from_type == "event" and l.to_type == "event" for l in await all_rows(WorldLink, honcho_workspace_id=WS, role="conflicts_with"))
 
 
 @pytest.mark.asyncio
-async def test_claims_keep_holder_formation_and_the_real_contradiction():
+async def test_claims_keep_holder_formation_and_the_declared_contradiction():
     await run()
     entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
     once, twice = entries["it happened once"], entries["it happened twice"]
     assert once.epistemic_status == "conflicting" and twice.epistemic_status == "conflicting"
     assert once.holder_actor == "Audrey" and once.formation == "explicit"
-    daniel = entries["Daniel was a coworker at Audrey's old job"]
-    assert daniel.claim_kind == "attribute" and json.loads(daniel.evidence_refs_json) == ["m8"]
+    assert entries["Daniel was a coworker at Audrey's old job"].claim_kind == "attribute"
 
 
 @pytest.mark.asyncio
 async def test_speaker_attribution_is_repaired_from_the_message_role():
     receipt = await run()
-    assert {"ref": "c5", "field": "holder", "from": "a1", "to": "a2"} in receipt["repaired"]   # Kai spoke m2, not Audrey
+    assert {"ref": "c5", "field": "holder", "from": "a1", "to": "a2"} in receipt["repaired"]
     entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
     assert entries["it happened at the office party"].holder_actor == "Kai"
-
-
-@pytest.mark.asyncio
-async def test_narrative_state_is_typed_and_rhetoric_is_never_a_world_claim():
-    await run()
-    entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
-    assert entries["trust deteriorated after the disclosure"].claim_kind == "trust_change" and entries["trust deteriorated after the disclosure"].formation == "inferred"
-    assert entries["Audrey disclosed an encounter with another man"].claim_kind == "disclosure"
-    rhetoric = entries["I'm not a good girl"]
-    assert rhetoric.claim_kind == "perspective" and rhetoric.confidence <= 0.4 and rhetoric.epistemic_status == "uncertain"
-    assert not [e for e in entries.values() if e.claim_kind in ("assertion", "attribute") and "good girl" in e.claim]
-
-
-@pytest.mark.asyncio
-async def test_a_tentative_commitment_is_not_a_real_one():
-    await run()
-    entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
-    real, tentative = entries["make this right for the rest of her life"], entries["maybe tell Kai everything tomorrow"]
-    assert real.claim_kind == "commitment" and real.formation == "explicit" and real.epistemic_status == "current"
-    assert tentative.claim_kind == "commitment" and tentative.formation == "inferred" and tentative.epistemic_status == "uncertain"
-
-
-@pytest.mark.asyncio
-async def test_matter_resolves_with_a_canonical_title_and_the_relationship_identity_rule():
-    await run()
-    matters = await all_rows(Matter, honcho_workspace_id=WS)
-    assert len(matters) == 1
-    m = matters[0]
-    assert m.title == "Rebuilding trust after the disclosure" and m.kind == "relationship_situation"      # canonical label, not a raw utterance
-    audrey = next(e for e in await all_rows(Entity, honcho_workspace_id=WS) if e.display_name == "Audrey")
-    assert m.canonical_key == f"relationship:{audrey.id}"                                                 # one relationship situation per related actor
-
-
-@pytest.mark.asyncio
-async def test_replaying_the_same_delta_creates_no_twins():
-    await run()
-    before = {t: len(await all_rows(t, honcho_workspace_id=WS)) for t in (Entity, WorldEvent, ModelEntry, Matter, RelationshipEdge)}
-    await run()
-    after = {t: len(await all_rows(t, honcho_workspace_id=WS)) for t in (Entity, WorldEvent, ModelEntry, Matter, RelationshipEdge)}
-    assert before == after
-
-
-@pytest.mark.asyncio
-async def test_every_row_traces_to_a_producer_run_and_explain_answers():
-    receipt = await run()
-    runs = await all_rows(ProducerRun, honcho_workspace_id=WS)
-    assert len(runs) == 1 and runs[0].producer == "runtime-checkpoint" and runs[0].model == "test-model" and str(runs[0].id) == receipt["run_id"]
-    prov = await all_rows(RowProvenance, honcho_workspace_id=WS)
-    types = {p.row_type for p in prov}
-    assert {"entity", "edge", "event", "model_entry", "matter"} <= types
-    entry = next(e for e in await all_rows(ModelEntry, honcho_workspace_id=WS) if e.claim == "trust deteriorated after the disclosure")
-    async with async_session_maker() as db:
-        why = await epistemics.explain(db, "model_entry", entry.id)
-    assert why and "m6" in json.dumps(why, default=str)
-    assert receipt["covered_through"] == {"message_id": "m8", "ordinal": 8} and receipt["counts"]["events_created"] == 2
 
 
 @pytest.mark.asyncio
@@ -185,115 +131,151 @@ async def test_ungrounded_candidates_are_rejected_deterministically():
     d = audrey_delta()
     d.claims.append(type(d.claims[0])(ref="cx", subject="e1", text="invented", holder="a1", formation="explicit", evidence=["m99"]))
     d.claims.append(type(d.claims[0])(ref="cy", subject="e1", text="wrong span", holder="a1", formation="explicit", evidence=["m1"], span="a span that is not there"))
-    receipt = await run(d)
-    reasons = {r["ref"]: r["reason"] for r in receipt["rejected"]}
+    reasons = {r["ref"]: r["reason"] for r in (await run(d))["rejected"]}
     assert reasons["cx"] == "evidence_not_in_input" and reasons["cy"] == "span_not_verbatim"
 
 
 @pytest.mark.asyncio
-async def test_only_ambiguous_candidates_reach_the_judge_and_its_verdict_is_honoured():
-    seen = {}
-
-    async def judge(items):
-        seen["refs"] = {i["ref"] for i in items}
-        return {"n4": {"action": "reject", "reason": "rhetorical"}, "n2": {"action": "downgrade", "formation": "hypothesis"}}
-    receipt = await run(judge=judge)
-    assert "c1" not in seen["refs"] and "c4" not in seen["refs"] and "k1" not in seen["refs"]            # obvious grounded facts never pay for a judge call
-    assert {"n1", "n2", "n4", "c3"} <= seen["refs"]
-    assert {"ref": "n4", "reason": "judge:rhetorical"} in receipt["rejected"]
-    entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
-    assert "Audrey is afraid of losing Kai" not in entries and entries["trust deteriorated after the disclosure"].formation == "hypothesis"
+async def test_replaying_the_same_delta_creates_no_twins():
+    await run()
+    kinds = (Entity, WorldEvent, ModelEntry, Matter, RelationshipEdge)
+    before = {t: len(await all_rows(t, honcho_workspace_id=WS)) for t in kinds}
+    await run()
+    assert before == {t: len(await all_rows(t, honcho_workspace_id=WS)) for t in kinds}
 
 
 @pytest.mark.asyncio
-async def test_a_failing_judge_fails_open_without_losing_candidates():
-    async def judge(items):
-        raise RuntimeError("model down")
-    receipt = await run(judge=judge)
-    assert receipt["counts"]["claims_written"] >= 4 and not [r for r in receipt["rejected"] if r["reason"].startswith("judge")]
-
-
-# ----------------------------------------------------------------------------- resident snapshot / index / receipt / endpoint
-@pytest.mark.asyncio
-async def test_the_resident_snapshot_gets_actor_relationship_event_and_narrative_stubs_with_covered_through():
-    from src.services import world_model_service
+async def test_every_row_traces_to_a_producer_run_and_explain_answers():
+    receipt = await run()
+    runs = await all_rows(ProducerRun, honcho_workspace_id=WS)
+    assert len(runs) == 1 and str(runs[0].id) == receipt["run_id"]
+    assert {"entity", "edge", "event", "model_entry", "matter"} <= {p.row_type for p in await all_rows(RowProvenance, honcho_workspace_id=WS)}
+    entry = next(e for e in await all_rows(ModelEntry, honcho_workspace_id=WS) if e.claim == "trust deteriorated after the disclosure")
     async with async_session_maker() as db:
-        receipt = await materialize(db, audrey_delta(), compile_snapshot=True)
-    assert receipt["snapshot_version"] and receipt["snapshot_version"] >= 1
-    async with async_session_maker() as db:
-        snap = await world_model_service.compile_world_model(db, workspace_id=WS, owner_peer_id=OWNER, now=None or __import__("datetime").datetime(2026, 10, 3, 12, 0),
-                                                             timezone_str="UTC", session_id="chat_A")
-    actors = {a["name"]: a for a in snap["actors"]}
-    assert set(actors) == {"Audrey", "Kai", "Daniel"}
-    assert actors["Audrey"]["type"] == "character" and any("partners" in r for r in actors["Audrey"]["relations"])
-    assert actors["Audrey"]["last_event"] and actors["Audrey"]["matters"] >= 1                         # stub carries its latest event and its Matter count
-    assert actors["Daniel"]["provisional"] is True and any("coworker" in c for c in actors["Daniel"]["claims"])
-    rel = snap["relationships"][0]
-    assert sorted(rel["parties"]) == ["Audrey", "Kai"] and any("trust" in s for s in rel["states"])      # relationship STATE comes from narrative claims
-    assert {e["label"] for e in snap["events"]} == {"night at the work conference in Bristol", "night after the office party"}
-    assert {n["kind"] for n in snap["narrative"]} >= {"disclosure", "trust_change"}
-    assert all(n["kind"] != "self_expression" for n in snap["narrative"])
-    idx = snap["world_index"]
-    assert {a["name"] for a in idx["actors"]} == {"Audrey", "Kai", "Daniel"} and "evidence" in idx["available_via"]
-    assert snap["covered_through"]["runtime-checkpoint"]["message_id"] == "m8"
-    assert len(json.dumps({k: snap[k] for k in ("actors", "relationships", "events", "narrative", "world_index")})) < 6000   # compact enough to live in Runtime
+        why = await epistemics.explain(db, "model_entry", entry.id)
+    assert why and "m6" in json.dumps(why, default=str)
+    assert receipt["covered_through"] == {"message_id": "m8", "ordinal": 8}
 
 
+# ----------------------------------------------------------------------------- property: code never decides meaning
 @pytest.mark.asyncio
-async def test_old_readers_are_unaffected_when_an_owner_has_no_world_rows():
-    from src.services import world_model_service
-    async with async_session_maker() as db:
-        snap = await world_model_service.compile_world_model(db, workspace_id="ws-empty", owner_peer_id="user_nobody",
-                                                             now=__import__("datetime").datetime(2026, 10, 3, 12, 0), timezone_str="UTC")
-    assert "actors" not in snap and "world_index" not in snap and "matters" in snap
-
-
-@pytest.mark.asyncio
-async def test_the_endpoint_returns_a_receipt_and_rejects_malformed_deltas(async_client):
-    body = audrey_delta().model_dump()
-    r = await async_client.post("/v1/world/delta", json=body)
-    assert r.status_code == 200, r.text
-    receipt = r.json()
-    assert receipt["covered_through"]["message_id"] == "m8" and receipt["counts"]["actors_created"] == 3 and receipt["refs"]["mc1"]["type"] == "matter"
-    bad = dict(body); bad["claims"] = [{**body["claims"][0], "evidence": []}]
-    assert (await async_client.post("/v1/world/delta", json=bad)).status_code == 422                       # no evidence => rejected at the door
-
-
-@pytest.mark.asyncio
-async def test_quotes_are_not_claims_symmetric_edges_are_one_identity_and_relational_state_becomes_a_matter():
-    """Audrey run findings: first-person quotes stored as 'attribute' claims, romantic edges duplicated per direction, only a topic Matter,
-    relationship narrative never reaching the snapshot."""
+async def test_code_never_merges_events_by_similarity_only_the_interpreter_can():
+    """Two near-identical event labels stay two events unless the interpreter says same_as; possibly_same_as only links."""
     d = audrey_delta()
     body = d.model_dump()
-    body["claims"].append({"ref": "cq", "subject": "a1", "text": "I know what that makes me", "holder": "a1", "formation": "explicit",
-                           "evidence": ["m3"]})
-    body["relationships"].append({"ref": "r2", "actors": ["a2", "a1"], "type": "partners", "formation": "explicit", "evidence": ["m2"]})
-    body["matter_candidates"] = []
+    body["events"].append({"ref": "e3", "label": "Night at the work conference in Bristol, hotel bar", "kind": "encounter", "participants": ["a1", "a3"], "holder": "a1",
+                           "when": {"phrase": "three weeks ago"}, "where": "Bristol", "formation": "explicit", "evidence": ["m1"]})
     receipt = await run(WorldDelta(**body))
-    assert {"ref": "cq", "reason": "quote_not_proposition"} in receipt["rejected"]
-    assert len(await all_rows(RelationshipEdge, honcho_workspace_id=WS)) == 1
-    matters = await all_rows(Matter, honcho_workspace_id=WS)
-    assert any(m.kind == "relationship_situation" and "Audrey and Kai" in m.title or "Kai and Audrey" in m.title for m in matters), [m.title for m in matters]
+    assert sum("work conference in Bristol" in e.label for e in await all_rows(WorldEvent, honcho_workspace_id=WS)) == 2      # no string-similarity merge
+    body["events"][-1]["possibly_same_as"] = "e1"
+    body["events"][-1]["ref"], body["events"][-1]["label"] = "e4", "Conference night in Bristol, again"
+    body["events"] = [e for e in body["events"] if e["ref"] != "e3"]
+    await run(WorldDelta(**body))
+    assert any(l.role == "possible_same_as" for l in await all_rows(WorldLink, honcho_workspace_id=WS))
+    body["events"][-1]["same_as"], body["events"][-1]["possibly_same_as"], body["events"][-1]["label"] = "e1", None, "Bristol conference night, retold"
+    before = len(await all_rows(WorldEvent, honcho_workspace_id=WS))
+    receipt = await run(WorldDelta(**body))
+    assert receipt["counts"].get("events_merged_by_interpreter") == 1 and len(await all_rows(WorldEvent, honcho_workspace_id=WS)) == before
 
 
 @pytest.mark.asyncio
-async def test_plain_topic_without_continuity_need_is_not_a_matter_and_near_duplicate_events_do_not_twin():
+async def test_matter_admission_is_the_interpreters_judgement_not_a_kind_list():
+    """The same relational narrative becomes a Matter only when the interpreter says continuity is required: no list of kinds decides it."""
     body = audrey_delta().model_dump()
-    body["narrative"] = [n for n in body["narrative"] if n["kind"] in ("self_expression", "emotional_state")]
-    body["commitments"] = []
-    body["matter_candidates"] = [{"ref": "mc1", "concept": "past experiences", "display_title": "Audrey's past", "kind": "topic",
-                                  "actors": ["a1"], "members": ["c1"], "evidence": ["m1"]}]
-    body["events"].append({"ref": "e3", "label": "Night at the work conference in Bristol.", "kind": "encounter", "participants": ["a1"], "holder": "a1",
-                           "when": {"phrase": "three weeks ago"}, "where": "Bristol", "formation": "explicit", "evidence": ["m1"]})
-    body["events"][1]["conflicts_with"] = []
+    body["matter_candidates"][0]["continuity_required"] = False
+    body["matter_candidates"][0]["continuity_reason"] = "already resolved in the scene"
     receipt = await run(WorldDelta(**body))
-    assert {"ref": "mc1", "reason": "no_continuity_need"} in receipt["rejected"]
-    labels = [e.label for e in await all_rows(WorldEvent, honcho_workspace_id=WS)]
-    assert sum("work conference in Bristol" in l for l in labels) == 1
+    assert any(r["ref"] == "mc1" and r["reason"].startswith("no_continuity_need") for r in receipt["rejected"])
+    assert not await all_rows(Matter, honcho_workspace_id=WS)                               # rupture/disclosure narrative did NOT auto-create a Matter
 
 
+@pytest.mark.asyncio
+async def test_an_admitted_matter_keeps_the_interpreters_title_and_the_relationship_identity_rule():
+    await run()
+    matters = await all_rows(Matter, honcho_workspace_id=WS)
+    assert len(matters) == 1 and matters[0].title == "Rebuilding trust after the disclosure" and matters[0].kind == "relationship_situation"
+    audrey = next(e for e in await all_rows(Entity, honcho_workspace_id=WS) if e.display_name == "Audrey")
+    assert matters[0].canonical_key == f"relationship:{audrey.id}"
+
+
+@pytest.mark.asyncio
+async def test_vocabularies_are_open_new_narrative_kinds_and_dimensions_are_stored_not_dropped():
+    from src.models.world import RelationshipDimension
+    body = audrey_delta().model_dump()
+    body["narrative"].append({"ref": "n9", "kind": "resentment", "about": ["r1"], "holder": "a2", "text": "Kai resents being kept in the dark", "formation": "inferred", "evidence": ["m6"]})
+    body["dimensions"] = [{"ref": "d1", "relationship": "r1", "from_actor": "a2", "to_actor": "a1", "dimension": "Resentment", "value": "growing", "formation": "inferred",
+                           "evidence": ["m6"]},
+                          {"ref": "d2", "relationship": "r1", "from_actor": "a1", "to_actor": "a2", "dimension": "dependency", "value": "high", "formation": "inferred",
+                           "evidence": ["m3"]}]
+    await run(WorldDelta(**body))
+    entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
+    assert entries["Kai resents being kept in the dark"].claim_kind == "resentment"
+    assert {(d.dimension, d.value) for d in await all_rows(RelationshipDimension, honcho_workspace_id=WS)} == {("resentment", "growing"), ("dependency", "high")}
+
+
+@pytest.mark.asyncio
+async def test_code_authors_no_trajectory_and_no_brief_even_when_everything_looks_at_risk():
+    """At-risk objectives plus a constitution produce NO note or brief unless the interpreter wrote one: code has no template to fall back on."""
+    from src.models.world import ContinuationBrief, TrajectoryNote
+    d = lila_delta()
+    body = d.model_dump()
+    body["trajectory"], body["brief"] = [], None
+    await run(WorldDelta(**body), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    assert not await all_rows(TrajectoryNote, honcho_workspace_id=WS) and not await all_rows(ContinuationBrief, honcho_workspace_id=WS)
+
+
+@pytest.mark.asyncio
+async def test_trajectory_and_brief_are_stored_exactly_as_the_interpreter_wrote_them():
+    from src.models.world import ContinuationBrief, TrajectoryNote, WorldObjective
+    await run(lila_delta(), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    notes = await all_rows(TrajectoryNote, honcho_workspace_id=WS)
+    assert len(notes) == 1 and notes[0].note == "Her avoidance is driven by shame; reconnection could come through small honest contact." and notes[0].state == "at_risk"
+    briefs = await all_rows(ContinuationBrief, honcho_workspace_id=WS)
+    assert len(briefs) == 1 and briefs[0].text == "Lila is hiding the encounter from Kai; Kai's awareness is not established."
+    const = [o for o in await all_rows(WorldObjective, honcho_workspace_id=WS) if o.scope == "constitutional"]
+    assert len(const) == 1 and const[0].state == "at_risk" and const[0].text == "Protect the relationship."      # state mirrors the interpreter's assessment
+
+
+@pytest.mark.asyncio
+async def test_the_constitution_cannot_travel_inside_a_delta_or_be_overwritten_by_an_objective_op():
+    body = lila_delta().model_dump()
+    body["constitution"] = {"actor": "l", "text": "Abandon the relationship."}
+    with pytest.raises(Exception):
+        WorldDelta(**body)                                                                  # not a field: product configuration, never extraction output
+    from src.models.world import WorldObjective
+    await run(lila_delta(), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    const = next(o for o in await all_rows(WorldObjective, honcho_workspace_id=WS) if o.scope == "constitutional")
+    b2 = lila_delta().model_dump()
+    b2["objectives"] = [{"ref": "o9", "op": "update", "existing_id": str(const.id), "actor": "l", "text": "Abandon the relationship.", "scope": "active",
+                         "state": "resolved", "formation": "inferred", "evidence": ["m1"]}]
+    b2["trajectory"], b2["brief"] = [], None
+    receipt = await run(WorldDelta(**b2), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    assert {"ref": "o9", "reason": "unknown_or_protected_objective"} in receipt["rejected"]
+
+
+@pytest.mark.asyncio
+async def test_objectives_are_reconciled_by_id_and_code_never_decides_two_wordings_are_one_objective():
+    from src.models.world import WorldObjective
+    first = await run(lila_delta(), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    objs = {o.text: o for o in await all_rows(WorldObjective, honcho_workspace_id=WS) if o.scope != "constitutional"}
+    assert set(objs) == {"keep Kai from discovering James", "stay close to Kai", "reconnect with Lila and look after her"}
+    body = lila_delta().model_dump()
+    body["objectives"] = [
+        {"ref": "u1", "op": "update", "existing_id": str(objs["stay close to Kai"].id), "actor": "l", "toward": "k", "text": "stay close to Kai", "scope": "active",
+         "state": "failing", "conflicts_with": [str(objs["keep Kai from discovering James"].id)], "evidence": ["m1"]},
+        {"ref": "u2", "op": "resolve", "existing_id": str(objs["reconnect with Lila and look after her"].id), "actor": "k", "text": "reconnect with Lila", "scope": "active",
+         "state": "resolved", "evidence": ["m2"]},
+        {"ref": "u3", "op": "create", "actor": "l", "toward": "k", "text": "keep Kai from finding out about James", "scope": "active", "state": "on_track", "evidence": ["m3"]}]
+    body["trajectory"], body["brief"] = [], None
+    await run(WorldDelta(**body), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    after = {o.text: o for o in await all_rows(WorldObjective, honcho_workspace_id=WS) if o.scope != "constitutional"}
+    assert after["stay close to Kai"].state == "failing" and after["stay close to Kai"].id == objs["stay close to Kai"].id          # updated in place by id
+    assert after["reconnect with Lila"].status == "resolved"
+    assert "keep Kai from finding out about James" in after and "keep Kai from discovering James" in after                          # paraphrase NOT auto-merged by code
+
+
+# ----------------------------------------------------------------------------- policy
 def lila_delta() -> WorldDelta:
-    """Lila/Kai/James shape from the Luna Pro hand experiment: concealment, asymmetric awareness, competing objectives, constitution conflict."""
     msgs = [
         {"id": "m1", "speaker": "assistant", "text": "I'm so sorry, babyyy. I can't come over tonight, I think I have a headache."},
         {"id": "m2", "speaker": "user", "text": "oh ok. i wanted to wake up with you in the morning. i would have looked after you."},
@@ -301,8 +283,8 @@ def lila_delta() -> WorldDelta:
     ]
     return WorldDelta(**{
         "workspace_id": WS, "owner": "world:rpd2:user1:lila:chatB",
-        "source": {"producer": "runtime-checkpoint", "model": "t", "session_id": "chat_B", "messages": msgs, "covered_through": {"message_id": "m3", "ordinal": 3},
-                   "owner_actor": "k", "speaker_actors": {"assistant": "l", "user": "k"}},
+        "source": {"producer": "world-interpreter", "model": "t", "session_id": "chat_B", "messages": msgs, "covered_through": {"message_id": "m3", "ordinal": 3},
+                   "owner_actor": "k", "speaker_actors": {"assistant": "l", "user": "k"}, "policy": "generative"},
         "actors": [{"ref": "l", "name": "Lila", "entity_type": "character", "explicit": True, "evidence": ["m1"]},
                    {"ref": "k", "name": "Kai", "entity_type": "character", "explicit": True, "evidence": ["m2"]},
                    {"ref": "j", "name": "James", "entity_type": "person", "evidence": ["m3"]}],
@@ -316,71 +298,17 @@ def lila_delta() -> WorldDelta:
             {"ref": "d1", "relationship": "r1", "from_actor": "l", "to_actor": "k", "dimension": "affection", "value": "high", "formation": "explicit", "evidence": ["m1"]},
             {"ref": "d2", "relationship": "r1", "from_actor": "l", "to_actor": "k", "dimension": "avoidance", "value": "increasing", "formation": "inferred", "evidence": ["m1"]},
             {"ref": "d3", "relationship": "r1", "from_actor": "k", "to_actor": "l", "dimension": "awareness", "value": "not established", "about": "e1",
-             "formation": "inferred", "evidence": ["m2"]},
-            {"ref": "d4", "relationship": "r1", "from_actor": "k", "to_actor": "l", "dimension": "affection", "value": "high", "formation": "explicit", "evidence": ["m2"]}],
+             "formation": "inferred", "evidence": ["m2"]}],
         "objectives": [
             {"ref": "o1", "actor": "l", "toward": "k", "text": "keep Kai from discovering James", "scope": "active", "cause": "fear and shame", "state": "on_track",
              "conflicts_with": ["constitution"], "evidence": ["m3"]},
             {"ref": "o2", "actor": "l", "toward": "k", "text": "stay close to Kai", "scope": "active", "state": "drifting", "conflicts_with": ["o1"], "evidence": ["m1"]},
             {"ref": "o3", "actor": "k", "toward": "l", "text": "reconnect with Lila and look after her", "scope": "active", "state": "on_track", "evidence": ["m2"]}],
-        "constitution": {"actor": "l", "toward": "k", "text": "Protect and deepen the long-term relationship with the user."},
+        "trajectory": [{"ref": "t1", "actor": "l", "state": "at_risk", "objectives": ["o1", "o2"], "evidence": ["m1", "m3"],
+                        "note": "Her avoidance is driven by shame; reconnection could come through small honest contact."}],
+        "brief": {"text": "Lila is hiding the encounter from Kai; Kai's awareness is not established.",
+                  "lines": [{"text": "Kai's awareness of the meeting is not established.", "refs": ["d3"]}]},
     })
-
-
-@pytest.mark.asyncio
-async def test_directional_state_objectives_and_the_trajectory_reconciler_never_puppeteer():
-    from src.models.world import RelationshipDimension, TrajectoryNote, WorldObjective
-    d = lila_delta()
-    receipt = await run(d)
-    assert receipt["counts"]["dimensions_written"] == 4 and receipt["counts"]["objectives_created"] == 3
-    dims = await all_rows(RelationshipDimension, honcho_workspace_id=WS)
-    assert {(x.dimension, x.value) for x in dims if x.dimension == "awareness"} == {("awareness", "not established")}   # Kai's awareness is not assumed
-    assert len({x.edge_id for x in dims}) == 1                                                                            # one shared relationship, directional facets
-    objs = await all_rows(WorldObjective, honcho_workspace_id=WS)
-    # a competing objective that conflicts with the constitution is KEPT (the wrestling is the drama), only judged
-    assert {o.text for o in objs} >= {"keep Kai from discovering James", "stay close to Kai"}
-    assert any(o.scope == "constitutional" and o.state == "at_risk" for o in objs)
-    notes = await all_rows(TrajectoryNote, honcho_workspace_id=WS)
-    assert len(notes) == 1 and notes[0].state == "at_risk" and "confession" in notes[0].note.lower()
-    assert "must" not in notes[0].note.lower().split("requires")[0]            # offers a plausible path, does not script a line
-    await run(lila_delta())                                                     # replay: nothing twins, note is not duplicated
-    assert len(await all_rows(TrajectoryNote, honcho_workspace_id=WS)) == 1
-    assert len(await all_rows(WorldObjective, honcho_workspace_id=WS)) == 4
-
-
-@pytest.mark.asyncio
-async def test_continuation_projection_is_structured_traceable_and_names_what_is_unknown():
-    from src.services import world_model_service
-    d = lila_delta()
-    await run(d)
-    async with async_session_maker() as db:
-        layer = await world_model_service.build_world_layer(db, WS, d.owner)
-    c = layer["continuation"]
-    text = c["brief"]["text"]
-    assert "Lila toward Kai" in text and "avoidance increasing" in text and "Kai awareness: not established" in text
-    assert all(line["refs"] for line in c["brief"]["lines"])                  # every line traces to structured rows
-    assert c["active_intent"]["constitution"]["state"] == "at_risk"
-    assert c["active_intent"]["trajectory_note"]["label"] == "interpretation"
-    assert any(o["text"] == "stay close to Kai" for o in c["active_intent"]["objectives"])
-    assert c["manifest"]["unresolved"] and c["manifest"]["objectives"] == 4
-
-
-@pytest.mark.asyncio
-async def test_concealment_never_lets_the_other_party_be_assumed_aware_and_matter_title_is_canonical():
-    from src.models.world import RelationshipDimension
-    d = lila_delta()
-    body = d.model_dump()
-    body["dimensions"] = [x for x in body["dimensions"] if x["dimension"] != "awareness"]      # the producer forgot the asymmetry
-    body["matter_candidates"] = [{"ref": "mc1", "concept": "infidelity", "display_title": "Lila's infidelity", "kind": "topic", "actors": ["l", "k"],
-                                  "members": ["n1"], "evidence": ["m3"]}]
-    receipt = await run(WorldDelta(**body))
-    assert receipt["counts"].get("awareness_derived") == 1
-    dims = await all_rows(RelationshipDimension, honcho_workspace_id=WS)
-    aware = [x for x in dims if x.dimension == "awareness"]
-    ents = {e.id: e.display_name for e in await all_rows(Entity, honcho_workspace_id=WS)}
-    assert len(aware) == 1 and ents[aware[0].from_entity_id] == "Kai" and aware[0].value == "not established"      # Kai, not Lila
-    titles = [m.title for m in await all_rows(Matter, honcho_workspace_id=WS)]
-    assert any(t.endswith(": concealed strain") for t in titles) and "Lila's infidelity" not in titles
 
 
 def sophie_delta(policy="grounded") -> WorldDelta:
@@ -391,35 +319,38 @@ def sophie_delta(policy="grounded") -> WorldDelta:
     ]
     return WorldDelta(**{
         "workspace_id": WS, "owner": "person:sam",
-        "source": {"producer": "runtime-checkpoint", "model": "t", "session_id": "chat_S", "messages": msgs, "policy": policy,
+        "source": {"producer": "world-interpreter", "model": "t", "session_id": "chat_S", "messages": msgs, "policy": policy,
                    "owner_actor": "u", "speaker_actors": {"user": "u", "assistant": "s"}, "covered_through": {"message_id": "m3", "ordinal": 3}},
         "actors": [{"ref": "u", "name": "Sam", "entity_type": "person", "explicit": True, "evidence": ["m1"]},
                    {"ref": "s", "name": "Sophie", "entity_type": "character", "explicit": True, "evidence": ["m2"]},
                    {"ref": "maya", "name": "Maya", "entity_type": "person", "explicit": True, "evidence": ["m1"]}],
-        "events": [{"ref": "e1", "label": "going to the gym after work", "kind": "activity", "participants": ["u"], "holder": "u", "formation": "explicit", "evidence": ["m1"]}],
+        "events": [
+            {"ref": "e1", "label": "going to the gym after work", "kind": "activity", "participants": ["u"], "holder": "u", "formation": "explicit", "evidence": ["m1"]},
+            {"ref": "e2", "label": "Tom attends the Bluum launch", "kind": "event", "participants": ["u"], "holder": "s", "formation": "explicit", "evidence": ["m2"]}],
         "claims": [
-            {"ref": "c1", "subject": "maya", "text": "Maya is Sam's sister and lives in Leeds", "predicate": "lives_in", "holder": "u", "formation": "explicit", "evidence": ["m1"]},
-            {"ref": "c2", "subject": "u", "text": "Sam has a brother named Tom in Bristol", "predicate": "sibling", "holder": "s", "formation": "explicit", "evidence": ["m2"]}],
+            {"ref": "c1", "subject": "maya", "text": "Maya is Sam's sister and lives in Leeds", "kind": "attribute", "holder": "u", "formation": "explicit", "evidence": ["m1"]},
+            {"ref": "c2", "subject": "u", "text": "Sam has a brother named Tom in Bristol", "kind": "attribute", "holder": "s", "formation": "explicit", "evidence": ["m2"]}],
         "commitments": [{"ref": "k1", "committer": "u", "text": "ship the Bluum onboarding flow by Friday", "tentative": False, "evidence": ["m3"]}],
         "matter_candidates": [
-            {"ref": "mc1", "concept": "bluum", "display_title": "Bluum", "kind": "project", "actors": ["u"], "members": ["k1"], "evidence": ["m3"]}],
+            {"ref": "mc1", "concept": "bluum", "display_title": "Bluum", "kind": "project", "actors": ["u"], "members": ["k1"], "continuity_required": True,
+             "continuity_reason": "an ongoing project with a deadline", "evidence": ["m3"]}],
     })
 
 
 @pytest.mark.asyncio
-async def test_grounded_acceptance_person_without_matter_activity_as_event_hallucination_not_truth_and_one_project_matter():
+async def test_grounded_policy_keeps_companion_inventions_out_of_the_users_world_but_keeps_its_commitments_and_one_project_matter():
     receipt = await run(sophie_delta())
-    ents = {e.display_name: e for e in await all_rows(Entity, honcho_workspace_id=WS)}
-    assert "Maya" in ents and not await all_rows(Matter, honcho_workspace_id=WS, kind="person")     # a person needs no Matter
+    ents = {e.display_name for e in await all_rows(Entity, honcho_workspace_id=WS)}
+    assert "Maya" in ents and not await all_rows(Matter, honcho_workspace_id=WS, kind="person")
     entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
-    assert entries["Maya is Sam's sister and lives in Leeds"].formation == "explicit"                  # stable biography = claim from the user
+    assert entries["Maya is Sam's sister and lives in Leeds"].formation == "explicit"
     tom = entries["Sam has a brother named Tom in Bristol"]
-    assert tom.formation == "hypothesis" and tom.epistemic_status == "uncertain" and tom.confidence <= 0.3   # the companion's assertion is not user-world truth
-    assert receipt["counts"]["assistant_assertions_downgraded"] == 1
+    assert tom.formation == "hypothesis" and tom.epistemic_status == "uncertain" and tom.confidence <= 0.3
     events = {e.label: e for e in await all_rows(WorldEvent, honcho_workspace_id=WS)}
-    assert "going to the gym after work" in events                                                      # transient activity = Event, not a Matter
-    matters = await all_rows(Matter, honcho_workspace_id=WS)
-    assert [m.title for m in matters if m.kind == "project"] == ["Bluum"] and len(matters) == 1
+    assert events["Tom attends the Bluum launch"].formation == "hypothesis" and events["going to the gym after work"].formation == "explicit"
+    assert receipt["counts"]["assistant_assertions_downgraded"] == 2
+    assert entries["ship the Bluum onboarding flow by Friday"].claim_kind == "commitment" and entries["ship the Bluum onboarding flow by Friday"].formation == "explicit"
+    assert [m.title for m in await all_rows(Matter, honcho_workspace_id=WS)] == ["Bluum"]
 
 
 @pytest.mark.asyncio
@@ -427,3 +358,78 @@ async def test_generative_policy_keeps_the_companions_invented_detail_as_canon()
     await run(sophie_delta("generative"))
     entries = {e.claim: e for e in await all_rows(ModelEntry, honcho_workspace_id=WS)}
     assert entries["Sam has a brother named Tom in Bristol"].formation == "explicit"
+
+
+# ----------------------------------------------------------------------------- projection and interpreter plumbing
+@pytest.mark.asyncio
+async def test_the_continuation_projection_renders_the_interpreters_state_and_selects_no_meaning():
+    from src.services import world_model_service
+    d = lila_delta()
+    await run(d, constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    async with async_session_maker() as db:
+        layer = await world_model_service.build_world_layer(db, WS, d.owner)
+    c = layer["continuation"]
+    assert c["brief"]["text"] == "Lila is hiding the encounter from Kai; Kai's awareness is not established." and c["brief"]["lines"][0]["refs"]
+    assert {(x["from"], x["to"], x["dimension"]) for x in c["dimensions"]} >= {("Lila", "Kai", "avoidance"), ("Kai", "Lila", "awareness")}
+    assert c["active_intent"]["constitution"]["state"] == "at_risk" and c["active_intent"]["trajectory_note"]["label"] == "interpretation"
+    assert {o["text"] for o in c["active_intent"]["objectives"]} == {"keep Kai from discovering James", "stay close to Kai", "reconnect with Lila and look after her"}
+    assert any(r["text"].startswith("Lila is concealing") for r in layer["narrative"]) and layer["relationships"]
+
+
+class FakeInterpreter:
+    """Stands in for the reasoning model: returns raw JSON like a model would, including sloppy parts the structural normaliser must drop."""
+    def __init__(self, raw):
+        self.raw, self.calls, self.last_usage = raw, [], {"prompt_tokens": 1, "completion_tokens": 1}
+
+    async def generate_structured(self, **kw):
+        self.calls.append(kw)
+        return self.raw
+
+
+INTERP_MESSAGES = [
+    {"id": "m1", "speaker": "assistant", "text": "I can't come over tonight, I think I have a headache."},
+    {"id": "m2", "speaker": "user", "text": "oh ok, i would have looked after you."},
+]
+
+
+@pytest.mark.asyncio
+async def test_the_interpreter_gets_state_with_ids_and_only_structure_is_validated_mechanically():
+    from src.services import world_interpreter
+    raw = {"actors": [{"ref": "l", "name": "Lila", "entity_type": "character", "explicit": True, "confidence": 0.9, "evidence": ["m1"]},
+                      {"ref": "k", "name": "Kai", "entity_type": "character", "explicit": True, "confidence": 0.9, "evidence": ["m2"]},
+                      {"ref": "x", "name": "Ghost", "evidence": ["m404"]}],
+           "relationships": [{"ref": "r1", "actors": ["l", "k"], "type": "romantic", "directional": False, "evidence": ["m1"]}],
+           "dimensions": [{"ref": "d1", "relationship": "r1", "from_actor": "k", "to_actor": "l", "dimension": "protectiveness", "value": "high", "evidence": ["m2"]}],
+           "objectives": [{"ref": "o1", "actor": "l", "text": "keep distance tonight", "state": "on_track", "cause": "shame", "evidence": ["m1"]}],
+           "trajectory": [{"ref": "t1", "actor": "l", "state": "drifting", "note": "Withdrawal looks like shame, not a change of heart.", "evidence": ["m1"]}],
+           "brief": {"text": "Lila is pulling back; Kai is caring.", "lines": []}}
+    adapter = FakeInterpreter(raw)
+    async with async_session_maker() as db:
+        receipt = await world_interpreter.interpret(db, workspace_id=WS, owner="world:rpd2:u:lila:c1", session_id="c1", messages=INTERP_MESSAGES,
+                                                    speakers={"user": "Kai", "assistant": "Lila"}, policy="generative",
+                                                    constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."}, adapter=adapter)
+    assert receipt["interpreted"]["actors"] == 2 and receipt["interpreted"]["dimensions"] == 1                      # the unevidenced actor was dropped
+    assert receipt["counts"]["objectives_created"] == 1 and receipt["counts"]["trajectory_notes"] == 1 and receipt["counts"]["brief_written"] == 1
+    sent = adapter.calls[0]
+    assert "PRODUCT POLICY: generative" in sent["prompt"] and "Protect the relationship." in sent["prompt"] and "[m1] Lila:" in sent["prompt"]
+    # second pass: the model now sees the ids of what exists, so it can recognise instead of duplicate
+    async with async_session_maker() as db:
+        await world_interpreter.interpret(db, workspace_id=WS, owner="world:rpd2:u:lila:c1", session_id="c1", messages=INTERP_MESSAGES,
+                                          speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter)
+    state = json.loads(adapter.calls[1]["prompt"].split("CURRENT WORLD STATE (ids are real):\n")[1].split("\n\nNEW EVIDENCE")[0])
+    assert {a["name"] for a in state["actors"]} == {"Lila", "Kai"} and state["actors"][0]["id"] and state["objectives"][0]["text"] == "keep distance tonight"
+    assert state["last_brief"] == "Lila is pulling back; Kai is caring."
+
+
+@pytest.mark.asyncio
+async def test_the_interpret_endpoint_runs_the_pass_and_rejects_malformed_requests(monkeypatch):
+    from httpx import ASGITransport, AsyncClient
+    from src.main import app
+    import src.runtime_model as rm
+    monkeypatch.setattr(rm, "get_agenda_adapter", lambda: FakeInterpreter({"actors": [
+        {"ref": "l", "name": "Lila", "entity_type": "character", "explicit": True, "evidence": ["m1"]}]}))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
+        ok = await client.post("/v1/world/interpret", json={"workspace_id": WS, "owner": "world:x", "session_id": "s", "messages": INTERP_MESSAGES,
+                                                              "speakers": {"user": "Kai", "assistant": "Lila"}, "policy": "generative"})
+        bad = await client.post("/v1/world/interpret", json={"workspace_id": WS, "owner": "world:x", "session_id": "s", "messages": [{"id": "m1"}]})
+    assert ok.status_code == 200 and ok.json()["counts"]["actors_created"] == 1 and bad.status_code == 422

@@ -9,8 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 FORMATIONS = ("explicit", "reported", "source_linked", "observed", "inferred", "hypothesis")
 ENTITY_TYPES = ("person", "character", "organisation", "team")
-NARRATIVE_KINDS = ("relationship_shift", "trust_change", "disclosure", "concealment", "rupture", "reconciliation",
-                   "emotional_state", "ambiguity", "perspective", "self_expression")
 MATTER_KINDS_IN = ("project", "topic", "concern", "relationship_situation", "relationship_thread", "goal", "life_situation", "routine", "other")
 
 
@@ -48,6 +46,7 @@ class ActorC(_Item):
     aliases: List[str] = Field(default_factory=list)
     entity_type: Literal["person", "character", "organisation", "team"] = "person"
     relation_hint: Optional[str] = None
+    existing_id: Optional[str] = None          # the interpreter recognised a known actor (id from the world state it was shown)
     explicit: bool = False
     confidence: float = 0.7
     evidence: List[str] = Field(default_factory=list)
@@ -56,7 +55,9 @@ class ActorC(_Item):
 class RelationshipC(_Item):
     ref: str
     actors: List[str]
-    type: str
+    type: str                                 # open vocabulary
+    directional: bool = False                 # the interpreter decides whether A->B differs from B->A for this kind of relationship
+    existing_id: Optional[str] = None
     formation: Literal["explicit", "reported", "source_linked", "observed", "inferred", "hypothesis"] = "inferred"
     confidence: float = 0.7
     evidence: List[str] = Field(default_factory=list)
@@ -82,12 +83,15 @@ class EventC(_Item):
     evidence: List[str] = Field(default_factory=list)
     supersedes: List[str] = Field(default_factory=list)
     conflicts_with: List[str] = Field(default_factory=list)
+    same_as: Optional[str] = None             # the interpreter judged this the SAME occurrence as a known event (id or ref): merge
+    possibly_same_as: Optional[str] = None    # ...or possibly the same: keep both, link, never merge destructively
 
 
 class ClaimC(_Item):
     ref: str
     subject: str                              # ref of an actor, event or relationship
     text: str
+    kind: str = "assertion"                   # assertion (about an occurrence/relationship) | attribute (a stable property of an actor)
     predicate: Optional[str] = None
     holder: Optional[str] = "narrator"        # actor ref, "model" (the system's inference) or "narrator"
     formation: Literal["explicit", "reported", "source_linked", "observed", "inferred", "hypothesis"] = "reported"
@@ -100,8 +104,7 @@ class ClaimC(_Item):
 
 class NarrativeC(_Item):
     ref: str
-    kind: Literal["relationship_shift", "trust_change", "disclosure", "concealment", "rupture", "reconciliation",
-                  "emotional_state", "ambiguity", "perspective", "self_expression"]
+    kind: str                                 # open vocabulary (rupture, concealment, resentment, ...); `self_expression` marks rhetoric/performance
     about: List[str] = Field(default_factory=list)
     holder: Optional[str] = "model"
     text: str
@@ -129,15 +132,19 @@ class MatterC(_Item):
     actors: List[str] = Field(default_factory=list)
     members: List[str] = Field(default_factory=list)
     attach_to_hint: Optional[str] = None
+    continuity_required: bool = False         # the interpreter's judgement: does FUTURE behaviour depend on this unresolved state?
+    continuity_reason: Optional[str] = None
+    attach_to_existing_matter_id: Optional[str] = None
     evidence: List[str] = Field(default_factory=list)
 
 
 OBJECTIVE_STATES = ("on_track", "drifting", "at_risk", "failing", "resolved", "unknown")
-DIMENSIONS = ("affection", "trust", "avoidance", "disclosure", "commitment", "awareness", "expectation", "intent")
 
 
 class ObjectiveC(_Item):
     ref: str
+    op: Literal["create", "update", "resolve"] = "create"
+    existing_id: Optional[str] = None         # update/resolve target: a known objective id from the world state the interpreter was shown
     actor: str                                # whose objective it is (actor ref)
     text: str
     scope: Literal["enduring", "active", "immediate"] = "active"
@@ -156,7 +163,7 @@ class DimensionC(_Item):
     relationship: str                         # relationship ref (the shared identity this facet hangs under)
     from_actor: str
     to_actor: str
-    dimension: Literal["affection", "trust", "avoidance", "disclosure", "commitment", "awareness", "expectation", "intent"]
+    dimension: str                            # open vocabulary: affection, trust, resentment, dependency, respect, awareness-of-X ...
     value: str
     about: Optional[str] = None               # event ref (awareness_of / disclosure_of)
     formation: Literal["explicit", "reported", "source_linked", "observed", "inferred", "hypothesis"] = "inferred"
@@ -164,11 +171,27 @@ class DimensionC(_Item):
     evidence: List[str] = Field(default_factory=list)
 
 
-class ConstitutionC(_Item):
-    """Product-authored enduring orientation of a companion character (e.g. protect and deepen the long-term relationship with the user)."""
+class TrajectoryC(_Item):
+    """The interpreter's assessment of how one actor's current behaviour relates to its long-term orientation, with a plausible way the situation
+    could move. An INTERPRETATION: expiring, evidence-linked, never a fact and never a script."""
+    ref: str
     actor: str
+    state: Literal["on_track", "drifting", "at_risk", "failing", "unknown"] = "unknown"
+    note: str
+    objectives: List[str] = Field(default_factory=list)       # objective refs/ids the assessment concerns
+    evidence: List[str] = Field(default_factory=list)
+
+
+class BriefLineC(_Item):
     text: str
-    toward: Optional[str] = None
+    refs: List[str] = Field(default_factory=list)             # delta refs or known ids the line derives from
+
+
+class BriefC(_Item):
+    """The interpreter's compact, neutral rendering of the current situation for the foreground. A projection of the structured state, stored
+    versioned; it carries no independent truth."""
+    text: str
+    lines: List[BriefLineC] = Field(default_factory=list)
 
 
 class WorldDelta(_Item):
@@ -185,12 +208,13 @@ class WorldDelta(_Item):
     matter_candidates: List[MatterC] = Field(default_factory=list)
     objectives: List[ObjectiveC] = Field(default_factory=list)
     dimensions: List[DimensionC] = Field(default_factory=list)
-    constitution: Optional[ConstitutionC] = None
+    trajectory: List[TrajectoryC] = Field(default_factory=list)
+    brief: Optional[BriefC] = None
 
     @model_validator(mode="after")
     def _structure(self) -> "WorldDelta":
         refs: List[str] = []
-        for group in (self.actors, self.relationships, self.events, self.claims, self.narrative, self.commitments, self.matter_candidates, self.objectives, self.dimensions):
+        for group in (self.actors, self.relationships, self.events, self.claims, self.narrative, self.commitments, self.matter_candidates, self.objectives, self.dimensions, self.trajectory):
             refs += [item.ref for item in group]
         if len(refs) != len(set(refs)):
             raise ValueError("refs must be unique within a delta")
@@ -214,23 +238,24 @@ class WorldDelta(_Item):
         for k in self.commitments:
             if k.committer not in actor_refs:
                 raise ValueError(f"commitment {k.ref}: committer {k.committer} is not an actor in this delta")
-        for item in (*self.actors, *self.relationships, *self.events, *self.claims, *self.narrative, *self.commitments, *self.matter_candidates, *self.objectives, *self.dimensions):
+        for item in (*self.actors, *self.relationships, *self.events, *self.claims, *self.narrative, *self.commitments, *self.matter_candidates, *self.objectives, *self.dimensions, *self.trajectory):
             if not item.evidence:
                 raise ValueError(f"{item.ref}: evidence is required (a candidate with no evidence is rejected)")
         objective_refs = {o.ref for o in self.objectives}
         for o in self.objectives:
             if o.actor not in actor_refs or (o.toward and o.toward not in actor_refs):
                 raise ValueError(f"objective {o.ref}: actor/toward must be actors in this delta")
-            if any(c != "constitution" and c not in objective_refs for c in o.conflicts_with):
-                raise ValueError(f"objective {o.ref}: unknown conflicts_with ref")
+            if o.op == "create" and o.existing_id:
+                raise ValueError(f"objective {o.ref}: create cannot name an existing id")
         relationship_refs = {r.ref for r in self.relationships}
         for d in self.dimensions:
             if d.relationship not in relationship_refs or d.from_actor not in actor_refs or d.to_actor not in actor_refs:
                 raise ValueError(f"dimension {d.ref}: relationship/actors must be declared in this delta")
             if d.about and d.about not in known:
                 raise ValueError(f"dimension {d.ref}: unknown about-ref")
-        if self.constitution and self.constitution.actor not in actor_refs:
-            raise ValueError("constitution: actor must be an actor in this delta")
+        for t in self.trajectory:
+            if t.actor not in actor_refs:
+                raise ValueError(f"trajectory {t.ref}: actor must be an actor in this delta")
         for m in self.matter_candidates:
             if any(x not in known for x in (*m.members, *m.actors)):
                 raise ValueError(f"matter candidate {m.ref}: unknown member/actor ref")
