@@ -51,7 +51,7 @@ PRINCIPLES
   wants. Reconcile against the known objectives: update or resolve them by id when the evidence changes them; create only genuinely new ones.
 - A MATTER is a continuity container. Set continuity_required=true only when FUTURE behaviour depends on this unresolved state (and say why in
   continuity_reason). A topic that was merely discussed, or a one-off event, is not a Matter.
-- TRAJECTORY: for each companion character, assess how its current behaviour relates to its constitutional orientation (do not copy the
+- TRAJECTORY: only for the companion character named in the CONSTITUTIONAL ORIENTATION (not for the user's own character or other people), assess how its current behaviour relates to its constitutional orientation (do not copy the
   constitution; judge the situation). If there is tension, explain what is driving the behaviour (hurt, fear, shame...) and describe what
   psychologically plausible movement could restore coherence. This is an interpretation, not an instruction: never script a line, never require
   a confession or reconciliation, never rewrite or soften what happened. If behaviour is coherent, say so with state on_track.
@@ -69,7 +69,7 @@ claims:[{ref,subject(ref of actor/event/relationship),text,kind(assertion|attrib
 narrative:[{ref,kind(open: rupture, concealment, resentment, self_expression, ...),about[refs],holder(actor ref|null),text,formation,confidence,evidence[]}]
 commitments:[{ref,committer,to|null,text,tentative(bool),confidence,evidence[]}]
 dimensions:[{ref,relationship(ref),from_actor,to_actor,dimension,value,about(event ref)|null,formation,confidence,evidence[]}]
-objectives:[{ref,op(create|update|resolve),existing_id|null,actor,toward|null,text,scope,cause|null,state,strength(0-1),conflicts_with[objective refs|known ids|"constitution"],formation,confidence,evidence[]}]
+objectives:[{ref,op(create|update|resolve),existing_id|null,actor,toward|null,text,scope,cause|null,state,strength(0-1),conflicts_with[objective refs|known ids|"constitution"; omit the field to leave recorded conflicts unchanged],formation,confidence,evidence[]}]
 matter_candidates:[{ref,concept,display_title,kind(project|topic|concern|relationship_situation|goal|life_situation|routine|other),actors[],members[refs],continuity_required(bool),continuity_reason,attach_to_existing_matter_id|null,evidence[]}]
 trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,objectives[],evidence[]}]
 brief:{text,lines:[{text,refs[]}]}"""
@@ -185,7 +185,7 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                                "toward": o.get("toward") if o.get("toward") in actor_refs else None, "text": o["text"].strip(),
                                "scope": scope if scope in ("enduring", "active", "immediate") else "active", "cause": _str(o.get("cause")),
                                "state": state if state in ("on_track", "drifting", "at_risk", "failing", "resolved", "unknown") else "unknown",
-                               "strength": _num(o.get("strength"), 0.6), "conflicts_with": [x for x in _list(o.get("conflicts_with")) if isinstance(x, str)],
+                               "strength": _num(o.get("strength"), 0.6), "conflicts_with": ([x for x in _list(o.get("conflicts_with")) if isinstance(x, str)] if isinstance(o.get("conflicts_with"), list) else None),
                                "formation": _formation(o.get("formation"), "inferred"), "confidence": _num(o.get("confidence"), 0.6), "evidence": ev(o)})
     all_refs = known | {n["ref"] for n in narrative} | {k["ref"] for k in commitments}
     matters = []

@@ -271,6 +271,8 @@ async def test_objectives_are_reconciled_by_id_and_code_never_decides_two_wordin
     after = {o.text: o for o in await all_rows(WorldObjective, honcho_workspace_id=WS) if o.scope != "constitutional"}
     assert after["stay close to Kai"].state == "failing" and after["stay close to Kai"].id == objs["stay close to Kai"].id          # updated in place by id
     assert after["reconnect with Lila"].status == "resolved"
+    prior = json.loads(objs["keep Kai from discovering James"].conflicts_json)
+    assert json.loads(after["keep Kai from discovering James"].conflicts_json) == prior                   # a pass that says nothing about conflicts never erases them
     assert "keep Kai from finding out about James" in after and "keep Kai from discovering James" in after                          # paraphrase NOT auto-merged by code
 
 

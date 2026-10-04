@@ -563,6 +563,8 @@ async def _objectives(ctx: _Ctx) -> None:
         ctx.refs[o.ref] = {"type": "objective", "id": str(row.id)}
         await ctx.prov("objective", row.id)
     for o, row in pending:                                  # conflicts resolve once every objective of the delta has an id
+        if o.conflicts_with is None:                        # the interpreter said nothing about conflicts: never erase what is recorded
+            continue
         ids = []
         for c in o.conflicts_with:
             if c == "constitution":

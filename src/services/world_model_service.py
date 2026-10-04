@@ -461,9 +461,10 @@ async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, na
         intent["objectives"].append({"ref": str(o.id), "actor": names.get(o.actor_entity_id), "toward": names.get(o.toward_entity_id) if o.toward_entity_id else None,
                                      "text": o.text, "scope": o.scope, "state": o.state, "strength": o.strength, "cause": o.cause,
                                      "conflicts": _json_list(o.conflicts_json)})
-    if notes:
-        intent["trajectory_note"] = {"ref": str(notes[0].id), "state": notes[0].state, "text": notes[0].note, "label": "interpretation",
-                                      "expires_at": notes[0].expires_at.isoformat() if notes[0].expires_at else None}
+    mine = [n for n in notes if const is not None and n.actor_entity_id == const.actor_entity_id] or notes     # the constitutional actor's own note
+    if mine:
+        intent["trajectory_note"] = {"ref": str(mine[0].id), "actor": names.get(mine[0].actor_entity_id), "state": mine[0].state, "text": mine[0].note,
+                                      "label": "interpretation", "expires_at": mine[0].expires_at.isoformat() if mine[0].expires_at else None}
     matters = (await db.execute(select(Matter).where(Matter.honcho_workspace_id == workspace_id, Matter.owner_peer_id == owner,
                                                     Matter.status == "active"))).scalars().all()
     manifest = {"actors": [{"ref": a["ref"], "name": a["name"]} for a in actors],

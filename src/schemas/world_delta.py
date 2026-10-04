@@ -152,7 +152,7 @@ class ObjectiveC(_Item):
     strength: float = 0.6
     cause: Optional[str] = None               # why the actor wants it (hurt, fear, shame, desire...)
     state: Literal["on_track", "drifting", "at_risk", "failing", "resolved", "unknown"] = "unknown"
-    conflicts_with: List[str] = Field(default_factory=list)       # other objective refs, or "constitution"
+    conflicts_with: Optional[List[str]] = None                    # other objective refs/ids, or "constitution"; None = leave the recorded conflicts unchanged
     formation: Literal["explicit", "reported", "source_linked", "observed", "inferred", "hypothesis"] = "inferred"
     confidence: float = 0.6
     evidence: List[str] = Field(default_factory=list)
