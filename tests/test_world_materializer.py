@@ -829,3 +829,30 @@ async def test_a_completion_names_the_exact_open_item_and_closes_it_even_from_an
     async with async_session_maker() as db:
         row = await db.get(Expectation, exp.id)
     assert row.outcome_state == OutcomeState.FULFILLED and "rang mum" in row.resolution_evidence
+
+
+@pytest.mark.asyncio
+async def test_every_listed_open_item_gets_a_verdict_and_resolving_one_while_creating_another_happens_in_one_pass():
+    from src.models.expectation import Expectation, OutcomeState
+    owner = "world:rpd2:u:review:c1"
+    m1 = [{"id": "m1", "speaker": "user", "text": "I'm waiting on James to confirm the flat viewing."}, {"id": "m2", "speaker": "user", "text": "Also remind me to renew my passport this month."}]
+    create = {"operational": [{"decision": "create", "kind": "event", "title": "James to confirm flat viewing", "temporal_phrase": "this week", "evidence": ["m1"]},
+                              {"decision": "create", "kind": "reminder", "title": "Renew passport", "temporal_phrase": "this month", "evidence": ["m2"]}]}
+    await _run(FakeInterpreter(create), m1, owner=owner)
+    async with async_session_maker() as db:
+        rows = {e.title: e for e in (await db.execute(select(Expectation).where(Expectation.honcho_workspace_id == WS, Expectation.owner_peer_id == owner))).scalars().all()}
+    james, passport = str(rows["James to confirm flat viewing"].id), str(rows["Renew passport"].id)
+    m2 = m1 + [{"id": "m3", "speaker": "user", "text": "James replied: the viewing is Saturday at 11."}]
+    adapter = FakeInterpreter({"operational": [{"decision": "create", "kind": "event", "title": "Flat viewing", "temporal_phrase": "Saturday at 11", "evidence": ["m3"]}],
+                               "operational_review": [{"id": james, "status": "completed", "note": "James confirmed", "evidence": ["m3"]},
+                                                      {"id": passport, "status": "cancelled", "evidence": []},          # a closing verdict with no evidence must be dropped
+                                                      {"id": "not-listed", "status": "holds"}]})
+    receipt = await _run(adapter, m2, owner=owner)
+    async with async_session_maker() as db:
+        now_rows = {e.title: e for e in (await db.execute(select(Expectation).where(Expectation.honcho_workspace_id == WS, Expectation.owner_peer_id == owner))).scalars().all()}
+    assert now_rows["James to confirm flat viewing"].outcome_state == OutcomeState.FULFILLED and "Saturday" in now_rows["Flat viewing"].raw_temporal_phrase     # resolved AND created
+    assert now_rows["Renew passport"].outcome_state == OutcomeState.UNKNOWN                                                                              # unevidenced verdict never applied
+    cov = receipt["operational"]["coverage"]
+    assert cov["listed"] == 2 and cov["reviewed"] == 1 and cov["unreviewed_ids"] == [passport]                                                         # silence is visible, not assumed
+    prompt = adapter.calls[0]["prompt"]
+    assert "operational_review" in adapter.calls[0]["system"] and james in prompt and passport in prompt

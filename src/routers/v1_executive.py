@@ -25,6 +25,10 @@ class PolicyRequest(WorldRef):
     policy: Dict[str, Any]
 
 
+class SpeakCandidatesRequest(BaseModel):
+    workspace_id: str
+
+
 class WakeRequest(WorldRef):
     reason: str = "external_event"
     delay_seconds: int = 5
@@ -45,6 +49,12 @@ async def tick(db: AsyncSession = Depends(get_async_session)):
     if adapter is None:
         raise HTTPException(status_code=503, detail="no_model_credentials")
     return await executive.tick(db, adapter=adapter)
+
+
+@router.post("/speak-candidates")
+async def speak_candidates(req: SpeakCandidatesRequest, db: AsyncSession = Depends(get_async_session)):
+    """Who has something the executive wants to raise right now (polled by the app's proactive scan; the initiative gate still decides at tick time)."""
+    return await executive.speak_candidates(db, req.workspace_id)
 
 
 @router.post("/policy")

@@ -202,7 +202,7 @@ async def build_context(db: AsyncSession, workspace_id: str, owner: str, *, now:
                                                                     TurnStamp.turn_at > i.last_surfaced_at).order_by(TurnStamp.turn_at.asc()).limit(1))).scalar()
             turns_after[i.id] = nxt
     outcomes = [{"id": str(i.id), "title": i.action, "kind": i.kind, "raised_at": _iso(i.last_surfaced_at), "times_raised": i.surfaced_count, "status_now": i.status,
-                 "user_next_active_after": _iso(turns_after.get(i.id)), "receipt": json.loads(i.receipt_json) if i.receipt_json else None}
+                 "user_next_active_after": _iso(turns_after.get(i.id)), "what_was_said": json.loads(i.extra_json or "{}").get("outbound_text"), "receipt": json.loads(i.receipt_json) if i.receipt_json else None}
                 for i in past if i.last_surfaced_at][:20]
     set_aside = [{"id": str(i.id), "title": i.action, "reason": json.loads(i.extra_json or "{}").get("reason")} for i in past if i.status == "cancelled"][:15]
     agenda_row = next((i for i in past if i.kind == "agenda"), None)
@@ -498,3 +498,43 @@ async def record_receipt(db: AsyncSession, *, workspace_id: str, owner: str, wor
     await db.commit()
     await note_changed(db, workspace_id, owner, "receipt", delay_seconds=5)
     return {"ok": True, "status": row.status}
+
+
+async def speak_candidates(db: AsyncSession, workspace_id: str, now: Optional[datetime] = None) -> List[Dict[str, Any]]:
+    """Owners with an executive intent that wants to reach the user, for the app's proactive scan (the app owns the conversation and the push channel).
+    Cheap and mechanical: no model. Owners recently held back by the policy gate, or with a delivery already in flight, are left out so the scan does not
+    ask the gate every minute."""
+    from src.models.operational_state import ProactiveLog
+    now = _naive(now) if now else _utc()
+    rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.source_agent == "executive", WorkItem.kind != "agenda",
+                                                    WorkItem.status.in_(ACTIVE_STATUSES)).limit(300))).scalars().all()
+    by_owner: Dict[str, List[WorkItem]] = {}
+    for r in rows:
+        if json.loads(r.extra_json or "{}").get("surface_now"):
+            by_owner.setdefault(r.owner_peer_id, []).append(r)
+    out = []
+    for owner, items in by_owner.items():
+        recent = (await db.execute(select(ProactiveLog.decision, ProactiveLog.at).where(
+            ProactiveLog.honcho_workspace_id == workspace_id, ProactiveLog.owner_peer_id == owner, ProactiveLog.at >= now - timedelta(minutes=15)).order_by(ProactiveLog.at.desc()))).all()
+        if any(str(d).startswith("withheld") or (d == "reserved" and at >= now - timedelta(minutes=5)) for d, at in recent):
+            continue
+        items.sort(key=lambda r: -(r.importance or 0))
+        out.append({"owner": owner, "intent_id": str(items[0].id), "title": items[0].action, "importance": items[0].importance, "count": len(items)})
+    return out
+
+
+async def attach_outbound(db: AsyncSession, workspace_id: str, owner: str, message_id: str, text: str, now: Optional[datetime] = None) -> bool:
+    """Causal link, mechanically: the assistant message that arrives right after an intent was raised IS that intent's outbound message, provided exactly
+    one raised intent is still waiting for its message. The executive then sees what was actually said, and later evidence can be related to the move."""
+    now = _naive(now) if now else _utc()
+    rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.source_agent == "executive",
+                                                    WorkItem.status == "surfaced", WorkItem.last_surfaced_at >= now - timedelta(minutes=10)))).scalars().all()
+    waiting = [r for r in rows if not json.loads(r.extra_json or "{}").get("outbound_message_id")]
+    if len(waiting) != 1:
+        return False
+    extra = json.loads(waiting[0].extra_json or "{}")
+    extra["outbound_message_id"], extra["outbound_text"] = message_id, (text or "")[:600]
+    waiting[0].extra_json, waiting[0].updated_at = json.dumps(extra), _utc()
+    db.add(waiting[0])
+    await db.commit()
+    return True

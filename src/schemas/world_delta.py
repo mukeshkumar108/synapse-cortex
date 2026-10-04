@@ -221,6 +221,15 @@ class OperationalC(_Item):
     evidence: List[str] = Field(default_factory=list)
 
 
+class OperationalReviewC(_Item):
+    """A verdict on one listed open operational item: what the new evidence did to it. The obligation covers every listed item, so silence cannot be
+    mistaken for 'still open'; creating something new is a separate act."""
+    id: str
+    status: Literal["holds", "updated", "completed", "cancelled", "superseded", "unclear"]
+    note: Optional[str] = None
+    evidence: List[str] = Field(default_factory=list)
+
+
 class WorldDelta(_Item):
     contract_version: Literal["world-delta-v1"] = "world-delta-v1"
     workspace_id: str
@@ -239,6 +248,7 @@ class WorldDelta(_Item):
     brief: Optional[BriefC] = None
     reviews: List[ReviewC] = Field(default_factory=list)
     operational: List[OperationalC] = Field(default_factory=list)
+    operational_reviews: List[OperationalReviewC] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _structure(self) -> "WorldDelta":

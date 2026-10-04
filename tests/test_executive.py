@@ -158,3 +158,26 @@ async def test_a_world_whose_operational_semantics_belong_to_the_interpreter_is_
     async with async_session_maker() as db:
         assert (await db.execute(select(TurnStamp).where(TurnStamp.honcho_workspace_id == "ws-own"))).scalars().one().honcho_message_id == "m-own"
         assert (await db.execute(select(Expectation).where(Expectation.honcho_workspace_id == "ws-own"))).scalars().all() == []
+
+
+@pytest.mark.asyncio
+async def test_speak_candidates_are_cheap_and_gated_and_the_outbound_message_is_linked_to_exactly_one_raised_intent():
+    from src.models.operational_state import ProactiveLog
+    owner = "user_exec7"
+    model = Model({"intents": [{"op": "create", "kind": "check_in", "title": "Ask about the portfolio", "importance": 0.9, "surface_now": True, "message_gist": "portfolio"},
+                               {"op": "create", "kind": "remind", "title": "Passport", "importance": 0.4, "surface_now": False}]})
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=model)
+        cands = await executive.speak_candidates(db, WS)
+        mine = [c for c in cands if c["owner"] == owner]
+        assert len(mine) == 1 and mine[0]["title"] == "Ask about the portfolio" and mine[0]["count"] == 1           # only what wants to be raised; no model call
+        db.add(ProactiveLog(honcho_workspace_id=WS, owner_peer_id=owner, at=now(), item_key="x", reason="quiet hours", decision="withheld:quiet_hours"))
+        await db.commit()
+        assert [c for c in await executive.speak_candidates(db, WS) if c["owner"] == owner] == []                   # recently held back by the gate: not asked again every minute
+        item_id = mine[0]["intent_id"]
+        await executive.mark_surfaced(db, item_id, now())
+        assert await executive.attach_outbound(db, WS, owner, "msg-77", "Hey, how did the portfolio go?", now()) is True
+        row = await db.get(WorkItem, __import__("uuid").UUID(item_id))
+        assert json.loads(row.extra_json)["outbound_message_id"] == "msg-77"
+        assert await executive.attach_outbound(db, WS, owner, "msg-78", "another", now()) is False                  # nothing outstanding: no guess

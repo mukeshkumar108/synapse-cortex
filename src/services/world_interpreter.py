@@ -93,10 +93,14 @@ PRINCIPLES
   for every idea or topic. `temporal_phrase` is the speaker's own words about when (never compute a timestamp: code grounds it). To act on a listed open
   item use its id in `target`. In a grounded world, something only the companion asserts about the user's life is not the user's commitment; the companion's
   own promises are its own. An item that merely repeats one already listed is not new. When new evidence RESOLVES a listed item (including something someone was waiting on), complete or cancel THAT item by its id in addition to recording anything new; do not leave it open and create a replacement.
+- OPERATIONAL REVIEW: for EVERY item listed under OPERATIONAL STATE return one `operational_review` verdict {id, status, note, evidence}: holds (still open as
+  is), updated (its timing or substance changed: also emit the change in `operational`), completed (it happened / was resolved, including something someone was
+  waiting on), cancelled (called off), superseded (replaced by a newer item you create), unclear. completed / cancelled / superseded / updated need `evidence`
+  (message ids). Resolving an item and creating a new one are separate acts and can both happen in one response. Silence is not a verdict.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
 OUTPUT: ONE JSON object with these arrays (empty when nothing applies): actors, relationships, events, claims, narrative, commitments,
-dimensions, objectives, matter_candidates, trajectory, state_review, operational, and an optional brief. Shapes:
+dimensions, objectives, matter_candidates, trajectory, state_review, operational, operational_review, and an optional brief. Shapes:
 actors:[{ref,name,aliases[],entity_type(person|character|organisation|team),explicit(bool),existing_id|null,confidence,evidence[]}]
 relationships:[{ref,actors[a,b],type,directional(bool),existing_id|null,formation,confidence,evidence[]}]
 events:[{ref,label,kind,when_phrase|null,where|null,participants[],holder|null,formation,confidence,evidence[],conflicts_with[],same_as|null,possibly_same_as|null}]
@@ -108,6 +112,7 @@ objectives:[{ref,op(create|update|resolve),existing_id|null,actor,toward|null,te
 matter_candidates:[{ref,concept,display_title,kind(project|topic|concern|relationship_situation|goal|life_situation|routine|other),actors[],members[refs],continuity_required(bool),continuity_reason,attach_to_existing_matter_id|null,evidence[]}]
 trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,objectives[],evidence[]}]
 state_review:[{id(of a listed objective or dimension),status(holds|superseded|resolved|unclear),note}]
+operational_review:[{id(of a listed open item),status(holds|updated|completed|cancelled|superseded|unclear),note,evidence[]}]
 operational:[{decision(create|complete|cancel|progress|reschedule),kind(reminder|event|deadline|commitment),title,temporal_phrase|null,target(id of a listed open item)|null,canonical_title|null,new_temporal_phrase|null,progress_amount|null,progress_unit|null,confidence,evidence[]}]
 brief:{text,lines:[{text,refs[]}]}"""
 
@@ -410,6 +415,15 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                                 "canonical_title": _str(o.get("canonical_title")) or (open_ids.get(target) if target else None),
                                 "new_temporal_phrase": _str(o.get("new_temporal_phrase")), "progress_amount": o.get("progress_amount") if isinstance(o.get("progress_amount"), (int, float)) else None,
                                 "progress_unit": _str(o.get("progress_unit")), "confidence": _num(o.get("confidence"), 0.8), "evidence": ev(o)})
+    op_reviews = []
+    for r in dict_items("operational_review", "operational_review"):
+        rid, st = _str(r.get("id")), str(r.get("status") or "").lower()
+        if st not in ("holds", "updated", "completed", "cancelled", "superseded", "unclear") or rid not in open_ids:
+            drops("operational_review", {"ref": rid}, "bad_status_or_unlisted_id")
+        elif st in ("updated", "completed", "cancelled", "superseded") and not ev(r):
+            drops("operational_review", {"ref": rid}, "verdict_without_evidence")
+        else:
+            op_reviews.append({"id": rid, "status": st, "note": _str(r.get("note")), "evidence": ev(r)})
     reviews = []
     for r in dict_items("state_review", "state_review"):
         if r.get("status") in ("holds", "superseded", "resolved", "unclear") and _str(r.get("id")):
@@ -429,7 +443,7 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                    "owner_actor": speaker_actors.get("user"), "speaker_actors": speaker_actors},
         "actors": actors, "relationships": rels, "events": events, "claims": claims, "narrative": narrative, "commitments": commitments,
         "dimensions": dims, "objectives": objectives, "matter_candidates": matters, "trajectory": trajectory, "brief": brief, "reviews": reviews,
-        "operational": operational,
+        "operational": operational, "operational_reviews": op_reviews,
     }
 
 
@@ -651,9 +665,14 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
                                   "events": {e["id"]: e["label"] for e in state["events"]},
                                   "operational": {x["id"]: x["title"] for kind in ("expectations", "open_loops", "commitments") for x in state["operational_state"][kind]}})
     delta = WorldDelta(**delta_dict)
+    known_operational = [x["id"] for kind in ("expectations", "open_loops", "commitments") for x in state["operational_state"][kind]]
     receipt = await world_materializer.materialize(db, delta, now=now, adapter=matter_adapter, constitution=constitution, run=run)
     receipt["operational"] = await commit_operational(db, delta.operational, messages=messages, workspace_id=workspace_id, owner=owner, session_id=session_id,
                                                       timezone=timezone, now=now)
+    receipt["operational"]["reviews"] = await apply_operational_reviews(db, delta.operational_reviews, messages=messages, now=now)
+    listed = list(known_operational)
+    reviewed = {r.id for r in delta.operational_reviews}
+    receipt["operational"]["coverage"] = {"listed": len(listed), "reviewed": len([i for i in listed if i in reviewed]), "unreviewed_ids": [i for i in listed if i not in reviewed]}
     kinds = ("actors", "relationships", "events", "claims", "narrative", "commitments", "dimensions", "objectives", "matter_candidates", "trajectory")
     receipt["usage"] = getattr(adapter, "last_usage", None)
     receipt["model"] = model_id
@@ -761,3 +780,22 @@ async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: s
         await db.commit()
         return {"closed": "commitment", "id": str(tid)}
     return None
+
+
+async def apply_operational_reviews(db: AsyncSession, reviews: List[Any], *, messages: List[Dict[str, str]], now: Optional[datetime]) -> List[Dict[str, Any]]:
+    """Apply the interpreter's verdicts on listed open items. completed / cancelled / superseded close the item by its exact id (mechanics); holds / updated /
+    unclear change nothing here (an update's new timing arrives through `operational`). Every verdict is recorded with whether it took effect."""
+    from datetime import timezone as dt_tz
+    by_id = {m["id"]: m for m in messages}
+    stamp = now or datetime.now(dt_tz.utc)
+    out = []
+    for r in reviews:
+        entry = {"id": r.id, "status": r.status, "applied": r.status in ("holds", "updated", "unclear")}
+        if r.status in ("completed", "cancelled", "superseded"):
+            text = by_id[r.evidence[0]]["text"][:500] if r.evidence and r.evidence[0] in by_id else (r.note or "")
+            result = await _close_by_id(db, r.id, "complete" if r.status == "completed" else "cancel", text, stamp)
+            entry["applied"] = bool(result)
+            if result:
+                entry["closed"] = result.get("closed")
+        out.append(entry)
+    return out

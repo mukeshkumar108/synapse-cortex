@@ -158,7 +158,8 @@ async def ingest_turn_event(
     if (await executive.get_policy(db, payload.workspace_id, payload.peer_id))["operational"].get("owner") == "interpreter":
         # This world's meaning belongs to the interpreter: the turn (user OR assistant) is only stamped for recency, never read here.
         if payload.is_assistant_turn:
-            return {"status": "accepted", "interpreter_owns_meaning": True, "honcho_message_id": payload.honcho_message_id}
+            linked = await executive.attach_outbound(db, payload.workspace_id, payload.peer_id, payload.honcho_message_id, payload.text, _naive_utc(payload.now))
+            return {"status": "accepted", "interpreter_owns_meaning": True, "honcho_message_id": payload.honcho_message_id, "linked_to_intent": linked}
         if True:
             dialect = db.get_bind().dialect.name
             stamper = sqlite_insert if dialect == "sqlite" else insert
