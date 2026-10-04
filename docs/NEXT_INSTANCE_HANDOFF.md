@@ -1,3 +1,40 @@
+# UPDATE 2026-10-04 (later): Layer-2 protocol pass. Read this block first; it supersedes conflicting statements below.
+
+**Integrity audit of the previous handoff (verified against git, VPS and the DB):** commits, deployed images (byte-identical key files), flags, models, Honcho
+mirroring (`observe_me=false`, embeddings, **summaries do get produced**: 3 summary tasks processed, content present), Matter repair, rollback tags and scratch
+cleanup were all correct. Corrections: (1) the two independent audits and the ChatGPT review were never in either repo (user-supplied; untracked files in the
+Runtime working tree are other audits); (2) the stated Cortex test result (687) was only reproducible on one machine: 2 committed tests read an untracked
+`evals/interpretation_phase0/` (now tracked: `run.py`, `cases.json`, `README.md`); (3) "watch `world interpretation:` in logs" never worked (INFO was dropped by
+logging config; Runtime now prints `[world-interpret]` lines); (4) the Cortex VPS checkout holds untracked `deploy/.env.bak*` files that Cortex's `.gitignore`
+does not cover (never `git add -A` there).
+
+**Defects found by observing real RPD2 sessions and fixed:** the interpreter never knew who the human's character was (the actor was literally "the user");
+checkpoint and session-end windows overlapped and were interpreted twice (seen in real runs); checkpoint marker advanced on submit so a failed window was lost;
+checkpoint evidence used synthetic ids (`-u/-a`) different from the persisted ids; no per-world serialisation; rejection reasons were dropped; **replacement facets
+the model wrote were silently dropped when it referenced a known relationship/actor by id (root cause of the Elena stale-awareness case)**; a durable reading
+could not supersede an `unknown`-tier facet; the resident `covered_through` would have lagged a run; the foreground saw only the last 6 messages while the brief
+refreshed every 10 turns (a hole of up to ~14 messages); Sophie narrow lane returned 500 on concurrent duplicate delivery.
+
+**Built and deployed (Cortex `b1d861c`+`295aea5`, Runtime `22c69db`):** see `COGNITION_ARCHITECTURE.md` Part A. In one line: leased, transactional,
+id-ledgered interpretation with run states and a single trace endpoint; product-pinned identities; reference resolution by local ref or known id; state review;
+Runtime offers persisted-id windows and shows the foreground everything after Cortex's coverage frontier; Runtime episode ledger off for interpreted worlds
+(rollback lever `WORLD_OWNERS_USE_EPISODE_LEDGER=true`; whole-protocol rollback images `*:pre-layer2-protocol`).
+
+**Verified how:** Cortex full suite 698 passed / 22 skipped on the working tree (clean checkout now contains the phase0 fixtures); Runtime 260 passed; a real-model
+replay on scratch SQLite (invented scenario: repeated first name, ambiguous pronoun, discovery, chaotic turn + retraction; about five cents) showed stale
+awareness superseded, concealment objective resolved, chaos kept acute, redelivery skipped; production smoke (isolated workspace, purged by exact id, verified):
+applied / redelivery skipped / concurrent duplicate pair applied+busy / trace endpoint / lease released. One-time repair applied: Audrey world's literal "the user"
+actor pinned as the typed user placeholder (alias kept).
+
+**Not done / pending (do not assume):** (a) **RPD2 push**: commit `29d24d3` on branch `consumer-cutover` of `rpd2-consumer-cutover` (local only) sends the human's
+`rpDisplayName` as `trusted_user_context.user_display_name`; until it is pushed/deployed RPD2 worlds have a typed placeholder user and the interpreter cannot
+name the human; its unit test was written but could not be run here (Playwright webserver needs a complete `node_modules`). (b) No real post-deploy RPD2 checkpoint
+had been observed at the time of writing: check `GET /v1/world/trace` for the Elena/Audrey owners and the `[world-interpret]` lines in the Runtime logs.
+(c) Sophie convergence: plan only (`SOPHIE_CONVERGENCE_PLAN.md`), two product decisions needed. (d) The original narrow-lane race (needs the live narrow model) is
+covered by a lock + a duplicate-delivery test, not reproduced.
+
+---
+
 # Handoff to the next engineering instance (written 2026-10-04, end of the world-cognition rebuild)
 
 Read this first, then the canonical architecture (`COGNITION_ARCHITECTURE.md`: Part A as built, Part B not built), then
