@@ -349,3 +349,21 @@ async def test_a_consequential_action_needs_the_users_linked_reply_and_then_runs
         await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["reply"], adapter=Model(claim))
         pending = [p for p in await executive.pending_actions_all(db, WS) if p["owner"] == owner]
     assert len(pending) == 1 and pending[0]["tool"]["tool"] == "task.cancel"                                      # linked reply + confirmation: cleared
+
+
+@pytest.mark.asyncio
+async def test_an_ask_that_carries_a_tool_is_a_confirmation_request_and_a_linked_yes_releases_it():
+    owner = "user_exec15"
+    cat = [{"tool": "task.cancel", "consequence": "moderate", "reversible": False}]
+    plain_ask = {"op": "create", "kind": "ask", "title": "Delete the duplicate task?", "surface_now": True, "message_gist": "offer",
+                 "action": {"tool": "task.cancel", "args": {"task_id": "dup-1"}}}
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}, "capabilities": {"tools": cat}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=Model({"intents": [plain_ask, {**plain_ask, "title": "Ghost", "action": {"tool": "nope.tool", "args": {}}}]}))
+        item = (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner, WorkItem.kind == "ask"))).scalars().one()          # the ghost-tool ask was dropped
+        assert json.loads(item.extra_json)["requires_confirmation"] is True
+        await executive.mark_surfaced(db, str(item.id), now())
+        await executive.record_outbound(db, WS, owner, str(item.id), "Delete the duplicate?", "d", "out-7")
+        await executive.link_replies(db, WS, owner, [{"id": "out-7", "speaker": "assistant", "text": "x"}, {"id": "u-7", "speaker": "user", "text": "yes"}], {"out-7": {"intent_id": str(item.id), "title": "t"}})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["reply"], adapter=Model({"intents": [{"op": "update", "id": str(item.id), "authority_basis": "confirmed_by_user"}]}))
+        assert [p["tool"]["args"] for p in await executive.pending_actions_all(db, WS) if p["owner"] == owner] == [{"task_id": "dup-1"}]

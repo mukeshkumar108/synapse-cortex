@@ -364,6 +364,13 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
             status = "waiting" if kind in ("wait", "reconsider") or _str(it.get("waiting_on")) else "proposed"
             if kind == "act" and decision["mode"] == "autonomous":
                 status = "in_progress"           # approved for execution; completion only ever comes from a receipt
+            if kind == "ask" and action and _str(action.get("tool")):
+                # An `ask` that carries a tool IS a confirmation request, however the model came to phrase it: it needs the user's linked reply before anything runs.
+                spec_ask = catalog.get(_str(action.get("tool")))
+                if spec_ask is None:
+                    dropped.append({"reason": "unknown_tool", "title": title, "tool": _str(action.get("tool"))})
+                    continue
+                extra.update({"requires_confirmation": True, "surface_now": True, "message_gist": extra["message_gist"] or f"Offer to: {title}"})
             if kind == "act" and decision["mode"] == "needs_confirmation":
                 extra.update({"requires_confirmation": True, "surface_now": True, "message_gist": extra["message_gist"] or f"Offer to: {title}"})
                 kind = "ask"
