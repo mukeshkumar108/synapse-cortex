@@ -523,18 +523,19 @@ async def speak_candidates(db: AsyncSession, workspace_id: str, now: Optional[da
     return out
 
 
-async def attach_outbound(db: AsyncSession, workspace_id: str, owner: str, message_id: str, text: str, now: Optional[datetime] = None) -> bool:
-    """Causal link, mechanically: the assistant message that arrives right after an intent was raised IS that intent's outbound message, provided exactly
-    one raised intent is still waiting for its message. The executive then sees what was actually said, and later evidence can be related to the move."""
-    now = _naive(now) if now else _utc()
-    rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.owner_peer_id == owner, WorkItem.source_agent == "executive",
-                                                    WorkItem.status == "surfaced", WorkItem.last_surfaced_at >= now - timedelta(minutes=10)))).scalars().all()
-    waiting = [r for r in rows if not json.loads(r.extra_json or "{}").get("outbound_message_id")]
-    if len(waiting) != 1:
+async def record_outbound(db: AsyncSession, workspace_id: str, owner: str, intent_id: str, text: str, decision_id: Optional[str] = None) -> bool:
+    """Exact causal link: the Runtime composed this text to carry out THIS intent (it holds the intent id), so record what was actually said on the intent.
+    The executive then sees its own move, and later evidence can be related to it. No matching, no timing heuristics."""
+    try:
+        row = await db.get(WorkItem, uuid.UUID(intent_id))
+    except (ValueError, TypeError):
         return False
-    extra = json.loads(waiting[0].extra_json or "{}")
-    extra["outbound_message_id"], extra["outbound_text"] = message_id, (text or "")[:600]
-    waiting[0].extra_json, waiting[0].updated_at = json.dumps(extra), _utc()
-    db.add(waiting[0])
+    if row is None or row.honcho_workspace_id != workspace_id or row.owner_peer_id != owner:
+        return False
+    extra = json.loads(row.extra_json or "{}")
+    extra["outbound_text"], extra["outbound_decision_id"] = (text or "")[:600], decision_id
+    row.extra_json, row.updated_at = json.dumps(extra), _utc()
+    db.add(row)
     await db.commit()
     return True
+
