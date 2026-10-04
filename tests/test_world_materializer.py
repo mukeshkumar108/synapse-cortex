@@ -503,6 +503,7 @@ async def test_honcho_context_is_given_to_the_interpreter_as_lower_grade_input_a
             return {"short_summary": "Lila and Kai are partners.", "long_summary": None}
 
         async def peer_search(self, ws, peer, query, limit=6):
+            assert peer.replace("-", "").replace("_", "").isalnum()          # Honcho only accepts [A-Za-z0-9_-]: world owners are encoded
             return [{"content": "Earlier: Lila said she hates hiding things.", "created_at": "2026-09-01", "session_id": "chat_old"}]
 
     monkeypatch.setattr(turn_context, "_honcho_client", lambda: FakeHoncho())

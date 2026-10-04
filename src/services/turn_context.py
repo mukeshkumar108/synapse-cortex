@@ -56,6 +56,15 @@ def _honcho_client() -> Optional[HonchoClient]:
     return _honcho
 
 
+def honcho_peer_id(owner: str) -> str:
+    """Honcho resource ids only allow [A-Za-z0-9_-]; a world owner (`world:...`) is a Cortex key and stays as is there. Identical to the Runtime helper."""
+    import hashlib
+    import re
+    if re.fullmatch(r"[A-Za-z0-9_-]+", owner or ""):
+        return owner
+    return re.sub(r"[^A-Za-z0-9_-]", "-", owner)[:100] + "-" + hashlib.sha1(owner.encode()).hexdigest()[:8]
+
+
 def _naive_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
 

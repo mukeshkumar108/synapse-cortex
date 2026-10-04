@@ -277,12 +277,12 @@ async def honcho_context(workspace_id: str, owner: str, session_id: str, evidenc
     """Long-horizon input from Honcho (derived summaries + semantic search over the stored raw evidence). Honcho is evidence storage and retrieval
     for these worlds; this interpreter remains the single semantic author. Bounded, fail-open."""
     try:
-        from src.services.turn_context import _honcho_client
+        from src.services.turn_context import _honcho_client, honcho_peer_id
         client = _honcho_client()
         if client is None:
             return None
         summaries = await client.session_summaries(workspace_id, session_id)
-        hits = await client.peer_search(workspace_id, owner, evidence_text[-450:], limit=6)
+        hits = await client.peer_search(workspace_id, honcho_peer_id(owner), evidence_text[-450:], limit=6)
         earlier = [{"text": str(h.get("content") or "")[:300], "when": h.get("created_at"), "session": h.get("session_id")} for h in (hits or [])]
         out = {"summary": {k: (v or "")[:900] for k, v in (summaries or {}).items() if v}, "earlier_evidence": earlier}
         return out if out["summary"] or earlier else None
