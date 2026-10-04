@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 INTERPRETER_MODEL = os.getenv("WORLD_INTERPRETER_MODEL", "openai/gpt-5.6-luna-pro")
 INTERPRETER_TIMEOUT = float(os.getenv("WORLD_INTERPRETER_TIMEOUT_SECONDS", "150"))
 STATE_ITEMS = 30
+LEASE_WAIT_SECONDS = float(os.getenv("WORLD_LEASE_WAIT_SECONDS", "45"))
+CONTEXT_MESSAGES = 6          # already-interpreted messages shown as context only (a budget, not a judgement)
 
 SYSTEM = """You maintain the WORLD MODEL for a long-running companion product (a grounded real-life companion, or a roleplay/fiction companion).
 You are given NEW EVIDENCE (verbatim messages, each with an id), the CURRENT WORLD STATE (with ids), the PRODUCT POLICY and the character's
@@ -69,10 +71,27 @@ PRINCIPLES
 - BRIEF: 80-150 neutral words, what has happened and where each person stands now, including what is unknown and any contradictions left unresolved. The text is plain prose with NO refs or ids in it; the refs go only in `lines[].refs`.
 - Epistemic policy 'grounded' (a real person's life): facts that only the companion asserted about the user's life or other people are
   hypotheses, not facts. Policy 'generative' (collaborative fiction): story events and invented detail are canon, still attributed.
+- IDENTITIES are product-supplied, never inferred from prose: the actor refs `user` (the human's actor) and `companion` (the character) already exist in
+  every response; use them wherever those two appear (from_actor, to_actor, holder, committer, actor, participants, relationships). Never create an actor
+  for the human or the companion, and never call anyone "the user" as a character. Messages marked as the user's are spoken by `user`; the assistant's by
+  `companion`. If the human's name was not supplied, do not guess it; a person the dialogue names is a separate actor unless the evidence plainly says
+  the human is that person.
+- REFERENCES (he/she/they, him/her, "my boyfriend", "the guy from the panel", a repeated first name, a new nickname): resolve a reference only when the
+  evidence supports it, by the known actor's id (existing_id). Same name can be different people and one person can have several names. If a reference
+  is probable but not established, keep it low-confidence (hypothesis / possibly_same_as). If two or more known actors fit and the evidence does not
+  choose, do NOT choose: add a narrative item of kind `ambiguous_reference` whose `about` lists the candidates and whose text says what is unresolved.
+  If nothing known fits, either create a new actor or leave it out. Ambiguity is a valid, stored outcome.
+- STATE REVIEW: for EVERY objective and dimension listed in CURRENT WORLD STATE, return one `state_review` entry {id, status, note}: holds (still true
+  given everything so far), superseded (the new evidence changed it: also write the replacement in `dimensions` with `supersedes` = this id),
+  resolved (an objective that is over: also an objectives entry with op resolve), or unclear (evidence is mixed, unresolved contradiction stays).
+  Silence is not a verdict. Absence of new evidence about a facet means holds or unclear, never superseded. A facet about whether someone knows
+  something changes when the evidence shows they now do, however it happened.
+- Anywhere a reference is expected (actor, relationship, event), you may use either a short local ref declared in this response or the id of a known
+  item from CURRENT WORLD STATE. Prefer the known id when the thing already exists.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
 OUTPUT: ONE JSON object with these arrays (empty when nothing applies): actors, relationships, events, claims, narrative, commitments,
-dimensions, objectives, matter_candidates, trajectory, and an optional brief. Shapes:
+dimensions, objectives, matter_candidates, trajectory, state_review, and an optional brief. Shapes:
 actors:[{ref,name,aliases[],entity_type(person|character|organisation|team),explicit(bool),existing_id|null,confidence,evidence[]}]
 relationships:[{ref,actors[a,b],type,directional(bool),existing_id|null,formation,confidence,evidence[]}]
 events:[{ref,label,kind,when_phrase|null,where|null,participants[],holder|null,formation,confidence,evidence[],conflicts_with[],same_as|null,possibly_same_as|null}]
@@ -83,6 +102,7 @@ dimensions:[{ref,relationship(ref),from_actor,to_actor,dimension,value,about(eve
 objectives:[{ref,op(create|update|resolve),existing_id|null,actor,toward|null,text,scope,cause|null,state,durability(acute|provisional|durable|unknown),strength(0-1),conflicts_with[objective refs|known ids|"constitution"; omit the field to leave recorded conflicts unchanged],formation,confidence,evidence[]}]
 matter_candidates:[{ref,concept,display_title,kind(project|topic|concern|relationship_situation|goal|life_situation|routine|other),actors[],members[refs],continuity_required(bool),continuity_reason,attach_to_existing_matter_id|null,evidence[]}]
 trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,objectives[],evidence[]}]
+state_review:[{id(of a listed objective or dimension),status(holds|superseded|resolved|unclear),note}]
 brief:{text,lines:[{text,refs[]}]}"""
 
 
@@ -112,15 +132,35 @@ def _formation(value: Any, default: str) -> str:
     return text if text in ("explicit", "reported", "source_linked", "observed", "inferred", "hypothesis") else default
 
 
+class _Drops:
+    """Every candidate the structural cleanup removes is recorded with its reason: nothing disappears silently."""
+    def __init__(self) -> None:
+        self.items: List[Dict[str, str]] = []
+
+    def __call__(self, kind: str, item: Any, reason: str) -> None:
+        ref = item.get("ref") if isinstance(item, dict) else None
+        self.items.append({"kind": kind, "ref": str(ref) if ref is not None else "?", "reason": reason})
+
+
 def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: Dict[str, str], workspace_id: str, owner: str, session_id: str,
-              model: str, run_id: str, policy: str, covered_ordinal: int = 0) -> Dict[str, Any]:
+              model: str, run_id: str, policy: str, covered_ordinal: int = 0, pinned: Optional[Dict[str, Any]] = None,
+              drops: Optional[_Drops] = None, known: Optional[Dict[str, Dict[str, str]]] = None) -> Dict[str, Any]:
     """Tolerant structural cleanup of the model's JSON into a valid WorldDelta dict (mechanics only): drop items with no usable evidence or
-    broken local references, keep refs unique, map speaker names to actor refs. Nothing is invented or reinterpreted here."""
+    broken local references (each drop recorded with its reason), keep refs unique. Nothing is invented or reinterpreted here. `pinned` maps the
+    product-supplied roles (user_actor / companion_actor) to their stable entities; they enter every delta as the fixed refs `user` / `companion`.
+    `known` is the id registry of the world state the interpreter was shown ({actors|relationships|events: {id: label}}): a reference may be a local
+    ref OR a known id; a known id is resolved mechanically by declaring a link-by-id stub (identity is by id, nothing is inferred)."""
+    drops = drops if drops is not None else _Drops()
     ids = {m["id"] for m in messages}
     seen: set = set()
 
-    def fresh(ref: Any) -> bool:
-        if not isinstance(ref, str) or not ref.strip() or ref in seen:
+    def fresh(kind: str, item: Any) -> bool:
+        ref = item.get("ref") if isinstance(item, dict) else None
+        if not isinstance(ref, str) or not ref.strip():
+            drops(kind, item, "missing_ref")
+            return False
+        if ref in seen:
+            drops(kind, item, "duplicate_ref")
             return False
         seen.add(ref)
         return True
@@ -128,97 +168,229 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
     def ev(item: Dict[str, Any]) -> List[str]:
         return [e for e in _list(item.get("evidence")) if isinstance(e, str) and e in ids]
 
-    actors = []
-    for a in _list(raw.get("actors")):
-        if isinstance(a, dict) and _str(a.get("name")) and ev(a) and fresh(a.get("ref")):
+    def dict_items(kind: str, key: str) -> List[Dict[str, Any]]:
+        out = []
+        for it in _list(raw.get(key)):
+            if isinstance(it, dict):
+                out.append(it)
+            else:
+                drops(kind, {}, "not_an_object")
+        return out
+
+    first_id = messages[0]["id"] if messages else ""
+    actors: List[Dict[str, Any]] = []
+    speaker_actors: Dict[str, str] = {}
+    for role, ref, speaker_key in (("user_actor", "user", "user"), ("companion_actor", "companion", "assistant")):
+        ent = (pinned or {}).get(role)
+        if ent is not None and messages:
+            seen.add(ref)
+            actors.append({"ref": ref, "name": ent.display_name, "aliases": [], "entity_type": ent.entity_type if ent.entity_type in ("person", "character", "organisation", "team") else "person",
+                           "explicit": not ent.provisional, "existing_id": str(ent.id), "confidence": 1.0, "evidence": [first_id]})
+            speaker_actors[speaker_key] = ref
+    for a in dict_items("actors", "actors"):
+        if not _str(a.get("name")):
+            drops("actors", a, "no_name")
+        elif not ev(a):
+            drops("actors", a, "no_valid_evidence")
+        elif fresh("actors", a):
             et = str(a.get("entity_type") or "person").lower()
             actors.append({"ref": a["ref"], "name": a["name"].strip(), "aliases": [x for x in _list(a.get("aliases")) if isinstance(x, str) and x.strip()],
                            "entity_type": et if et in ("person", "character", "organisation", "team") else "person", "explicit": bool(a.get("explicit")),
                            "existing_id": _str(a.get("existing_id")), "confidence": _num(a.get("confidence"), 0.7), "evidence": ev(a)})
     actor_refs = {a["ref"] for a in actors}
     norm = lambda t: "".join(ch for ch in str(t).lower() if ch.isalpha())
-    by_name = {norm(a["name"]): a["ref"] for a in actors}
-    for a in actors:
-        for al in a["aliases"]:
-            by_name.setdefault(norm(al), a["ref"])
-    speaker_actors = {role: by_name[norm(name)] for role, name in speakers.items() if norm(name) in by_name}
-    rels = [{"ref": r["ref"], "actors": r["actors"], "type": _str(r.get("type")) or "related", "directional": bool(r.get("directional")),
-             "existing_id": _str(r.get("existing_id")), "formation": _formation(r.get("formation"), "inferred"), "confidence": _num(r.get("confidence"), 0.7),
-             "evidence": ev(r)}
-            for r in _list(raw.get("relationships")) if isinstance(r, dict) and len(_list(r.get("actors"))) == 2 and all(x in actor_refs for x in r["actors"])
-            and ev(r) and fresh(r.get("ref"))]
+    if len(speaker_actors) < 2:        # no pinned identity for a role: fall back to the product-supplied speaker NAME matched against the interpreter's actors
+        by_name = {norm(a["name"]): a["ref"] for a in actors}
+        for a in actors:
+            for al in a["aliases"]:
+                by_name.setdefault(norm(al), a["ref"])
+        for role, name in speakers.items():
+            if role not in speaker_actors and norm(name) in by_name:
+                speaker_actors[role] = by_name[norm(name)]
+
+    known = known or {}
+    stubs: Dict[Any, str] = {}
+
+    def actor_ref(x: Any, evidence: List[str]) -> Optional[str]:
+        """A local actor ref, or the id of a known actor (declared here as a link-by-id stub). Anything else resolves to nothing."""
+        if isinstance(x, str) and x in actor_refs:
+            return x
+        if isinstance(x, str) and x in (known.get("actors") or {}) and evidence:
+            ref = stubs.setdefault(("actor", x), f"known_{len(stubs)}")
+            if ref not in actor_refs:
+                actors.append({"ref": ref, "name": known["actors"][x], "aliases": [], "entity_type": "person", "explicit": False, "existing_id": x,
+                               "confidence": 1.0, "evidence": evidence[:1]})
+                actor_refs.add(ref)
+                seen.add(ref)
+            return ref
+        return None
+
+    events: List[Dict[str, Any]] = []
+    event_refs: set = set()
+
+    def event_ref(x: Any, evidence: List[str]) -> Optional[str]:
+        """A local event ref, or the id of a known event (declared here as a same_as-by-id stub so the link survives)."""
+        if isinstance(x, str) and x in event_refs:
+            return x
+        if isinstance(x, str) and x in (known.get("events") or {}) and evidence:
+            ref = stubs.setdefault(("event", x), f"known_ev_{len(stubs)}")
+            if ref not in event_refs:
+                events.append({"ref": ref, "label": known["events"][x], "kind": "event", "when": {"phrase": None, "precision": "unknown"}, "where": None,
+                               "participants": [], "holder": None, "formation": "reported", "confidence": 1.0, "evidence": evidence[:1], "conflicts_with": [],
+                               "same_as": x, "possibly_same_as": None})
+                event_refs.add(ref)
+                seen.add(ref)
+            return ref
+        return None
+
+    rels = []
+    for r in dict_items("relationships", "relationships"):
+        r_actors = [actor_ref(x, ev(r)) for x in _list(r.get("actors"))]
+        if len(r_actors) != 2 or None in r_actors:
+            drops("relationships", r, "actors_not_two_known_refs")
+        elif not ev(r):
+            drops("relationships", r, "no_valid_evidence")
+        elif fresh("relationships", r):
+            rels.append({"ref": r["ref"], "actors": r_actors, "type": _str(r.get("type")) or "related", "directional": bool(r.get("directional")),
+                         "existing_id": _str(r.get("existing_id")), "formation": _formation(r.get("formation"), "inferred"), "confidence": _num(r.get("confidence"), 0.7),
+                         "evidence": ev(r)})
     rel_refs = {r["ref"] for r in rels}
-    events = []
-    for e in _list(raw.get("events")):
-        if isinstance(e, dict) and _str(e.get("label")) and ev(e) and fresh(e.get("ref")):
+    for e in dict_items("events", "events"):
+        if not _str(e.get("label")):
+            drops("events", e, "no_label")
+        elif not ev(e):
+            drops("events", e, "no_valid_evidence")
+        elif fresh("events", e):
+            event_refs.add(e["ref"])
             events.append({"ref": e["ref"], "label": e["label"].strip(), "kind": _str(e.get("kind")) or "event",
                            "when": {"phrase": _str(e.get("when_phrase")), "precision": "approx" if _str(e.get("when_phrase")) else "unknown"},
-                           "where": _str(e.get("where")), "participants": [p for p in _list(e.get("participants")) if p in actor_refs],
-                           "holder": e.get("holder") if e.get("holder") in actor_refs else None, "formation": _formation(e.get("formation"), "reported"),
+                           "where": _str(e.get("where")),
+                           "participants": [r for r in (actor_ref(p, ev(e)) for p in _list(e.get("participants"))) if r],
+                           "holder": actor_ref(e.get("holder"), ev(e)), "formation": _formation(e.get("formation"), "reported"),
                            "confidence": _num(e.get("confidence"), 0.7), "evidence": ev(e), "conflicts_with": [x for x in _list(e.get("conflicts_with")) if isinstance(x, str)],
                            "same_as": _str(e.get("same_as")), "possibly_same_as": _str(e.get("possibly_same_as"))})
-    event_refs = {e["ref"] for e in events}
     for e in events:
         e["conflicts_with"] = [x for x in e["conflicts_with"] if x in event_refs and x != e["ref"]]
     subjects = actor_refs | event_refs | rel_refs
     claims = []
-    for c in _list(raw.get("claims")):
-        if isinstance(c, dict) and _str(c.get("text")) and c.get("subject") in subjects and ev(c) and fresh(c.get("ref")):
-            claims.append({"ref": c["ref"], "subject": c["subject"], "text": c["text"].strip(), "kind": "attribute" if c.get("kind") == "attribute" else "assertion",
-                           "holder": c.get("holder") if c.get("holder") in actor_refs else "narrator", "formation": _formation(c.get("formation"), "reported"),
+    for c in dict_items("claims", "claims"):
+        c_subject = actor_ref(c.get("subject"), ev(c)) or event_ref(c.get("subject"), ev(c)) or c.get("subject")
+        subjects = actor_refs | event_refs | rel_refs
+        if not _str(c.get("text")):
+            drops("claims", c, "no_text")
+        elif c_subject not in subjects:
+            drops("claims", c, "unknown_subject")
+        elif not ev(c):
+            drops("claims", c, "no_valid_evidence")
+        elif fresh("claims", c):
+            claims.append({"ref": c["ref"], "subject": c_subject, "text": c["text"].strip(), "kind": "attribute" if c.get("kind") == "attribute" else "assertion",
+                           "holder": actor_ref(c.get("holder"), ev(c)) or "narrator", "formation": _formation(c.get("formation"), "reported"),
                            "conflicts_with": [x for x in _list(c.get("conflicts_with")) if isinstance(x, str)], "confidence": _num(c.get("confidence"), 0.7),
                            "evidence": ev(c), "span": _str(c.get("span"))})
     claim_refs = {c["ref"] for c in claims}
     for c in claims:
         c["conflicts_with"] = [x for x in c["conflicts_with"] if x in claim_refs and x != c["ref"]]
-    known = subjects | claim_refs
+    known_refs = actor_refs | event_refs | rel_refs | claim_refs
     narrative = []
-    for n in _list(raw.get("narrative")):
-        about = [x for x in _list(n.get("about")) if x in known] if isinstance(n, dict) else []
-        if isinstance(n, dict) and _str(n.get("text")) and _str(n.get("kind")) and about and ev(n) and fresh(n.get("ref")):
-            narrative.append({"ref": n["ref"], "kind": n["kind"].strip(), "about": about, "holder": n.get("holder") if n.get("holder") in actor_refs else "model",
+    for n in dict_items("narrative", "narrative"):
+        about = [r for r in ((actor_ref(x, ev(n)) or event_ref(x, ev(n)) or (x if x in known_refs else None)) for x in _list(n.get("about"))) if r]
+        if not (_str(n.get("text")) and _str(n.get("kind"))):
+            drops("narrative", n, "no_text_or_kind")
+        elif not about:
+            drops("narrative", n, "no_known_about_ref")
+        elif not ev(n):
+            drops("narrative", n, "no_valid_evidence")
+        elif fresh("narrative", n):
+            narrative.append({"ref": n["ref"], "kind": n["kind"].strip(), "about": about, "holder": actor_ref(n.get("holder"), ev(n)) or "model",
                               "text": n["text"].strip(), "formation": _formation(n.get("formation"), "inferred"), "confidence": _num(n.get("confidence"), 0.6),
                               "evidence": ev(n)})
-    commitments = [{"ref": k["ref"], "committer": k["committer"], "to": k.get("to") if k.get("to") in actor_refs else None, "text": k["text"].strip(),
-                    "tentative": bool(k.get("tentative")), "confidence": _num(k.get("confidence"), 0.7), "evidence": ev(k)}
-                   for k in _list(raw.get("commitments")) if isinstance(k, dict) and _str(k.get("text")) and k.get("committer") in actor_refs and ev(k)
-                   and fresh(k.get("ref"))]
-    dims = [{"ref": d["ref"], "relationship": d["relationship"], "from_actor": d["from_actor"], "to_actor": d["to_actor"], "dimension": d["dimension"].strip(),
-             "value": d["value"].strip(), "about": d.get("about") if d.get("about") in event_refs else None,
-             "durability": _durability(d.get("durability")), "supersedes": _str(d.get("supersedes")), "formation": _formation(d.get("formation"), "inferred"),
-             "confidence": _num(d.get("confidence"), 0.6), "evidence": ev(d)}
-            for d in _list(raw.get("dimensions")) if isinstance(d, dict) and d.get("relationship") in rel_refs and d.get("from_actor") in actor_refs
-            and d.get("to_actor") in actor_refs and _str(d.get("dimension")) and _str(d.get("value")) and ev(d) and fresh(d.get("ref"))]
+    commitments = []
+    for k in dict_items("commitments", "commitments"):
+        k_committer, k_to = actor_ref(k.get("committer"), ev(k)), actor_ref(k.get("to"), ev(k))
+        if not _str(k.get("text")) or k_committer is None:
+            drops("commitments", k, "no_text_or_unknown_committer")
+        elif not ev(k):
+            drops("commitments", k, "no_valid_evidence")
+        elif fresh("commitments", k):
+            commitments.append({"ref": k["ref"], "committer": k_committer, "to": k_to, "text": k["text"].strip(),
+                                "tentative": bool(k.get("tentative")), "confidence": _num(k.get("confidence"), 0.7), "evidence": ev(k)})
+    dims = []
+    for d in dict_items("dimensions", "dimensions"):
+        d_from, d_to = actor_ref(d.get("from_actor"), ev(d)), actor_ref(d.get("to_actor"), ev(d))
+        rel = d.get("relationship")
+        if rel not in rel_refs and isinstance(rel, str) and rel in (known.get("relationships") or {}) and d_from and d_to and ev(d):
+            stub = stubs.setdefault(("rel", rel), f"known_rel_{len(stubs)}")      # the interpreter named a known relationship by id: declare it by id
+            if stub not in rel_refs:
+                rels.append({"ref": stub, "actors": [d_from, d_to], "type": known["relationships"][rel], "directional": False, "existing_id": rel,
+                             "formation": "inferred", "confidence": 1.0, "evidence": ev(d)[:1]})
+                rel_refs.add(stub)
+                seen.add(stub)
+            rel = stub
+        if rel not in rel_refs or d_from is None or d_to is None:
+            drops("dimensions", d, "relationship_or_actor_not_declared")
+        elif not (_str(d.get("dimension")) and _str(d.get("value"))):
+            drops("dimensions", d, "no_dimension_or_value")
+        elif not ev(d):
+            drops("dimensions", d, "no_valid_evidence")
+        elif fresh("dimensions", d):
+            dims.append({"ref": d["ref"], "relationship": rel, "from_actor": d_from, "to_actor": d_to, "dimension": d["dimension"].strip(),
+                         "value": d["value"].strip(), "about": event_ref(d.get("about"), ev(d)),
+                         "durability": _durability(d.get("durability")), "supersedes": _str(d.get("supersedes")), "formation": _formation(d.get("formation"), "inferred"),
+                         "confidence": _num(d.get("confidence"), 0.6), "evidence": ev(d)})
     objectives = []
-    for o in _list(raw.get("objectives")):
-        if isinstance(o, dict) and o.get("actor") in actor_refs and _str(o.get("text")) and ev(o) and fresh(o.get("ref")):
+    for o in dict_items("objectives", "objectives"):
+        o_actor, o_toward = actor_ref(o.get("actor"), ev(o)), actor_ref(o.get("toward"), ev(o))
+        if o_actor is None or not _str(o.get("text")):
+            drops("objectives", o, "unknown_actor_or_no_text")
+        elif not ev(o):
+            drops("objectives", o, "no_valid_evidence")
+        elif fresh("objectives", o):
             op = o.get("op") if o.get("op") in ("create", "update", "resolve") else "create"
             existing = _str(o.get("existing_id"))
             if op != "create" and not existing:
                 op = "create"
             scope = str(o.get("scope") or "active").lower()
             state = str(o.get("state") or "unknown").lower()
-            objectives.append({"ref": o["ref"], "op": op, "existing_id": existing if op != "create" else None, "actor": o["actor"],
-                               "toward": o.get("toward") if o.get("toward") in actor_refs else None, "text": o["text"].strip(),
+            objectives.append({"ref": o["ref"], "op": op, "existing_id": existing if op != "create" else None, "actor": o_actor,
+                               "toward": o_toward, "text": o["text"].strip(),
                                "scope": scope if scope in ("enduring", "active", "immediate") else "active", "cause": _str(o.get("cause")),
                                "state": state if state in ("on_track", "drifting", "at_risk", "failing", "resolved", "unknown") else "unknown",
                                "durability": _durability(o.get("durability")),
                                "strength": _num(o.get("strength"), 0.6), "conflicts_with": ([x for x in _list(o.get("conflicts_with")) if isinstance(x, str)] if isinstance(o.get("conflicts_with"), list) else None),
                                "formation": _formation(o.get("formation"), "inferred"), "confidence": _num(o.get("confidence"), 0.6), "evidence": ev(o)})
-    all_refs = known | {n["ref"] for n in narrative} | {k["ref"] for k in commitments}
+    all_refs = known_refs | {n["ref"] for n in narrative} | {k["ref"] for k in commitments}
     matters = []
-    for m in _list(raw.get("matter_candidates")):
-        members = [x for x in _list(m.get("members")) if x in all_refs] if isinstance(m, dict) else []
-        if isinstance(m, dict) and _str(m.get("display_title")) and _str(m.get("concept")) and members and ev(m) and fresh(m.get("ref")):
+    for m in dict_items("matter_candidates", "matter_candidates"):
+        members = [x for x in _list(m.get("members")) if x in all_refs]
+        if not (_str(m.get("display_title")) and _str(m.get("concept"))):
+            drops("matter_candidates", m, "no_title_or_concept")
+        elif not members:
+            drops("matter_candidates", m, "no_known_members")
+        elif not ev(m):
+            drops("matter_candidates", m, "no_valid_evidence")
+        elif fresh("matter_candidates", m):
             kind = str(m.get("kind") or "topic")
             matters.append({"ref": m["ref"], "concept": m["concept"].strip(), "display_title": m["display_title"].strip(),
                             "kind": kind if kind in ("project", "topic", "concern", "relationship_situation", "relationship_thread", "goal", "life_situation", "routine", "other") else "topic",
                             "actors": [a for a in _list(m.get("actors")) if a in actor_refs], "members": members, "continuity_required": bool(m.get("continuity_required")),
                             "continuity_reason": _str(m.get("continuity_reason")), "attach_to_existing_matter_id": _str(m.get("attach_to_existing_matter_id")),
                             "evidence": ev(m)})
-    trajectory = [{"ref": t["ref"], "actor": t["actor"], "state": t.get("state") if t.get("state") in ("on_track", "drifting", "at_risk", "failing") else "unknown",
-                   "note": t["note"].strip(), "objectives": [x for x in _list(t.get("objectives")) if isinstance(x, str)], "evidence": ev(t)}
-                  for t in _list(raw.get("trajectory")) if isinstance(t, dict) and t.get("actor") in actor_refs and _str(t.get("note")) and ev(t) and fresh(t.get("ref"))]
+    trajectory = []
+    for t in dict_items("trajectory", "trajectory"):
+        t_actor = actor_ref(t.get("actor"), ev(t))
+        if t_actor is None or not _str(t.get("note")):
+            drops("trajectory", t, "unknown_actor_or_no_note")
+        elif not ev(t):
+            drops("trajectory", t, "no_valid_evidence")
+        elif fresh("trajectory", t):
+            trajectory.append({"ref": t["ref"], "actor": t_actor, "state": t.get("state") if t.get("state") in ("on_track", "drifting", "at_risk", "failing") else "unknown",
+                               "note": t["note"].strip(), "objectives": [x for x in _list(t.get("objectives")) if isinstance(x, str)], "evidence": ev(t)})
+    reviews = []
+    for r in dict_items("state_review", "state_review"):
+        if r.get("status") in ("holds", "superseded", "resolved", "unclear") and _str(r.get("id")):
+            reviews.append({"id": r["id"].strip(), "status": r["status"], "note": _str(r.get("note"))})
+        else:
+            drops("state_review", {"ref": r.get("id")}, "bad_id_or_status")
     brief = None
     b = raw.get("brief")
     if isinstance(b, dict) and _str(b.get("text")):
@@ -226,12 +398,12 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                                                       for l in _list(b.get("lines")) if isinstance(l, dict) and _str(l.get("text"))]}
     return {
         "contract_version": "world-delta-v1", "workspace_id": workspace_id, "owner": owner,
-        "source": {"producer": "world-interpreter", "model": model, "version": "wi-1", "run_id": run_id, "session_id": session_id,
+        "source": {"producer": "world-interpreter", "model": model, "version": "wi-2", "run_id": run_id, "session_id": session_id,
                    "messages": [{"id": m["id"], "speaker": m["speaker"], "text": m["text"]} for m in messages], "policy": policy if policy in ("grounded", "generative") else "grounded",
                    "covered_through": {"message_id": messages[-1]["id"], "ordinal": covered_ordinal} if messages else None,
                    "owner_actor": speaker_actors.get("user"), "speaker_actors": speaker_actors},
         "actors": actors, "relationships": rels, "events": events, "claims": claims, "narrative": narrative, "commitments": commitments,
-        "dimensions": dims, "objectives": objectives, "matter_candidates": matters, "trajectory": trajectory, "brief": brief,
+        "dimensions": dims, "objectives": objectives, "matter_candidates": matters, "trajectory": trajectory, "brief": brief, "reviews": reviews,
     }
 
 
@@ -239,10 +411,12 @@ async def world_state_for_prompt(db: AsyncSession, workspace_id: str, owner: str
     """The current world as the interpreter should see it: ids included so it can recognise instead of duplicate. Selection is by recency only."""
     from src.models.identity import Entity, ModelEntry, RelationshipEdge
     from src.models.matter import Matter
-    from src.models.world import ContinuationBrief, RelationshipDimension, TrajectoryNote, WorldEvent, WorldObjective
+    from src.models.world import ContinuationBrief, RelationshipDimension, TrajectoryNote, WorldEvent, WorldIdentity, WorldObjective
     ents = (await db.execute(select(Entity).where(Entity.honcho_workspace_id == workspace_id, Entity.frame_scope == owner))).scalars().all()
     names = {e.id: e.display_name for e in ents}
     ids = list(names)
+    roles = {r.entity_id: r.role for r in (await db.execute(select(WorldIdentity).where(
+        WorldIdentity.honcho_workspace_id == workspace_id, WorldIdentity.owner_peer_id == owner))).scalars().all()}
     edges = (await db.execute(select(RelationshipEdge).where(RelationshipEdge.honcho_workspace_id == workspace_id,
                                                               RelationshipEdge.from_entity_id.in_(ids)))).scalars().all() if ids else []
     events = (await db.execute(select(WorldEvent).where(WorldEvent.honcho_workspace_id == workspace_id, WorldEvent.owner_peer_id == owner,
@@ -261,7 +435,7 @@ async def world_state_for_prompt(db: AsyncSession, workspace_id: str, owner: str
     note = (await db.execute(select(TrajectoryNote).where(TrajectoryNote.honcho_workspace_id == workspace_id, TrajectoryNote.owner_peer_id == owner,
                                                            TrajectoryNote.superseded_by_id.is_(None)).order_by(TrajectoryNote.created_at.desc()).limit(1))).scalars().first()
     return {
-        "actors": [{"id": str(e.id), "name": e.display_name, "type": e.entity_type} for e in ents],
+        "actors": [{"id": str(e.id), "name": e.display_name, "type": e.entity_type, **({"role": roles[e.id]} if e.id in roles else {})} for e in ents],
         "relationships": [{"id": str(r.id), "between": [names.get(r.from_entity_id), names.get(r.to_entity_id)], "type": r.role} for r in edges],
         "events": [{"id": str(e.id), "label": e.label, "kind": e.kind, "when": e.when_phrase, "where": e.place, "status": e.status} for e in events],
         "objectives": [{"id": str(o.id), "actor": names.get(o.actor_entity_id), "toward": names.get(o.toward_entity_id), "text": o.text, "scope": o.scope,
@@ -291,29 +465,150 @@ async def honcho_context(workspace_id: str, owner: str, session_id: str, evidenc
         return None
 
 
+async def covered_message_ids(db: AsyncSession, workspace_id: str, owner: str) -> set:
+    """Evidence this world has already been interpreted over: the message ids of its applied interpreter runs. Pure ledger arithmetic."""
+    from src.models.world import ProducerRun
+    rows = (await db.execute(select(ProducerRun.input_json).where(
+        ProducerRun.honcho_workspace_id == workspace_id, ProducerRun.owner_peer_id == owner, ProducerRun.producer == "world-interpreter",
+        ProducerRun.status == "applied"))).scalars().all()
+    covered: set = set()
+    for blob in rows:
+        try:
+            covered.update(json.loads(blob or "{}").get("message_ids") or [])
+        except ValueError:
+            continue
+    return covered
+
+
+def _utc() -> datetime:
+    from datetime import timezone
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+async def _finish(db: AsyncSession, rid: Any, status: str, detail: Dict[str, Any], counts: Optional[Dict[str, Any]] = None) -> None:
+    from src.models.world import ProducerRun
+    rtype = ProducerRun
+    try:
+        await db.rollback()
+        fresh_run = await db.get(rtype, rid)
+        fresh_run.status, fresh_run.finished_at = status, _utc()
+        fresh_run.detail_json = json.dumps({**json.loads(fresh_run.detail_json or "{}"), **detail}, default=str)[:200000]
+        if counts is not None:
+            fresh_run.counts_json = json.dumps({**json.loads(fresh_run.counts_json or "{}"), **counts}, default=str)
+        db.add(fresh_run)
+        await db.commit()
+    except Exception as exc:          # observability must never mask the real outcome
+        logger.warning("could not finish run %s as %s: %s", rid, status, exc)
+
+
+def _busy_receipt(run_id: str, model: str) -> Dict[str, Any]:
+    return {"status": "busy", "run_id": run_id, "counts": {}, "rejected": [], "repaired": [], "refs": {}, "covered_through": None, "snapshot_version": None,
+            "model": model, "interpreted": {}}
+
+
 async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_id: str, messages: List[Dict[str, str]], speakers: Dict[str, str],
                     policy: str, constitution: Optional[Dict[str, str]], adapter: Any, covered_ordinal: int = 0, model: Optional[str] = None,
-                    now: Optional[datetime] = None, matter_adapter: Any = None) -> Dict[str, Any]:
-    """One interpretation pass: read state, ask the model, validate structurally, materialise, return the receipt (with usage telemetry)."""
+                    now: Optional[datetime] = None, matter_adapter: Any = None, user_actor: Optional[str] = None,
+                    companion_actor: Optional[str] = None) -> Dict[str, Any]:
+    """One interpretation pass as a transaction over a world.
+
+    Protocol: open a run (queued) -> take the world's cross-process lease -> under the lease compute, by message id, what is still uninterpreted
+    (the ledger is the applied runs) -> running -> model -> structural cleanup (drops recorded) -> materialise -> applied. Any failure leaves a
+    failed run and its evidence uncovered, so the next delivery interprets it again. Callers may send any overlapping window."""
+    from src.models.world import ProducerRun
+    from src.services import world_identity, world_lease
     model_id = model or INTERPRETER_MODEL
+    run = ProducerRun(honcho_workspace_id=workspace_id, owner_peer_id=owner, producer="world-interpreter", model=model_id, version="wi-2", status="queued",
+                      input_json=json.dumps({"session_id": session_id, "message_ids": [], "offered_ids": [m["id"] for m in messages][:world_materializer.MAX_RUN_MESSAGE_IDS]}))
+    db.add(run)
+    await db.commit()
+    rid = run.id                  # read now: later rollbacks expire the instance
+    key, holder = world_lease.lease_key(workspace_id, owner), str(rid)
+    if not await world_lease.acquire(db, key, holder, wait_seconds=LEASE_WAIT_SECONDS):
+        await _finish(db, rid, "failed", {"reason": "lease_timeout"}, {"error": "lease_timeout"})
+        return _busy_receipt(holder, model_id)
+    try:
+        covered = await covered_message_ids(db, workspace_id, owner)
+        fresh_msgs = [m for m in messages if m["id"] not in covered]
+        if not fresh_msgs:
+            await _finish(db, rid, "skipped", {"reason": "already_interpreted", "offered": len(messages)})
+            return {"status": "already_interpreted", "run_id": holder, "counts": {}, "rejected": [], "repaired": [], "refs": {}, "covered_through": None,
+                    "snapshot_version": None, "model": model_id, "interpreted": {}}
+        first_new = next(i for i, m in enumerate(messages) if m["id"] not in covered)
+        context = [m for m in messages[:first_new] if m["id"] in covered][-CONTEXT_MESSAGES:]
+        fresh = [m for m in messages[first_new:] if m["id"] not in covered]
+        run.status, run.started_at = "running", _utc()
+        run.input_json = json.dumps({"session_id": session_id, "message_ids": [m["id"] for m in fresh][:world_materializer.MAX_RUN_MESSAGE_IDS],
+                                     "context_ids": [m["id"] for m in context], "offered_ids": [m["id"] for m in messages][:world_materializer.MAX_RUN_MESSAGE_IDS]})
+        db.add(run)
+        await db.commit()
+        return await _interpret_locked(db, run=run, rid=rid, workspace_id=workspace_id, owner=owner, session_id=session_id, context=context, fresh=fresh,
+                                       speakers=speakers, policy=policy, constitution=constitution, adapter=adapter, covered_ordinal=covered_ordinal,
+                                       model_id=model_id, now=now, matter_adapter=matter_adapter, user_actor=user_actor, companion_actor=companion_actor)
+    except Exception as exc:
+        await _finish(db, rid, "failed", {"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, {"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+        raise
+    finally:
+        await world_lease.release(db, key, holder)
+
+
+async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_id: str, owner: str, session_id: str, context: List[Dict[str, str]],
+                            fresh: List[Dict[str, str]], speakers: Dict[str, str], policy: str, constitution: Optional[Dict[str, str]], adapter: Any,
+                            covered_ordinal: int, model_id: str, now: Optional[datetime], matter_adapter: Any, user_actor: Optional[str],
+                            companion_actor: Optional[str]) -> Dict[str, Any]:
+    from src.models.world_model import WorldModelSnapshot
+    from src.services import world_identity
+    first_id = (context + fresh)[0]["id"]
+    pinned = await world_identity.ensure(db, workspace_id=workspace_id, owner=owner, session_id=session_id, user_name=user_actor,
+                                         companion_name=companion_actor, first_message_id=first_id)
+    prior_snap = (await db.execute(select(WorldModelSnapshot.version).where(
+        WorldModelSnapshot.honcho_workspace_id == workspace_id, WorldModelSnapshot.owner_peer_id == owner,
+        WorldModelSnapshot.superseded_by_id.is_(None)).order_by(WorldModelSnapshot.compiled_at.desc()).limit(1))).scalars().first()
+    messages = context + fresh
     state = await world_state_for_prompt(db, workspace_id, owner)
-    evidence = "\n".join(f"[{m['id']}] {speakers.get(m['speaker'], m['speaker'])}: {m['text']}" for m in messages)
+    speaker_label = {"user": user_actor or "the user (name not supplied)", "assistant": companion_actor or speakers.get("assistant", "the companion")}
+    line = lambda m: f"[{m['id']}] {speaker_label.get(m['speaker'], speakers.get(m['speaker'], m['speaker']))} ({'user' if m['speaker'] == 'user' else 'companion'}): {m['text']}"
+    evidence = "\n".join(line(m) for m in fresh)
     honcho = await honcho_context(workspace_id, owner, session_id, evidence)
+    toward = constitution.get("toward") if constitution else None
     prompt = (f"PRODUCT POLICY: {policy}\n"
+              f"IDENTITIES (product-supplied): `user` = {user_actor or 'the human (name not supplied)'}; `companion` = {companion_actor or speakers.get('assistant', 'the companion')}\n"
               f"CHARACTER CONSTITUTIONAL ORIENTATION (product-authored; {constitution.get('actor') if constitution else 'the companion'} toward "
-              f"{constitution.get('toward') if constitution else 'the user'}): {constitution.get('text') if constitution else 'none'}\n"
-              f"SPEAKERS: user = {speakers.get('user', 'the user')}; assistant = {speakers.get('assistant', 'the companion')}\n\n"
+              f"{toward or 'the user'}): {constitution.get('text') if constitution else 'none'}\n\n"
               f"CURRENT WORLD STATE (ids are real):\n{json.dumps(state, ensure_ascii=False, default=str)}\n\n"
               + (f"HONCHO CONTEXT (long-term store):\n{json.dumps(honcho, ensure_ascii=False)}\n\n" if honcho else "")
+              + (("EARLIER MESSAGES (already interpreted; context only, do not re-derive what the CURRENT WORLD STATE already holds):\n"
+                  + "\n".join(line(m) for m in context) + "\n\n") if context else "")
               + f"NEW EVIDENCE:\n{evidence}")
     raw = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"type": "object"}, model_id=model_id, max_tokens=9000,
                                             temperature=0.1, strict=False, timeout=INTERPRETER_TIMEOUT)
-    delta_dict = normalize(raw if isinstance(raw, dict) else {}, messages=messages, speakers=speakers, workspace_id=workspace_id, owner=owner,
-                           session_id=session_id, model=model_id, run_id=str(uuid.uuid4()), policy=policy, covered_ordinal=covered_ordinal)
+    raw = raw if isinstance(raw, dict) else {}
+    drops = _Drops()
+    delta_dict = normalize(raw, messages=messages, speakers=speakers, workspace_id=workspace_id, owner=owner, session_id=session_id, model=model_id,
+                           run_id=str(rid), policy=policy, covered_ordinal=covered_ordinal, pinned=pinned, drops=drops,
+                           known={"actors": {a["id"]: a["name"] for a in state["actors"]}, "relationships": {r["id"]: r["type"] for r in state["relationships"]},
+                                  "events": {e["id"]: e["label"] for e in state["events"]}})
     delta = WorldDelta(**delta_dict)
-    receipt = await world_materializer.materialize(db, delta, now=now, adapter=matter_adapter, constitution=constitution)
+    receipt = await world_materializer.materialize(db, delta, now=now, adapter=matter_adapter, constitution=constitution, run=run)
+    kinds = ("actors", "relationships", "events", "claims", "narrative", "commitments", "dimensions", "objectives", "matter_candidates", "trajectory")
     receipt["usage"] = getattr(adapter, "last_usage", None)
     receipt["model"] = model_id
-    receipt["interpreted"] = {k: len(delta_dict[k]) for k in ("actors", "relationships", "events", "claims", "narrative", "commitments", "dimensions",
-                                                              "objectives", "matter_candidates", "trajectory")} | {"brief": bool(delta_dict["brief"])}
+    receipt["status"] = "applied"
+    receipt["interpreted"] = {k: len(delta_dict[k]) for k in kinds} | {"brief": bool(delta_dict["brief"])}
+    receipt["proposed"] = {k: len(_list(raw.get(k))) for k in kinds}          # what the model returned, before structural cleanup
+    shown = {"objectives": [o["id"] for o in state["objectives"]], "dimensions": [d["id"] for d in state["dimensions"]]}
+    reviewed = {r["id"] for r in delta_dict["reviews"]}
+    unreviewed = [i for ids in shown.values() for i in ids if i not in reviewed]
+    receipt["review_coverage"] = {"shown": sum(len(v) for v in shown.values()), "reviewed": sum(len(v) for v in shown.values()) - len(unreviewed), "unreviewed_ids": unreviewed}
+    detail = {
+        "evidence": {"session_id": session_id, "fresh_ids": [m["id"] for m in fresh], "context_ids": [m["id"] for m in context],
+                     "covered_through": receipt.get("covered_through")},
+        "identities": {role: {"entity_id": str(e.id), "name": e.display_name, "provisional": e.provisional} for role, e in pinned.items()},
+        "honcho": {"used": bool(honcho), "summaries": sorted((honcho or {}).get("summary", {}).keys()), "earlier_hits": len((honcho or {}).get("earlier_evidence", []))},
+        "state_shown": {k: len(v) for k, v in state.items() if isinstance(v, list)} | {"review_ids": shown},
+        "proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": drops.items, "rejected": receipt["rejected"], "repaired": receipt["repaired"],
+        "superseded": receipt.get("superseded", []), "reviews": receipt.get("reviews", []), "review_coverage": receipt["review_coverage"],
+        "snapshot": {"before": prior_snap, "after": receipt.get("snapshot_version")}, "model": model_id, "usage": receipt["usage"],
+    }
+    await _finish(db, rid, "applied", detail, {"proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": len(drops.items)})
     return receipt

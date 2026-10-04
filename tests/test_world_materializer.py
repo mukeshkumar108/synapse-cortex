@@ -409,16 +409,19 @@ async def test_the_interpreter_gets_state_with_ids_and_only_structure_is_validat
     async with async_session_maker() as db:
         receipt = await world_interpreter.interpret(db, workspace_id=WS, owner="world:rpd2:u:lila:c1", session_id="c1", messages=INTERP_MESSAGES,
                                                     speakers={"user": "Kai", "assistant": "Lila"}, policy="generative",
-                                                    constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."}, adapter=adapter)
-    assert receipt["interpreted"]["actors"] == 2 and receipt["interpreted"]["dimensions"] == 1                      # the unevidenced actor was dropped
+                                                    constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."}, adapter=adapter,
+                                                    user_actor="Kai", companion_actor="Lila")
+    assert receipt["interpreted"]["actors"] == 4 and receipt["interpreted"]["dimensions"] == 1                      # pinned user + companion + the model's two; the unevidenced actor was dropped
     assert receipt["counts"]["objectives_created"] == 1 and receipt["counts"]["trajectory_notes"] == 1 and receipt["counts"]["brief_written"] == 1
     sent = adapter.calls[0]
-    assert "PRODUCT POLICY: generative" in sent["prompt"] and "Protect the relationship." in sent["prompt"] and "[m1] Lila:" in sent["prompt"]
+    assert "PRODUCT POLICY: generative" in sent["prompt"] and "Protect the relationship." in sent["prompt"] and "[m1] Lila (companion):" in sent["prompt"]
     # second pass: the model now sees the ids of what exists, so it can recognise instead of duplicate
     async with async_session_maker() as db:
-        await world_interpreter.interpret(db, workspace_id=WS, owner="world:rpd2:u:lila:c1", session_id="c1", messages=INTERP_MESSAGES,
-                                          speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter)
-    state = json.loads(adapter.calls[1]["prompt"].split("CURRENT WORLD STATE (ids are real):\n")[1].split("\n\nNEW EVIDENCE")[0])
+        await world_interpreter.interpret(db, workspace_id=WS, owner="world:rpd2:u:lila:c1", session_id="c1",
+                                          messages=INTERP_MESSAGES + [{"id": "m3", "speaker": "assistant", "text": "thank you, that is kind."}],
+                                          speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter,
+                                          user_actor="Kai", companion_actor="Lila")
+    state = json.loads(adapter.calls[1]["prompt"].split("CURRENT WORLD STATE (ids are real):\n")[1].split("\n\n")[0])
     assert {a["name"] for a in state["actors"]} == {"Lila", "Kai"} and state["actors"][0]["id"] and state["objectives"][0]["text"] == "keep distance tonight"
     assert state["last_brief"] == "Lila is pulling back; Kai is caring."
 
@@ -520,7 +523,8 @@ async def test_honcho_context_is_given_to_the_interpreter_as_lower_grade_input_a
     monkeypatch.setattr(turn_context, "_honcho_client", lambda: Broken())
     adapter2 = FakeInterpreter({"actors": []})
     async with async_session_maker() as db:
-        await world_interpreter.interpret(db, workspace_id=WS, owner="world:h", session_id="c", messages=INTERP_MESSAGES,
+        await world_interpreter.interpret(db, workspace_id=WS, owner="world:h", session_id="c",
+                                          messages=INTERP_MESSAGES + [{"id": "m3", "speaker": "user", "text": "are you there?"}],
                                           speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter2)
     assert "HONCHO CONTEXT" not in adapter2.calls[0]["prompt"]
 
@@ -543,3 +547,235 @@ async def test_the_interpreter_retires_a_known_facet_by_id_when_the_state_change
     receipt = await run(WorldDelta(**second))
     live = [d.value for d in await all_rows(RelationshipDimension, honcho_workspace_id=WS) if d.superseded_by_id is None and d.dimension == "avoidance"]
     assert live == ["asks to talk"] and receipt["counts"]["dimensions_superseded_by_interpreter"] == 1
+
+
+OWNER_LEDGER = "world:rpd2:u:ledger:c1"
+SPEAKERS = {"user": "Kai", "assistant": "Lila"}
+
+
+def _raw(*evidence):
+    return {"actors": [{"ref": "l", "name": "Lila", "entity_type": "character", "explicit": True, "evidence": list(evidence)}]}
+
+
+async def _run(adapter, msgs, owner=OWNER_LEDGER, identities=True):
+    from src.services import world_interpreter
+    async with async_session_maker() as db:
+        return await world_interpreter.interpret(db, workspace_id=WS, owner=owner, session_id="c1", messages=msgs, speakers=SPEAKERS, policy="generative",
+                                                 constitution=None, adapter=adapter, user_actor="Kai" if identities else None,
+                                                 companion_actor="Lila" if identities else None)
+
+
+@pytest.mark.asyncio
+async def test_overlapping_windows_are_interpreted_once_by_message_id_and_old_messages_ride_along_as_context_only():
+    adapter = FakeInterpreter(_raw("m1"))
+    first = await _run(adapter, INTERP_MESSAGES)
+    assert first["status"] == "applied" and len(adapter.calls) == 1
+    replay = await _run(adapter, INTERP_MESSAGES)                                   # session-end resend of an already-interpreted stretch
+    assert replay["status"] == "already_interpreted" and len(adapter.calls) == 1   # no model call, no run, nothing double-counted
+    more = INTERP_MESSAGES + [{"id": "m3", "speaker": "assistant", "text": "ok, see you tomorrow then."}]
+    await _run(FakeInterpreter(_raw("m3")), more)
+    adapter2 = FakeInterpreter(_raw("m4"))
+    await _run(adapter2, more + [{"id": "m4", "speaker": "user", "text": "sleep well."}])
+    prompt = adapter2.calls[0]["prompt"]
+    new_part = prompt.split("NEW EVIDENCE:\n")[1]
+    assert "[m4]" in new_part and "[m1]" not in new_part and "[m3]" not in new_part      # only the uncovered message is new evidence
+    assert "EARLIER MESSAGES" in prompt and "[m1] Lila (companion):" in prompt.split("NEW EVIDENCE:")[0]    # covered ones are context, not re-derived
+
+
+@pytest.mark.asyncio
+async def test_a_failed_pass_leaves_a_failed_run_and_its_evidence_stays_uncovered_for_the_next_pass():
+    from src.services import world_interpreter
+
+    class Boom:
+        last_usage = None
+        async def generate_structured(self, **kw):
+            raise TimeoutError("model timed out")
+
+    owner = "world:rpd2:u:failing:c1"
+    with pytest.raises(TimeoutError):
+        await _run(Boom(), INTERP_MESSAGES, owner=owner)
+    async with async_session_maker() as db:
+        runs = (await db.execute(select(ProducerRun).where(ProducerRun.owner_peer_id == owner))).scalars().all()
+        assert [r.status for r in runs] == ["failed"] and "model timed out" in runs[0].counts_json
+        assert await world_interpreter.covered_message_ids(db, WS, owner) == set()      # failed evidence is not covered
+    again = FakeInterpreter(_raw("m1"))
+    assert (await _run(again, INTERP_MESSAGES, owner=owner))["status"] == "applied" and len(again.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_run_records_what_the_model_proposed_what_survived_and_why_items_were_rejected():
+    owner = "world:rpd2:u:diag:c1"
+    raw = {"actors": [{"ref": "l", "name": "Lila", "entity_type": "character", "explicit": True, "evidence": ["m1"]},
+                      {"ref": "x", "name": "Ghost", "evidence": ["m404"]}]}
+    receipt = await _run(FakeInterpreter(raw), INTERP_MESSAGES, owner=owner)
+    assert receipt["proposed"]["actors"] == 2 and receipt["interpreted"]["actors"] == 3      # + the pinned user and companion; the unevidenced one dropped
+    async with async_session_maker() as db:
+        run = (await db.execute(select(ProducerRun).where(ProducerRun.owner_peer_id == owner))).scalars().one()
+    stored = json.loads(run.counts_json)
+    assert run.status == "applied" and stored["proposed"]["actors"] == 2 and stored["kept"]["actors"] == 3 and "rejected_detail" in stored
+
+
+@pytest.mark.asyncio
+async def test_a_world_is_leased_across_processes_a_busy_world_defers_without_losing_evidence_and_a_dead_holder_expires():
+    from datetime import datetime, timedelta, timezone
+    from src.services import world_interpreter, world_lease
+    owner = "world:rpd2:u:lease:c1"
+    key = world_lease.lease_key(WS, owner)
+    async with async_session_maker() as other_process:                       # another container holds the world
+        assert await world_lease.try_acquire(other_process, key, "other-process-run")
+    async with async_session_maker() as db:
+        assert not await world_lease.try_acquire(db, key, "me")
+    world_interpreter.LEASE_WAIT_SECONDS, saved = 0.0, world_interpreter.LEASE_WAIT_SECONDS
+    try:
+        adapter = FakeInterpreter(_raw("m1"))
+        busy = await _run(adapter, INTERP_MESSAGES, owner=owner)
+    finally:
+        world_interpreter.LEASE_WAIT_SECONDS = saved
+    assert busy["status"] == "busy" and adapter.calls == []                   # no model call, nothing mutated
+    async with async_session_maker() as db:
+        runs = (await db.execute(select(ProducerRun).where(ProducerRun.owner_peer_id == owner))).scalars().all()
+        assert [r.status for r in runs] == ["failed"] and "lease_timeout" in runs[0].detail_json
+        assert await world_interpreter.covered_message_ids(db, WS, owner) == set()
+        lease = await db.get(world_lease.WorldLease, key)                     # the holder died: its lease simply expires
+        lease.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=1)
+        db.add(lease)
+        await db.commit()
+    again = await _run(FakeInterpreter(_raw("m1")), INTERP_MESSAGES, owner=owner)
+    assert again["status"] == "applied"
+    async with async_session_maker() as db:
+        assert await db.get(world_lease.WorldLease, key) is None               # released on completion
+
+
+@pytest.mark.asyncio
+async def test_product_identities_are_pinned_never_read_from_prose_and_directional_state_uses_their_stable_ids():
+    from src.models.world import RelationshipDimension, WorldIdentity
+    from src.services import world_interpreter
+    owner = "world:rpd2:u:ident:c1"
+    raw = {"actors": [{"ref": "j", "name": "James", "entity_type": "person", "evidence": ["m2"]}],
+           "relationships": [{"ref": "r1", "actors": ["user", "companion"], "type": "partners", "evidence": ["m1"]}],
+           "dimensions": [{"ref": "d1", "relationship": "r1", "from_actor": "user", "to_actor": "companion", "dimension": "trust", "value": "shaken", "evidence": ["m2"]}],
+           "claims": [{"ref": "c1", "subject": "user", "text": "the user did not know", "holder": "user", "evidence": ["m2"], "span": "oh ok"}]}
+    adapter = FakeInterpreter(raw)
+    async with async_session_maker() as db:
+        await world_interpreter.interpret(db, workspace_id=WS, owner=owner, session_id="c1", messages=INTERP_MESSAGES, speakers=SPEAKERS, policy="generative",
+                                          constitution=None, adapter=adapter, user_actor="Kai", companion_actor="Lila")
+        ents = (await db.execute(select(Entity).where(Entity.frame_scope == owner))).scalars().all()
+        pins = {r.role: r.entity_id for r in (await db.execute(select(WorldIdentity).where(WorldIdentity.owner_peer_id == owner))).scalars().all()}
+        dim = (await db.execute(select(RelationshipDimension).where(RelationshipDimension.owner_peer_id == owner))).scalars().one()
+    names = {e.display_name: e.id for e in ents}
+    assert set(names) == {"Kai", "Lila", "James"} and not any("user" in n.lower() for n in names)       # no "the user" invented as a character
+    assert pins == {"user_actor": names["Kai"], "companion_actor": names["Lila"]}
+    assert dim.from_entity_id == names["Kai"] and dim.to_entity_id == names["Lila"]                     # stable ids, not display names
+    assert "user_actor" in adapter.calls[0]["prompt"] or "`user` = Kai" in adapter.calls[0]["prompt"]
+    # same world, a later pass: the same entities, no twins; a different product-supplied name renames the pinned actor, it does not create another
+    async with async_session_maker() as db:
+        await world_interpreter.interpret(db, workspace_id=WS, owner=owner, session_id="c1", messages=INTERP_MESSAGES + [{"id": "m9", "speaker": "user", "text": "hey"}],
+                                          speakers=SPEAKERS, policy="generative", constitution=None, adapter=FakeInterpreter(_raw("m9")),
+                                          user_actor="Kai", companion_actor="Lila")
+        assert len((await db.execute(select(Entity).where(Entity.frame_scope == owner))).scalars().all()) == 3
+
+
+@pytest.mark.asyncio
+async def test_an_unsupplied_user_identity_is_a_typed_placeholder_not_a_guess():
+    owner = "world:rpd2:u:noname:c1"
+    adapter = FakeInterpreter({"actors": [{"ref": "x", "name": "Marc", "evidence": ["m1"]}]})
+    await _run(adapter, INTERP_MESSAGES, owner=owner, identities=False)
+    async with async_session_maker() as db:
+        ents = (await db.execute(select(Entity).where(Entity.frame_scope == owner))).scalars().all()
+    placeholder = [e for e in ents if e.display_name.startswith("User (name not supplied)")]
+    assert len(placeholder) == 1 and placeholder[0].provisional and "name not supplied" in adapter.calls[0]["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_the_run_trace_explains_what_was_kept_dropped_rejected_reviewed_and_superseded():
+    from httpx import ASGITransport, AsyncClient
+    from src.main import app
+    owner = "world:rpd2:u:trace:c1"
+    first = {"actors": [{"ref": "k", "name": "Kai", "evidence": ["m2"]}],
+             "relationships": [{"ref": "r1", "actors": ["user", "companion"], "type": "partners", "evidence": ["m1"]}],
+             "dimensions": [{"ref": "d1", "relationship": "r1", "from_actor": "user", "to_actor": "companion", "dimension": "awareness_of_the_lie", "value": "not established",
+                             "evidence": ["m1"]}]}
+    r1 = await _run(FakeInterpreter(first), INTERP_MESSAGES, owner=owner)
+    from src.models.world import RelationshipDimension
+    async with async_session_maker() as db:
+        dim_id = str((await db.execute(select(RelationshipDimension).where(RelationshipDimension.owner_peer_id == owner))).scalars().one().id)
+    second = {"relationships": [{"ref": "r1", "actors": ["user", "companion"], "type": "partners", "existing_id": r1["refs"]["r1"]["id"], "evidence": ["m3"]}],
+              "dimensions": [{"ref": "d1", "relationship": "r1", "from_actor": "user", "to_actor": "companion", "dimension": "awareness_of_it", "value": "aware",
+                              "durability": "durable", "supersedes": dim_id, "evidence": ["m3"]},
+                             {"ref": "d2", "relationship": "ghost", "from_actor": "user", "to_actor": "companion", "dimension": "x", "value": "y", "evidence": ["m3"]}],
+              "state_review": [{"id": dim_id, "status": "superseded", "note": "now knows"}, {"id": "not-a-real-id", "status": "holds"}],
+              "events": [{"ref": "e1", "label": "unevidenced", "evidence": ["m404"]}]}
+    r2 = await _run(FakeInterpreter(second), INTERP_MESSAGES + [{"id": "m3", "speaker": "assistant", "text": "I told Kai everything."}], owner=owner)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
+        trace = (await client.get("/v1/world/trace", params={"workspace_id": WS, "owner": owner})).json()
+    latest = trace["runs"][0]
+    assert latest["run_id"] == r2["run_id"] and latest["status"] == "applied" and latest["input"]["message_ids"] == ["m3"]
+    d = latest["detail"]
+    assert {x["reason"] for x in d["dropped"]} >= {"relationship_or_actor_not_declared", "no_valid_evidence"}
+    assert d["superseded"] and d["superseded"][0]["id"] == dim_id
+    assert {x["id"]: x["applied"] for x in d["reviews"]} == {dim_id: True, "not-a-real-id": False}
+    assert d["snapshot"]["after"] == r2["snapshot_version"] and d["identities"]["user_actor"]["name"] == "Kai"
+    assert trace["snapshot"]["version"] == r2["snapshot_version"] and trace["lease"] is None
+    assert trace["runs"][1]["run_id"] == r1["run_id"]
+
+
+@pytest.mark.asyncio
+async def test_a_durable_reading_replaces_an_older_facet_of_any_tier_but_a_moment_never_replaces_a_durable_one():
+    from src.models.world import RelationshipDimension
+    owner = "world:rpd2:u:tier:c1"
+    def dim(ref, value, durability, evidence):
+        return {"ref": ref, "relationship": "r1", "from_actor": "user", "to_actor": "companion", "dimension": "awareness_of_event", "value": value, "durability": durability, "evidence": [evidence]}
+    rel = {"relationships": [{"ref": "r1", "actors": ["user", "companion"], "type": "partners", "evidence": ["m1"]}]}
+    base = INTERP_MESSAGES
+    await _run(FakeInterpreter({**rel, "dimensions": [dim("d1", "not established", "unknown", "m1")]}), base, owner=owner)
+    m3 = base + [{"id": "m3", "speaker": "assistant", "text": "He saw everything."}]
+    await _run(FakeInterpreter({**rel, "dimensions": [dim("d1", "aware", "durable", "m3")]}), m3, owner=owner)
+    m4 = m3 + [{"id": "m4", "speaker": "user", "text": "I need air."}]
+    await _run(FakeInterpreter({**rel, "dimensions": [dim("d1", "refuses to know", "acute", "m4")]}), m4, owner=owner)
+    async with async_session_maker() as db:
+        live = (await db.execute(select(RelationshipDimension).where(RelationshipDimension.owner_peer_id == owner, RelationshipDimension.superseded_by_id.is_(None)))).scalars().all()
+    assert sorted((d.value, d.durability) for d in live) == [("aware", "durable"), ("refuses to know", "acute")]    # old unknown retired; acute coexists with durable
+
+
+@pytest.mark.asyncio
+async def test_a_reference_by_known_id_is_resolved_not_dropped_so_a_replacement_for_stale_state_can_never_vanish():
+    """Regression for the stale-awareness failure: the interpreter names the known relationship / actor / event by the id it was shown instead of
+    redeclaring it. Every such reference must resolve mechanically (identity by id) and the replacement must land and supersede."""
+    from src.models.world import RelationshipDimension
+    owner = "world:rpd2:u:byid:c1"
+    first = {"actors": [{"ref": "t", "name": "Tom", "evidence": ["m1"]}],
+             "relationships": [{"ref": "r1", "actors": ["user", "t"], "type": "friends", "evidence": ["m1"]}],
+             "events": [{"ref": "e1", "label": "the layoff", "evidence": ["m1"]}],
+             "dimensions": [{"ref": "d1", "relationship": "r1", "from_actor": "t", "to_actor": "user", "dimension": "awareness_of_event", "value": "unaware",
+                             "about": "e1", "evidence": ["m1"]}]}
+    r1 = await _run(FakeInterpreter(first), INTERP_MESSAGES, owner=owner)
+    rel_id, tom_id = r1["refs"]["r1"]["id"], r1["refs"]["t"]["id"]
+    event_id = r1["refs"]["e1"]["id"]
+    async with async_session_maker() as db:
+        old = (await db.execute(select(RelationshipDimension).where(RelationshipDimension.owner_peer_id == owner))).scalars().one()
+    second = {"dimensions": [{"ref": "d9", "relationship": rel_id, "from_actor": tom_id, "to_actor": "user", "dimension": "awareness_of_event", "value": "aware",
+                              "about": event_id, "supersedes": str(old.id), "evidence": ["m3"]}]}
+    r2 = await _run(FakeInterpreter(second), INTERP_MESSAGES + [{"id": "m3", "speaker": "assistant", "text": "Tom found out."}], owner=owner)
+    async with async_session_maker() as db:
+        rows = (await db.execute(select(RelationshipDimension).where(RelationshipDimension.owner_peer_id == owner))).scalars().all()
+        ents = (await db.execute(select(Entity).where(Entity.frame_scope == owner))).scalars().all()
+    assert [d.value for d in rows if d.superseded_by_id is None] == ["aware"] and any(d.superseded_by_id for d in rows)
+    assert len(ents) == 3 and [d for d in rows if d.about_event_id == __import__("uuid").UUID(event_id)]            # no twin actor, the event link survived
+    async with async_session_maker() as db:
+        run = (await db.execute(select(ProducerRun).where(ProducerRun.id == __import__("uuid").UUID(r2["run_id"])))).scalars().one()
+    assert json.loads(run.detail_json)["dropped"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_name_the_product_supplies_later_pins_the_actor_the_world_already_has_instead_of_minting_a_twin():
+    """Worlds built before identities were pinned already hold the human's character as an ordinary actor."""
+    from src.models.world import WorldIdentity
+    from src.services import entity_service
+    owner = "world:rpd2:u:late:c1"
+    async with async_session_maker() as db:
+        existing = await entity_service._provision(db, workspace_id=WS, session_id="c1", display_name="Kai", frame=owner, message_id="m2", entity_type="character")
+    await _run(FakeInterpreter(_raw("m3")), INTERP_MESSAGES + [{"id": "m3", "speaker": "user", "text": "hi"}], owner=owner)      # the product now says: the human is Kai
+    async with async_session_maker() as db:
+        ents = (await db.execute(select(Entity).where(Entity.frame_scope == owner))).scalars().all()
+        pins = {r.role: r.entity_id for r in (await db.execute(select(WorldIdentity).where(WorldIdentity.owner_peer_id == owner))).scalars().all()}
+    assert [e.display_name for e in ents].count("Kai") == 1 and pins["user_actor"] == existing.id

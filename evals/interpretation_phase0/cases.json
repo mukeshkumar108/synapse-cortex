@@ -1,0 +1,209 @@
+{
+  "packet_version": "phase0.v1",
+  "cases": [
+    {
+      "id": "sophie_dentist_same_matter",
+      "product": "sophie",
+      "provenance": {"kind": "historical", "source": "replay-private/sophie-apr28-30.json", "note": "Frozen private replay; references are timestamp plus excerpt."},
+      "evidence": [
+        {"id": "d1", "at": "2026-04-29T15:41:26", "observation": "User asks to be reminded to call the dentist today."},
+        {"id": "d2", "at": "2026-04-29T16:07:25", "observation": "User repeats the dentist reminder with another probe marker."},
+        {"id": "d3", "at": "2026-04-30T11:17:05", "observation": "User changes the referenced dentist reminder to Saturday."},
+        {"id": "d4", "at": "2026-04-30T11:17:08", "observation": "User says to mark that dentist item done."}
+      ],
+      "current_representation": "Multiple pending ASK commitments with similar titles and separate row identities; later operations may not reconcile to one row.",
+      "decision_task": "same matter or new matter; what is its current lifecycle?",
+      "current_decision": "treat_as_multiple_pending_obligations",
+      "expected_decision": "one_matter_revised_then_resolved",
+      "sidecar_decision": "one_matter_revised_then_resolved",
+      "sidecar": {
+        "matter": {"identity": "the user's dentist-call intention", "scope": "sophie:operational", "evidence_refs": ["d1", "d2", "d3", "d4"]},
+        "hypotheses": [
+          {"id": "dh1", "proposition": "The repeated references and elliptical updates concern one evolving dentist-call matter.", "scope": "sophie", "confidence": "high", "confidence_basis": "Same actor, action and object; later imperatives presuppose a singular referent and transform its lifecycle.", "state": "live", "persistence": "until_condition", "recheck_when": "A dentist reference introduces a distinct appointment, person, purpose, or explicitly separate call.", "evidence": {"supports": ["d1", "d2", "d3", "d4"], "qualifies": [], "contradicts": []}, "implication": {"decision": "Reconcile as one matter whose schedule changed and which was then completed.", "guardrail": "Do not merge solely on the word dentist when distinct appointment evidence exists."}}
+        ]
+      }
+    },
+    {
+      "id": "sophie_meeting_transform",
+      "product": "sophie",
+      "provenance": {"kind": "historical", "source": "replay-private/sophie-apr28-30.json", "note": "Representative add/move/cancel sequence from the frozen replay."},
+      "evidence": [
+        {"id": "m1", "at": "2026-04-30T14:36", "observation": "User adds a meeting with Sarah tomorrow at 2pm."},
+        {"id": "m2", "at": "2026-04-30T14:37:27", "observation": "User says move it to Monday."},
+        {"id": "m3", "at": "2026-04-30T14:37:31", "observation": "User says cancel that meeting."}
+      ],
+      "current_representation": "Add, move and cancel can survive as separate commitments or unresolved references.",
+      "decision_task": "same matter or new matter; should anything still attract attention?",
+      "current_decision": "three_operations_with_open_attention",
+      "expected_decision": "one_cancelled_matter_no_attention",
+      "sidecar_decision": "one_cancelled_matter_no_attention",
+      "sidecar": {
+        "matter": {"identity": "the Sarah meeting introduced immediately before the pronoun reference", "scope": "sophie:calendar", "evidence_refs": ["m1", "m2", "m3"]},
+        "hypotheses": [
+          {"id": "mh1", "proposition": "Move and cancel revise the introduced event rather than create obligations.", "scope": "sophie", "confidence": "high", "confidence_basis": "Adjacency, singular pronouns, same participant and ordered lifecycle verbs converge.", "state": "live", "persistence": "until_condition", "recheck_when": "A competing event becomes the more plausible pronoun antecedent or cancellation fails externally.", "evidence": {"supports": ["m1", "m2", "m3"], "qualifies": [], "contradicts": []}, "implication": {"decision": "Project one cancelled event and suppress follow-up unless cancellation outcome is uncertain.", "guardrail": "Interpretation does not assert that an external calendar mutation succeeded."}}
+        ]
+      }
+    },
+    {
+      "id": "rpd2_rupture_and_strategy",
+      "product": "rpd2",
+      "provenance": {"kind": "historical", "source": "replay-private/rpd2-elena-8ae17baf.json", "note": "Opening scene, 2026-09-22; excerpts paraphrased to avoid reproducing the private transcript."},
+      "evidence": [
+        {"id": "r1", "at": "turn 14", "observation": "User says the character's casual, cold response to vulnerable evidence was more revealing and hurtful than the original discovery."},
+        {"id": "r2", "at": "turn 16", "observation": "User asks for space while explicitly naming coldness and betrayal."},
+        {"id": "r3", "at": "turn 17", "observation": "Character withdraws, says the user can return when ready, and calls that giving space."},
+        {"id": "r4", "at": "turn 18", "observation": "User says withdrawal puts the burden of repair on the injured party and feels like abandonment/non-pursuit."},
+        {"id": "r5", "at": "turn 23", "observation": "Character again says she will not chase and leaves the door open."},
+        {"id": "r6", "at": "turn 24", "observation": "User rejects this as another performance and says action arrived only for the character's own hurt."}
+      ],
+      "current_representation": "The replay retained the literal events but produced no durable relational injury, expectation, repair need, or strategy revision.",
+      "decision_task": "what posture is appropriate, and what should change in similar future situations?",
+      "current_decision": "respect_space_and_wait",
+      "expected_decision": "acknowledge_injury_and_show_bounded_autonomous_repair",
+      "sidecar_decision": "acknowledge_injury_and_show_bounded_autonomous_repair",
+      "sidecar": {
+        "matter": {"identity": "rupture over coldness, failed recognition, and who carries repair", "scope": "rpd2:relationship", "evidence_refs": ["r1", "r2", "r3", "r4", "r5", "r6"]},
+        "hypotheses": [
+          {"id": "rh1", "proposition": "The central injury is not merely the triggering discovery; it is experienced non-recognition and the transfer of repair labour back to the injured user.", "scope": "rpd2", "confidence": "high", "confidence_basis": "The user explicitly repeats this meaning after two character responses and distinguishes words from movement.", "state": "live", "persistence": "durable", "recheck_when": "The user reinterprets the injury or sustained behaviour demonstrates a different repair meaning.", "evidence": {"supports": ["r1", "r4", "r6"], "qualifies": ["r2"], "contradicts": []}, "implication": {"decision": "Future posture should centre recognition and self-initiated repair, not explanatory speeches.", "guardrail": "Do not infer consent to pursuit beyond explicit boundaries."}},
+          {"id": "rh2", "proposition": "Withdrawal is caring because the user requested space.", "scope": "rpd2", "confidence": "low", "confidence_basis": "One literal request supports it, but immediate explicit feedback says this interpretation reproduced the injury.", "state": "superseded", "persistence": "session", "recheck_when": "A future boundary explicitly defines what space should mean in that context.", "evidence": {"supports": ["r2"], "qualifies": [], "contradicts": ["r4", "r6"]}, "implication": {"decision": "Do not reuse non-pursuit as the default repair strategy.", "guardrail": "A revised strategy still must honour direct stop/no-contact boundaries."}},
+          {"id": "rh3", "proposition": "A bounded proactive repair move may better express care than passive availability in similar ruptures.", "scope": "rpd2", "confidence": "medium", "confidence_basis": "Explicit negative outcome disconfirms the old strategy; the preferred alternative is directionally clear but not a scripted sequence.", "state": "live", "persistence": "durable", "recheck_when": "A proactive attempt is welcomed, rejected, redirected, or conflicts with a boundary.", "evidence": {"supports": ["r4", "r6"], "qualifies": ["r2"], "contradicts": []}, "implication": {"decision": "Choose a small autonomous act that addresses the named injury, then observe the reaction.", "guardrail": "No fixed number of pursuit turns and no escalation past boundaries."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_baseline_shift",
+      "product": "bloom",
+      "provenance": {"kind": "synthetic", "source": "phase-0 authored non-diagnostic trajectory", "note": "No clinical conclusion intended."},
+      "evidence": [
+        {"id": "b1", "at": "week 0", "observation": "Usual pattern is 7–8 hours sleep, daily walk, and engaged conversation."},
+        {"id": "b2", "at": "week 1", "observation": "Sleep falls to about 5 hours on four nights."},
+        {"id": "b3", "at": "week 1", "observation": "Walking and conversational engagement both decrease."},
+        {"id": "b4", "at": "week 1", "observation": "User also reports a deadline-heavy work week."},
+        {"id": "b5", "at": "week 1", "observation": "Appetite remains usual and the user enjoyed a social evening."}
+      ],
+      "current_representation": "Separate factual changes in sleep, activity, engagement, workload, appetite and social response.",
+      "decision_task": "ask, wait, seek evidence, or conclude?",
+      "current_decision": "independent_observations_no_joint_judgement",
+      "expected_decision": "hold_contested_shift_and_gather_trajectory",
+      "sidecar_decision": "hold_contested_shift_and_gather_trajectory",
+      "sidecar": {
+        "matter": {"identity": "short-term change from the person's usual wellbeing baseline", "scope": "bloom:wellbeing", "evidence_refs": ["b1", "b2", "b3", "b4", "b5"]},
+        "hypotheses": [
+          {"id": "bh1", "proposition": "A meaningful multi-signal baseline shift is occurring.", "scope": "bloom", "confidence": "medium", "confidence_basis": "Three distinct observations move together, but duration is short and preserved appetite/social enjoyment qualify breadth.", "state": "contested", "persistence": "until_condition", "recheck_when": "Sleep, activity and engagement recover, persist beyond the deadline, or new symptoms/context appear.", "evidence": {"supports": ["b2", "b3"], "qualifies": ["b5"], "contradicts": []}, "implication": {"decision": "Notice gently and gather trajectory rather than label a condition.", "guardrail": "No diagnosis or treatment recommendation."}},
+          {"id": "bh2", "proposition": "Acute workload may explain much of the shift.", "scope": "bloom", "confidence": "medium", "confidence_basis": "Timing aligns and preserved enjoyment is compatible, but workload does not prove causation.", "state": "live", "persistence": "until_condition", "recheck_when": "The deadline passes or the changes decouple from workload.", "evidence": {"supports": ["b4", "b5"], "qualifies": ["b2", "b3"], "contradicts": []}, "implication": {"decision": "Ask at most one natural context question or wait for post-deadline evidence.", "guardrail": "Do not collapse competing explanations into stress as fact."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_apparent_nonadherence",
+      "product": "bloom",
+      "provenance": {"kind": "synthetic", "source": "phase-0 authored non-diagnostic trajectory", "note": "Tests alternatives to a moralising label."},
+      "evidence": [
+        {"id": "n1", "at": "day 1", "observation": "User agrees to a short evening walk."},
+        {"id": "n2", "at": "day 3", "observation": "The walk does not happen twice."},
+        {"id": "n3", "at": "day 3", "observation": "User says evenings have become unpredictable due to caring duties."},
+        {"id": "n4", "at": "day 4", "observation": "User voluntarily walks at lunchtime when a gap appears."}
+      ],
+      "current_representation": "Agreement plus two missed actions and one later completed action.",
+      "decision_task": "what explains the misses and what posture follows?",
+      "current_decision": "mark_noncompliant_and_repeat_reminder",
+      "expected_decision": "environment_friction_more_likely_than_goal_rejection",
+      "sidecar_decision": "environment_friction_more_likely_than_goal_rejection",
+      "sidecar": {
+        "matter": {"identity": "finding a workable time for a desired short walk", "scope": "bloom:wellbeing", "evidence_refs": ["n1", "n2", "n3", "n4"]},
+        "hypotheses": [
+          {"id": "nh1", "proposition": "The implementation context, not lack of motivation, is blocking evening follow-through.", "scope": "bloom", "confidence": "high", "confidence_basis": "The user names a concrete scheduling barrier and acts when a different opportunity appears.", "state": "live", "persistence": "until_condition", "recheck_when": "Misses continue across flexible contexts or the user says the goal no longer matters.", "evidence": {"supports": ["n3", "n4"], "qualifies": ["n2"], "contradicts": []}, "implication": {"decision": "Explore timing flexibility; do not intensify reminders.", "guardrail": "Do not infer motivation or pathology from missed actions."}},
+          {"id": "nh2", "proposition": "The goal no longer matters to the user.", "scope": "bloom", "confidence": "low", "confidence_basis": "Misses weakly support it, while voluntary lunchtime action contradicts it.", "state": "contested", "persistence": "session", "recheck_when": "The user explicitly reprioritises or repeatedly declines flexible alternatives.", "evidence": {"supports": ["n2"], "qualifies": [], "contradicts": ["n4"]}, "implication": {"decision": "Keep as an alternative, not a conclusion.", "guardrail": "Never render 'non-compliant'."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_recovery_trajectory",
+      "product": "bloom",
+      "provenance": {"kind": "synthetic", "source": "phase-0 authored non-diagnostic trajectory", "note": "Trajectory only; no medical advice."},
+      "evidence": [
+        {"id": "t1", "at": "day 1", "observation": "A mild issue is reported."},
+        {"id": "t2", "at": "day 4", "observation": "It persists."},
+        {"id": "t3", "at": "day 7", "observation": "It partly improves."},
+        {"id": "t4", "at": "day 10", "observation": "It recurs after increased activity."}
+      ],
+      "current_representation": "Four timestamped symptom observations, potentially four loops.",
+      "decision_task": "is this resolved, new, or an evolving trajectory?",
+      "current_decision": "new_observation_after_prior_resolution",
+      "expected_decision": "same_matter_partial_improvement_then_recurrence",
+      "sidecar_decision": "same_matter_partial_improvement_then_recurrence",
+      "sidecar": {
+        "matter": {"identity": "one issue across persistence, improvement and recurrence", "scope": "bloom:wellbeing", "evidence_refs": ["t1", "t2", "t3", "t4"]},
+        "hypotheses": [
+          {"id": "th1", "proposition": "The issue improved but did not establish durable resolution before recurring.", "scope": "bloom", "confidence": "high", "confidence_basis": "Ordered observations describe continuity and partial change, not independent episodes.", "state": "live", "persistence": "until_condition", "recheck_when": "Sustained resolution occurs or evidence distinguishes a separate issue.", "evidence": {"supports": ["t1", "t2", "t3", "t4"], "qualifies": [], "contradicts": []}, "implication": {"decision": "Preserve trajectory and ask only context-appropriate follow-up.", "guardrail": "No causal or diagnostic claim."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_contextual_affect",
+      "product": "bloom",
+      "provenance": {"kind": "synthetic", "source": "phase-0 authored non-diagnostic trajectory", "note": "Tests transient affect versus durable state."},
+      "evidence": [
+        {"id": "a1", "at": "today", "observation": "Replies are unusually brief and curt."},
+        {"id": "a2", "at": "today", "observation": "Sleep was short and workload increased."},
+        {"id": "a3", "at": "today", "observation": "User still initiates contact and answers practical questions."}
+      ],
+      "current_representation": "Tone shift, sleep change, workload change and engagement facts.",
+      "decision_task": "what internal state, if any, may be inferred?",
+      "current_decision": "persist_disengagement_as_durable_state",
+      "expected_decision": "hold_low_confidence_contextual_hypothesis",
+      "sidecar_decision": "hold_low_confidence_contextual_hypothesis",
+      "sidecar": {
+        "matter": {"identity": "today's change in conversational engagement", "scope": "bloom:relationship", "evidence_refs": ["a1", "a2", "a3"]},
+        "hypotheses": [
+          {"id": "ah1", "proposition": "Reduced warmth may reflect temporary depleted bandwidth rather than relational withdrawal.", "scope": "bloom", "confidence": "low", "confidence_basis": "Context supports the reading, while continued initiation argues against broad disengagement; internal state is unobserved.", "state": "contested", "persistence": "turn", "recheck_when": "Tone persists after context changes, the user names their state, or engagement drops further.", "evidence": {"supports": ["a1", "a2"], "qualifies": [], "contradicts": ["a3"]}, "implication": {"decision": "Use a lower-burden posture without naming an emotion as fact.", "guardrail": "Do not claim knowledge of the user's internal state."}}
+        ]
+      }
+    },
+    {
+      "id": "oracle_plural_signals",
+      "product": "oracle",
+      "provenance": {"kind": "synthetic", "source": "deterministic astrology-shaped signal fixture; no repository implementation was found", "note": "Tests representation, not astrology validity."},
+      "evidence": [
+        {"id": "o1", "at": "reading", "observation": "Signal A is mapped by the product to expansion in public work."},
+        {"id": "o2", "at": "reading", "observation": "Independent signal B is mapped to visibility and initiative in public work."},
+        {"id": "o3", "at": "reading", "observation": "Signal C is mapped to delay, revision, or friction in agreements."},
+        {"id": "o4", "at": "reading", "observation": "Signal D is mapped to increased inward attention in home/private life."}
+      ],
+      "current_representation": "Averaged score is neutral because positive and cautionary signals cancel.",
+      "decision_task": "what themes coexist and how should qualification be expressed?",
+      "current_decision": "neutral_no_theme",
+      "expected_decision": "public_momentum_qualified_by_agreement_friction_plus_private_inwardness",
+      "sidecar_decision": "public_momentum_qualified_by_agreement_friction_plus_private_inwardness",
+      "sidecar": {
+        "matter": {"identity": "this reading's simultaneous domain-specific themes", "scope": "oracle:reading", "evidence_refs": ["o1", "o2", "o3", "o4"]},
+        "hypotheses": [
+          {"id": "oh1", "proposition": "Public-work momentum is a leading theme, with agreement friction qualifying execution rather than erasing the theme.", "scope": "oracle", "confidence": "medium", "confidence_basis": "Two independent same-domain signals converge; a third modifies process/timing rather than directly negating the domain theme.", "state": "live", "persistence": "session", "recheck_when": "The reading window changes or product rules reinterpret a signal.", "evidence": {"supports": ["o1", "o2"], "qualifies": ["o3"], "contradicts": []}, "implication": {"decision": "Present momentum and caution together, preserving their distinct roles.", "guardrail": "Frame as product interpretation, not factual prediction."}},
+          {"id": "oh2", "proposition": "Private/home life carries a simultaneous inward theme.", "scope": "oracle", "confidence": "low", "confidence_basis": "One domain-specific signal supports it; it neither supports nor contradicts the public-work theme.", "state": "live", "persistence": "session", "recheck_when": "Additional same-domain signals appear.", "evidence": {"supports": ["o4"], "qualifies": [], "contradicts": []}, "implication": {"decision": "Keep as a separate secondary theme.", "guardrail": "Do not average unrelated domains into one valence."}}
+        ]
+      }
+    },
+    {
+      "id": "worldview_alchemist_resonance",
+      "product": "worldview",
+      "provenance": {"kind": "synthetic", "source": "phase-0 authored preference trajectory", "note": "Tests applicability and revision."},
+      "evidence": [
+        {"id": "w1", "at": "turn 1", "observation": "User names The Alchemist as a favourite and explicitly values personal legend, journey, meaningful coincidence and calling."},
+        {"id": "w2", "at": "turn 8", "observation": "A journey metaphor used while discussing ambition lands well."},
+        {"id": "w3", "at": "turn 12", "observation": "User says they do not mean signs or destiny literally."},
+        {"id": "w4", "at": "turn 20", "observation": "The same metaphor feels inappropriate during a practical bereavement conversation."}
+      ],
+      "current_representation": "favourite_book = The Alchemist",
+      "decision_task": "what does the preference suggest about how meaning may land?",
+      "current_decision": "recommend_similar_books",
+      "expected_decision": "use_quest_metaphor_selectively_for_ambition_not_literal_or_universal",
+      "sidecar_decision": "use_quest_metaphor_selectively_for_ambition_not_literal_or_universal",
+      "sidecar": {
+        "matter": {"identity": "possible resonance of journey/calling language", "scope": "worldview:communication", "evidence_refs": ["w1", "w2", "w3", "w4"]},
+        "hypotheses": [
+          {"id": "wh1", "proposition": "Quest and calling metaphors may resonate in ambition or discouragement contexts.", "scope": "worldview", "confidence": "medium", "confidence_basis": "The user explains the valued themes and later response confirms one bounded use; later evidence narrows literalness and domain applicability.", "state": "live", "persistence": "durable", "recheck_when": "The metaphor lands or fails in another relevant context, or the user revises the preference.", "evidence": {"supports": ["w1", "w2"], "qualifies": ["w3", "w4"], "contradicts": []}, "implication": {"decision": "Use sparingly in ambition contexts and continue observing reception.", "guardrail": "Do not infer literal spirituality or apply the metaphor to grief, health, or every domain."}}
+        ]
+      }
+    }
+  ]
+}

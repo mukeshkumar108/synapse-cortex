@@ -261,3 +261,21 @@ async def test_only_act_rows_are_actionable():
         actionable = await svc.list_actionable(db, workspace_id="ws-auth", owner_peer_id="elena")
         assert [r.authority for r in actionable] == [CommitmentCandidateAuthority.ACT]
         assert len(actionable) == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_duplicate_deliveries_of_one_turn_are_idempotent_and_never_500(async_client, monkeypatch):
+    """At-least-once delivery: the same turn arriving twice at the same instant must yield two 202s and exactly one set of effects."""
+    import asyncio
+    from sqlmodel import select
+    from src.db import async_session_maker
+    from src.models.operational_state import ExtractionTrace
+    from src.routers import v1_events
+    monkeypatch.setattr(v1_events.turn_extractor, "extract_candidates", lambda *a, **kw: [])
+    payload = {"workspace_id": "ws-dup", "session_id": "s1", "honcho_message_id": "m-dup", "peer_id": "kai", "text": "I'll call mum on Sunday.",
+               "now": "2026-09-22T11:23:21+01:00", "timezone": "Europe/London"}
+    first, second = await asyncio.gather(async_client.post("/v1/events/turn", json=payload), async_client.post("/v1/events/turn", json=payload))
+    assert first.status_code == 202 and second.status_code == 202, (first.text, second.text)
+    async with async_session_maker() as db:
+        rows = (await db.execute(select(ExtractionTrace).where(ExtractionTrace.honcho_workspace_id == "ws-dup"))).scalars().all()
+    assert len({(r.stage, r.item_key) for r in rows}) == len(rows)          # no duplicate trace rows

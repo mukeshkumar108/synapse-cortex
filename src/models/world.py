@@ -27,7 +27,10 @@ class ProducerRun(SQLModel, table=True):
     input_json: str = Field(default="{}")                        # session id + message id range
     covered_through_json: str = Field(default="{}")
     counts_json: str = Field(default="{}")
-    status: str = Field(default="applied")                       # applied | retracted | rejected
+    status: str = Field(default="applied")                       # queued | running | applied | failed | skipped | retracted | rejected
+    detail_json: str = Field(default="{}")                       # the run's full trace: evidence range, candidates kept/dropped/rejected + reasons, reviews
+    started_at: Optional[datetime] = Field(default=None)
+    finished_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
@@ -169,3 +172,28 @@ class ContinuationBrief(SQLModel, table=True):
     run_id: Optional[UUID] = Field(default=None, index=True)
     superseded_by_id: Optional[UUID] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class WorldLease(SQLModel, table=True):
+    """Cross-process mutual exclusion for one world: at most one interpretation mutates a world's canonical state at a time. Plain row + expiry
+    (not a session advisory lock, which does not survive a transaction-pooling proxy)."""
+    __tablename__ = "world_leases"
+
+    key: str = Field(primary_key=True)                            # workspace|owner
+    holder: str = Field(nullable=False)                           # run id
+    expires_at: datetime = Field(nullable=False)
+    acquired_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class WorldIdentity(SQLModel, table=True):
+    """Product-supplied identities pinned per world: which entity IS the human's actor and which IS the companion's. Never inferred from prose."""
+    __tablename__ = "world_identities"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: str = Field(index=True, nullable=False)
+    role: str = Field(nullable=False)                             # user_actor | companion_actor
+    entity_id: UUID = Field(nullable=False)
+    name_supplied: bool = Field(default=True)                     # False: the product did not say who the human is; the actor is a typed placeholder
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)

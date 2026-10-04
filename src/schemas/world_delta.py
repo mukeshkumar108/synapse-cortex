@@ -197,6 +197,14 @@ class BriefC(_Item):
     lines: List[BriefLineC] = Field(default_factory=list)
 
 
+class ReviewC(_Item):
+    """The interpreter's verdict on a CURRENT facet or objective it was shown: does it still hold given the new evidence? A review changes nothing
+    by itself (replacement/resolution travels in the normal arrays); it makes silence impossible to mistake for 'still true'."""
+    id: str
+    status: Literal["holds", "superseded", "resolved", "unclear"]
+    note: Optional[str] = None
+
+
 class WorldDelta(_Item):
     contract_version: Literal["world-delta-v1"] = "world-delta-v1"
     workspace_id: str
@@ -213,6 +221,7 @@ class WorldDelta(_Item):
     dimensions: List[DimensionC] = Field(default_factory=list)
     trajectory: List[TrajectoryC] = Field(default_factory=list)
     brief: Optional[BriefC] = None
+    reviews: List[ReviewC] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _structure(self) -> "WorldDelta":

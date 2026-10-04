@@ -50,6 +50,9 @@ async_session_maker = sessionmaker(
 _ADDITIVE_COLUMNS = (
     ("world_objectives", "durability", "VARCHAR DEFAULT 'unknown'"),
     ("relationship_dimensions", "durability", "VARCHAR DEFAULT 'unknown'"),
+    ("producer_runs", "detail_json", "TEXT DEFAULT '{}'"),
+    ("producer_runs", "started_at", "TIMESTAMP"),
+    ("producer_runs", "finished_at", "TIMESTAMP"),
 )
 
 

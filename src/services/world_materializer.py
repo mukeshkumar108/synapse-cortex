@@ -56,6 +56,10 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
     return parsed.astimezone(timezone.utc).replace(tzinfo=None) if parsed.tzinfo else parsed
 
 
+MAX_RUN_MESSAGE_IDS = 2000      # the run's evidence ledger: coverage is computed from these ids, so they are stored whole
+MAX_REJECTED_DETAIL = 40
+
+
 class _Ctx:
     """Mutable state of one materialisation."""
     def __init__(self, db: AsyncSession, delta: WorldDelta, run: ProducerRun, now: datetime, constitution: Optional[Dict[str, str]] = None):
@@ -75,6 +79,8 @@ class _Ctx:
         self.entities_by_id: Dict[Any, Entity] = {}
         self.rel_edges: Dict[Any, Any] = {}
         self.counts: Dict[str, int] = {}
+        self.superseded: List[Dict[str, str]] = []
+        self.review_results: List[Dict[str, Any]] = []
 
     def reject(self, ref: str, reason: str) -> None:
         self.rejected.append({"ref": ref, "reason": reason})
@@ -591,10 +597,10 @@ async def _dimensions(ctx: _Ctx) -> None:
         about = ctx.events.get(d.about or "")
         formation = epistemics.formation_class(d.formation)
         name = _slug(d.dimension).replace("-", "_") or "dimension"
-        tier_durable = d.durability == "durable"          # promotion policy: a moment or an unconfirmed reading never supersedes a sustained facet; they coexist
+        tier_durable = d.durability == "durable"          # promotion policy: a sustained reading may replace a facet of any tier; a moment or an unconfirmed reading never replaces a sustained one (they coexist)
         stmt = select(RelationshipDimension).where(
             RelationshipDimension.honcho_workspace_id == ctx.ws, RelationshipDimension.owner_peer_id == ctx.owner,
-            (RelationshipDimension.durability == "durable") if tier_durable else (RelationshipDimension.durability != "durable"), RelationshipDimension.from_entity_id == a.id,
+            (RelationshipDimension.durability != "durable") if not tier_durable else (RelationshipDimension.durability.is_not(None)), RelationshipDimension.from_entity_id == a.id,
             RelationshipDimension.to_entity_id == b.id, RelationshipDimension.dimension == name, RelationshipDimension.superseded_by_id.is_(None))
         stmt = stmt.where(RelationshipDimension.about_event_id == about.id) if about else stmt.where(RelationshipDimension.about_event_id.is_(None))
         prior = (await ctx.db.execute(stmt)).scalars().first()
@@ -615,14 +621,40 @@ async def _dimensions(ctx: _Ctx) -> None:
         if prior is not None:
             prior.superseded_by_id = row.id
             ctx.db.add(prior)
+            ctx.superseded.append({"kind": "dimension", "id": str(prior.id), "by": str(row.id), "how": "same_key"})
         replaced = await _known(ctx, RelationshipDimension, d.supersedes)      # the interpreter says this replaces a known facet (state changed)
         if replaced is not None and replaced.owner_peer_id == ctx.owner and replaced.id != row.id and replaced.superseded_by_id is None:
             replaced.superseded_by_id = row.id
             ctx.db.add(replaced)
             ctx.count("dimensions_superseded_by_interpreter")
+            ctx.superseded.append({"kind": "dimension", "id": str(replaced.id), "by": str(row.id), "how": "interpreter"})
         await ctx.prov("dimension", row.id)
         ctx.count("dimensions_written")
     await ctx.db.commit()
+
+
+async def _reviews(ctx: _Ctx) -> None:
+    """Record what became of each review verdict. A 'superseded'/'resolved' verdict whose replacement never arrived is surfaced as unapplied,
+    never silently treated as either still-true or changed."""
+    for r in ctx.delta.reviews:
+        row, kind = None, None
+        for model, k in ((RelationshipDimension, "dimension"), (WorldObjective, "objective")):
+            row = await _known(ctx, model, r.id)
+            if row is not None:
+                kind = k
+                break
+        if row is None:
+            ctx.review_results.append({"id": r.id, "status": r.status, "kind": None, "applied": False, "reason": "unknown_id"})
+            continue
+        if r.status == "superseded":
+            applied = kind == "dimension" and row.superseded_by_id is not None
+        elif r.status == "resolved":
+            applied = kind == "objective" and row.status != "current"
+        else:
+            applied = True
+        ctx.review_results.append({"id": r.id, "status": r.status, "kind": kind, "applied": applied, "note": (r.note or "")[:200]})
+        if not applied:
+            ctx.count("reviews_unapplied")
 
 
 async def _trajectory(ctx: _Ctx) -> None:
@@ -689,29 +721,51 @@ async def _brief(ctx: _Ctx) -> None:
 # ----------------------------------------------------------------------------- entry point
 async def materialize(db: AsyncSession, delta: WorldDelta, *, now: Optional[datetime] = None,
                       adapter: Any = None, compile_snapshot: bool = True,
-                      constitution: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                      constitution: Optional[Dict[str, str]] = None, run: Optional[ProducerRun] = None) -> Dict[str, Any]:
     now_n = _naive(now)
-    run = ProducerRun(
-        honcho_workspace_id=delta.workspace_id, owner_peer_id=delta.owner, producer=delta.source.producer, model=delta.source.model,
-        version=delta.source.version, external_run_id=delta.source.run_id,
-        input_json=json.dumps({"session_id": delta.source.session_id, "message_ids": [m.id for m in delta.source.messages][:200]}),
-        covered_through_json=json.dumps(delta.source.covered_through.model_dump() if delta.source.covered_through else {}))
-    db.add(run)
+    if run is None:
+        run = ProducerRun(
+            honcho_workspace_id=delta.workspace_id, owner_peer_id=delta.owner, producer=delta.source.producer, model=delta.source.model,
+            version=delta.source.version, external_run_id=delta.source.run_id, status="running", started_at=now_n,
+            input_json=json.dumps({"session_id": delta.source.session_id, "message_ids": [m.id for m in delta.source.messages][:MAX_RUN_MESSAGE_IDS]}),
+            covered_through_json=json.dumps(delta.source.covered_through.model_dump() if delta.source.covered_through else {}))
+        db.add(run)
+    else:        # a run the caller opened (queued/leased): the delta fills in what it produced
+        run.model, run.version, run.external_run_id, run.status = delta.source.model, delta.source.version, delta.source.run_id, "running"
+        run.covered_through_json = json.dumps(delta.source.covered_through.model_dump() if delta.source.covered_through else {})
+        db.add(run)
     await db.commit()
     ctx = _Ctx(db, delta, run, now_n, constitution)
-    await _actors(ctx)
-    await _relationships(ctx)
-    await _events(ctx)
-    await _claims(ctx)
-    await _narrative(ctx)
-    await _commitments(ctx)
-    await _conflicts(ctx)
-    await _constitution(ctx)
-    await _objectives(ctx)
-    await _dimensions(ctx)
-    await _matters(ctx, adapter)
-    await _trajectory(ctx)
-    await _brief(ctx)
+    try:
+        await _actors(ctx)
+        await _relationships(ctx)
+        await _events(ctx)
+        await _claims(ctx)
+        await _narrative(ctx)
+        await _commitments(ctx)
+        await _conflicts(ctx)
+        await _constitution(ctx)
+        await _objectives(ctx)
+        await _dimensions(ctx)
+        await _reviews(ctx)
+        await _matters(ctx, adapter)
+        await _trajectory(ctx)
+        await _brief(ctx)
+    except Exception as exc:
+        # A run that did not finish is never left looking applied: its evidence stays uncovered so the next pass interprets it again.
+        await db.rollback()
+        failed = await db.get(ProducerRun, run.id)
+        if failed is not None:
+            failed.status, failed.finished_at = "failed", now_n
+            failed.counts_json = json.dumps({**ctx.counts, "error": f"{type(exc).__name__}: {str(exc)[:300]}", "rejected": len(ctx.rejected)})
+            db.add(failed)
+            await db.commit()
+        exc.run_recorded = True      # the interpreter must not add a second failed row for this pass
+        raise
+    run.status, run.finished_at = "applied", now_n
+    run.counts_json = json.dumps({**ctx.counts, "rejected": len(ctx.rejected), "repaired": len(ctx.repaired), "rejected_detail": ctx.rejected[:MAX_REJECTED_DETAIL]})
+    db.add(run)
+    await db.commit()          # applied BEFORE the snapshot compiles: the resident frontier is computed from applied runs
     snapshot_version = None
     if compile_snapshot:
         try:
@@ -722,9 +776,7 @@ async def materialize(db: AsyncSession, delta: WorldDelta, *, now: Optional[date
             snapshot_version = (snap.get("meta") or {}).get("version")
         except Exception as exc:
             logger.warning("snapshot compile after materialisation failed: %s", exc)
-    run.counts_json = json.dumps({**ctx.counts, "rejected": len(ctx.rejected), "repaired": len(ctx.repaired)})
-    db.add(run)
-    await db.commit()
     return {"run_id": str(run.id), "counts": ctx.counts, "rejected": ctx.rejected, "repaired": ctx.repaired, "refs": ctx.refs,
+            "superseded": ctx.superseded, "reviews": ctx.review_results,
             "covered_through": delta.source.covered_through.model_dump() if delta.source.covered_through else None,
             "snapshot_version": snapshot_version, "producer": delta.source.producer}

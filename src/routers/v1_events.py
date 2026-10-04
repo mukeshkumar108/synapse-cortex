@@ -150,6 +150,26 @@ async def ingest_turn_event(
     payload: TurnEventIngest,
     db: AsyncSession = Depends(get_async_session),
 ):
+    """Duplicate deliveries of one message are serialised: the second finds the first's stored traces and replays them instead of racing the
+    unique trace constraint (a repeated delivery is normal at-least-once behaviour, not an error)."""
+    import asyncio
+    lock = _MESSAGE_LOCKS.setdefault((payload.workspace_id, payload.honcho_message_id), asyncio.Lock())
+    try:
+        async with lock:
+            return await _ingest_turn_event_locked(payload, db)
+    finally:
+        if len(_MESSAGE_LOCKS) > 2000:          # bound the map: drop idle locks only
+            for k in [k for k, v in _MESSAGE_LOCKS.items() if not v.locked()]:
+                _MESSAGE_LOCKS.pop(k, None)
+
+
+_MESSAGE_LOCKS: dict = {}
+
+
+async def _ingest_turn_event_locked(
+    payload: TurnEventIngest,
+    db: AsyncSession,
+):
     """
     Ingests shadow turn event from Sophie/Honcho.
     Executes V4 multi-pass extraction -> shaping -> temporal grounding -> lifecycle mutations -> idempotent persistence.
