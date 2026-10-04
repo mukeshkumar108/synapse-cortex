@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from src.services.matter_service import PrimitiveRef, derive_status, CONVERSATIONAL_CLOSURE_QUIET
-from src.services.turn_working_set import TurnWorkingSetService, recency_window
+from src.services.turn_working_set import Judgement, TurnWorkingSetService, window_for, candidate_key
 
 NOW = datetime(2026, 10, 2, 13, 37)
 
@@ -46,10 +46,10 @@ def test_system_directed_loop_closure_is_not_treated_as_conversational():
 
 def test_recency_window_is_the_user_day_and_morning_is_bounded():
     now = datetime(2026, 10, 2, 9, 43)  # 10:43 BST
-    start, end = recency_window("don't you remember our call earlier?", now, "Europe/London")
+    start, end = window_for("today", now, "Europe/London")          # the MODEL identified "earlier" as today; code only does the calendar arithmetic
     assert start == datetime(2026, 10, 2, 4, 0) and end == now
-    assert recency_window("hey", now, "Europe/London") is None
-    s2, e2 = recency_window("what did I say this morning", datetime(2026, 10, 2, 15, 0), "Europe/London")
+    assert window_for("none", now, "Europe/London") is None
+    s2, e2 = window_for("this_morning", datetime(2026, 10, 2, 15, 0), "Europe/London")
     assert e2 == datetime(2026, 10, 2, 11, 0)  # noon BST in naive UTC
 
 
@@ -61,9 +61,11 @@ def test_earlier_finds_todays_plan_not_yesterdays_call():
     packet = {"window": {"scopes": {}}, "open_loops": [
         {"id": "old", "title": "Yeah we had a call earlier, now voice", "summary": "call earlier",
          "updated_at": "2026-10-01T21:16:53"}]}
+    old_key = candidate_key("open_loop", packet["open_loops"][0])
     out = TurnWorkingSetService().compile_turn_working_set(
         packet, world_model=world, turn_text="don't you remember our call earlier?",
-        now=datetime(2026, 10, 2, 9, 43, 51), timezone_name="Europe/London")
+        now=datetime(2026, 10, 2, 9, 43, 51), timezone_name="Europe/London",
+        judgement=Judgement(scores={old_key: 1.0}, time_reference="today"))
     warm = out["levels"]["warm"]
     assert warm[0]["matter_id"] == "plan"
     assert "Cambridge" in warm[0]["what"]

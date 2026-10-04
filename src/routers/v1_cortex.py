@@ -332,8 +332,11 @@ async def get_turn_working_set(
             timezone_str=req.timezone, session_id=req.session_id)
     except Exception as err:  # the working set degrades to attention-only, never fails the turn
         logger.warning("turn working set: world model unavailable: %s", err)
+    from src.runtime_model import get_agenda_adapter
+    judgement = await turn_working_set_service.judge(state, world, turn_text=req.turn_text, adapter=get_agenda_adapter())
     working_set = turn_working_set_service.compile_turn_working_set(
         state,
+        judgement=judgement,
         world_model=world,
         turn_text=req.turn_text,
         current_message_id=req.current_message_id,
@@ -344,6 +347,7 @@ async def get_turn_working_set(
         timezone_name=req.timezone,
     )
     working_set["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
+    working_set["metrics"]["relevance"] = "model" if judgement is not None else "unavailable"
     return working_set
 
 

@@ -111,6 +111,15 @@ async def test_product_weights_are_policy_over_generic_kinds_only(async_client):
 @pytest.mark.asyncio
 async def test_turn_working_set_is_tiny_and_carries_matter_and_gap_pointers(async_client, monkeypatch):
     await build_longitudinal_world()
+    import json as _json
+    import src.runtime_model as rm
+
+    class Meaning:
+        def __init__(self, needle): self.needle = needle
+        async def generate_structured(self, *, prompt, **kw):
+            items = _json.loads(prompt.split("ITEMS:\n")[1])
+            return {"items": [{"key": i["key"], "relevance": 1.0 if self.needle in i["text"].lower() else 0.0} for i in items], "time_reference": "none"}
+    monkeypatch.setattr(rm, "get_agenda_adapter", lambda: Meaning("mati"))
     r = await async_client.post("/v1/cortex/turn-working-set", json={
         **BASE, "session_id": "lane-1", "turn_text": "Mati texted me again about his new job"})
     assert r.status_code == 200, r.text
@@ -124,6 +133,7 @@ async def test_turn_working_set_is_tiny_and_carries_matter_and_gap_pointers(asyn
     gap = next(w for w in warm if w["kind"] == "knowledge_gap")
     assert "people/mati" in gap["what"] and gap["surface_safe"] == "ask_naturally" and not gap["proactive_eligible"]
     assert len(str(ws)) < 6000
+    monkeypatch.setattr(rm, "get_agenda_adapter", lambda: Meaning("zzz-nothing"))
     quiet = (await async_client.post("/v1/cortex/turn-working-set", json={
         **BASE, "session_id": "lane-1", "turn_text": "what is the capital of France?"})).json()
     assert not {w["kind"] for w in quiet["levels"]["warm"]} & {"matter", "knowledge_gap"}
