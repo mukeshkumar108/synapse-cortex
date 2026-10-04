@@ -1,3 +1,13 @@
+# UPDATE 2026-10-04 (evening): Sophie convergence + executive layer. Read after the update below; see COGNITION_ARCHITECTURE.md "Layer 3 and Sophie convergence".
+Deployed: Cortex `main` (executive, operational output, close-by-id, per-world operational owner), Runtime `2bd09f2` (all owners interpreted, Jev `time_bound`). Rollback images:
+`*:pre-sophie-converge`. Sophie's world (`llm-test-agent` / `user_5377a025-...`): executive enabled, `operational.owner=interpreter`, Honcho `observe_me=false` (revert: PUT peer
+configuration `observe_me:true`). Verified: real-model executive replay (scratch); production executive pass on Sophie's real state (about $0.006); production smoke of
+reminder-create -> time grounded -> completion closes by id (isolated workspace, purged, verified). Jev `time_bound` 9/10 on realistic phrasings (miss: a bare completion with no context).
+**Open:** (1) delivery cron (Vercel project not visible to my tools: check production deployment/crons/`RELATIONSHIP_SERVER_INITIATIVE_ENABLED`/CRON_SECRET; Runtime and Cortex
+saw zero ticks since Sep 2); (2) tool execution layer; (3) Runtime -> Cortex hop for Sophie is unit-tested, not smoked end to end with a live turn; (4) legacy ingestion deletion
+(~28 test files drive it) which also removes the transitional policy switch; (5) dead modules: Runtime episode_state/episode_store/episode_async are no longer live readers;
+(6) `/v1/world/delta` kept on purpose: it is the typed seam for observations/receipts from non-conversational producers.
+
 # UPDATE 2026-10-04 (later): Layer-2 protocol pass. Read this block first; it supersedes conflicting statements below.
 
 **Integrity audit of the previous handoff (verified against git, VPS and the DB):** commits, deployed images (byte-identical key files), flags, models, Honcho

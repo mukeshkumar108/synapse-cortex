@@ -71,6 +71,29 @@ inspection), turn extractor (model: `deepseek/deepseek-v4-flash`). Runtime serve
 - **State shown to the interpreter is the 30 most recently updated items per kind**, not relevance-selected; very long worlds can hide old facets from review.
 - **Interpreter quality is model-dependent:** the review obligation and by-id references fixed the observed stale-state failure in a real-model replay; sustained real-session behaviour is still being observed.
 
+## Layer 3 and Sophie convergence (deployed 2026-10-04, evening)
+**One reader for every owner.** Runtime offers evidence to Cortex's interpreter for every live owner (Sophie included): checkpoints (10 turns), session/episode end,
+and an *immediate* pass when the cheap Jev flag `time_bound` fires (the current exchange travels under synthetic ids; Cortex reconciles them with the persisted
+copies one-for-one by speaker+text). The interpreter emits typed `operational` items (reminder / commitment / completion / cancel / progress / reschedule, target by a
+listed open item's id). Creations go through the shared candidate commit path (code grounds the time phrase, shapes, runs the lifecycle); completions and cancellations
+apply by the exact id the interpreter named (mechanical, works across sessions). The Runtime episode ledger is not a live reader. Honcho reasoning is off for Sophie's
+peer (`observe_me=false`; existing representations remain, nothing deleted). Sophie's world policy `operational.owner = interpreter`: the turn endpoint only stamps the
+turn (the narrow lane does nothing there). That switch is transitional: it exists only because ~28 test files still drive the legacy ingestion through `/v1/events/turn`;
+delete the legacy branch of `_ingest_turn_event_locked` and the switch together after migrating them.
+
+**Executive** (`services/executive.py`, `routers/v1_executive.py`, `models/executive.py`; intents live in `work_items`). Wake-driven: `executive_wakes` rows are cheap; a
+60s tick scans SQL and the model runs only for worlds with a due wake AND `world_policies.executive.enabled`. A pass reads canonical world + operational state + work
+items + what was already raised + recent outcomes (raw facts) + set-aside concerns + external events + the clock, and returns intents (kind, rationale, wake_at, waiting_on,
+surface_now, message_gist, consequence/reversible/authority_basis, action{tool,args}, horizon, stance) plus an AGENDA (what it is carrying across concerns) which is stored and
+handed back next pass. Code validates ids (untrusted ids are never applied), enforces autonomy by consequence/reversibility/authority (+ scoped delegations in policy;
+otherwise a confirmation request), schedules wakes, leases the world. `initiative/tick` is fed by executive intents and keeps only explicit product policy (quiet hours,
+budget, cadence, user-recently-active, ledger). Endpoints: tick, wake (external events with payload), policy, intents, agenda, pending-actions, receipt, approve.
+The executive is agent state, not a second world model: Cortex owns what the world means; the executive owns what to attend to and do next.
+
+**Not closed yet (be precise):** delivery (a Vercel cron -> app -> Runtime proactive tick -> Cortex path; nothing has called it since Sep 2); tool execution (pending-actions /
+receipt / approve are endpoints; the app/Runtime tool layer does not call them yet); the first full loop (intent -> wake -> delivery -> user response/receipt -> interpreter
+revision) has not run end to end.
+
 ---
 
 # Part B: DESIGNED / NOT BUILT
