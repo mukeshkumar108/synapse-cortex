@@ -39,6 +39,9 @@ DEFAULT_POLICY: Dict[str, Any] = {
     # who reads conversation into operational state (reminders, loops, completions): "legacy" (turn-by-turn narrow lane) or "interpreter" (the one semantic
     # reader). Transitional: removed together with the legacy ingestion once its tests are migrated.
     "operational": {"owner": "legacy"},
+    # product-declared capabilities: [{"tool": "task.create", "description": "...", "args": {...}, "consequence": "low", "reversible": true}]. The PRODUCT states each tool's risk;
+    # the model's own consequence claim can never lower it.
+    "capabilities": {"tools": []},
 }
 ACTIVE_STATUSES = ("proposed", "surfaced", "in_progress", "waiting")
 MAX_RETRIES = 3
@@ -55,7 +58,7 @@ Return typed INTENTS: what the companion should attend to, raise, prepare, do, o
   companion stays active between conversations without being polled. `waiting_on` says what an intent is waiting for.
 - Initiative: `surface_now=true` only if reaching out to the user now is genuinely worthwhile, given what was already raised (do not nag; an ignored item
   needs more reason, not repetition), the user's recent activity, and whether silence is kinder. `message_gist` is the substance in neutral words, never a script.
-- Actions: `act` is for something the companion itself can do with a tool. State `tool` and `args`, the `consequence` (none|low|moderate|high), whether it
+- Actions: `act` is for something the companion itself can do with a tool listed in `capabilities` (and only those). State `tool` and `args`, the `consequence` (none|low|moderate|high), whether it
   is `reversible`, and the `authority_basis`: explicit_request | delegated | inferred. Do not claim anything was done: results arrive later as receipts.
 - Observation and revision: update or close existing intents by id (`op` update|done|cancel|fail) when evidence or receipts changed them. A fictional world
   follows the same logic, grounded in that world's own relationships; the character's behaviour is not yours to script.
@@ -213,7 +216,7 @@ async def build_context(db: AsyncSession, workspace_id: str, owner: str, *, now:
     return {"now": {"utc": now.isoformat() + "Z", "local": local.isoformat(), "weekday": local.strftime("%A")}, "woken_because": reasons, "world": world,
             "operational": ops, "intents": intents,
             "already_raised": [{"at": _iso(r.at), "what": r.item_key, "decision": r.decision} for r in raised],
-            "user_last_active": _iso(last_turn), "policy": {"proactive": policy["proactive"], "delegations": policy["autonomy"].get("delegations") or []},
+            "user_last_active": _iso(last_turn), "policy": {"proactive": policy["proactive"], "delegations": policy["autonomy"].get("delegations") or [], "capabilities": policy["capabilities"].get("tools") or []},
             "recent_outcomes": outcomes, "set_aside": set_aside, "external_events": external_events, "agenda": agenda_prev}
 
 
@@ -307,6 +310,16 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
                 a_type = a_id = None             # an id that was not shown is never trusted
             action = it.get("action") if isinstance(it.get("action"), dict) else None
             kind = (_str(it.get("kind")) or "reconsider").lower()
+            if kind == "act" and not (action and _str(action.get("tool"))):
+                dropped.append({"reason": "act_without_tool", "title": title})
+                continue
+            catalog = {c.get("tool"): c for c in (ctx["policy"].get("capabilities") or []) if isinstance(c, dict)}
+            if kind == "act":
+                spec = catalog.get(_str((action or {}).get("tool")))
+                if spec is None:
+                    dropped.append({"reason": "unknown_tool", "title": title, "tool": _str((action or {}).get("tool"))})
+                    continue
+                it = {**it, "consequence": spec.get("consequence") or "high", "reversible": bool(spec.get("reversible", False))}      # the product's declared risk, not the model's claim
             decision = permission({"kind": kind, "consequence": _str(it.get("consequence")) or "low", "reversible": bool(it.get("reversible", False)),
                                    "authority_basis": _str(it.get("authority_basis")), "action": action}, ctx["policy"].get("delegations"))
             if kind == "act" and not (action and _str(action.get("tool"))):
@@ -361,6 +374,16 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
                     extra[key] = _str(it.get(key))
             if "surface_now" in it:
                 extra["surface_now"] = bool(it.get("surface_now"))
+            if extra.get("requires_confirmation") and row.tool_json and _str(it.get("authority_basis")) in ("explicit_request", "delegated"):
+                # The executive judged that authority has now been given (e.g. the user said yes). The permission is re-derived from the PRODUCT's declared risk.
+                tool = (json.loads(row.tool_json) or {}).get("tool")
+                spec = next((c for c in (ctx["policy"].get("capabilities") or []) if isinstance(c, dict) and c.get("tool") == tool), None)
+                if spec is not None:
+                    again = permission({"kind": "act", "consequence": spec.get("consequence") or "high", "reversible": bool(spec.get("reversible", False)),
+                                        "authority_basis": _str(it.get("authority_basis")), "action": {"tool": tool}}, ctx["policy"].get("delegations"))
+                    if again["mode"] == "autonomous":
+                        row.kind, row.status = "act", "in_progress"
+                        extra.update({"requires_confirmation": False, "surface_now": False, "authority_granted": _str(it.get("authority_basis"))})
         else:
             row.status = {"done": "done", "cancel": "cancelled", "fail": "failed"}[op]
             if _str(it.get("reason")):
@@ -539,3 +562,10 @@ async def record_outbound(db: AsyncSession, workspace_id: str, owner: str, inten
     await db.commit()
     return True
 
+
+
+async def pending_actions_all(db: AsyncSession, workspace_id: str) -> List[Dict[str, Any]]:
+    """Action intents cleared for execution, across every owner (the app's tool worker pulls these)."""
+    rows = (await db.execute(select(WorkItem).where(WorkItem.honcho_workspace_id == workspace_id, WorkItem.source_agent == "executive", WorkItem.kind == "act",
+                                                    WorkItem.status == "in_progress", WorkItem.receipt_json.is_(None)).limit(50))).scalars().all()
+    return [{"work_item_id": str(r.id), "owner": r.owner_peer_id, "title": r.action, "tool": json.loads(r.tool_json or "{}")} for r in rows]

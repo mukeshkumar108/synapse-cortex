@@ -65,8 +65,9 @@ async def test_intents_are_validated_ids_never_trusted_and_consequential_actions
         {"op": "create", "kind": "act", "title": "No tool named", "consequence": "low", "reversible": True, "authority_basis": "delegated"}],
         "next_review_at": future}
     model = Model(raw)
+    catalogue = [{"tool": "calendar.cancel", "consequence": "moderate", "reversible": False}, {"tool": "calendar.create", "consequence": "low", "reversible": True}]
     async with async_session_maker() as db:
-        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}})
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}, "capabilities": {"tools": catalogue}})
         res = await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["test"], adapter=model)
         rows = (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner))).scalars().all()
         agenda = await executive.surfaced_agenda(db, WS, owner)
@@ -87,7 +88,7 @@ async def test_only_a_receipt_completes_an_action_and_a_surfaced_intent_is_not_r
                                 "authority_basis": "explicit_request", "action": {"tool": "message.send", "args": {}}},
                                {"op": "create", "kind": "remind", "title": "Call mum", "importance": 0.9, "surface_now": True, "message_gist": "mum"}]})
     async with async_session_maker() as db:
-        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}})
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}, "capabilities": {"tools": [{"tool": "message.send", "consequence": "low", "reversible": True}]}})
         await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=model)
         rows = {r.action: r for r in (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner))).scalars().all()}
         act = rows["Send the reminder"]
@@ -182,3 +183,27 @@ async def test_speak_candidates_are_cheap_and_gated_and_the_outbound_text_is_rec
         assert json.loads(row.extra_json)["outbound_text"] == "Hey, how did the portfolio go?"
         assert await executive.record_outbound(db, WS, "someone_else", item_id, "x") is False                        # another world's intent id is never touched
         assert await executive.record_outbound(db, WS, owner, "not-a-uuid", "x") is False
+
+
+@pytest.mark.asyncio
+async def test_a_tool_must_be_in_the_product_catalogue_its_risk_is_the_products_not_the_models_and_authority_given_later_clears_it():
+    owner = "user_exec8"
+    cat = [{"tool": "task.create", "description": "create a task", "consequence": "low", "reversible": True}]
+    first = Model({"intents": [
+        {"op": "create", "kind": "act", "title": "Add 'call mum' as a task", "consequence": "none", "reversible": True, "authority_basis": "inferred", "action": {"tool": "task.create", "args": {"title": "call mum"}}},
+        {"op": "create", "kind": "act", "title": "Wire money", "consequence": "none", "reversible": True, "authority_basis": "explicit_request", "action": {"tool": "bank.transfer", "args": {}}}]})
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}, "capabilities": {"tools": cat}})
+        res = await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["t"], adapter=first)
+        assert {d["reason"] for d in res["dropped"]} == {"unknown_tool"}                                         # a tool nobody declared never runs, whatever the model claims
+        item = (await db.execute(select(WorkItem).where(WorkItem.owner_peer_id == owner, WorkItem.kind == "ask"))).scalars().one()
+        assert json.loads(item.extra_json)["requires_confirmation"] and await executive.pending_actions_all(db, WS) == []     # inferred authority: a question, not an action
+        second = Model({"intents": [{"op": "update", "id": str(item.id), "authority_basis": "explicit_request", "rationale": "user said yes"}]})
+        await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["user_replied"], adapter=second)
+        pending = [p for p in await executive.pending_actions_all(db, WS) if p["owner"] == owner]
+        assert len(pending) == 1 and pending[0]["tool"]["tool"] == "task.create"                                  # authority granted + product-declared low/reversible: cleared
+        await executive.record_receipt(db, workspace_id=WS, owner=owner, work_item_id=pending[0]["work_item_id"], status="started", result_ref=None, detail=None)
+        assert [p for p in await executive.pending_actions_all(db, WS) if p["owner"] == owner] == []              # claimed: cannot be executed twice
+        await executive.record_receipt(db, workspace_id=WS, owner=owner, work_item_id=pending[0]["work_item_id"], status="succeeded", result_ref="task-1", detail=None)
+        done = await db.get(WorkItem, __import__("uuid").UUID(pending[0]["work_item_id"]))
+        assert done.status == "done" and json.loads(done.receipt_json)["result_ref"] == "task-1"

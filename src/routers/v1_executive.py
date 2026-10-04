@@ -69,6 +69,11 @@ async def outbound(req: OutboundRequest, db: AsyncSession = Depends(get_async_se
     return {"ok": await executive.record_outbound(db, req.workspace_id, req.owner, req.intent_id, req.text, req.decision_id)}
 
 
+@router.post("/pending-actions-all")
+async def pending_actions_all(req: SpeakCandidatesRequest, db: AsyncSession = Depends(get_async_session)):
+    return await executive.pending_actions_all(db, req.workspace_id)
+
+
 @router.post("/policy")
 async def set_policy(req: PolicyRequest, db: AsyncSession = Depends(get_async_session)):
     return await executive.set_policy(db, req.workspace_id, req.owner, req.policy)
