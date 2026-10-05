@@ -83,6 +83,13 @@ def apply_detections(
         set_field("mode", str(det["mode"])[:40])
     if det.get("clock"):
         set_field("clock", det["clock"])
+    transition = det.get("transition")
+    if isinstance(transition, dict):
+        # A movement the speaker declared (from -> to, when, and when they expect to arrive / be back). Stored as typed data so rendering can
+        # dead-reckon by arithmetic; the MODEL read the sentence, code never parses it.
+        clean = {k: str(transition[k])[:120] for k in ("from", "to", "departed_at", "expected_arrival_at", "expected_return_at", "note") if transition.get(k)}
+        if clean.get("to") or clean.get("from"):
+            set_field("transition", clean)
     participants = _participants(out.get("participants"))
     for name in _names(det.get("arrived")):
         if name not in participants:

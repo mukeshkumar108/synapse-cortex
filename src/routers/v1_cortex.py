@@ -406,6 +406,7 @@ class SceneReportRequest(BaseModel):
     source: str = "model_inferred"
     confidence: float = 0.7
     epoch_event: Optional[Dict[str, str]] = None
+    layer: str = "story"            # "story": this conversation's fiction/situation. "real": the PERSON's real-world situation, shared across their chats/devices
 
 
 class SceneEpochRequest(BaseModel):
@@ -426,7 +427,8 @@ async def report_scene_detections(
     from src.services.scene_state import close_epoch, report_detections
     try:
         scene = await report_detections(
-            db, workspace_id=req.workspace_id, session_id=req.session_id,
+            db, workspace_id=req.workspace_id,
+            session_id=(f"real_{req.owner_peer_id}" if req.layer == "real" and req.owner_peer_id else req.session_id),
             detections=req.detections or {}, source=req.source,
             confidence=req.confidence)
         epoch_result = None

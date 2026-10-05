@@ -99,8 +99,18 @@ async def world_version(req: Dict[str, str], db: AsyncSession = Depends(get_asyn
     snap = (await db.execute(select(WorldModelSnapshot).where(
         WorldModelSnapshot.honcho_workspace_id == workspace_id, WorldModelSnapshot.owner_peer_id == owner,
         WorldModelSnapshot.superseded_by_id.is_(None)).order_by(WorldModelSnapshot.compiled_at.desc()).limit(1))).scalars().first()
-    from src.services import executive
-    return {"version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner)}
+    from src.services import executive, scene_state
+    import json as _json
+
+    async def layer(session: Optional[str]) -> Optional[Dict[str, Any]]:
+        if not session:
+            return None
+        row = await scene_state.get_active_scene(db, workspace_id, session)
+        return {"fields": _json.loads(row.fields_json or "{}"), "updated_at": row.updated_at.isoformat()} if row is not None else None
+    real_owner = req.get("real_owner")
+    return {"version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
+            # The canonical live scene, two layers: this conversation's story, and the person's real-world situation (shared across chats/devices).
+            "scene": {"story": await layer(req.get("session_id")), "real": await layer(f"real_{real_owner}" if real_owner else None)}}
 
 
 @router.get("/trace")
