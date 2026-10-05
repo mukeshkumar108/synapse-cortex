@@ -1,6 +1,6 @@
 # Who owns what: situational and conversational state (Honcho + Cortex + Runtime only)
 
-Audited from the code and production data on 2026-10-05. Product-agnostic: RPD2 and Sophie consume the same substrate.
+Audited from the code and production data on 2026-10-05; the live-scene section was then BUILT the same day (see 'Live scene: as built'). Product-agnostic: RPD2 and Sophie consume the same substrate.
 
 Roles: **Honcho** = evidence ledger and raw retrieval (no interpretation). **Cortex** = semantic interpretation (durable and recent meaning). **Runtime** = live per-turn mechanics, resident working set, compiler, serving.
 
@@ -49,3 +49,22 @@ Roles: **Honcho** = evidence ledger and raw retrieval (no interpretation). **Cor
 5. **Delete the legacy** episode ledger / working note path once the lab no longer needs it.
 
 Not yet decided: whether the live scene should instead be produced by the interpreter pass (fewer systems, but ≤ 3 turns stale). My view: no — physical scene needs per-turn freshness, narrative can lag.
+
+
+## Live scene: as built (2026-10-05)
+
+**Owner: Cortex** (`current_scenes`, the store that already had authority ranks and epochs; it is now read as well as written). **Runtime senses, reads back each turn, renders.**
+
+Two layers, never merged by the substrate:
+* **real** — the person's actual situation (where they are, what they're doing, declared journeys). Keyed by the PERSON in Cortex (`real_<user>`), so it is shared across chats, devices and modality. The wall clock in `[TEMPORAL FACTS]` is always real time (kept for every product: the character can orient the user in their real day even mid-story).
+* **story** — this conversation's fiction (setting, scene time, who is present). Only for `generative` products. Keyed by chat.
+
+Authority: the user's own words are written as `user_explicit` and persist until the user changes them; the character's reply is read for story changes and written as `model_inferred`, which cannot move a scene the user set (the "morning in the kitchen → suddenly night somewhere else" failure). If the user goes along, their next turn ratifies it.
+
+Journeys are typed (`from`, `to`, `departed_at`, `expected_arrival_at`, `expected_return_at`): the model reads the sentence once; code does arithmetic at render time ("was expected there by 11:30, probably there now; expects to be back ~18:00") instead of asking "have you left the house?". A place stated before the expected arrival drops out once that time has passed. Each field carries its own age.
+
+Flow per turn: probe (`/v1/world/version` now also returns `scene.story` and `scene.real`) → cheap sensing of the user's turn (gated by Jev's `scene_change`) overlaid locally so THIS turn sees it → reply → background: persist the user's detections, then sense the character's reply for story changes. Mechanical scene-change triggers still hand the stretch to the interpreter.
+
+Posture (greeting the user in their real morning, bringing them back from a story) is NOT substrate: it belongs in the character's kernel; the substrate guarantees the facts are present and labelled.
+
+**Still open:** a real-traffic smoke through the app routes; deleting the Runtime's local `current_scene` fallback (still used when there is no interpreted world) and the legacy episode ledger; the story clock currently comes only from explicit statements (`clock`); Jev still gates user-turn sensing (a missed flag is a missed change); lab worlds frozen before today have no live scene until `scripts/lab.sh <spec> rescene`.
