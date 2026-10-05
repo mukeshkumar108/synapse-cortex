@@ -70,3 +70,15 @@ the constitution and loses every disagreement.
 Session boundaries and `[TEMPORAL FACTS]` use the WALL clock (history timestamps / turn records). Narrative time is a separate typed story clock (`Scene time`,
 read by the model from what the user says) and never opens or closes a session; a story scene/time jump only triggers interpretation of the stretch that just ended.
 There is no arithmetic story calendar: "three days later" is stored as text.
+
+
+## Model expectations for RPD2 (product decision, 2026-10-05)
+Default and fallback chain: **doubao-seed-character first, DeepSeek v4 flash second** (both NanoGPT). MeroMero is not a default (flaky upstream) but stays selectable from the dropdown, which
+always leads the chain. Any turn served by a model other than the one requested carries `foreground_fell_back: true` and the reason `foreground_fell_back` in `execution_metadata.degraded`; the
+daily digest alerts when more than 30% of a product's turns fall back. The real-world scene layer is isolated per chat for RPD2 (confirmed decision; do not share across chats).
+
+## Entity handling (shipped 2026-10-05)
+* The cheap router is given the world's FULL actor index (names, capped at 60) and classifies a mention as none / known / new / ambiguous.
+* A mentioned **known** person is looked up locally by name in the packet; their established relations and one claim are added to the prompt (independent of the router).
+* A **new** or **ambiguous** person goes to the evidence ledger (Honcho) directly, even when the router said no look-back is needed.
+* Names of durable actors that appear nowhere in the prompt, scene or tail are listed in a short roster (names only).

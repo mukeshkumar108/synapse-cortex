@@ -1,4 +1,4 @@
-> Mirrored from companion-runtime/docs/SCENE_INTERPRETER.md (canonical copy lives there; regenerate this mirror if it changes).
+> Mirrored from companion-runtime/docs/SCENE_INTERPRETER.md (canonical copy lives there).
 
 # The scene interpreter (as deployed)
 

@@ -1,4 +1,4 @@
-> Mirrored from companion-runtime/docs/COGNITION_WORKBENCH.md (canonical copy lives there; regenerate this mirror if it changes).
+> Mirrored from companion-runtime/docs/COGNITION_WORKBENCH.md (canonical copy lives there).
 
 # Cognition workbench
 
@@ -66,6 +66,9 @@ adding a later cut to an existing spec name only ingests the new stretch. Foregr
 | `prompt_remove: ["exact text"]` | remove a span of the COMPILED prompt (substrate-authored text) |
 | `prompt_replace: [["old","new"]]` | exact replacement anywhere in the compiled system prompt (fails loudly if `old` is absent) |
 | `drop_blocks: ["[TEMPORAL FACTS", ...]` | drop whole compiled blocks by header prefix (fails loudly if no block matches) |
+| `no_roster: true` | disable the production roster block (names of durable actors not otherwise visible) for an A/B against it |
+| `project_actors: {detail: names\|relation\|claim, select: all\|absent\|salient, limit}` | LAB-ONLY richer actor projection (replaces the production roster for this variant) |
+| `keep_world_only: ["actors", ...]` | keep only these world sections (attention state emptied) to isolate one channel |
 | `late_append: "text"` | arbitrary text placed next to the user's message (lab-only steering experiments; products never do this) |
 | `sampling: {temperature, top_p, top_k, min_p, repetition_penalty, frequency_penalty, presence_penalty, max_tokens}` | reply sampling override (lab only) |
 | `constitution_remove: ["substring"]` (variant level) | drop every kernel line containing the substring (fails loudly if nothing matches) |
