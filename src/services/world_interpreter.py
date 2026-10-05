@@ -103,7 +103,9 @@ PRINCIPLES
   stretch (omit when nothing). `raw_turns` = how many of the latest user/assistant turns (0-3) are still worth showing the foreground word for word: 0 when
   your `now` summary already carries everything that matters, up to 3 when exact wording matters (a request, a promise, a delicate moment). If the recent turns
   are circular, escalating by momentum, or being pulled by a local pattern that your wider reading does not support, prefer fewer raw turns and say why in
-  `raw_reason`. This is a description for the character's voice to draw on, never an instruction about what it should do.
+  `raw_reason`. `spent` = what has already been used up in this conversation so it is not needlessly repeated once raw turns are dropped: questions already
+  asked (and whether answered), anecdotes already told, jokes or callbacks already made, promises already given, points already settled; each as a short neutral
+  statement with who did it. This is a description for the character's voice to draw on, never an instruction about what it should do.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
 OUTPUT: ONE JSON object with these arrays (empty when nothing applies): actors, relationships, events, claims, narrative, commitments,
@@ -121,7 +123,7 @@ trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,obj
 state_review:[{id(of a listed objective or dimension),status(holds|superseded|resolved|unclear),note}]
 operational_review:[{id(of a listed open item),status(holds|updated|completed|cancelled|superseded|unclear),note,evidence[]}]
 operational:[{decision(create|complete|cancel|progress|reschedule),kind(reminder|event|deadline|commitment),title,temporal_phrase|null,target(id of a listed open item)|null,canonical_title|null,new_temporal_phrase|null,progress_amount|null,progress_unit|null,confidence,evidence[]}]
-brief:{text,lines:[{text,refs[]}],now,unresolved[],transient[],changed[],raw_turns(0-3),raw_reason}"""
+brief:{text,lines:[{text,refs[]}],now,unresolved[],transient[],changed[],spent[],raw_turns(0-3),raw_reason}"""
 
 
 def _list(value: Any) -> List[Any]:
@@ -446,6 +448,7 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                  "now": _str(b.get("now")), "unresolved": [str(x).strip() for x in _list(b.get("unresolved")) if _str(x)][:6],
                  "transient": [str(x).strip() for x in _list(b.get("transient")) if _str(x)][:6],
                  "changed": [str(x).strip() for x in _list(b.get("changed")) if _str(x)][:6],
+                 "spent": [str(x).strip() for x in _list(b.get("spent")) if _str(x)][:10],
                  "raw_turns": raw_turns if isinstance(raw_turns, int) and not isinstance(raw_turns, bool) and 0 <= raw_turns <= 3 else None,
                  "raw_reason": _str(b.get("raw_reason"))}
     return {
@@ -590,10 +593,23 @@ def _busy_receipt(run_id: str, model: str) -> Dict[str, Any]:
             "model": model, "interpreted": {}}
 
 
+def apply_overrides(base: str, overrides: Optional[Dict[str, Any]]) -> str:
+    """Lab-only interpreter prompt variants: exact-text replacements and an append, so a sentence can be tested without touching source. A
+    replacement that matches nothing fails loudly (a silently ignored override would make an experiment look like it tested something)."""
+    text = base
+    for pair in (overrides or {}).get("system_replace") or []:
+        old, new = pair
+        if old not in text:
+            raise ValueError(f"system_replace text not found: {old[:80]!r}")
+        text = text.replace(old, new)
+    extra = (overrides or {}).get("system_append")
+    return text + ("\n" + extra if extra else "")
+
+
 async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_id: str, messages: List[Dict[str, str]], speakers: Dict[str, str],
                     policy: str, constitution: Optional[Dict[str, str]], adapter: Any, covered_ordinal: int = 0, model: Optional[str] = None,
                     now: Optional[datetime] = None, matter_adapter: Any = None, user_actor: Optional[str] = None,
-                    companion_actor: Optional[str] = None, timezone: str = "UTC") -> Dict[str, Any]:
+                    companion_actor: Optional[str] = None, timezone: str = "UTC", overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """One interpretation pass as a transaction over a world.
 
     Protocol: open a run (queued) -> take the world's cross-process lease -> under the lease compute, by message id, what is still uninterpreted
@@ -601,7 +617,8 @@ async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_
     failed run and its evidence uncovered, so the next delivery interprets it again. Callers may send any overlapping window."""
     from src.models.world import ProducerRun
     from src.services import world_identity, world_lease
-    model_id = model or INTERPRETER_MODEL
+    model_id = (overrides or {}).get("model") or model or INTERPRETER_MODEL
+    system = apply_overrides(SYSTEM, overrides)
     run = ProducerRun(honcho_workspace_id=workspace_id, owner_peer_id=owner, producer="world-interpreter", model=model_id, version="wi-2", status="queued",
                       input_json=json.dumps({"session_id": session_id, "message_ids": [], "offered_ids": [m["id"] for m in messages][:world_materializer.MAX_RUN_MESSAGE_IDS]}))
     db.add(run)
@@ -630,7 +647,8 @@ async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_
         await db.commit()
         return await _interpret_locked(db, run=run, rid=rid, workspace_id=workspace_id, owner=owner, session_id=session_id, context=context, fresh=fresh,
                                        speakers=speakers, policy=policy, constitution=constitution, adapter=adapter, covered_ordinal=covered_ordinal,
-                                       model_id=model_id, now=now, matter_adapter=matter_adapter, user_actor=user_actor, companion_actor=companion_actor, timezone=timezone)
+                                       model_id=model_id, now=now, matter_adapter=matter_adapter, user_actor=user_actor, companion_actor=companion_actor, timezone=timezone,
+                                       system=system, overrides=overrides)
     except Exception as exc:
         await _finish(db, rid, "failed", {"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, {"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
         raise
@@ -641,7 +659,7 @@ async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_
 async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_id: str, owner: str, session_id: str, context: List[Dict[str, str]],
                             fresh: List[Dict[str, str]], speakers: Dict[str, str], policy: str, constitution: Optional[Dict[str, str]], adapter: Any,
                             covered_ordinal: int, model_id: str, now: Optional[datetime], matter_adapter: Any, user_actor: Optional[str],
-                            companion_actor: Optional[str], timezone: str = "UTC") -> Dict[str, Any]:
+                            companion_actor: Optional[str], timezone: str = "UTC", system: str = SYSTEM, overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     from src.models.world_model import WorldModelSnapshot
     from src.services import world_identity
     first_id = (context + fresh)[0]["id"]
@@ -669,7 +687,7 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
               + (("EARLIER MESSAGES (already interpreted; context only, do not re-derive what the CURRENT WORLD STATE already holds):\n"
                   + "\n".join(line(m) for m in context) + "\n\n") if context else "")
               + f"NEW EVIDENCE:\n{evidence}")
-    raw = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"type": "object"}, model_id=model_id, max_tokens=9000,
+    raw = await adapter.generate_structured(system=system, prompt=prompt, json_schema={"type": "object"}, model_id=model_id, max_tokens=9000,
                                             temperature=0.1, strict=False, timeout=INTERPRETER_TIMEOUT)
     raw = raw if isinstance(raw, dict) else {}
     drops = _Drops()
@@ -706,6 +724,8 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
         "proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": drops.items, "rejected": receipt["rejected"], "repaired": receipt["repaired"],
         "operational": receipt["operational"], "superseded": receipt.get("superseded", []), "reviews": receipt.get("reviews", []), "review_coverage": receipt["review_coverage"],
         "snapshot": {"before": prior_snap, "after": receipt.get("snapshot_version")}, "model": model_id, "usage": receipt["usage"],
+        **({"interpreter_overrides": {"system_replace": (overrides or {}).get("system_replace"), "system_append": (overrides or {}).get("system_append"),
+                                      "model": (overrides or {}).get("model")}} if overrides else {}),
     }
     await _finish(db, rid, "applied", detail, {"proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": len(drops.items)})
     from src.services import executive

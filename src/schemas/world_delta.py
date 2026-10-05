@@ -201,6 +201,7 @@ class BriefC(_Item):
     unresolved: List[str] = Field(default_factory=list)
     transient: List[str] = Field(default_factory=list)
     changed: List[str] = Field(default_factory=list)
+    spent: List[str] = Field(default_factory=list)          # already asked / told / joked / promised / settled: conversational expenditure
     raw_turns: Optional[int] = Field(default=None, ge=0, le=3)
     raw_reason: Optional[str] = None
 

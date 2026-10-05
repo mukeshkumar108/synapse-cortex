@@ -703,7 +703,7 @@ async def _brief(ctx: _Ctx) -> None:
         return
     row = ContinuationBrief(honcho_workspace_id=ctx.ws, owner_peer_id=ctx.owner, text=b.text.strip()[:2000],
                             lines_json=json.dumps([{"text": l.text, "refs": [ctx.refs.get(r, {}).get("id", r) for r in l.refs]} for l in b.lines]),
-                            scene_json=json.dumps({"now": b.now, "unresolved": b.unresolved, "transient": b.transient, "changed": b.changed,
+                            scene_json=json.dumps({"now": b.now, "unresolved": b.unresolved, "transient": b.transient, "changed": b.changed, "spent": b.spent,
                                                    "raw_turns": b.raw_turns, "raw_reason": b.raw_reason}),
                             producer=ctx.delta.source.producer, run_id=ctx.run.id)
     ctx.db.add(row)

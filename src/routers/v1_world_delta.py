@@ -3,7 +3,7 @@ returns a receipt (`covered_through`, ref -> id map, rejections) (docs/WORLD_CON
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -39,6 +39,7 @@ class InterpretRequest(BaseModel):
     user_actor: Optional[str] = None            # product-supplied identity of the human's actor in this world (never inferred from prose)
     companion_actor: Optional[str] = None       # product-supplied identity of the companion's actor
     timezone: str = "UTC"                       # the user's timezone, used to ground time phrases of operational items
+    overrides: Optional[Dict[str, Any]] = None  # LAB ONLY (owner must be world:lab:*): {system_replace:[[old,new]], system_append, model}
 
 
 @router.post("/interpret")
@@ -49,20 +50,41 @@ async def interpret_world(req: InterpretRequest, db: AsyncSession = Depends(get_
     adapter = get_agenda_adapter()
     if adapter is None:
         raise HTTPException(status_code=503, detail="no_model_credentials")
+    if req.overrides and not req.owner.startswith("world:lab:"):
+        raise HTTPException(status_code=403, detail="interpreter_overrides_are_lab_only")
     if len(req.messages) < 2 or any(set(m) < {"id", "speaker", "text"} for m in req.messages):
         raise HTTPException(status_code=422, detail="messages need id, speaker, text")
     try:
         receipt = await world_interpreter.interpret(
             db, workspace_id=req.workspace_id, owner=req.owner, session_id=req.session_id, messages=req.messages, speakers=req.speakers,
             policy=req.policy, constitution=req.constitution, adapter=adapter, covered_ordinal=req.covered_ordinal, matter_adapter=adapter,
-            user_actor=req.user_actor, companion_actor=req.companion_actor, timezone=req.timezone)
+            user_actor=req.user_actor, companion_actor=req.companion_actor, timezone=req.timezone, overrides=req.overrides)
         return receipt
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"bad_interpreter_override:{exc}") from exc
     except HTTPException:
         raise
     except Exception as exc:
         await db.rollback()
         logger.exception("world interpretation failed")
         raise HTTPException(status_code=500, detail=f"interpretation_failed:{type(exc).__name__}") from exc
+
+
+@router.get("/interpreter-config")
+async def interpreter_config():
+    """The authoritative description of the world interpreter AS DEPLOYED (never a copy): the exact system prompt, model, and where its output goes."""
+    from src.services import world_interpreter as wi
+    return {"version": "wi-2", "model": wi.INTERPRETER_MODEL, "system_prompt": wi.SYSTEM,
+            "input_sections": ["PRODUCT POLICY", "IDENTITIES (product-supplied)", "CHARACTER CONSTITUTIONAL ORIENTATION", "CURRENT WORLD STATE (ids are real)",
+                               "HONCHO CONTEXT (long-term store, when available)", "EARLIER MESSAGES (already interpreted, context only)", "NEW EVIDENCE"],
+            "scene_fields": {"brief.text": "durable story so far", "brief.now": "what is happening in the most recent exchange", "brief.unresolved": "genuinely open",
+                             "brief.transient": "observed reactions not to be promoted unless sustained", "brief.changed": "what materially changed this stretch",
+                             "brief.spent": "already asked/told/joked/promised/settled", "brief.raw_turns": "0-3 raw turns the interpreter thinks still matter", "brief.raw_reason": "why"},
+            "not_extracted_as_fields": ["participants/location of the current scene (the Runtime's own current_scene extractor owns the physical scene)"],
+            "storage": "continuation_briefs (text, lines_json, scene_json), versioned; superseded rows kept",
+            "projection": "world_model_service.build_world_layer -> continuation.brief.scene -> Runtime render_continuation -> [WHAT IS HAPPENING NOW] block",
+            "cadence": "Runtime hands evidence over every CORTEX_CHECKPOINT_EVERY_TURNS user turns (3), at session end, and immediately for time-bound / awaiting-reply turns; "
+                       "each pass interprets only message ids not yet covered"}
 
 
 @router.post("/version")

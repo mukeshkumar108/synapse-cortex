@@ -873,3 +873,24 @@ async def test_the_live_scene_travels_with_the_brief_and_is_projected_to_the_for
     assert WorldDelta.model_validate({**body, "brief": {**body["brief"], "raw_turns": 3}}) and True
     with pytest.raises(Exception):
         WorldDelta.model_validate({**body, "brief": {**body["brief"], "raw_turns": 9}})
+
+
+def test_lab_interpreter_overrides_replace_exact_text_and_fail_loudly_when_nothing_matches():
+    from src.services.world_interpreter import SYSTEM, apply_overrides
+    out = apply_overrides(SYSTEM, {"system_replace": [["SCENE (inside `brief`)", "SCENE (variant)"]], "system_append": "EXTRA RULE"})
+    assert "SCENE (variant)" in out and out.endswith("EXTRA RULE") and out != SYSTEM
+    assert apply_overrides(SYSTEM, None) == SYSTEM
+    with pytest.raises(ValueError):
+        apply_overrides(SYSTEM, {"system_replace": [["no such sentence anywhere", "x"]]})
+
+
+@pytest.mark.asyncio
+async def test_conversational_expenditure_is_stored_with_the_scene():
+    from src.services import world_model_service
+    d = lila_delta()
+    body = d.model_dump()
+    body["brief"] = {"text": "Story.", "lines": [], "now": "n", "spent": ["Kai already asked where she was that night; she answered vaguely"], "raw_turns": 1}
+    await run(WorldDelta.model_validate(body), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    async with async_session_maker() as db:
+        layer = await world_model_service.build_world_layer(db, WS, d.owner)
+    assert layer["continuation"]["brief"]["scene"]["spent"] == ["Kai already asked where she was that night; she answered vaguely"]
