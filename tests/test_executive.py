@@ -367,3 +367,17 @@ async def test_an_ask_that_carries_a_tool_is_a_confirmation_request_and_a_linked
         await executive.link_replies(db, WS, owner, [{"id": "out-7", "speaker": "assistant", "text": "x"}, {"id": "u-7", "speaker": "user", "text": "yes"}], {"out-7": {"intent_id": str(item.id), "title": "t"}})
         await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["reply"], adapter=Model({"intents": [{"op": "update", "id": str(item.id), "authority_basis": "confirmed_by_user"}]}))
         assert [p["tool"]["args"] for p in await executive.pending_actions_all(db, WS) if p["owner"] == owner] == [{"task_id": "dup-1"}]
+
+
+def test_a_lab_pass_layer_is_derived_from_the_raw_response_without_persisting_anything():
+    from src.services.executive import layer_from_raw
+    raw = {"intents": [
+        {"op": "create", "kind": "plan", "title": "Make the cabin Friday feel special", "ref": "p1", "rationale": "x"},
+        {"op": "create", "kind": "prepare", "title": "Pack the good blanket", "about": {"type": "plan", "id": "p1"}, "waiting_on": None},
+        {"op": "create", "kind": "check_in", "title": "Ask how the supervisor lunch went", "waiting_on": "his answer"},
+        {"op": "cancel", "kind": "remind", "title": "Remind him about the ladder", "reason": "already settled"}],
+        "agenda": {"carrying": [{"title": "Cabin trip", "horizon": "this_week", "stance": "pursue", "why": "she is looking forward to it"}], "sequence_note": "pack first"}}
+    layer = layer_from_raw(raw)
+    assert layer["carrying"][0]["title"] == "Cabin trip" and layer["plans"][0]["goal"].startswith("Make the cabin") and layer["plans"][0]["steps"][0]["title"] == "Pack the good blanket"
+    assert layer["waiting_on"] == [{"title": "Ask how the supervisor lunch went", "waiting_on": "his answer"}] and layer["set_aside"][0]["reason"] == "already settled"
+    assert layer_from_raw(None)["carrying"] == []

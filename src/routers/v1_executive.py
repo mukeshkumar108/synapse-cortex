@@ -58,6 +58,39 @@ async def tick(db: AsyncSession = Depends(get_async_session)):
     return await executive.tick(db, adapter=adapter)
 
 
+class LabPassRequest(WorldRef):
+    now: Optional[str] = None
+    overrides: Optional[Dict[str, Any]] = None       # {system_replace:[[old,new]], system_append, model}
+
+
+@router.post("/lab-pass")
+async def lab_pass(req: LabPassRequest, db: AsyncSession = Depends(get_async_session)):
+    """LAB ONLY (owner must be world:lab:*): run ONE executive pass over a lab world as a DRY RUN: nothing is persisted, nothing is delivered, no run row is
+    written. Returns the raw intents and the foreground-facing layer they imply, so an experiment can ask what the character would carry. Reads the world as it is
+    NOW, so the lab takes this pass right after ingesting a cut and before ingesting the next."""
+    from datetime import datetime, timezone
+    from src.runtime_model import get_agenda_adapter
+    from src.services.world_interpreter import apply_overrides
+    if not req.owner.startswith("world:lab:"):
+        raise HTTPException(status_code=403, detail="lab_pass_is_lab_only")
+    adapter = get_agenda_adapter()
+    if adapter is None:
+        raise HTTPException(status_code=503, detail="no_model_credentials")
+    try:
+        system = apply_overrides(executive.SYSTEM, req.overrides)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"bad_executive_override:{exc}") from exc
+    now = datetime.fromisoformat(req.now.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None) if req.now else None
+    policy = await executive.get_policy(db, req.workspace_id, req.owner)
+    policy["executive"]["enabled"] = True
+    ctx = await executive.build_context(db, req.workspace_id, req.owner, now=now or executive._utc(), policy=policy, reasons=["lab_pass"])
+    import json as _json
+    raw = await adapter.generate_structured(system=system, prompt="CONTEXT (ids are real):\n" + _json.dumps(ctx, ensure_ascii=False, default=str), json_schema={"type": "object"},
+                                            model_id=(req.overrides or {}).get("model") or executive.EXECUTIVE_MODEL, max_tokens=4000, temperature=0.2, strict=False,
+                                            timeout=executive.EXECUTIVE_TIMEOUT)
+    return {"raw": raw, "layer": executive.layer_from_raw(raw if isinstance(raw, dict) else {})}
+
+
 @router.post("/speak-candidates")
 async def speak_candidates(req: SpeakCandidatesRequest, db: AsyncSession = Depends(get_async_session)):
     """Who has something the executive wants to raise right now (polled by the app's proactive scan; the initiative gate still decides at tick time)."""

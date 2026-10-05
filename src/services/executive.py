@@ -648,6 +648,24 @@ async def pending_actions_all(db: AsyncSession, workspace_id: str) -> List[Dict[
     return [{"work_item_id": str(r.id), "owner": r.owner_peer_id, "title": r.action, "tool": json.loads(r.tool_json or "{}")} for r in rows]
 
 
+def layer_from_raw(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """LAB: the foreground-facing `executive` layer implied by one raw executive response, without persisting anything (same shape executive_layer returns)."""
+    raw = raw if isinstance(raw, dict) else {}
+    agenda = raw.get("agenda") or {}
+    intents = [i for i in (raw.get("intents") or []) if isinstance(i, dict)]
+    live = [i for i in intents if i.get("op") in ("create", "update", None)]
+    out: Dict[str, Any] = {"carrying": [{k: c.get(k) for k in ("title", "horizon", "stance", "why")} for c in (agenda.get("carrying") or [])[:6] if isinstance(c, dict)],
+                           "sequence_note": agenda.get("sequence_note"),
+                           "waiting_on": [{"title": i.get("title"), "waiting_on": i.get("waiting_on")} for i in live if i.get("waiting_on")][:5],
+                           "raised_recently": [], "did_recently": [],
+                           "set_aside": [{"title": i.get("title"), "reason": i.get("reason")} for i in intents if i.get("op") == "cancel" and i.get("reason")][:5]}
+    plans = [i for i in live if i.get("kind") == "plan"]
+    out["plans"] = [{"goal": p.get("title"), "steps": [{"title": s.get("title"), "status": "proposed"} for s in live
+                                                        if (s.get("about") or {}).get("type") == "plan" and (s.get("about") or {}).get("id") in (p.get("ref"), p.get("id"))][:8]}
+                    for p in plans[:3]]
+    return out
+
+
 async def executive_layer(db: AsyncSession, workspace_id: str, owner: str, now: Optional[datetime] = None) -> Dict[str, Any]:
     """What the companion is carrying, as the foreground should know it (no ids, no model): its agenda, what it waits on, what it raised and said recently, what it did,
     and what it deliberately set aside. Compiled into the resident snapshot so the conversational voice speaks as ONE self with the executive."""
