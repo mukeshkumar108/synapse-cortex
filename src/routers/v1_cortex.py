@@ -443,6 +443,29 @@ async def report_scene_detections(
         return {"scene": None, "epoch": None, "error": str(err)[:200]}
 
 
+class SceneResetRequest(BaseModel):
+    workspace_id: str
+    session_ids: List[str]
+
+
+@router.post("/scene/reset")
+async def reset_lab_scene(req: SceneResetRequest, db: AsyncSession = Depends(get_async_session)):
+    """LAB ONLY: delete the live-scene rows of lab worlds so a chronological replay starts clean (a replay merged over an earlier run would carry
+    the future into an earlier cut). Refuses any session that is not a lab session."""
+    from sqlmodel import select
+    from src.models.scene import CurrentScene
+    allowed = [x for x in req.session_ids if x.startswith("chat_chat-lab-") or x.startswith("real_user_lab-")]
+    if len(allowed) != len(req.session_ids):
+        raise HTTPException(status_code=403, detail="scene_reset_is_lab_only")
+    removed = 0
+    for row in (await db.execute(select(CurrentScene).where(CurrentScene.honcho_workspace_id == req.workspace_id,
+                                                           CurrentScene.honcho_session_id.in_(allowed)))).scalars().all():
+        await db.delete(row)
+        removed += 1
+    await db.commit()
+    return {"removed": removed}
+
+
 @router.post("/scene/epoch")
 async def manage_scene_epoch(
     req: SceneEpochRequest,
