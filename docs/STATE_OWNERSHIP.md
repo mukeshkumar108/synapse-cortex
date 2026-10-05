@@ -68,3 +68,35 @@ Flow per turn: probe (`/v1/world/version` now also returns `scene.story` and `sc
 Posture (greeting the user in their real morning, bringing them back from a story) is NOT substrate: it belongs in the character's kernel; the substrate guarantees the facts are present and labelled.
 
 **Still open:** a real-traffic smoke through the app routes; deleting the Runtime's local `current_scene` fallback (still used when there is no interpreted world) and the legacy episode ledger; the story clock currently comes only from explicit statements (`clock`); Jev still gates user-turn sensing (a missed flag is a missed change); lab worlds frozen before today have no live scene until `scripts/lab.sh <spec> rescene`.
+
+## Invented entities (the "Ben" case): persistence vs projection — traced 2026-10-05
+
+**Write path (exists, works).** The interpreter emits `actors[]` (name, aliases, type, `explicit`, evidence message ids) → `world_materializer._actors` → one durable **`Entity`**
+(`frame_scope` = the world owner, so it is per-world; `entity_type`, `provisional` until named explicitly, confidence) + `EntityAlias` rows (each with the provenance message id) +
+`RelationshipEdge`s + `EntityLink`s to the events/matters it appears in + provenance rows. Matching is by alias within the world; an ambiguous match is rejected, never merged.
+Under a `generative` policy invented detail is canon, attributed to who said it.
+
+**Storage / projection into the resident packet (exists, works).** `world_model_service.build_world_layer` puts every actor of the world into the resident world model
+(`actors[]`: name, type, provisional, up to 3 relations, up to 3 claims, last event) and `world_index.actors` (ref + name), and `people.salient` (name, matters, score).
+Verified on the real frozen CUT-4 world: **Liam** is a durable, non-provisional Entity; relations "work colleagues on Kai's team" and "secret emotional and sexual correspondence of
+Elena"; claims; linked to the matter.
+
+**The missing seam is projection into the foreground, not persistence.** Nothing in the compiler renders `actors` or `world_index`. The only Runtime consumer is
+`hot_state.entity_index` (from `people.salient`), which feeds the cheap router (Jev), not the foreground. In the CUT-4 prompt "Liam" appears 8 times, but only because the
+interpreter's *prose* (story brief, objectives, trajectory note) happens to name him. An entity the prose doesn't mention is persisted and then invisible to the model once its
+turns leave the raw tail.
+
+**Timeline of a newly invented name.** It is invented in a reply → it sits in the raw tail (≈3 turns) → the next interpreter pass (≤3 turns, background) writes the Entity → from then
+on it exists in the resident packet. The frontier rule (tail may grow by ≤4 messages for unabsorbed turns) covers most of the handoff window; a one-turn blind spot is possible when a pass
+finishes after the tail has moved on. Not measured.
+
+**Not yet known (do not assume).** Whether the interpreter emits an `actor` for MINOR invented entities (a contractor, a neighbour mentioned once). In the real chat up to CUT-4 every named
+person became an Actor (Kai, Elena, Leo, Liam), but that chat has no minor invented entity to test on. That is a lab question (ingest a transcript with a minor entity; list the Entity rows).
+
+So: no second representation is needed. The fix, when approved, is a bounded compiler projection of the existing `actors` (+ relations/claims) — and the lab should first show whether a
+roster changes behaviour at short tails.
+
+## Recorded, not fixed: relative narrative jumps
+"Three days later" / "the next morning" are stored verbatim as the story `clock` (text). They are not normalised into a computed story time, so nothing can say "it is now Thursday in the story".
+Relevant to the story-clock work: a typed, arithmetic story clock (anchor + offsets, set only by the user's explicit statements) does not exist. Real-world journeys are different: those ARE typed
+and dead-reckoned.
