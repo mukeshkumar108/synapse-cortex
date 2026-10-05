@@ -21,6 +21,7 @@ services:
       context: ..
       dockerfile: Dockerfile
     container_name: synapse-cortex
+    stop_grace_period: 130s          # in-flight interpretation / turns finish on redeploy instead of being killed after 10s
     restart: unless-stopped
     depends_on:
       postgres:
