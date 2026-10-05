@@ -406,6 +406,7 @@ class SceneReportRequest(BaseModel):
     source: str = "model_inferred"
     confidence: float = 0.7
     epoch_event: Optional[Dict[str, str]] = None
+    observed_at: Optional[datetime] = None      # when the turn actually happened (a replay or late delivery must not stamp "now")
     layer: str = "story"            # "story": this conversation's fiction/situation. "real": the PERSON's real-world situation, shared across their chats/devices
 
 
@@ -430,7 +431,7 @@ async def report_scene_detections(
             db, workspace_id=req.workspace_id,
             session_id=(f"real_{req.owner_peer_id}" if req.layer == "real" and req.owner_peer_id else req.session_id),
             detections=req.detections or {}, source=req.source,
-            confidence=req.confidence)
+            confidence=req.confidence, now=req.observed_at)
         epoch_result = None
         if (req.epoch_event or {}).get("type") in ("session", "scene"):
             epoch_result = await close_epoch(
