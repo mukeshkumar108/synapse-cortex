@@ -30,6 +30,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from uuid import UUID
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -623,13 +624,27 @@ async def attach(db: AsyncSession, matter: Matter, ref: PrimitiveRef, index: Mat
     key = (ref.object_type, ref.object_id)
     created = False
     if key not in index.link_map:
-        db.add(MatterLink(
+        # A primitive is the subject of at most one Matter (unique index). The in-memory index can be stale against a concurrent reconciler that already
+        # linked it; that must never fail the caller's whole transaction (it used to lose an entire interpretation pass). The savepoint absorbs the
+        # duplicate: the existing link stays, this attach is a no-op.
+        link = MatterLink(
             honcho_workspace_id=matter.honcho_workspace_id, matter_id=matter.id,
             object_type=ref.object_type, object_id=ref.object_id, role=role,
             confidence=1.0 if how in ("link", "lineage", "created", "key") else 0.7,
-            provenance_message_id=ref.message_id))
-        index.add_link(matter.id, ref.object_type, ref.object_id, (ref.title, ref.text))
-        created = True
+            provenance_message_id=ref.message_id)
+        try:
+            async with db.begin_nested():
+                db.add(link)
+                await db.flush()
+            index.add_link(matter.id, ref.object_type, ref.object_id, (ref.title, ref.text))
+            created = True
+        except IntegrityError:
+            if link in db.sync_session:
+                db.sync_session.expunge(link)          # the failed row must not be re-inserted by the next autoflush
+            existing = (await db.execute(select(MatterLink.matter_id).where(
+                MatterLink.object_type == ref.object_type, MatterLink.object_id == ref.object_id))).scalar()
+            if existing is not None:
+                index.link_map[key] = existing
     matter.last_touched = max(matter.last_touched, ref.touched_at)
     if ref.session_id:
         matter.last_touched_session_id = ref.session_id

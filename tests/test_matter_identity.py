@@ -280,3 +280,25 @@ async def test_existing_semantic_relation_unifies_matters_without_shared_entity(
             formation="explicit", confidence=0.9)
     await sync()
     assert len(await matters()) == 1
+
+
+@pytest.mark.asyncio
+async def test_attaching_a_primitive_a_concurrent_reconciler_already_linked_does_not_fail_the_pass():
+    """The in-memory index can be stale: a duplicate subject link used to raise and lose a whole interpretation pass. It is now a no-op."""
+    from uuid import uuid4
+    from src.db import async_session_maker
+    from src.models.matter import Matter, MatterLink
+    from src.services import matter_service as ms
+    async with async_session_maker() as db:
+        a, b = Matter(honcho_workspace_id="w", title="A", kind="topic"), Matter(honcho_workspace_id="w", title="B", kind="topic")
+        db.add(a); db.add(b); await db.commit()
+        oid = uuid4()
+        ref = ms.PrimitiveRef("model_entry", oid, None, "t", "text", "other", live=False, terminal=False, touched_at=a.last_touched, created_at=a.last_touched,
+                              message_id="m", session_id="s", formation="inferred", confidence=0.7, link_only=True, entity_ids=set())
+        db.add(MatterLink(honcho_workspace_id="w", matter_id=a.id, object_type="model_entry", object_id=oid, role="subject", confidence=1.0))
+        await db.commit()
+        index = ms.MatterIndex()                      # stale: does not know about the existing link
+        assert await ms.attach(db, b, ref, index, how="key") is False
+        await db.commit()
+        links = (await db.execute(MatterLink.__table__.select().where(MatterLink.object_id == oid))).all()
+        assert len(links) == 1 and links[0].matter_id == a.id        # the winner stays; the pass survives
