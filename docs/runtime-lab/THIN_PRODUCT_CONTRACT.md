@@ -1,4 +1,4 @@
-> Mirrored from companion-runtime/docs/THIN_PRODUCT_CONTRACT.md (canonical copy lives there; regenerate this mirror if it changes).
+> Mirrored from companion-runtime/docs/THIN_PRODUCT_CONTRACT.md (canonical copy lives there).
 
 # Thin product contract (what a product sends vs what Runtime/Cortex own)
 
@@ -12,7 +12,7 @@ Written for RPD2 ("Pure Mode"); valid for any product. A thin product is an iden
 | Product policy that is explicit | lives in the **Runtime registry**, not per turn: `epistemic_policy` (RPD2 = `generative`: invented fiction is canon, attributed) |
 | The current user event | `current_sanitized_message`, `message_parts` |
 | Persisted conversation history | `canonical_history` (≤20): stable persisted ids, role, content, `created_at` ISO — the same ids every turn |
-| Identity of the world and the person | `trusted_user_context.user_id`, `.world_scope` (`rpd2:<userId>:<characterId>:<chatId>`; `[A-Za-z0-9:_.-]{1,160}`), `.user_display_name` (must equal the name bound into the constitution), `.timezone` |
+| Identity of the world and the person | `trusted_user_context.user_id`, `.world_scope` (**must contain the conversation id** for a conversation-isolated product such as RPD2 — the Runtime refuses a live turn with 422 otherwise; `rpd2:<userId>:<characterId>:<chatId>`; `[A-Za-z0-9:_.-]{1,160}`), `.user_display_name` (must equal the name bound into the constitution), `.timezone` |
 | Session routing | round-trip `execution_metadata.next_session_state` → `trusted_user_context.session_routing` EVERY turn (this is where turn count, the resident world cache and the checkpoint cadence live) |
 | Model choice | `selected_model_id`; the product must log `execution_metadata.foreground_requested_model`, `foreground_fell_back` and `model_used` — a fallback is a different experiment |
 | Identity of the turn | `turn_id` = the user message id; on an ambiguous POST, `GET /v1/turns/{turn_id}` before any retry; never run one turn twice |
@@ -46,3 +46,27 @@ round-trip, model dropdown, logging.
 (a) a real live turn through the app route returns `model_used == requested` and `foreground_fell_back == false`; (b) `session_routing` round-trips (turn number
 advances; `execution_metadata.world.checkpoint_handed_off` becomes true every 3rd turn); (c) the lab report for a cut shows the world and prompt the product expects;
 (d) native A/B replies exist for the marked cuts. Only then remove the local cognition.
+
+
+## Continuity isolation (enforced by the Runtime)
+Each registered product declares `isolation`: `person` (Sophie: one continuity per person across chats, devices and voice) or `world` (RPD2: every chat is its own continuity).
+For `world` products the Runtime (a) refuses a LIVE turn (422 `world_scope_required` / `world_scope_must_name_the_conversation`) unless `world_scope` includes the
+conversation id, so a product bug can never silently merge two chats into one Honcho peer / Cortex world; (b) skips the cross-conversation chronology lookup (the
+model is never told, from other chats, when the person last spoke); (c) keys the REAL-world scene layer by the world, not the person (`real_scene_scope: "world"`;
+flip to `person` only as a product decision to share the person's real-world situation across their chats). Retrieval, interpretation, the scene and the
+executive are all keyed by the world owner (`world:<scope>`), covered by `tests/test_world_scope_isolation.py` and `tests/test_isolation.py`.
+
+## Which model/fallback keys are canonical
+`execution_metadata.foreground_requested_model`, `execution_metadata.foreground_fell_back` and top-level `model_used` / `used_fallback` all exist on the wire.
+Use `foreground_fell_back` for "served ≠ requested" (it is also true when the model differs without the provider-level fallback flag); `model_used` is the model that served.
+
+## Precedence
+The product's constitution is authoritative. The substrate describes (story, scene, trajectory, objectives) and never rewrites or overrides it: it is placed first in
+the compiled prompt, the interpreter treats the character's output as evidence rather than authority, and the "constitutional orientation" the interpreter judges
+against is product-authored (companion definition), never extracted. There is no substrate self-concept layer today; if one is added it renders as description under
+the constitution and loses every disagreement.
+
+## Clocks
+Session boundaries and `[TEMPORAL FACTS]` use the WALL clock (history timestamps / turn records). Narrative time is a separate typed story clock (`Scene time`,
+read by the model from what the user says) and never opens or closes a session; a story scene/time jump only triggers interpretation of the stretch that just ended.
+There is no arithmetic story calendar: "three days later" is stored as text.
