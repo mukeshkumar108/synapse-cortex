@@ -402,7 +402,7 @@ async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional
     actors = []
     for e in ents:
         mine = [x for x in entries if x.subject_entity_id == e.id and not _is_narrative(x.claim_kind) and x.epistemic_status != "superseded"]
-        rel = [f"{ed.role} of {names.get(ed.to_entity_id) if ed.from_entity_id == e.id else names.get(ed.from_entity_id)}"
+        rel = [f"{ed.role}, with {names.get(ed.to_entity_id) if ed.from_entity_id == e.id else names.get(ed.from_entity_id)}"
                for ed in edges if e.id in (ed.from_entity_id, ed.to_entity_id)]
         event_ids = [l.object_id for l in links if l.entity_id == e.id and l.object_type == "event" and l.object_id in by_event]
         last = max((by_event[i] for i in event_ids), key=lambda ev: ev.created_at, default=None)

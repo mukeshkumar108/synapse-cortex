@@ -908,3 +908,21 @@ async def test_a_failing_pass_records_its_real_error_and_never_looks_applied(mon
         await run(lila_delta(), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
     runs = await all_rows(ProducerRun, honcho_workspace_id=WS)
     assert runs and runs[-1].status == "failed" and "ValueError: the real cause" in runs[-1].counts_json
+
+
+@pytest.mark.asyncio
+async def test_a_self_directed_dimension_on_a_self_edge_materialises_without_special_casing():
+    """Verifies the self-concept design assumption: a facet from an actor to ITSELF (relationship.type 'self') is accepted by the schema and the materialiser."""
+    from src.models.world import RelationshipDimension
+    d = lila_delta()
+    body = d.model_dump()
+    actor = body["actors"][0]["ref"]
+    body["relationships"] = list(body["relationships"]) + [{"ref": "rself", "actors": [actor, actor], "type": "self", "directional": True, "evidence": [body["actors"][0]["evidence"][0]]}]
+    body["dimensions"] = list(body["dimensions"]) + [{"ref": "dself", "relationship": "rself", "from_actor": actor, "to_actor": actor, "dimension": "self_regard",
+                                                      "value": "believes she ruins things she cares about", "durability": "acute", "formation": "explicit", "confidence": 0.7,
+                                                      "evidence": [body["actors"][0]["evidence"][0]]}]
+    receipt = await run(WorldDelta.model_validate(body), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    dims = await all_rows(RelationshipDimension, honcho_workspace_id=WS)
+    mine = [x for x in dims if x.dimension == "self_regard"]
+    assert mine and mine[0].from_entity_id == mine[0].to_entity_id and mine[0].durability == "acute"
+    assert not any(r.get("ref") in ("rself", "dself") for r in (receipt.get("rejected") or []) if isinstance(r, dict))
