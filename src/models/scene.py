@@ -67,3 +67,19 @@ class SceneEpoch(SQLModel, table=True):
     carried_matter_ids_json: str = Field(default="[]", nullable=False)
 
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class SceneNarrative(SQLModel, table=True):
+    """The conversation as it stands now, in a few plain sentences (one row per workspace+session, replaced each pass). Written by the fast scene
+    pass after every exchange; the foreground reads it as prose. The heavy world interpreter stays the owner of entities, claims and objectives."""
+
+    __tablename__ = "scene_narratives"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    honcho_session_id: str = Field(index=True, nullable=False)
+    text: str = Field(default="", nullable=False)
+    through_message_id: Optional[str] = Field(default=None)
+    model: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)

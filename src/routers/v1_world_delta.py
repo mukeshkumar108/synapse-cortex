@@ -70,6 +70,31 @@ async def interpret_world(req: InterpretRequest, db: AsyncSession = Depends(get_
         raise HTTPException(status_code=500, detail=f"interpretation_failed:{type(exc).__name__}") from exc
 
 
+class NarrateRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    messages: List[Dict[str, str]]          # last exchanges, oldest first: {id?, speaker: user|assistant, text}
+    names: Dict[str, str] = {}              # {user, assistant} display names (product-supplied)
+    model: Optional[str] = None             # LAB ONLY (session must be a lab chat)
+
+
+@router.post("/narrate")
+async def narrate_scene(req: NarrateRequest, db: AsyncSession = Depends(get_async_session)):
+    """The fast scene pass: rewrite the conversation's running picture (a few plain sentences) from the last messages. Fail-open for the caller."""
+    from src.runtime_model import get_agenda_adapter
+    from src.services import scene_narrative
+    adapter = get_agenda_adapter()
+    if adapter is None:
+        raise HTTPException(status_code=503, detail="no_model_credentials")
+    try:
+        return await scene_narrative.narrate(db, adapter=adapter, workspace_id=req.workspace_id, session_id=req.session_id, messages=req.messages,
+                                             names=req.names, model=req.model if req.session_id.startswith("chat-lab") else None)
+    except Exception as exc:
+        await db.rollback()
+        logger.exception("scene narrative failed")
+        raise HTTPException(status_code=500, detail=f"narrate_failed:{type(exc).__name__}") from exc
+
+
 @router.get("/interpreter-config")
 async def interpreter_config():
     """The authoritative description of the world interpreter AS DEPLOYED (never a copy): the exact system prompt, model, and where its output goes."""
@@ -108,7 +133,9 @@ async def world_version(req: Dict[str, str], db: AsyncSession = Depends(get_asyn
         row = await scene_state.get_active_scene(db, workspace_id, session)
         return {"fields": _json.loads(row.fields_json or "{}"), "updated_at": row.updated_at.isoformat()} if row is not None else None
     real_owner = req.get("real_owner")
-    return {"version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
+    from src.services import scene_narrative
+    nar = await scene_narrative.current(db, workspace_id, req.get("session_id")) if req.get("session_id") else None
+    return {"narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat()} if nar else None), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
             # The canonical live scene, two layers: this conversation's story, and the person's real-world situation (shared across chats/devices).
             "scene": {"story": await layer(req.get("session_id")), "real": await layer(f"real_{real_owner}" if real_owner else None)}}
 
