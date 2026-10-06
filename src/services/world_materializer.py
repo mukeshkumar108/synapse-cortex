@@ -738,6 +738,7 @@ async def materialize(db: AsyncSession, delta: WorldDelta, *, now: Optional[date
         db.add(run)
     await db.commit()
     ctx = _Ctx(db, delta, run, now_n, constitution)
+    run_id = run.id          # captured BEFORE any rollback: a rollback expires `run`, and reading it afterwards raises MissingGreenlet and masks the real error
     try:
         await _actors(ctx)
         await _relationships(ctx)
@@ -756,7 +757,7 @@ async def materialize(db: AsyncSession, delta: WorldDelta, *, now: Optional[date
     except Exception as exc:
         # A run that did not finish is never left looking applied: its evidence stays uncovered so the next pass interprets it again.
         await db.rollback()
-        failed = await db.get(ProducerRun, run.id)
+        failed = await db.get(ProducerRun, run_id)
         if failed is not None:
             failed.status, failed.finished_at = "failed", now_n
             failed.counts_json = json.dumps({**ctx.counts, "error": f"{type(exc).__name__}: {str(exc)[:300]}", "rejected": len(ctx.rejected)})

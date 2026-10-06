@@ -25,7 +25,10 @@ from src.services import world_materializer
 
 logger = logging.getLogger(__name__)
 
-INTERPRETER_MODEL = os.getenv("WORLD_INTERPRETER_MODEL", "openai/gpt-5.6-luna-pro")
+# Plain Luna, not the "-pro" variant: measured 2026-10-06 on identical input, Pro billed ~46k prompt tokens for an ~8.4k-token prompt (internal ensembling), took 44s and cost
+# $0.020 a pass; plain Luna took 20-24s at ~$0.004 with equal-or-better extraction. Cheaper/faster alternatives tried and rejected (thin reviews, invalid JSON, or no scene): see
+# docs/INTERPRETER_MODEL_BAKEOFF.md.
+INTERPRETER_MODEL = os.getenv("WORLD_INTERPRETER_MODEL", "openai/gpt-5.6-luna")
 INTERPRETER_TIMEOUT = float(os.getenv("WORLD_INTERPRETER_TIMEOUT_SECONDS", "150"))
 STATE_ITEMS = 30
 LEASE_WAIT_SECONDS = float(os.getenv("WORLD_LEASE_WAIT_SECONDS", "45"))

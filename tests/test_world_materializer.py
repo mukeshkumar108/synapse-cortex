@@ -894,3 +894,17 @@ async def test_conversational_expenditure_is_stored_with_the_scene():
     async with async_session_maker() as db:
         layer = await world_model_service.build_world_layer(db, WS, d.owner)
     assert layer["continuation"]["brief"]["scene"]["spent"] == ["Kai already asked where she was that night; she answered vaguely"]
+
+
+@pytest.mark.asyncio
+async def test_a_failing_pass_records_its_real_error_and_never_looks_applied(monkeypatch):
+    """The failure handler used to read an expired `run` after rollback (MissingGreenlet), masking the real error."""
+    from src.services import world_materializer as wm
+
+    async def boom(ctx, adapter=None):
+        raise ValueError("the real cause")
+    monkeypatch.setattr(wm, "_matters", boom)
+    with pytest.raises(ValueError):
+        await run(lila_delta(), constitution={"actor": "Lila", "toward": "Kai", "text": "Protect the relationship."})
+    runs = await all_rows(ProducerRun, honcho_workspace_id=WS)
+    assert runs and runs[-1].status == "failed" and "ValueError: the real cause" in runs[-1].counts_json
