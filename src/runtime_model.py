@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
 import httpx
 
@@ -21,6 +22,10 @@ class AgendaRankerAdapter:
                if os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY")
                else os.getenv("SYNAPSE_MODEL_URL") or "https://api.openai.com/v1/chat/completions")
         headers = {"Content-Type": "application/json"}
+        try:      # the module that asked: sent as X-Title so the usage log says what each call was for
+            headers.update({"HTTP-Referer": "https://localhost/synapse-cortex", "X-Title": "synapse-cortex:" + str(sys._getframe(1).f_globals.get("__name__", "unknown")).rsplit(".", 1)[-1]})
+        except Exception:
+            pass
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         payload = {

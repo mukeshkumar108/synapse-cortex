@@ -75,6 +75,7 @@ class NarrateRequest(BaseModel):
     session_id: str
     messages: List[Dict[str, str]]          # last exchanges, oldest first: {id?, speaker: user|assistant, text}
     names: Dict[str, str] = {}              # {user, assistant} display names (product-supplied)
+    force: bool = False                     # a significant moment: rewrite now instead of batching
     model: Optional[str] = None             # LAB ONLY (session must be a lab chat)
 
 
@@ -88,7 +89,7 @@ async def narrate_scene(req: NarrateRequest, db: AsyncSession = Depends(get_asyn
         raise HTTPException(status_code=503, detail="no_model_credentials")
     try:
         return await scene_narrative.narrate(db, adapter=adapter, workspace_id=req.workspace_id, session_id=req.session_id, messages=req.messages,
-                                             names=req.names, model=req.model if req.session_id.startswith("chat-lab") else None)
+                                             names=req.names, model=req.model if req.session_id.startswith("chat-lab") else None, force=req.force)
     except Exception as exc:
         await db.rollback()
         logger.exception("scene narrative failed")

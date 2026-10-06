@@ -4,6 +4,7 @@ prose; no structured fields to interpret. Description only, never an instruction
 and operational items."""
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any, Dict, List, Optional
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 SCENE_MODEL = os.getenv("SCENE_NARRATIVE_MODEL", "openai/gpt-5.6-luna")
 TAIL = 6
+REWRITE_EVERY_MESSAGES = 4     # the picture is rewritten once this many new messages are waiting (2 exchanges): always fewer than the raw tail the foreground reads, so nothing falls between
+MAX_PENDING = 12
 
 SYSTEM = """You keep the running picture of one ongoing conversation between a person and a companion character, so the character can speak as one continuous self.
 You are given the PREVIOUS PICTURE (what was already known) and the LAST MESSAGES (verbatim). Write the picture as it stands NOW: 4 to 8 short plain sentences, no lists, no headings.
@@ -34,29 +37,43 @@ async def current(db: AsyncSession, workspace_id: str, session_id: str) -> Optio
 
 
 async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, messages: List[Dict[str, str]], names: Dict[str, str],
-                  model: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """Rewrite the picture from the previous picture plus the last messages. `messages` = [{id?, speaker: user|assistant, text}], oldest first."""
-    tail = [m for m in messages if str(m.get("text") or "").strip()][-TAIL:]
-    if not tail:
+                  model: Optional[str] = None, force: bool = False) -> Optional[Dict[str, Any]]:
+    """Hand in the newest exchange. The picture is rewritten (one cheap model call) only when enough has accrued to leave the raw tail (or `force`, for a
+    significant moment); otherwise the exchange is just buffered. `messages` = [{id?, speaker: user|assistant, text}], oldest first."""
+    fresh = [m for m in messages if str(m.get("text") or "").strip()]
+    if not fresh:
         return None
     row = await current(db, workspace_id, session_id)
+    if row is None:
+        row = SceneNarrative(honcho_workspace_id=workspace_id, honcho_session_id=session_id, text="")
+        db.add(row)
+    try:
+        buffered = json.loads(row.pending_json or "[]")
+    except ValueError:
+        buffered = []
+    pending = (buffered + fresh)[-MAX_PENDING:]
+    if not force and len(pending) < REWRITE_EVERY_MESSAGES:
+        row.pending_json = json.dumps(pending, ensure_ascii=False)
+        await db.commit()
+        return {"status": "buffered", "pending": len(pending)}
     who = lambda m: names.get(m.get("speaker"), m.get("speaker"))
     prompt = (f"PEOPLE: {names.get('user', 'the person')} (the person), {names.get('assistant', 'the companion')} (the companion character)\n\n"
-              f"PREVIOUS PICTURE:\n{(row.text if row else '') or '(none yet)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in tail))
+              f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
     model_id = model or SCENE_MODEL
-    out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string"}, model_id=model_id, max_tokens=700,
-                                            temperature=0.2, strict=False, timeout=45)
+    try:
+        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string"}, model_id=model_id, max_tokens=700,
+                                                temperature=0.2, strict=False, timeout=45)
+    except Exception:
+        row.pending_json = json.dumps(pending, ensure_ascii=False)       # keep the exchanges: the next pass covers them
+        await db.commit()
+        raise
     text = str((out or {}).get("scene") or "").strip()
+    row.pending_json = json.dumps(pending if not text else [], ensure_ascii=False)
     if not text:
+        await db.commit()
         return None
-    through = next((m.get("id") for m in reversed(tail) if m.get("id")), None)
-    if row is None:
-        row = SceneNarrative(honcho_workspace_id=workspace_id, honcho_session_id=session_id, text=text, through_message_id=through, model=model_id)
-        db.add(row)
-    else:
-        row.text, row.through_message_id, row.model = text, through, model_id
-        from src.models.scene import utc_now
-        row.updated_at = utc_now()
-        db.add(row)
+    from src.models.scene import utc_now
+    row.text, row.model, row.updated_at = text, model_id, utc_now()
+    row.through_message_id = next((m.get("id") for m in reversed(pending) if m.get("id")), None)
     await db.commit()
     return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id}
