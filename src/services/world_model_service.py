@@ -462,10 +462,10 @@ async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, na
     const = next((o for o in objectives if o.scope == "constitutional"), None)
     intent: Dict[str, Any] = {"constitution": ({"actor": names.get(const.actor_entity_id), "text": const.text, "state": const.state, "ref": str(const.id)}
                                               if const else None), "objectives": [], "trajectory_note": None}
-    for o in [o for o in objectives if o.scope != "constitutional"][:10]:
+    for o in [o for o in objectives if o.scope != "constitutional"][:16]:
         intent["objectives"].append({"ref": str(o.id), "actor": names.get(o.actor_entity_id), "toward": names.get(o.toward_entity_id) if o.toward_entity_id else None,
                                      "text": o.text, "scope": o.scope, "state": o.state, "durability": o.durability, "strength": o.strength, "cause": o.cause,
-                                     "conflicts": _json_list(o.conflicts_json)})
+                                     "conflicts": _json_list(o.conflicts_json), "source": o.source, "kind": o.kind, "next_move": o.next_move, "ready_when": o.ready_when})
     mine = [n for n in notes if const is not None and n.actor_entity_id == const.actor_entity_id] or notes     # the constitutional actor's own note
     if mine:
         intent["trajectory_note"] = {"ref": str(mine[0].id), "actor": names.get(mine[0].actor_entity_id), "state": mine[0].state, "text": mine[0].note,

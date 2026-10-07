@@ -40,6 +40,7 @@ class InterpretRequest(BaseModel):
     companion_actor: Optional[str] = None       # product-supplied identity of the companion's actor
     timezone: str = "UTC"                       # the user's timezone, used to ground time phrases of operational items
     overrides: Optional[Dict[str, Any]] = None  # LAB ONLY (owner must be world:lab:*): {system_replace:[[old,new]], system_append, model}
+    agency: bool = False                        # product policy (Runtime registry): after this pass the character reflects (heart) and the story may move (pressure), in the background
 
 
 @router.post("/interpret")
@@ -59,6 +60,12 @@ async def interpret_world(req: InterpretRequest, db: AsyncSession = Depends(get_
             db, workspace_id=req.workspace_id, owner=req.owner, session_id=req.session_id, messages=req.messages, speakers=req.speakers,
             policy=req.policy, constitution=req.constitution, adapter=adapter, covered_ordinal=req.covered_ordinal, matter_adapter=adapter,
             user_actor=req.user_actor, companion_actor=req.companion_actor, timezone=req.timezone, overrides=req.overrides)
+        if req.agency and receipt.get("status") == "applied":
+            import asyncio
+            from src.services import character_agency
+            asyncio.create_task(character_agency.run_background(
+                workspace_id=req.workspace_id, owner=req.owner, session_id=req.session_id, constitution=req.constitution,
+                user_actor=req.user_actor, companion_actor=req.companion_actor))
         return receipt
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=f"bad_interpreter_override:{exc}") from exc
@@ -138,8 +145,8 @@ async def world_version(req: Dict[str, str], db: AsyncSession = Depends(get_asyn
     from src.services import scene_narrative
     narrative_session = req.get("narrative_session_id") or req.get("session_id")      # a person-scoped product keeps ONE running picture across chats and voice
     nar = await scene_narrative.current(db, workspace_id, narrative_session) if narrative_session else None
-    from src.services import standing_requests as _sr
-    return {"narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat()} if nar else None), "standing_requests": await _sr.active(db, workspace_id, owner), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
+    from src.services import standing_requests as _sr, character_agency as _ca
+    return {"developments": await _ca.pending_arrivals(db, workspace_id, owner), "narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat()} if nar else None), "standing_requests": await _sr.active(db, workspace_id, owner), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
             # The canonical live scene, two layers: this conversation's story, and the person's real-world situation (shared across chats/devices).
             "scene": {"story": await layer(req.get("session_id")), "real": await layer(f"real_{real_owner}" if real_owner else None)}}
 
@@ -190,3 +197,44 @@ async def world_trace(workspace_id: str, owner: str, run_id: Optional[str] = Non
                       "started_at": r.started_at.isoformat() if r.started_at else None, "finished_at": r.finished_at.isoformat() if r.finished_at else None,
                       "input": load(r.input_json), "covered_through": load(r.covered_through_json), "counts": load(r.counts_json), "detail": load(r.detail_json)}
                      for r in runs]}
+
+
+class DevelopmentsRequest(BaseModel):
+    workspace_id: str
+    owner: str
+    new_sitting: bool = False
+    told_ids: List[str] = []
+
+
+@router.post("/developments/advance")
+async def advance_developments(req: DevelopmentsRequest, db: AsyncSession = Depends(get_async_session)):
+    """pending -> arrived when the user arrives at a new sitting; arrived -> told once the foreground has had its turn with them."""
+    from src.services import character_agency
+    return await character_agency.advance_arrivals(db, req.workspace_id, req.owner, new_sitting=req.new_sitting, told_ids=req.told_ids)
+
+
+class AgencyLabRequest(BaseModel):
+    workspace_id: str
+    owner: str
+    session_id: Optional[str] = None
+    constitution: Optional[Dict[str, str]] = None
+    user_actor: Optional[str] = None
+    companion_actor: Optional[str] = None
+    models: Optional[List[str]] = None
+    which: str = "both"             # heart | pressure | both
+
+
+@router.post("/agency/lab-pass")
+async def agency_lab_pass(req: AgencyLabRequest, db: AsyncSession = Depends(get_async_session)):
+    """LAB ONLY dry run (owner must be world:lab:*): what the character would carry and whether the story would move, persisting nothing."""
+    from src.services import character_agency
+    if not req.owner.startswith("world:lab:"):
+        raise HTTPException(status_code=403, detail="lab_only")
+    kw = dict(workspace_id=req.workspace_id, owner=req.owner, session_id=req.session_id, constitution=req.constitution, user_actor=req.user_actor,
+              companion_actor=req.companion_actor, dry_run=True, models=req.models)
+    out: Dict[str, Any] = {}
+    if req.which in ("heart", "both"):
+        out["heart"] = await character_agency.run_heart(db, **kw)
+    if req.which in ("pressure", "both"):
+        out["pressure"] = await character_agency.run_pressure(db, **kw)
+    return out

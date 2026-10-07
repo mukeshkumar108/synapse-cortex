@@ -68,6 +68,10 @@ class WorldEvent(SQLModel, table=True):
     evidence_refs_json: str = Field(default="[]")
     first_message_id: Optional[str] = Field(default=None)
     run_id: Optional[UUID] = Field(default=None, index=True)
+    # Story pressure: a development authored while the user was away (origin='story_pressure') is pending until they next arrive, then arrived (shown once), then told.
+    origin: str = Field(default="conversation", index=True)      # conversation | story_pressure
+    arrival: Optional[str] = Field(default=None, index=True)     # pending | arrived | told
+    detail: Optional[str] = Field(default=None)                  # JSON: what_happens, bears_on, involves, kind, scale
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
@@ -110,6 +114,11 @@ class WorldObjective(SQLModel, table=True):
     status: str = Field(default="current")                       # current | resolved | superseded
     evidence_refs_json: str = Field(default="[]")
     run_id: Optional[UUID] = Field(default=None, index=True)
+    # Character self-direction (source='heart'): what kind of inner item this is, what she might do next, and when it would be natural. Extracted objectives leave these empty.
+    source: str = Field(default="extracted", index=True)         # extracted (from the dialogue) | heart (authored by the background self-direction pass)
+    kind: Optional[str] = Field(default=None)                    # want | intend | repair | invite | promise | curious | unsaid | feeling | regret | avoid
+    next_move: Optional[str] = Field(default=None)
+    ready_when: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
