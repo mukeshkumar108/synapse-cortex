@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine          # same major as the hosted Neon it replaced (dumps restore cleanly); data lives next to the API, not across an ocean
     container_name: synapse-cortex-postgres
     restart: unless-stopped
     environment:
@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: synapse_cortex
       POSTGRES_PASSWORD: ${SYNAPSE_CORTEX_DB_PASSWORD}
     volumes:
-      - synapse_cortex_pgdata:/var/lib/postgresql/data
+      - synapse_cortex_pgdata17:/var/lib/postgresql/data
     networks: [internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U synapse_cortex -d synapse_cortex"]
@@ -47,8 +47,7 @@ services:
       HONCHO_TIMEOUT_SECONDS: ${HONCHO_TIMEOUT_SECONDS:-3}
       HONCHO_CONTEXT_BUDGET_SECONDS: ${HONCHO_CONTEXT_BUDGET_SECONDS:-4}
       PYTHONPATH: /app
-      # Hosted persistent store override (e.g. Neon). Falls back to the
-      # local compose Postgres when unset.
+      # Local Postgres by default (sub-millisecond queries). Set SYNAPSE_CORTEX_DATABASE_URL only to point at a hosted store.
       DATABASE_URL: ${SYNAPSE_CORTEX_DATABASE_URL:-postgresql+asyncpg://synapse_cortex:${SYNAPSE_CORTEX_DB_PASSWORD}@postgres:5432/synapse_cortex}
       SYNAPSE_CORTEX_API_TOKEN: ${SYNAPSE_CORTEX_API_TOKEN}
     expose: ["8010"]
@@ -61,7 +60,7 @@ services:
       start_period: 10s
 
 volumes:
-  synapse_cortex_pgdata:
+  synapse_cortex_pgdata17:
 
 networks:
   internal:
