@@ -755,22 +755,3 @@ async def test_kill_switch_disables_consolidation(async_client, monkeypatch):
     assert result.error == "disabled" and result.accepted == []
 
 
-@pytest.mark.asyncio
-async def test_consolidate_endpoint_shadow_shape(async_client, monkeypatch):
-    from src.services import semantic_judge
-    monkeypatch.setattr(semantic_judge, "_adapter", lambda: _SessionStub(
-        lambda prompt: {"session_summary": "endpoint check",
-                        "matters": [],
-                        "incidental_mids": ["m1"]}))
-    r = await async_client.post(
-        "/v1/sessions/consolidate",
-        json={"workspace_id": "ws-cons-http", "session_id": "session-1",
-              "transcript": [{"message_id": "m1", "speaker": "ashley",
-                              "text": "just thinking out loud here"}]})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["status"] == "shadow"
-    assert body["accepted"] == [{"op": "incidental", "data": {"message_ids": ["m1"]},
-                                "confidence": 0.9, "rationale": "model-marked incidental"}]
-    assert body["applied"] == [] and body["deferred"] == []
-    assert "run_id" in body

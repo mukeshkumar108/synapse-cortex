@@ -310,47 +310,6 @@ async def record_candidate_receipts(
     }
 
 
-@router.post("/turn-working-set")
-async def get_turn_working_set(
-    req: WorkingSetRequest,
-    db: AsyncSession = Depends(get_async_session),
-):
-    """Tiny per-turn selection (<=5 items): AttentionState + a WorldModel
-    fragment filtered by the current turn. Each item carries provenance and a
-    pointer to the projection holding more depth. Disposable, never canonical;
-    the whole WorldModel is never returned here."""
-    from src.services import world_model_service
-    started = time.perf_counter()
-    state = await attention_service.compile_attention_state(
-        db=db, workspace_id=req.workspace_id, session_id=req.session_id,
-        now=req.now, timezone_str=req.timezone, owner_peer_id=req.peer_id,
-    )
-    world = None
-    try:
-        world = await world_model_service.get_world_model(
-            db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id, now=req.now,
-            timezone_str=req.timezone, session_id=req.session_id)
-    except Exception as err:  # the working set degrades to attention-only, never fails the turn
-        logger.warning("turn working set: world model unavailable: %s", err)
-    from src.runtime_model import get_agenda_adapter
-    judgement = await turn_working_set_service.judge(state, world, turn_text=req.turn_text, adapter=get_agenda_adapter())
-    working_set = turn_working_set_service.compile_turn_working_set(
-        state,
-        judgement=judgement,
-        world_model=world,
-        turn_text=req.turn_text,
-        current_message_id=req.current_message_id,
-        posture=req.posture,
-        conversational_operation=req.conversational_operation,
-        director_hints=req.director_hints,
-        now=req.now,
-        timezone_name=req.timezone,
-    )
-    working_set["metrics"]["cortex_ms"] = round((time.perf_counter() - started) * 1000, 1)
-    working_set["metrics"]["relevance"] = "model" if judgement is not None else "unavailable"
-    return working_set
-
-
 class SurfacingEvent(BaseModel):
     matter_kind: str
     matter_id: str

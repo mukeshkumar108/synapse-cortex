@@ -230,52 +230,6 @@ async def test_episode_references_writes_and_does_not_store_truth():
 
 
 @pytest.mark.asyncio
-async def test_consolidation_endpoint_applies_world_sections_and_records_the_episode(async_client, monkeypatch):
-    from src.services import semantic_judge
-
-    class Stub:
-        async def generate_structured(self, **kw):
-            if "json_schema" in kw and "claims" in (kw["json_schema"].get("properties") or {}):
-                return raw(
-                    matters=[{"pid": "m1", "kind": "watch", "title": "Ashley conversation about feeling unheard",
-                              "status": "open", "owner": "user", "basis": "new", "confidence": 0.85,
-                              "rationale": "stated", "subjects": ["Ashley"], "evidence": EV}],
-                    claims=[claim()],
-                    directed=[{"direction": "system_to_user", "title": "Check in after Thursday's interview",
-                               "formation": "explicit", "confidence": 0.8, "rationale": "asked",
-                               "evidence": {"message_ids": ["m2"], "spans": [{"message_id": "m2", "span": "check back on me"}]}}],
-                    gaps=[{"subject_key": "routines/weekday_morning", "why_useful": "to time check-ins"}])
-            return {"verdict": "no", "confidence": 0.5, "evidence_span": "", "rationale": ""}
-
-    monkeypatch.setattr(semantic_judge, "_adapter", lambda: Stub())
-    monkeypatch.setenv("SESSION_CONSOLIDATION_APPLY", "1")
-    r = await async_client.post("/v1/sessions/consolidate", json={
-        "workspace_id": WS, "session_id": "lane-1", "mode": "apply", "user_peer_id": USER,
-        "temporal_session_id": "t-9", "transcript": [t.__dict__ for t in TURNS[:3]]})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["status"] == "apply" and body["episode_id"]
-    ops = {a["op"] for a in body["applied"]}
-    assert {"new_matter", "claim", "directed_expectation", "knowledge_gap"} <= ops, body
-    eps = await async_client.post("/v1/cortex/episodes/list", json={"workspace_id": WS, "peer_id": USER})
-    ep = eps.json()["episodes"][0]
-    assert ep["id"] == body["episode_id"] and ep["temporal_session_id"] == "t-9" and ep["session_id"] == "lane-1"
-    assert {"matter_created", "relationship_development", "system_to_user_expectation", "knowledge_gap"} <= {
-        w["role"] for w in ep["writes"]}
-    assert ep["matters_touched"]                       # new matter resolved + linked by the shared write path
-    # the matter is session-independent: it survives a different lane and is owned by the user
-    async with async_session_maker() as db:
-        ms_ = (await db.execute(select(Matter))).scalars().all()
-    assert ms_ and all(m.owner_peer_id == USER for m in ms_)
-    # shadow mode records no episode (proposal only)
-    monkeypatch.delenv("SESSION_CONSOLIDATION_APPLY")
-    r2 = await async_client.post("/v1/sessions/consolidate", json={
-        "workspace_id": WS, "session_id": "lane-1", "mode": "apply", "user_peer_id": USER,
-        "temporal_session_id": "t-10", "transcript": [t.__dict__ for t in TURNS[:3]]})
-    assert r2.json()["status"] == "shadow" and "episode_id" not in r2.json()
-
-
-@pytest.mark.asyncio
 async def test_sweeper_run_reconciles_into_matters_through_the_same_write_path(monkeypatch):
     from src.services.sweeper_service import SweeperService
     svc = SweeperService()

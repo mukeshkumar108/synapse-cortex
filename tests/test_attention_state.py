@@ -124,9 +124,9 @@ async def test_removed_endpoints_are_gone():
     for gone in ("/v1/cortex/handover", "/v1/cortex/handover/preview", "/v1/cortex/handover/evaluate",
                  "/v1/cortex/working-set", "/v1/cortex/session-working-set",
                  "/v1/cortex/session-working-set/refresh", "/v1/cortex/attention-packet",
-                 "/v1/cortex/attention-packet/evaluate"):
+                 "/v1/cortex/attention-packet/evaluate", "/v1/cortex/turn-working-set", "/v1/sessions/consolidate"):
         assert gone not in paths, gone
-    for new in ("/v1/cortex/attention-state", "/v1/cortex/turn-working-set", "/v1/cortex/world-model",
+    for new in ("/v1/cortex/attention-state", "/v1/cortex/world-model",
                 "/v1/cortex/projection/today", "/v1/cortex/knowledge-coverage", "/v1/cortex/matters/list"):
         assert new in paths, new
 
