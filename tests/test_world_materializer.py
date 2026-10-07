@@ -926,3 +926,34 @@ async def test_a_self_directed_dimension_on_a_self_edge_materialises_without_spe
     mine = [x for x in dims if x.dimension == "self_regard"]
     assert mine and mine[0].from_entity_id == mine[0].to_entity_id and mine[0].durability == "acute"
     assert not any(r.get("ref") in ("rself", "dself") for r in (receipt.get("rejected") or []) if isinstance(r, dict))
+
+
+@pytest.mark.asyncio
+async def test_the_executive_is_woken_only_by_changes_it_acts_on_not_by_every_interpreter_pass(monkeypatch):
+    from httpx import ASGITransport, AsyncClient
+    from sqlmodel import select
+    from src.db import async_session_maker
+    from src.main import app
+    from src.models.executive import ExecutiveWake
+    from src.services import executive
+    import src.runtime_model as rm
+    owner = "world:wake-test"
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}})
+
+    async def interpret(raw, ids):
+        monkeypatch.setattr(rm, "get_agenda_adapter", lambda: FakeInterpreter(raw))
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
+            r = await client.post("/v1/world/interpret", json={"workspace_id": WS, "owner": owner, "session_id": "s", "messages": ids, "speakers": {"user": "Kai", "assistant": "Lila"}, "policy": "generative"})
+        assert r.status_code == 200, r.text
+
+    async def wakes():
+        async with async_session_maker() as db:
+            return len((await db.execute(select(ExecutiveWake).where(ExecutiveWake.owner_peer_id == owner))).scalars().all())
+
+    msgs = lambda tag: [{"id": f"{tag}1", "speaker": "user", "text": "hello there"}, {"id": f"{tag}2", "speaker": "assistant", "text": "hi Kai"}]
+    await interpret({"actors": [{"ref": "l", "name": "Lila", "entity_type": "character", "explicit": True, "evidence": ["a1"]}]}, msgs("a"))
+    assert await wakes() == 0                                      # actors/claims only: nothing for the executive to decide
+    await interpret({"actors": [{"ref": "l", "name": "Lila", "entity_type": "character", "explicit": True, "evidence": ["b1"]}],
+                     "commitments": [{"ref": "c1", "committer": "user", "text": "I will call her Friday", "evidence": ["b1"]}]}, msgs("b"))
+    assert await wakes() == 1                                      # a commitment is something the companion carries

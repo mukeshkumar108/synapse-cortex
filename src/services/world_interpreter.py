@@ -731,7 +731,12 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     await _finish(db, rid, "applied", detail, {"proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": len(drops.items)})
     from src.services import executive
     await executive.link_replies(db, workspace_id, owner, messages, proactive)
-    await executive.note_changed(db, workspace_id, owner, "world_interpreted")      # the world changed: the executive reconsiders (no-op unless its policy enables it)
+    # The executive reconsiders only when something it acts on changed: operational items (reminders, plans, completions), commitments, objectives or a new Matter.
+    # A pass that only refreshed claims, relationships or the story brief gives it nothing to decide; the daily review and its own scheduled wakes cover the rest.
+    op = receipt.get("operational") or {}
+    acts_on = bool(op.get("committed")) or any(receipt["interpreted"].get(k) for k in ("commitments", "objectives", "matter_candidates"))
+    if acts_on:
+        await executive.note_changed(db, workspace_id, owner, "world_interpreted")      # no-op unless the world's policy enables the executive
     return receipt
 
 
