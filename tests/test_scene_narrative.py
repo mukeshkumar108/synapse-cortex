@@ -48,3 +48,27 @@ async def test_failure_and_empty_answer_keep_exchanges_and_old_picture():
         assert (await scene_narrative.current(db, "w", "t")).text == "first picture"
         await scene_narrative.narrate(db, adapter=ad, workspace_id="w", session_id="t", names=N, messages=ex("g", "h"), force=True)
         assert "c" in ad.prompts[3] and "Elena: h" in ad.prompts[3] and "first picture" in ad.prompts[3]    # exchanges kept across the failure
+
+
+@pytest.mark.asyncio
+async def test_standing_requests_are_stored_apart_from_the_prose_and_survive_a_pass_that_omits_them():
+    ad = _Adapter({"scene": "Planning a busy week.", "standing_requests": ["Do not call him babe; Mukesh is fine."]},
+                  {"scene": "Deck first, then Priya."},                       # the model forgot the field: what was held must stay
+                  {"scene": "Deck done.", "standing_requests": ["Do not call him babe; Mukesh is fine.", "Fewer questions at the end of replies."]})
+    async with async_session_maker() as db:
+        first = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", session_id="s-req", messages=ex("please don't call me babe", "ok") + ex("busy week", "got it"), names=N)
+        assert first["standing_requests"] == ["Do not call him babe; Mukesh is fine."] and "babe" not in first["text"]
+        second = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", session_id="s-req", messages=ex("deck first?", "yes") + ex("ok", "ok"), names=N)
+        assert second["standing_requests"] == ["Do not call him babe; Mukesh is fine."]
+        assert "PREVIOUS STANDING REQUESTS:\n- Do not call him babe" in ad.prompts[1]
+        third = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", session_id="s-req", messages=ex("fewer questions please", "sure") + ex("done", "nice"), names=N)
+        assert len(third["standing_requests"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_an_explicit_empty_list_is_how_a_withdrawn_request_leaves():
+    ad = _Adapter({"scene": "a", "standing_requests": ["No pet names."]}, {"scene": "b", "standing_requests": []})
+    async with async_session_maker() as db:
+        await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req2", session_id="s-req2", messages=ex("no pet names", "ok") + ex("x", "y"), names=N)
+        out = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req2", session_id="s-req2", messages=ex("actually pet names are fine", "ok") + ex("x", "y"), names=N)
+        assert out["standing_requests"] == []

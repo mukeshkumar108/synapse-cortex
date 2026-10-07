@@ -53,6 +53,7 @@ _ADDITIVE_COLUMNS = (
     ("producer_runs", "detail_json", "TEXT DEFAULT '{}'"),
     ("continuation_briefs", "scene_json", "TEXT DEFAULT '{}'"),
     ("scene_narratives", "pending_json", "TEXT DEFAULT '[]'"),
+    ("scene_narratives", "requests_json", "TEXT DEFAULT '[]'"),
     ("producer_runs", "started_at", "TIMESTAMP"),
     ("producer_runs", "finished_at", "TIMESTAMP"),
     ("executive_wakes", "detail_json", "TEXT"),

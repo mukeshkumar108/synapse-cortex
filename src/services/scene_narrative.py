@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 SCENE_MODEL = os.getenv("SCENE_NARRATIVE_MODEL", "openai/gpt-5.6-luna")
 TAIL = 6
+MAX_REQUESTS = 12
 REWRITE_EVERY_MESSAGES = 4     # the picture is rewritten once this many new messages are waiting (2 exchanges): always fewer than the raw tail the foreground reads, so nothing falls between
 MAX_PENDING = 12
 
@@ -26,9 +27,10 @@ You are given the PREVIOUS PICTURE (what was already known) and the LAST MESSAGE
 Cover, in whatever order reads naturally: what is actually happening and in what register; what is genuinely still open between them (questions not answered, decisions pending,
 tension not settled); any decisions, promises, plans or commitments made; the texture (mood, humour, running jokes, tone) as observed, not as lasting unless it continues;
 and what has already been used up so it is not needlessly repeated (questions asked, stories told, callbacks made, points settled), saying who did it.
-Carry forward from the PREVIOUS PICTURE whatever still matters; drop what has resolved or no longer matters. Anything the person has asked of the character about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the character got wrong) is a STANDING REQUEST: keep it as its own plain sentence, in the person's terms, every rewrite, until the person withdraws it or clearly changes it. Never drop it for space; if you must shorten, shorten anything else. Name people by the names given. Say only what the messages support.
+Carry forward from the PREVIOUS PICTURE whatever still matters; drop what has resolved or no longer matters. Name people by the names given. Say only what the messages support.
 Neutral description only: never an instruction, never a line for the character to say. The material may be fiction or explicit: describe it only as far as needed to track what is happening.
-Output a JSON object: {"scene": "<the picture>"}"""
+STANDING REQUESTS are kept separately, NOT in the picture. Anything the person has asked of the character about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the character got wrong) goes in "standing_requests" as short plain statements in the person's own terms. You are given the PREVIOUS STANDING REQUESTS: return every one of them again unless the person has withdrawn or clearly changed it, plus any new one. Never drop one for space.
+Output a JSON object: {"scene": "<the picture>", "standing_requests": ["<request>", ...]}"""
 
 
 async def current(db: AsyncSession, workspace_id: str, session_id: str) -> Optional[SceneNarrative]:
@@ -57,11 +59,16 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
         await db.commit()
         return {"status": "buffered", "pending": len(pending)}
     who = lambda m: names.get(m.get("speaker"), m.get("speaker"))
+    try:
+        held = [str(x) for x in json.loads(row.requests_json or "[]") if str(x).strip()]
+    except ValueError:
+        held = []
+    previous_requests = "\n".join(f"- {x}" for x in held)
     prompt = (f"PEOPLE: {names.get('user', 'the person')} (the person), {names.get('assistant', 'the companion')} (the companion character)\n\n"
-              f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
+              f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nPREVIOUS STANDING REQUESTS:\n{previous_requests or '(none)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
     model_id = model or SCENE_MODEL
     try:
-        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string"}, model_id=model_id, max_tokens=700,
+        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string", "standing_requests": ["string"]}, model_id=model_id, max_tokens=700,
                                                 temperature=0.2, strict=False, timeout=45)
     except Exception:
         row.pending_json = json.dumps(pending, ensure_ascii=False)       # keep the exchanges: the next pass covers them
@@ -73,7 +80,11 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
         await db.commit()
         return None
     from src.models.scene import utc_now
+    returned = (out or {}).get("standing_requests")
+    if isinstance(returned, list):        # a pass that omits the field keeps what was held; only an explicit list replaces it
+        merged = [str(x).strip()[:240] for x in returned if str(x).strip()]
+        row.requests_json = json.dumps(merged[:MAX_REQUESTS], ensure_ascii=False)
     row.text, row.model, row.updated_at = text, model_id, utc_now()
     row.through_message_id = next((m.get("id") for m in reversed(pending) if m.get("id")), None)
     await db.commit()
-    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id}
+    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "standing_requests": json.loads(row.requests_json or "[]")}

@@ -137,7 +137,7 @@ async def world_version(req: Dict[str, str], db: AsyncSession = Depends(get_asyn
     from src.services import scene_narrative
     narrative_session = req.get("narrative_session_id") or req.get("session_id")      # a person-scoped product keeps ONE running picture across chats and voice
     nar = await scene_narrative.current(db, workspace_id, narrative_session) if narrative_session else None
-    return {"narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat()} if nar else None), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
+    return {"narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat(), "standing_requests": _json.loads(nar.requests_json or "[]")} if nar else None), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
             # The canonical live scene, two layers: this conversation's story, and the person's real-world situation (shared across chats/devices).
             "scene": {"story": await layer(req.get("session_id")), "real": await layer(f"real_{real_owner}" if real_owner else None)}}
 
