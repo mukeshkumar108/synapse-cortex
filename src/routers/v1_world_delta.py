@@ -76,6 +76,7 @@ class NarrateRequest(BaseModel):
     messages: List[Dict[str, str]]          # last exchanges, oldest first: {id?, speaker: user|assistant, text}
     names: Dict[str, str] = {}              # {user, assistant} display names (product-supplied)
     force: bool = False                     # a significant moment: rewrite now instead of batching
+    owner: Optional[str] = None             # the world owner: standing requests are stored against it, not against the conversation
     model: Optional[str] = None             # LAB ONLY (session must be a lab chat)
 
 
@@ -89,7 +90,7 @@ async def narrate_scene(req: NarrateRequest, db: AsyncSession = Depends(get_asyn
         raise HTTPException(status_code=503, detail="no_model_credentials")
     try:
         return await scene_narrative.narrate(db, adapter=adapter, workspace_id=req.workspace_id, session_id=req.session_id, messages=req.messages,
-                                             names=req.names, model=req.model if req.session_id.startswith("chat-lab") else None, force=req.force)
+                                             names=req.names, model=req.model if req.session_id.startswith("chat-lab") else None, force=req.force, owner=req.owner)
     except Exception as exc:
         await db.rollback()
         logger.exception("scene narrative failed")
@@ -137,7 +138,8 @@ async def world_version(req: Dict[str, str], db: AsyncSession = Depends(get_asyn
     from src.services import scene_narrative
     narrative_session = req.get("narrative_session_id") or req.get("session_id")      # a person-scoped product keeps ONE running picture across chats and voice
     nar = await scene_narrative.current(db, workspace_id, narrative_session) if narrative_session else None
-    return {"narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat(), "standing_requests": _json.loads(nar.requests_json or "[]")} if nar else None), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
+    from src.services import standing_requests as _sr
+    return {"narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat()} if nar else None), "standing_requests": await _sr.active(db, workspace_id, owner), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
             # The canonical live scene, two layers: this conversation's story, and the person's real-world situation (shared across chats/devices).
             "scene": {"story": await layer(req.get("session_id")), "real": await layer(f"real_{real_owner}" if real_owner else None)}}
 

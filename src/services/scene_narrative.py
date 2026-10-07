@@ -39,7 +39,7 @@ async def current(db: AsyncSession, workspace_id: str, session_id: str) -> Optio
 
 
 async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, messages: List[Dict[str, str]], names: Dict[str, str],
-                  model: Optional[str] = None, force: bool = False) -> Optional[Dict[str, Any]]:
+                  model: Optional[str] = None, force: bool = False, owner: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Hand in the newest exchange. The picture is rewritten (one cheap model call) only when enough has accrued to leave the raw tail (or `force`, for a
     significant moment); otherwise the exchange is just buffered. `messages` = [{id?, speaker: user|assistant, text}], oldest first."""
     fresh = [m for m in messages if str(m.get("text") or "").strip()]
@@ -59,10 +59,8 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
         await db.commit()
         return {"status": "buffered", "pending": len(pending)}
     who = lambda m: names.get(m.get("speaker"), m.get("speaker"))
-    try:
-        held = [str(x) for x in json.loads(row.requests_json or "[]") if str(x).strip()]
-    except ValueError:
-        held = []
+    from src.services import standing_requests
+    held = await standing_requests.active(db, workspace_id, owner) if owner else []
     previous_requests = "\n".join(f"- {x}" for x in held)
     prompt = (f"PEOPLE: {names.get('user', 'the person')} (the person), {names.get('assistant', 'the companion')} (the companion character)\n\n"
               f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nPREVIOUS STANDING REQUESTS:\n{previous_requests or '(none)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
@@ -81,10 +79,9 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
         return None
     from src.models.scene import utc_now
     returned = (out or {}).get("standing_requests")
-    if isinstance(returned, list):        # a pass that omits the field keeps what was held; only an explicit list replaces it
-        merged = [str(x).strip()[:240] for x in returned if str(x).strip()]
-        row.requests_json = json.dumps(merged[:MAX_REQUESTS], ensure_ascii=False)
+    if owner and isinstance(returned, list):        # a pass that omits the field changes nothing; only an explicit list (possibly empty = all withdrawn) is applied
+        await standing_requests.sync(db, workspace_id, owner, [str(x) for x in returned], source="scene_pass")
     row.text, row.model, row.updated_at = text, model_id, utc_now()
     row.through_message_id = next((m.get("id") for m in reversed(pending) if m.get("id")), None)
     await db.commit()
-    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "standing_requests": json.loads(row.requests_json or "[]")}
+    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "standing_requests": await standing_requests.active(db, workspace_id, owner) if owner else []}

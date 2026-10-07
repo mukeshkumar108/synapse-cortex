@@ -100,6 +100,7 @@ PRINCIPLES
   is), updated (its timing or substance changed: also emit the change in `operational`), completed (it happened / was resolved, including something someone was
   waiting on), cancelled (called off), superseded (replaced by a newer item you create), unclear. completed / cancelled / superseded / updated need `evidence`
   (message ids). Resolving an item and creating a new one are separate acts and can both happen in one response. Silence is not a verdict.
+- STANDING REQUESTS: anything the person has asked of the companion about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the companion got wrong) is listed under STANDING REQUESTS in CURRENT WORLD STATE. Return the full list that should be active after the NEW EVIDENCE as `standing_requests` (strings in the person's own terms): keep each one that still stands, add new ones, and leave out any the person has withdrawn or changed. Omit the field entirely if you have no view.
 - BRIEF carries the durable story only. The live scene (what is happening right now, what has just been used up) is written by a separate fast pass; do not describe it here.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
@@ -118,7 +119,8 @@ trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,obj
 state_review:[{id(of a listed objective or dimension),status(holds|superseded|resolved|unclear),note}]
 operational_review:[{id(of a listed open item),status(holds|updated|completed|cancelled|superseded|unclear),note,evidence[]}]
 operational:[{decision(create|complete|cancel|progress|reschedule),kind(reminder|event|deadline|commitment),title,temporal_phrase|null,target(id of a listed open item)|null,canonical_title|null,new_temporal_phrase|null,progress_amount|null,progress_unit|null,confidence,evidence[]}]
-brief:{text,lines:[{text,refs[]}]}"""
+brief:{text,lines:[{text,refs[]}]}
+standing_requests:["<request>", ...]  (optional; the full active list)"""
 
 
 def _list(value: Any) -> List[Any]:
@@ -667,6 +669,8 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     from src.services import executive
     state = await world_state_for_prompt(db, workspace_id, owner)
     state["operational_state"] = await executive.operational_snapshot(db, workspace_id, owner)
+    from src.services import standing_requests as _sr
+    state["standing_requests"] = await _sr.active(db, workspace_id, owner)
     speaker_label = {"user": user_actor or "the user (name not supplied)", "assistant": companion_actor or speakers.get("assistant", "the companion")}
     proactive = await executive.outbound_index(db, workspace_id, owner, [m["id"] for m in context + fresh])
     line = lambda m: f"[{m['id']}] {speaker_label.get(m['speaker'], speakers.get(m['speaker'], m['speaker']))} ({'user' if m['speaker'] == 'user' else 'companion'}): {m['text']}" + (f"  [a proactive message you sent to carry out: {proactive[m['id']]['title']}]" if m['id'] in proactive else "")
@@ -694,6 +698,8 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     delta = WorldDelta(**delta_dict)
     known_operational = [x["id"] for kind in ("expectations", "open_loops", "commitments") for x in state["operational_state"][kind]]
     receipt = await world_materializer.materialize(db, delta, now=now, adapter=matter_adapter, constitution=constitution, run=run)
+    if isinstance(raw.get("standing_requests"), list):
+        receipt["standing_requests"] = await _sr.sync(db, workspace_id, owner, [str(x) for x in raw["standing_requests"]], source="interpreter")
     receipt["operational"] = await commit_operational(db, delta.operational, messages=messages, workspace_id=workspace_id, owner=owner, session_id=session_id,
                                                       timezone=timezone, now=now)
     receipt["operational"]["reviews"] = await apply_operational_reviews(db, delta.operational_reviews, messages=messages, now=now)

@@ -64,11 +64,10 @@ async def test_same_name_distinct_people_coexist_without_merge():
 
 def test_whether_a_mention_is_a_named_referent_is_the_extractors_contract_not_a_regex():
     """Provisioning no longer second-guesses the model from capitalisation or English word lists (that fails for other languages and scripts).
-    The exclusion lives where the decision is made: the extractor and reconstruction prompts."""
-    from src.services import session_reconstruction, turn_extractor
+    The exclusion lives where the decision is made: the extractor prompt."""
+    from src.services import turn_extractor
     import inspect
     assert "never a pronoun, a topic, an object" in inspect.getsource(turn_extractor)
-    assert "never a topic, symptom, object, pronoun" in inspect.getsource(session_reconstruction)
 
 
 @pytest.mark.asyncio

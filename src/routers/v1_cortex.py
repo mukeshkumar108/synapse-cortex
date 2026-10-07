@@ -16,7 +16,6 @@ from src.services.attention_state_service import (
     AttentionStateService, compile_attention_state_with_follow_through,
 )
 from src.services.cortex_router_service import CortexRouterService
-from src.services.turn_working_set import TurnWorkingSetService
 from src.models.work_item import WorkItem  # noqa: F401  (register metadata for create_all)
 from src.models.current_meaning import CurrentMeaning  # noqa: F401  (register metadata for create_all)
 from src.runtime_model import get_agenda_adapter
@@ -41,7 +40,6 @@ handshake_service = CortexHandshakeService()
 attention_service = AttentionStateService()
 router_service = CortexRouterService()
 candidate_service = CommitmentCandidateService()
-turn_working_set_service = TurnWorkingSetService()
 
 
 class WorkingSetRequest(BaseModel):
@@ -483,7 +481,7 @@ async def get_attention_state(
     state = await compile_attention_state_with_follow_through(
         db, workspace_id=req.workspace_id, session_id=req.session_id, now=req.now,
         timezone_str=req.timezone, owner_peer_id=req.peer_id, current_turn=req.turn_text,
-        evaluation=False, adapter=get_agenda_adapter())
+        evaluation=False, adapter=None)
     state["metrics"] = {"cortex_ms": round((time.perf_counter() - started) * 1000, 1)}
     return state
 
@@ -499,7 +497,7 @@ async def evaluate_attention_state(
     state = await compile_attention_state_with_follow_through(
         db, workspace_id=req.workspace_id, session_id=req.session_id, now=req.now,
         timezone_str=req.timezone, owner_peer_id=req.peer_id, current_turn=req.turn_text,
-        evaluation=True, adapter=get_agenda_adapter())
+        evaluation=True, adapter=None)
     state["metrics"] = {"cortex_ms": round((time.perf_counter() - started) * 1000, 1)}
     return state
 

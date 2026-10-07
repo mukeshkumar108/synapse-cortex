@@ -56,12 +56,12 @@ async def test_standing_requests_are_stored_apart_from_the_prose_and_survive_a_p
                   {"scene": "Deck first, then Priya."},                       # the model forgot the field: what was held must stay
                   {"scene": "Deck done.", "standing_requests": ["Do not call him babe; Mukesh is fine.", "Fewer questions at the end of replies."]})
     async with async_session_maker() as db:
-        first = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", session_id="s-req", messages=ex("please don't call me babe", "ok") + ex("busy week", "got it"), names=N)
+        first = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", owner="o-req", session_id="s-req", messages=ex("please don't call me babe", "ok") + ex("busy week", "got it"), names=N)
         assert first["standing_requests"] == ["Do not call him babe; Mukesh is fine."] and "babe" not in first["text"]
-        second = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", session_id="s-req", messages=ex("deck first?", "yes") + ex("ok", "ok"), names=N)
+        second = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", owner="o-req", session_id="s-req", messages=ex("deck first?", "yes") + ex("ok", "ok"), names=N)
         assert second["standing_requests"] == ["Do not call him babe; Mukesh is fine."]
         assert "PREVIOUS STANDING REQUESTS:\n- Do not call him babe" in ad.prompts[1]
-        third = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", session_id="s-req", messages=ex("fewer questions please", "sure") + ex("done", "nice"), names=N)
+        third = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", owner="o-req", session_id="s-req", messages=ex("fewer questions please", "sure") + ex("done", "nice"), names=N)
         assert len(third["standing_requests"]) == 2
 
 
@@ -69,6 +69,28 @@ async def test_standing_requests_are_stored_apart_from_the_prose_and_survive_a_p
 async def test_an_explicit_empty_list_is_how_a_withdrawn_request_leaves():
     ad = _Adapter({"scene": "a", "standing_requests": ["No pet names."]}, {"scene": "b", "standing_requests": []})
     async with async_session_maker() as db:
-        await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req2", session_id="s-req2", messages=ex("no pet names", "ok") + ex("x", "y"), names=N)
-        out = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req2", session_id="s-req2", messages=ex("actually pet names are fine", "ok") + ex("x", "y"), names=N)
+        await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req2", owner="o-req2", session_id="s-req2", messages=ex("no pet names", "ok") + ex("x", "y"), names=N)
+        out = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req2", owner="o-req2", session_id="s-req2", messages=ex("actually pet names are fine", "ok") + ex("x", "y"), names=N)
         assert out["standing_requests"] == []
+
+
+@pytest.mark.asyncio
+async def test_standing_requests_are_owned_by_the_world_not_the_conversation_and_cross_chats_for_the_same_owner():
+    from src.services import standing_requests as sr
+    ad = _Adapter({"scene": "chat one", "standing_requests": ["Do not call him babe."]}, {"scene": "chat two", "standing_requests": ["Do not call him babe."]})
+    async with async_session_maker() as db:
+        await scene_narrative.narrate(db, adapter=ad, workspace_id="w-x", owner="owner-1", session_id="chat_a", messages=ex("don't call me babe", "ok") + ex("x", "y"), names=N)
+        assert await sr.active(db, "w-x", "owner-1") == ["Do not call him babe."]
+        assert await sr.active(db, "w-x", "owner-2") == []                       # another world never sees it
+        await scene_narrative.narrate(db, adapter=ad, workspace_id="w-x", owner="owner-1", session_id="chat_b", messages=ex("hi", "hello") + ex("x", "y"), names=N)
+        assert "PREVIOUS STANDING REQUESTS:\n- Do not call him babe." in ad.prompts[1]       # a different chat of the same owner starts from the durable list
+
+
+@pytest.mark.asyncio
+async def test_sync_creates_withdraws_and_reopens_with_history_kept():
+    from src.services import standing_requests as sr
+    async with async_session_maker() as db:
+        assert await sr.sync(db, "w-s", "o", ["No pet names.", "Fewer questions."], source="interpreter") == {"created": 2, "withdrawn": 0}
+        assert await sr.sync(db, "w-s", "o", ["no pet names"], source="interpreter") == {"created": 0, "withdrawn": 1}      # same request recognised across wording/case
+        assert await sr.active(db, "w-s", "o") == ["No pet names."]
+        assert (await sr.sync(db, "w-s", "o", ["No pet names.", "Fewer questions."], source="scene_pass"))["created"] == 1   # reopened, not duplicated

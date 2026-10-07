@@ -34,7 +34,6 @@ from src.models.operational_state import (
 
 logger = logging.getLogger(__name__)
 
-_AGENDA_MODEL = os.getenv("AGENDA_MODEL", "google/gemini-3.7-flash").strip()
 _AGENDA_TTL_HOURS = float(os.getenv("AGENDA_TTL_HOURS", "3.5"))
 _MAX_ITEMS = int(os.getenv("AGENDA_MAX_ITEMS", "4"))
 
@@ -247,70 +246,6 @@ def fallback_rank(candidates: List[Dict[str, Any]], *, daypart: str) -> List[Dic
     return top
 
 
-async def model_rank(candidates: List[Dict[str, Any]], *, daypart: str, adapter: Any) -> Optional[List[Dict[str, Any]]]:
-    """Cheap async model: semantic judgment over competing candidates.
-    Returns None on any failure (caller falls back)."""
-    if not candidates:
-        return []
-    for i, c in enumerate(candidates):
-        c["cid"] = f"c{i}"
-    compact = [{k: c.get(k) for k in ("cid", "what", "semantic_type", "owner", "importance", "urgency", "pressure", "status", "why", "next_move")} for c in candidates]
-    system = (
-        "You compile a companion's LIVE AGENDA: the 3-4 things that most deserve her attention "
-        "right now, from competing candidates of mixed kinds (goals, plans, emotional matters, "
-        "her own follow-ups). Judge relative salience and displacement: an acute event outranks "
-        "everything; a mild emotional matter may deserve one beat; objectives with closing windows "
-        "rise; recently surfaced items lose urgency; nothing important means an empty agenda is the "
-        "correct answer. For each item return: what, semantic_type, owner, importance 0-1, urgency 0-1, "
-        "pressure 0-1 (follow-up pressure), status, why (under 12 words), next_move (under 12 words, conversational "
-        "direction, not a script), horizon (now/2h/6h/day). Copy 'what' VERBATIM from the candidate - never reword. Echo 'cid' exactly. Never invent candidates."
-    )
-    try:
-        raw = await adapter.generate_structured(
-            system=system,
-            prompt=f"TIME OF DAY: {daypart}\nCANDIDATES:\n{json.dumps(compact)}",
-            json_schema={
-                "type": "object",
-                "properties": {"items": {"type": "array", "items": {
-                    "type": "object",
-                    "properties": {
-                        "cid": {"type": "string"},
-                        "what": {"type": "string"}, "semantic_type": {"type": "string"},
-                        "owner": {"type": "string"}, "importance": {"type": "number"},
-                        "urgency": {"type": "number"}, "pressure": {"type": "number"},
-                        "status": {"type": "string"}, "why": {"type": "string"},
-                        "next_move": {"type": "string"}, "horizon": {"type": "string"}},
-                    "required": ["what", "next_move"],
-                }}},
-                "required": ["items"], "additionalProperties": False},
-            model_id=_AGENDA_MODEL, max_tokens=int(os.getenv("AGENDA_RANKER_MAX_TOKENS", "2000")), temperature=0.2, strict=True,
-        )
-    except Exception as exc:
-        logger.warning("[agenda] ranker failed, using deterministic fallback: %s", exc)
-        return None
-    items = raw.get("items") if isinstance(raw, dict) else None
-    if not isinstance(items, list):
-        return None
-    # The model SELECTS and ORDERS; deterministic code owns item text,
-    # status and pressure. Merge model fields (why/next_move/horizon) onto
-    # the matching candidate by echoed cid (or verbatim-what fallback).
-    by_cid = {c.get("cid"): c for c in candidates}
-    by_what = {c.get("what", "").lower(): c for c in candidates}
-    clean: List[Dict[str, Any]] = []
-    for item in items[:_MAX_ITEMS]:
-        if not isinstance(item, dict):
-            continue
-        src = by_cid.get(item.get("cid")) or by_what.get(str(item.get("what") or "").lower())
-        if src is None:
-            continue
-        merged = {**src, "rank": len(clean)}
-        for field in ("why", "next_move", "horizon"):
-            if str(item.get(field) or "").strip():
-                merged[field] = str(item[field])[:200]
-        clean.append(merged)
-    return clean or None
-
-
 async def ensure_occurrence_rows(db: AsyncSession, *, workspace_id: str, packet: Dict[str, Any], now: datetime) -> None:
     """Write-path companion to the packet read: actionable recurrences get a
     PENDING occurrence row for today (with ask ledger fields) so follow-up
@@ -481,40 +416,6 @@ async def compile_agenda(db: AsyncSession, *, workspace_id: str, owner_peer_id: 
             db.add(loser)
             await db.commit()
 
-    # Model-ranked refresh in the background: better judgment, zero latency cost.
-    if adapter is not None and schedule_background:
-        asyncio.create_task(_background_model_refresh(
-            workspace_id, owner_peer_id, candidates, daypart, adapter, now))
-
     return {"items": items, "compiled_by": compiled_by, "compiled_at": now.isoformat(), "stale": False}
 
 
-async def _background_model_refresh(workspace_id: str, owner_peer_id: Optional[str],
-                                    candidates: List[Dict[str, Any]], daypart: str,
-                                    adapter: Any, now: datetime) -> None:
-    from src.db import async_session_maker
-    try:
-        ranked = await model_rank(candidates, daypart=daypart, adapter=adapter)
-        if not ranked:
-            return
-        now = _naive(now)
-        async with async_session_maker() as db:
-            snap = (await db.execute(select(AgendaSnapshot).where(
-                AgendaSnapshot.honcho_workspace_id == workspace_id,
-                AgendaSnapshot.owner_peer_id == owner_peer_id,
-                AgendaSnapshot.horizon == "day",
-            ).with_for_update())).scalars().first()
-            if snap is None:
-                db.add(AgendaSnapshot(honcho_workspace_id=workspace_id, owner_peer_id=owner_peer_id,
-                                      horizon="day", items_json=json.dumps(ranked),
-                                      compiled_by="model", compiled_at=now,
-                                      expires_at=now + timedelta(hours=_AGENDA_TTL_HOURS)))
-            else:
-                snap.items_json = json.dumps(ranked)
-                snap.compiled_by = "model"
-                snap.compiled_at = now
-                snap.expires_at = now + timedelta(hours=_AGENDA_TTL_HOURS)
-                db.add(snap)
-            await db.commit()
-    except Exception:
-        logger.exception("[agenda] background model refresh failed")

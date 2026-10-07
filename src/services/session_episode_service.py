@@ -2,7 +2,7 @@
 
 The episode is NOT a store of decisions, repair state, expectations or
 relationship truth. Those are written by consolidation into the canonical
-primitives/ModelEntries (session_apply + consolidation_world); the episode
+primitives/ModelEntries (the former session consolidation, now deleted); the episode
 holds prose plus REFERENCES to those writes with a role label, what was
 detected but deliberately not applied, and the Matters/entities the run
 touched (docs/CORTEX_ARCHITECTURE.md §12).

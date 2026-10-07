@@ -77,3 +77,5 @@ from src.services.actor_direction import register_stamping as _register_directio
 _register_direction_stamping()
 
 from src.models.world import ContinuationBrief, ProducerRun, RelationshipDimension, RowProvenance, TrajectoryNote, WorldEvent, WorldLink, WorldObjective
+
+from src.services.standing_requests import StandingRequest  # noqa: F401  (registered so the table is created)

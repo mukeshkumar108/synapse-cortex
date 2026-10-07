@@ -181,40 +181,7 @@ async def test_q15_why_does_cortex_believe_an_important_claim(world):
 
 
 @pytest.mark.asyncio
-async def test_q16_what_deeper_state_is_available(world):
-    _, model, proj = world
-    d = model["depth_index"]
-    assert d["state"]["items_by_kind"] and d["history"]["earliest_evidence_at"]
-    assert {"person", "matter", "timeline", "provenance", "exact_quotes_and_obscure_history"} <= set(d["available_via"])
-
-
-def meaning_stub(state, model, *needles):
-    """Test-side stand-in for the relevance MODEL (the service never matches words itself)."""
-    from src.services.turn_working_set import Judgement, TurnWorkingSetService, _item_text
-    svc = TurnWorkingSetService()
-    scores = {}
-    for key, item, _k, _c, _h, _b in svc.candidates(state, model):
-        text = (_item_text(item) + " " + str(item.get("people") or "")).lower()
-        scores[key] = 1.0 if any(n in text for n in needles) else 0.0
-    return Judgement(scores=scores)
-
-
 @pytest.mark.asyncio
-async def test_q17_three_to_five_pieces_relevant_to_a_specific_turn(world):
-    ids, model, _ = world
-    from src.services.attention_state_service import AttentionStateService
-    from src.services.turn_working_set import TurnWorkingSetService
-    async with async_session_maker() as db:
-        state = await AttentionStateService().compile_attention_state(
-            db=db, workspace_id=WS, session_id="lane-1", now=NOW, timezone_str=TZ, owner_peer_id=USER)
-    ws = TurnWorkingSetService().compile_turn_working_set(
-        state, world_model=model, turn_text="Ashley and I talked again and I still feel unheard", judgement=meaning_stub(state, model, "ashley", "unheard"))
-    warm = ws["levels"]["warm"]
-    assert 1 <= len(warm) <= 5
-    assert any("unheard" in w["what"].lower() for w in warm)
-    assert all(w["refs"] or w.get("depth") for w in warm)                   # every piece points at provenance/depth
-
-
 @pytest.mark.asyncio
 async def test_q18_what_important_things_do_we_not_know(world):
     _, model, proj = world
@@ -257,25 +224,6 @@ async def test_unknown_never_leaks_into_inference_and_nothing_filled_to_complete
 
 
 @pytest.mark.asyncio
-async def test_turn_working_set_never_carries_the_world_model_wholesale(world):
-    _, model, _ = world
-    from src.services.attention_state_service import AttentionStateService
-    from src.services.turn_working_set import TurnWorkingSetService
-    async with async_session_maker() as db:
-        state = await AttentionStateService().compile_attention_state(
-            db=db, workspace_id=WS, session_id="lane-1", now=NOW, timezone_str=TZ, owner_peer_id=USER)
-    for turn, needle in (("Mati texted me about his job again", "mati"), ("the presentation is at two and I'm nervous", "presentation"),
-                         ("what is the capital of France?", "zzz-nothing"), ("Carlos still has not paid me", "carlos")):
-        ws = TurnWorkingSetService().compile_turn_working_set(state, world_model=model, turn_text=turn, judgement=meaning_stub(state, model, needle))
-        warm = ws["levels"]["warm"]
-        blob = json.dumps(ws)
-        assert len(warm) <= 5
-        assert len(blob) < len(json.dumps(model, default=str)) / 4         # a fragment, never the model
-        for section in ("relationship_with_system", "routines_patterns", "system_perspective", "depth_index"):
-            assert f'"{section}"' not in blob
-        assert "meta" not in ws and "snapshot_id" not in blob
-
-
 @pytest.mark.asyncio
 async def test_deep_history_falls_through_to_bounded_longitudinal_read_by_matter(world):
     _, model, proj = world
