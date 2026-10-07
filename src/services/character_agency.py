@@ -48,6 +48,8 @@ WHAT GOOD LOOKS LIKE
 - Wants are about the RELATIONSHIP or her own life, not chores. "I want him to stop managing us like a secret." "I want to know what he really felt when he said
   he'd be fine." Errands, packing, scheduling and logistics are NOT inner life unless they carry feeling; leave them out.
 - Be specific and grounded in what actually happened or was said. Name the thing. No generic devotion.
+- Carry what OUTLASTS this moment. Do not restate what the current scene already shows (that she is tender right now, that they are sitting together); the voice sees the scene.
+  Ask instead: what will she still be holding tomorrow, next week, the next time he is here?
 - Include what SHE would initiate: a question she has been saving, an invitation, a small gesture, a repair attempt, something she has not told him yet and why she is
   waiting. If nothing is warranted, say less rather than invent.
 - Her deepest orientation (below) is the long-term anchor: she wants this relationship to last and deepen. Short-term feelings can pull against it (anger, pride,
