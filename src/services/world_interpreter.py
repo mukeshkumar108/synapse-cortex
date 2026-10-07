@@ -100,15 +100,7 @@ PRINCIPLES
   is), updated (its timing or substance changed: also emit the change in `operational`), completed (it happened / was resolved, including something someone was
   waiting on), cancelled (called off), superseded (replaced by a newer item you create), unclear. completed / cancelled / superseded / updated need `evidence`
   (message ids). Resolving an item and creating a new one are separate acts and can both happen in one response. Silence is not a verdict.
-- SCENE (inside `brief`): `text` is the durable story so far. Separately describe the LIVE scene: `now` = what is actually happening in the most recent exchange, in
-  plain neutral terms (who is doing what to whom, in what register); `unresolved` = what is genuinely still open between the people; `transient` = recent
-  reactions, moods or frustration that were observed but should not be treated as lasting state unless sustained; `changed` = what materially changed in this
-  stretch (omit when nothing). `raw_turns` = how many of the latest user/assistant turns (0-3) are still worth showing the foreground word for word: 0 when
-  your `now` summary already carries everything that matters, up to 3 when exact wording matters (a request, a promise, a delicate moment). If the recent turns
-  are circular, escalating by momentum, or being pulled by a local pattern that your wider reading does not support, prefer fewer raw turns and say why in
-  `raw_reason`. `spent` = what has already been used up in this conversation so it is not needlessly repeated once raw turns are dropped: questions already
-  asked (and whether answered), anecdotes already told, jokes or callbacks already made, promises already given, points already settled; each as a short neutral
-  statement with who did it. This is a description for the character's voice to draw on, never an instruction about what it should do.
+- BRIEF carries the durable story only. The live scene (what is happening right now, what has just been used up) is written by a separate fast pass; do not describe it here.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
 OUTPUT: ONE JSON object with these arrays (empty when nothing applies): actors, relationships, events, claims, narrative, commitments,
@@ -126,7 +118,7 @@ trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,obj
 state_review:[{id(of a listed objective or dimension),status(holds|superseded|resolved|unclear),note}]
 operational_review:[{id(of a listed open item),status(holds|updated|completed|cancelled|superseded|unclear),note,evidence[]}]
 operational:[{decision(create|complete|cancel|progress|reschedule),kind(reminder|event|deadline|commitment),title,temporal_phrase|null,target(id of a listed open item)|null,canonical_title|null,new_temporal_phrase|null,progress_amount|null,progress_unit|null,confidence,evidence[]}]
-brief:{text,lines:[{text,refs[]}],now,unresolved[],transient[],changed[],spent[],raw_turns(0-3),raw_reason}"""
+brief:{text,lines:[{text,refs[]}]}"""
 
 
 def _list(value: Any) -> List[Any]:

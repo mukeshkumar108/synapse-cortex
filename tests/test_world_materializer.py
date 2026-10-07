@@ -877,8 +877,8 @@ async def test_the_live_scene_travels_with_the_brief_and_is_projected_to_the_for
 
 def test_lab_interpreter_overrides_replace_exact_text_and_fail_loudly_when_nothing_matches():
     from src.services.world_interpreter import SYSTEM, apply_overrides
-    out = apply_overrides(SYSTEM, {"system_replace": [["SCENE (inside `brief`)", "SCENE (variant)"]], "system_append": "EXTRA RULE"})
-    assert "SCENE (variant)" in out and out.endswith("EXTRA RULE") and out != SYSTEM
+    out = apply_overrides(SYSTEM, {"system_replace": [["BRIEF carries the durable story only", "BRIEF (variant)"]], "system_append": "EXTRA RULE"})
+    assert "BRIEF (variant)" in out and out.endswith("EXTRA RULE") and out != SYSTEM
     assert apply_overrides(SYSTEM, None) == SYSTEM
     with pytest.raises(ValueError):
         apply_overrides(SYSTEM, {"system_replace": [["no such sentence anywhere", "x"]]})
