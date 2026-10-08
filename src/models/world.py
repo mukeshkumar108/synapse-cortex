@@ -119,6 +119,11 @@ class WorldObjective(SQLModel, table=True):
     kind: Optional[str] = Field(default=None)                    # want | intend | repair | invite | promise | curious | unsaid | feeling | regret | avoid
     next_move: Optional[str] = Field(default=None)
     ready_when: Optional[str] = Field(default=None)
+    # Low-pressure lifecycle (grounded companions): how touchy it is to raise, when it fades if never refreshed, and how often it has been offered to the voice.
+    sensitivity: Optional[str] = Field(default=None)             # low | medium | high
+    expires_at: Optional[datetime] = Field(default=None, index=True)
+    offered_count: int = Field(default=0)
+    last_offered_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 

@@ -88,3 +88,34 @@ async def test_pressure_daily_cap(monkeypatch):
             db.add(WorldEvent(honcho_workspace_id=WS, owner_peer_id=owner, label=f"d{i}", kind="development", origin="story_pressure", arrival="told", detail="{}"))
         await db.commit()
         assert await ca._pressure_gate(db, WS, owner) == "daily_cap"
+
+
+# ---------------------------------------------------------------------------------------------------------------- grounded profile: a low-pressure interior
+@pytest.mark.asyncio
+async def test_a_carried_item_has_a_half_life_a_sensitivity_and_an_offered_ledger_and_fades_unless_refreshed():
+    owner = "user_carry-1"
+    await world(owner)
+    async with async_session_maker() as db:
+        await ca._apply_heart(db, WS, owner, [
+            {"op": "create", "kind": "share", "text": "I'd love to argue with him about whether self-deception is ever kind.", "sensitivity": "low", "fades_after_days": 2},
+            {"op": "create", "kind": "curious_user", "text": "I want to understand what his dad meant to him, but not force it.", "sensitivity": "high", "fades_after_days": 30},
+            {"op": "create", "kind": "unfinished", "text": "I never got an answer about why he is most creative late at night."}], [])
+        feed = {f["kind"]: f for f in await ca.carry_feed(db, WS, owner)}
+        assert feed["curious_user"]["sensitivity"] == "high" and feed["share"]["sensitivity"] == "low" and feed["unfinished"]["offered_count"] == 0
+        # the voice was shown one: its cooldown starts, but it is not marked as raised or satisfied
+        assert await ca.mark_offered(db, WS, owner, [feed["unfinished"]["id"]]) == 1
+        again = {f["kind"]: f for f in await ca.carry_feed(db, WS, owner)}
+        assert again["unfinished"]["offered_count"] == 1 and again["unfinished"]["last_offered_at"] and len(again) == 3
+        # time passes: the short-lived joke fades by itself, the deep question does not
+        from src.models.world import WorldObjective
+        rows = (await db.execute(select(WorldObjective).where(WorldObjective.owner_peer_id == owner))).scalars().all()
+        joke = next(o for o in rows if o.kind == "share"); joke.expires_at = ca._utc() - timedelta(hours=1); db.add(joke); await db.commit()
+        left = {f["kind"] for f in await ca.carry_feed(db, WS, owner)}
+        assert left == {"curious_user", "unfinished"}
+
+
+def test_the_grounded_constitution_forbids_invented_experience_and_obligation_and_defines_the_lifecycle():
+    t = ca.GROUNDED_HEART_SYSTEM
+    assert "Never invent experiences" in t and "never as" in t and "came across" in t
+    assert "PERMISSION, NOT OBLIGATION" in t and "Not tasks" in t and "fades_after_days" in t and "sensitivity" in t
+    assert "Most conversations will surface none" in t

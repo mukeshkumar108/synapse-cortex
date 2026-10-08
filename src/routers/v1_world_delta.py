@@ -66,7 +66,7 @@ async def interpret_world(req: InterpretRequest, db: AsyncSession = Depends(get_
             from src.services import character_agency
             asyncio.create_task(character_agency.run_background(
                 workspace_id=req.workspace_id, owner=req.owner, session_id=req.session_id, constitution=req.constitution,
-                user_actor=req.user_actor, companion_actor=req.companion_actor, companion_id=req.companion_id))
+                user_actor=req.user_actor, companion_actor=req.companion_actor, companion_id=req.companion_id, policy=req.policy))
         return receipt
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=f"bad_interpreter_override:{exc}") from exc
@@ -147,7 +147,7 @@ async def world_version(req: Dict[str, str], db: AsyncSession = Depends(get_asyn
     narrative_session = req.get("narrative_session_id") or req.get("session_id")      # a person-scoped product keeps ONE running picture across chats and voice
     nar = await scene_narrative.current(db, workspace_id, narrative_session) if narrative_session else None
     from src.services import standing_requests as _sr, character_agency as _ca
-    return {"developments": await _ca.pending_arrivals(db, workspace_id, owner), "narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat()} if nar else None), "standing_requests": await _sr.active(db, workspace_id, owner), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
+    return {"carry": await _ca.carry_feed(db, workspace_id, owner), "developments": await _ca.pending_arrivals(db, workspace_id, owner), "narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat()} if nar else None), "standing_requests": await _sr.active(db, workspace_id, owner), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
             # The canonical live scene, two layers: this conversation's story, and the person's real-world situation (shared across chats/devices).
             "scene": {"story": await layer(req.get("session_id")), "real": await layer(f"real_{real_owner}" if real_owner else None)}}
 
@@ -225,19 +225,30 @@ class AgencyLabRequest(BaseModel):
     companion_id: Optional[str] = None
     models: Optional[List[str]] = None
     which: str = "both"             # heart | pressure | both
+    policy: str = "generative"      # the product's epistemic policy: selects the Heart's constitution (generative = fiction, grounded = a real person's companion)
 
 
 @router.post("/agency/lab-pass")
 async def agency_lab_pass(req: AgencyLabRequest, db: AsyncSession = Depends(get_async_session)):
-    """LAB ONLY dry run (owner must be world:lab:*): what the character would carry and whether the story would move, persisting nothing."""
+    """Dry run: what the companion would carry and whether the story would move, persisting nothing."""
     from src.services import character_agency
-    if not req.owner.startswith("world:lab:"):
-        raise HTTPException(status_code=403, detail="lab_only")
     kw = dict(workspace_id=req.workspace_id, owner=req.owner, session_id=req.session_id, constitution=req.constitution, user_actor=req.user_actor,
-              companion_actor=req.companion_actor, dry_run=True, models=req.models, companion_id=req.companion_id)
+              companion_actor=req.companion_actor, dry_run=True, models=req.models, companion_id=req.companion_id)       # a dry run persists nothing, so it is safe for any owner
     out: Dict[str, Any] = {}
     if req.which in ("heart", "both"):
-        out["heart"] = await character_agency.run_heart(db, **kw)
+        out["heart"] = await character_agency.run_heart(db, policy=req.policy, **kw)
     if req.which in ("pressure", "both"):
         out["pressure"] = await character_agency.run_pressure(db, **kw)
     return out
+
+
+class OfferedRequest(BaseModel):
+    workspace_id: str
+    owner: str
+    ids: List[str] = []
+
+
+@router.post("/carry/offered")
+async def carry_offered(req: OfferedRequest, db: AsyncSession = Depends(get_async_session)):
+    from src.services import character_agency
+    return {"offered": await character_agency.mark_offered(db, req.workspace_id, req.owner, req.ids)}

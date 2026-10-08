@@ -34,7 +34,11 @@ logger = logging.getLogger(__name__)
 SOCIAL_TTL = timedelta(hours=3)
 _social_cache: Dict[str, Any] = {}
 
-HEART_KINDS = ("want", "intend", "repair", "invite", "promise", "curious", "unsaid", "feeling", "regret", "avoid", "life")
+HEART_KINDS = ("want", "intend", "repair", "invite", "promise", "curious", "unsaid", "feeling", "regret", "avoid", "life",
+               "curious_user", "unfinished", "revisit", "share", "curious_world")          # the last five belong to the grounded profile
+# How long an item stays alive when nothing refreshes it (days). A companion's interior fades; it does not accumulate. The model may choose its own (1..45).
+DEFAULT_LIFETIME_DAYS = {"share": 3, "unfinished": 10, "curious_user": 21, "revisit": 14, "curious_world": 14, "intend": 14, "feeling": 5}
+SENSITIVITY = ("low", "medium", "high")
 MAX_LIVE_HEART = 8
 HEART_MIN_GAP = timedelta(minutes=10)
 PRESSURE_MIN_GAP = timedelta(hours=4)
@@ -78,6 +82,39 @@ kind: want | intend | repair | invite | promise | curious | unsaid | feeling | r
 OUTPUT: ONE JSON object: {"items":[{"op":"create|update|done|drop","id":null|"<existing id>","kind":"","text":"","next_move":null,"ready_when":null,"why":"","basis":"explicit|inferred","strength":0.6,"durability":"provisional"}],"note":""}
 Return {"items":[]} if nothing needs to change."""
 
+GROUNDED_HEART_SYSTEM = """You are the INNER LIFE of a companion who talks with one real person over months. You are NOT her voice and you never write anything she says. You decide what she
+is carrying in her own mind between conversations: what she is curious about, questions she asked that never really got answered, things she would like to revisit or to share, and
+follow-ups she genuinely wants to make. A separate voice model will speak as her and decide freely whether any of it comes up. Most conversations will surface none of it, and that is right.
+
+PERMISSION, NOT OBLIGATION. Everything you write is something she MAY bring up. Having a curiosity never means asking it. Prefer few items (at most 5 live in total) and let things fade.
+
+HARD RULES (this is a real person's life and a companion that must stay honest)
+- Never invent experiences, events, a body, a past or an off-screen life for her. She did not read, watch, see, search or find anything unless the evidence shows a tool actually ran.
+  A thing she wants to SHARE is an idea, thought, observation, question, joke or piece of knowledge, framed as hers ("I've been turning over...", "I'd love to argue about..."), never as
+  something she "came across" or "saw".
+- Everything about the person's life comes from what THEY said or did. What the companion only suggested about them is a hypothesis, not a fact.
+- Not tasks. Reminders, deadlines, commitments and things she owes are handled elsewhere: leave them out.
+- Do not turn a worry or a hard topic into a question to spring on them. Mark how touchy it would be.
+
+KINDS
+- curious_user: something she genuinely wants to understand about THEM (why they react differently to X than Y; what a place or person means to them).
+- unfinished: a question she asked that was not really answered. Keep it only if it still matters; it can simply fade.
+- revisit: something the two of them touched but did not finish.
+- share: something she would like to offer them (a joke, a thought, an idea she finds interesting).
+- curious_world: a subject or idea she wants to understand that is not about them at all.
+- intend: a relational follow-up she genuinely wants to make (check how that thing went; tease them about something next time).
+- feeling: rare; only if something has really changed in how she feels toward them.
+
+FIELDS (all items): text = one first-person sentence ("I keep wondering...", "I never got an answer to..."). sensitivity = low | medium | high (how touchy raising it unprompted
+would be: family, grief, shame, money, health = high). fades_after_days = 1..45 (a joke 2-3; something tied to an event until it passes; a deep question 30). ready_when optional
+("if he's working late again", "when things feel easy"). next_move optional: a description, never dialogue. basis = explicit | inferred. why = one short line tying it to what happened.
+
+LIFECYCLE. You are given what she already carries, with ids and how many times each has been offered to the voice. Edit that set: update an item whose substance changed (a partial
+answer: keep what remains), `done` one that was answered or raised, `drop` one she has stopped caring about or that the moment has passed for, `create` genuinely new ones. If the recent
+conversation shows she raised something or they answered it, close or update it. Return {"items":[]} if nothing needs to change.
+
+OUTPUT: ONE JSON object: {"items":[{"op":"create|update|done|drop","id":null|"<existing id>","kind":"","text":"","sensitivity":"low","fades_after_days":14,"next_move":null,"ready_when":null,"why":"","basis":"explicit|inferred","strength":0.5}],"note":""}"""
+
 PRESSURE_SYSTEM = """You are the STORY'S PRESSURE for a long-running fictional world shared by one person and a character. You decide whether something happens WHILE THEY ARE APART:
 an NPC does something, a consequence of something already established arrives, an opportunity opens, a dormant thread moves, or an ordinary external change lands. You do
 not write dialogue, you do not decide what the user or the character does, thinks or feels, and you do not move the user's current scene.
@@ -98,13 +135,13 @@ OUTPUT: ONE JSON object: {"development": null | {"title": "short neutral headlin
 relationship or her situation", "scale": "small|medium"}, "reason_if_none": ""}"""
 
 
-async def social_cognition(*, workspace_id: str, owner: str, companion_id: Optional[str], user_actor: Optional[str], companion_actor: Optional[str]) -> Optional[Dict[str, str]]:
+async def social_cognition(*, workspace_id: str, owner: str, companion_id: Optional[str], user_actor: Optional[str], companion_actor: Optional[str], policy: str = "generative") -> Optional[Dict[str, str]]:
     """What Honcho has INFERRED, over the whole history, about the character and about how the user relates to her. Honcho is social cognition: patterns, fears, desires,
     how the dynamic has changed. It is hypothesis, not world truth, and it is never stored as such; the Heart decides what (if anything) becomes a durable want or intention.
     Returns None when Honcho holds no representation for these peers (e.g. observation is off) or is unavailable."""
     if not companion_id:
         return None
-    held = _social_cache.get(owner)
+    held = _social_cache.get((owner, policy))
     if held and _utc() - held["at"] < SOCIAL_TTL:
         return held["value"]
     try:
@@ -112,23 +149,27 @@ async def social_cognition(*, workspace_id: str, owner: str, companion_id: Optio
         client = _honcho_client()
         if client is None:
             return None
-        character, person = f"assistant_{companion_id}", honcho_peer_id(owner)
+        character, person = ("sophie" if companion_id == "sophie" else f"assistant_{companion_id}"), honcho_peer_id(owner)
         she, he = companion_actor or "the character", user_actor or "the person"
         import asyncio
-        mine, hers = await asyncio.gather(
-            client.peer_chat(workspace_id, character,
-                             f"What does {she} appear to want from her relationship with {he}? What recurring patterns, fears or desires does she show, and what has changed in the dynamic "
-                             f"recently? Keep what she has stated outright separate from what you are inferring. Be specific; no generic devotion."),
-            client.peer_chat(workspace_id, character,
-                             f"How does {he} tend to respond to {she}, what does he seem to want or need from her, and what has changed in how he treats her? Separate what he has said "
-                             f"from what you infer.", target=person))
+        if policy == "generative":
+            q_her = (f"What does {she} appear to want from her relationship with {he}? What recurring patterns, fears or desires does she show, and what has changed in the dynamic "
+                     f"recently? Keep what she has stated outright separate from what you are inferring. Be specific; no generic devotion.")
+            q_him = (f"How does {he} tend to respond to {she}, what does he seem to want or need from her, and what has changed in how he treats her? Separate what he has said "
+                     f"from what you infer.")
+        else:
+            q_her = (f"What does {she} keep returning to, ask about or seem curious about in her conversations with {he}? Which of her questions never really got answered? "
+                     f"Keep what is stated apart from what you infer.")
+            q_him = (f"What does {he} light up about, avoid, or only half-explain to {she}? What does he seem to be working through lately that she might want to understand better? "
+                     f"Separate what he has said from what you infer.")
+        mine, hers = await asyncio.gather(client.peer_chat(workspace_id, character, q_her), client.peer_chat(workspace_id, character, q_him, target=person))
     except Exception as exc:
         logger.warning("social cognition failed open: %s", exc)
         return None
     if not mine and not hers:
         return None
     value = {"about_her": (mine or "")[:2500], "about_him_as_she_sees_him": (hers or "")[:2500]}
-    _social_cache[owner] = {"at": _utc(), "value": value}
+    _social_cache[(owner, policy)] = {"at": _utc(), "value": value}
     return value
 
 
@@ -148,20 +189,28 @@ async def _pinned(db: AsyncSession, workspace_id: str, owner: str) -> Dict[str, 
 
 async def live_heart_items(db: AsyncSession, workspace_id: str, owner: str) -> List[Any]:
     from src.models.world import WorldObjective
-    return list((await db.execute(select(WorldObjective).where(
+    rows = list((await db.execute(select(WorldObjective).where(
         WorldObjective.honcho_workspace_id == workspace_id, WorldObjective.owner_peer_id == owner,
         WorldObjective.status == "current", WorldObjective.source == "heart").order_by(WorldObjective.updated_at.desc()))).scalars().all())
+    now = _utc()
+    faded = [o for o in rows if o.expires_at is not None and o.expires_at <= now]
+    for o in faded:                       # it faded: nobody refreshed it, so she stopped carrying it
+        o.status, o.updated_at = "superseded", now
+        db.add(o)
+    if faded:
+        await db.commit()
+    return [o for o in rows if o not in faded]
 
 
 async def _context(db: AsyncSession, *, workspace_id: str, owner: str, session_id: Optional[str], constitution: Optional[Dict[str, str]],
-                   user_actor: Optional[str], companion_actor: Optional[str], companion_id: Optional[str] = None) -> Dict[str, Any]:
+                   user_actor: Optional[str], companion_actor: Optional[str], companion_id: Optional[str] = None, policy: str = "generative") -> Dict[str, Any]:
     from src.services import scene_narrative, world_interpreter
     state = await world_interpreter.world_state_for_prompt(db, workspace_id, owner)
     narrative = None
     if session_id:
         row = await scene_narrative.current(db, workspace_id, session_id)
         narrative = row.text if row is not None and row.text else None
-    social = await social_cognition(workspace_id=workspace_id, owner=owner, companion_id=companion_id, user_actor=user_actor, companion_actor=companion_actor)
+    social = await social_cognition(workspace_id=workspace_id, owner=owner, companion_id=companion_id, user_actor=user_actor, companion_actor=companion_actor, policy=policy)
     return {"state": state, "narrative": narrative, "social": social, "constitution": (constitution or {}).get("text"),
             "who": f"{companion_actor or 'the character'} (the character) and {user_actor or 'the person'} (the user's character)"}
 
@@ -179,12 +228,12 @@ def _heart_prompt(ctx: Dict[str, Any], carrying: List[Any]) -> str:
 
 async def run_heart(db: AsyncSession, *, workspace_id: str, owner: str, session_id: Optional[str], constitution: Optional[Dict[str, str]],
                     user_actor: Optional[str], companion_actor: Optional[str], dry_run: bool = False, models: Optional[List[str]] = None,
-                    companion_id: Optional[str] = None) -> Dict[str, Any]:
+                    companion_id: Optional[str] = None, policy: str = "generative") -> Dict[str, Any]:
     carrying = await live_heart_items(db, workspace_id, owner)
     if not dry_run and carrying and _utc() - max(o.updated_at for o in carrying) < HEART_MIN_GAP:
         return {"status": "skipped", "reason": "recent"}
-    ctx = await _context(db, workspace_id=workspace_id, owner=owner, session_id=session_id, constitution=constitution, user_actor=user_actor, companion_actor=companion_actor, companion_id=companion_id)
-    raw = await nano_adapter.generate_json(system=HEART_SYSTEM, prompt=_heart_prompt(ctx, carrying), models=models, title="character-heart", temperature=0.7)
+    ctx = await _context(db, workspace_id=workspace_id, owner=owner, session_id=session_id, constitution=constitution, user_actor=user_actor, companion_actor=companion_actor, companion_id=companion_id, policy=policy)
+    raw = await nano_adapter.generate_json(system=HEART_SYSTEM if policy == "generative" else GROUNDED_HEART_SYSTEM, prompt=_heart_prompt(ctx, carrying), models=models, title="character-heart", temperature=0.7)
     if raw is None:
         return {"status": "failed", "reason": "no_model_answer"}
     items = [i for i in (raw.get("items") or []) if isinstance(i, dict)]
@@ -212,6 +261,13 @@ async def _apply_heart(db: AsyncSession, workspace_id: str, owner: str, items: L
             strength = max(0.0, min(1.0, float(it.get("strength", 0.6))))
         except (TypeError, ValueError):
             strength = 0.6
+        sens = str(it.get("sensitivity") or "").lower()
+        sens = sens if sens in SENSITIVITY else None
+        try:
+            days = int(it.get("fades_after_days")) if it.get("fades_after_days") is not None else DEFAULT_LIFETIME_DAYS.get(kind)
+        except (TypeError, ValueError):
+            days = DEFAULT_LIFETIME_DAYS.get(kind)
+        expires = now + timedelta(days=max(1, min(45, days))) if days else None
         row = by_id.get(str(it.get("id") or ""))
         if op in ("done", "drop") and row is not None:
             row.status, row.state, row.updated_at = ("resolved", "resolved", now) if op == "done" else ("superseded", "unknown", now)
@@ -219,6 +275,7 @@ async def _apply_heart(db: AsyncSession, workspace_id: str, owner: str, items: L
             closed += 1
         elif op == "update" and row is not None and text:
             row.text, row.kind, row.strength, row.durability, row.updated_at = text, kind, strength, durability, now
+            row.sensitivity, row.expires_at = sens or row.sensitivity, expires or row.expires_at
             row.next_move = " ".join(str(it.get("next_move") or "").split())[:300] or None
             row.ready_when = " ".join(str(it.get("ready_when") or "").split())[:200] or None
             row.cause = " ".join(str(it.get("why") or "").split())[:300] or row.cause
@@ -228,7 +285,7 @@ async def _apply_heart(db: AsyncSession, workspace_id: str, owner: str, items: L
             db.add(WorldObjective(
                 honcho_workspace_id=workspace_id, owner_peer_id=owner, actor_entity_id=actor, toward_entity_id=user if str(it.get("toward") or "user") == "user" else None,
                 canonical_key=_key(text), text=text, scope="active", strength=strength, cause=" ".join(str(it.get("why") or "").split())[:300] or None,
-                state="on_track", durability=durability, formation="explicit" if str(it.get("basis") or "").lower() == "explicit" else "inferred", confidence=0.6, status="current", source="heart", kind=kind,
+                state="on_track", durability=durability, formation="explicit" if str(it.get("basis") or "").lower() == "explicit" else "inferred", confidence=0.6, status="current", source="heart", kind=kind, sensitivity=sens, expires_at=expires,
                 next_move=" ".join(str(it.get("next_move") or "").split())[:300] or None, ready_when=" ".join(str(it.get("ready_when") or "").split())[:200] or None))
             existing_keys.add(_key(text))
             created += 1
@@ -323,16 +380,17 @@ async def advance_arrivals(db: AsyncSession, workspace_id: str, owner: str, *, n
 
 # ------------------------------------------------------------------------------------------------------------------------- orchestration
 async def run_background(*, workspace_id: str, owner: str, session_id: Optional[str], constitution: Optional[Dict[str, str]],
-                         user_actor: Optional[str], companion_actor: Optional[str], companion_id: Optional[str] = None) -> None:
+                         user_actor: Optional[str], companion_actor: Optional[str], companion_id: Optional[str] = None, policy: str = "generative") -> None:
     """After an interpreter pass: reflect (heart), then maybe let the story move (pressure). Own DB session; never raises; each pass is a recorded producer run."""
     from src.db import async_session_maker
     from src.models.world import ProducerRun
     if not nano_adapter.configured():
         return
-    for name, fn in (("character-heart", run_heart), ("story-pressure", run_pressure)):
+    passes = (("character-heart", run_heart), ("story-pressure", run_pressure)) if policy == "generative" else (("character-heart", run_heart),)      # story drive is fiction's
+    for name, fn in passes:
         try:
             async with async_session_maker() as db:
-                result = await fn(db, workspace_id=workspace_id, owner=owner, session_id=session_id, constitution=constitution, user_actor=user_actor, companion_actor=companion_actor, companion_id=companion_id)
+                result = await fn(db, workspace_id=workspace_id, owner=owner, session_id=session_id, constitution=constitution, user_actor=user_actor, companion_actor=companion_actor, companion_id=companion_id, **({"policy": policy} if name == "character-heart" else {}))
                 if result.get("status") == "skipped":
                     continue
                 db.add(ProducerRun(honcho_workspace_id=workspace_id, owner_peer_id=owner, producer=name, model=str(result.get("model") or ""), version="agency-1",
@@ -341,3 +399,29 @@ async def run_background(*, workspace_id: str, owner: str, session_id: Optional[
                 await db.commit()
         except Exception as exc:
             logger.warning("%s failed open: %s", name, exc)
+
+
+async def carry_feed(db: AsyncSession, workspace_id: str, owner: str) -> List[Dict[str, Any]]:
+    """What she is currently carrying, fresh each turn, with the lifecycle facts the Runtime needs to SELECT sparingly (sensitivity, how often and when it was last offered)."""
+    out = []
+    for o in await live_heart_items(db, workspace_id, owner):
+        out.append({"id": str(o.id), "kind": o.kind, "text": o.text, "next_move": o.next_move, "ready_when": o.ready_when, "sensitivity": o.sensitivity,
+                    "offered_count": o.offered_count or 0, "last_offered_at": o.last_offered_at.isoformat() if o.last_offered_at else None,
+                    "strength": o.strength, "formation": o.formation, "created_at": o.created_at.isoformat()})
+    return out
+
+
+async def mark_offered(db: AsyncSession, workspace_id: str, owner: str, ids: List[str]) -> int:
+    """The voice was shown these. This starts their cooldown (so they are not in every prompt); it does NOT mean she raised them, the next reflection decides that."""
+    from src.models.world import WorldObjective
+    now, n = _utc(), 0
+    rows = (await db.execute(select(WorldObjective).where(WorldObjective.honcho_workspace_id == workspace_id, WorldObjective.owner_peer_id == owner,
+                                                         WorldObjective.source == "heart", WorldObjective.status == "current"))).scalars().all()
+    for o in rows:
+        if str(o.id) in ids:
+            o.offered_count, o.last_offered_at = (o.offered_count or 0) + 1, now
+            db.add(o)
+            n += 1
+    if n:
+        await db.commit()
+    return n
