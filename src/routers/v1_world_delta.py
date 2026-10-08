@@ -40,6 +40,7 @@ class InterpretRequest(BaseModel):
     companion_actor: Optional[str] = None       # product-supplied identity of the companion's actor
     timezone: str = "UTC"                       # the user's timezone, used to ground time phrases of operational items
     overrides: Optional[Dict[str, Any]] = None  # LAB ONLY (owner must be world:lab:*): {system_replace:[[old,new]], system_append, model}
+    companion_id: Optional[str] = None          # the registry id of the companion (its Honcho peer is assistant_<id>)
     agency: bool = False                        # product policy (Runtime registry): after this pass the character reflects (heart) and the story may move (pressure), in the background
 
 
@@ -65,7 +66,7 @@ async def interpret_world(req: InterpretRequest, db: AsyncSession = Depends(get_
             from src.services import character_agency
             asyncio.create_task(character_agency.run_background(
                 workspace_id=req.workspace_id, owner=req.owner, session_id=req.session_id, constitution=req.constitution,
-                user_actor=req.user_actor, companion_actor=req.companion_actor))
+                user_actor=req.user_actor, companion_actor=req.companion_actor, companion_id=req.companion_id))
         return receipt
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=f"bad_interpreter_override:{exc}") from exc
@@ -210,7 +211,8 @@ class DevelopmentsRequest(BaseModel):
 async def advance_developments(req: DevelopmentsRequest, db: AsyncSession = Depends(get_async_session)):
     """pending -> arrived when the user arrives at a new sitting; arrived -> told once the foreground has had its turn with them."""
     from src.services import character_agency
-    return await character_agency.advance_arrivals(db, req.workspace_id, req.owner, new_sitting=req.new_sitting, told_ids=req.told_ids)
+    moved = await character_agency.advance_arrivals(db, req.workspace_id, req.owner, new_sitting=req.new_sitting, told_ids=req.told_ids)
+    return {**moved, "developments": await character_agency.pending_arrivals(db, req.workspace_id, req.owner)}
 
 
 class AgencyLabRequest(BaseModel):
@@ -220,6 +222,7 @@ class AgencyLabRequest(BaseModel):
     constitution: Optional[Dict[str, str]] = None
     user_actor: Optional[str] = None
     companion_actor: Optional[str] = None
+    companion_id: Optional[str] = None
     models: Optional[List[str]] = None
     which: str = "both"             # heart | pressure | both
 
@@ -231,7 +234,7 @@ async def agency_lab_pass(req: AgencyLabRequest, db: AsyncSession = Depends(get_
     if not req.owner.startswith("world:lab:"):
         raise HTTPException(status_code=403, detail="lab_only")
     kw = dict(workspace_id=req.workspace_id, owner=req.owner, session_id=req.session_id, constitution=req.constitution, user_actor=req.user_actor,
-              companion_actor=req.companion_actor, dry_run=True, models=req.models)
+              companion_actor=req.companion_actor, dry_run=True, models=req.models, companion_id=req.companion_id)
     out: Dict[str, Any] = {}
     if req.which in ("heart", "both"):
         out["heart"] = await character_agency.run_heart(db, **kw)

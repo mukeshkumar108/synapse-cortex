@@ -227,3 +227,20 @@ class HonchoClient:
             ]
 
         return await self._get_json(key, fetch)
+
+    async def peer_chat(self, workspace_id: str, peer_id: str, query: str, *, target: Optional[str] = None, level: str = "low", timeout: float = 60.0) -> Optional[str]:
+        """Honcho's dialectic: a natural-language question answered from a peer's representation (what the deriver/dreamer inferred from the whole history).
+        `target` asks for another peer's representation from this peer's perspective. Inference, never canonical truth. None when Honcho has nothing or fails."""
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(f"{self.base_url}/v3/workspaces/{workspace_id}/peers/{peer_id}/chat",
+                                         headers={"Content-Type": "application/json", **self.headers},
+                                         json={"query": query, "reasoning_level": level, **({"target": target} if target else {})})
+                resp.raise_for_status()
+                content = (resp.json() or {}).get("content")
+                return str(content).strip() if content else None
+        except Exception as exc:
+            logger.warning("honcho peer_chat failed open: %s", exc)
+            return None
+
