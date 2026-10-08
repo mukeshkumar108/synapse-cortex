@@ -31,7 +31,8 @@ Carry forward from the PREVIOUS PICTURE whatever still matters. DROP mood and mo
 A character's own account of their hidden past or secret feelings, offered for the first time under questioning, is described as what they SAID ("she said ..."), never as a fact of the scene; if it contradicts something that already happened in the scene, say that it contradicts it, and keep the event. Name people by the names given. Say only what the messages support.
 Neutral description only: never an instruction, never a line for the character to say. The material may be fiction or explicit: describe it only as far as needed to track what is happening.
 STANDING REQUESTS are kept separately, NOT in the picture. Anything the person has asked of the character about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the character got wrong) goes in "standing_requests" as short plain statements in the person's own terms. You are given the PREVIOUS STANDING REQUESTS: return every one of them again unless the person has withdrawn or clearly changed it, plus any new one. Never drop one for space.
-Output a JSON object: {"scene": "<the picture>", "standing_requests": ["<request>", ...]}"""
+Also judge how much the LAST MESSAGES change what these two people are to each other: "significance" 0 = ordinary flow, 1 = a small beat, 2 = a real moment (a confession or vulnerability, a celebration shared, real tenderness or intimacy, an apology or repair, a disagreement that matters, a promise), 3 = a turning point (the bond clearly deepened or ruptured). Positive moments count exactly as much as hard ones. "significance_kind": one of closeness, celebration, vulnerability, repair, rupture, promise, none.
+Output a JSON object: {"scene": "<the picture>", "standing_requests": ["<request>", ...], "significance": 0|1|2|3, "significance_kind": "<kind>"}"""
 
 
 async def current(db: AsyncSession, workspace_id: str, session_id: str) -> Optional[SceneNarrative]:
@@ -67,7 +68,7 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
               f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nPREVIOUS STANDING REQUESTS:\n{previous_requests or '(none)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
     model_id = model or SCENE_MODEL
     try:
-        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string", "standing_requests": ["string"]}, model_id=model_id, max_tokens=700,
+        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string", "standing_requests": ["string"], "significance": "integer", "significance_kind": "string"}, model_id=model_id, max_tokens=700,
                                                 temperature=0.2, strict=False, timeout=45)
     except Exception:
         row.pending_json = json.dumps(pending, ensure_ascii=False)       # keep the exchanges: the next pass covers them
@@ -85,4 +86,8 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
     row.text, row.model, row.updated_at = text, model_id, utc_now()
     row.through_message_id = next((m.get("id") for m in reversed(pending) if m.get("id")), None)
     await db.commit()
-    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "standing_requests": await standing_requests.active(db, workspace_id, owner) if owner else []}
+    try:
+        significance = max(0, min(3, int((out or {}).get("significance") or 0)))
+    except (TypeError, ValueError):
+        significance = 0
+    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "significance": significance, "significance_kind": str((out or {}).get("significance_kind") or "none"), "standing_requests": await standing_requests.active(db, workspace_id, owner) if owner else []}
