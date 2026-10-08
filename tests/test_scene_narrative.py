@@ -94,3 +94,8 @@ async def test_sync_creates_withdraws_and_reopens_with_history_kept():
         assert await sr.sync(db, "w-s", "o", ["no pet names"], source="interpreter") == {"created": 0, "withdrawn": 1}      # same request recognised across wording/case
         assert await sr.active(db, "w-s", "o") == ["No pet names."]
         assert (await sr.sync(db, "w-s", "o", ["No pet names.", "Fewer questions."], source="scene_pass"))["created"] == 1   # reopened, not duplicated
+
+
+def test_the_picture_keeps_concrete_scene_events_and_marks_a_characters_own_claims_as_claims():
+    from src.services import scene_narrative
+    assert "KEEP, as short factual clauses" in scene_narrative.SYSTEM and "described as what they SAID" in scene_narrative.SYSTEM
