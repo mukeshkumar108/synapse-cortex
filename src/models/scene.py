@@ -81,6 +81,7 @@ class SceneNarrative(SQLModel, table=True):
     text: str = Field(default="", nullable=False)
     through_message_id: Optional[str] = Field(default=None)
     pending_json: str = Field(default="[]", nullable=False)       # exchanges handed in since the picture was last rewritten (batched)
+    anchors_json: str = Field(default="[]", nullable=False)       # the sitting's fixed facts (events, promises, decisions, open loops, people, third-party acts): append-only, never rewritten by the model
     model: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)

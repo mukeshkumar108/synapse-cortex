@@ -99,3 +99,20 @@ async def test_sync_creates_withdraws_and_reopens_with_history_kept():
 def test_the_picture_keeps_concrete_scene_events_and_marks_a_characters_own_claims_as_claims():
     from src.services import scene_narrative
     assert "KEEP, as short factual clauses" in scene_narrative.SYSTEM and "described as what they SAID" in scene_narrative.SYSTEM
+
+
+def test_anchors_are_append_only_deduped_closable_and_the_bond_peaks_outlast_detail():
+    from datetime import datetime
+    from src.services.scene_narrative import merge_anchors, MAX_ANCHORS, MAX_NEW_PER_PASS
+    now = datetime(2026, 10, 8, 17, 0)
+    a = merge_anchors([], [{"kind": "milestone", "text": "Kai got the VP role, base salary 280k; they celebrated"}, {"kind": "open_loop", "text": "Isa has not told Kai about Marco"},
+                          {"kind": "event", "text": "Kai got the VP role with a 280k base salary and they celebrated it"}], None, now)
+    assert [x["id"] for x in a] == ["a1", "a2"] and a[1]["status"] == "open"             # the reworded duplicate was not added
+    b = merge_anchors(a, [{"kind": "external", "text": "Marco sent explicit photos and parked outside; she refused and blocked him"}], ["a2"], now)
+    assert b[0]["text"] == a[0]["text"] and b[1]["status"] == "closed" and b[2]["id"] == "a3"
+    assert len(merge_anchors([], [{"kind": "event", "text": f"distinct fact number {i} about thing{i}"} for i in range(9)], None, now)) == MAX_NEW_PER_PASS
+    state = b
+    for i in range(40):                                   # a long scene of ordinary detail
+        state = merge_anchors(state, [{"kind": "event", "text": f"detail {i} alpha{i} beta{i} gamma{i}"}], None, now)
+    assert len(state) <= MAX_ANCHORS and any("280k" in x["text"] for x in state), "the promotion must outlast hours of detail"
+    assert merge_anchors(b, [{"kind": "claim", "text": "Isa said she kissed Marco last week"}], None, now)[-1]["status"] == "claimed"

@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,11 @@ TAIL = 6
 MAX_REQUESTS = 12
 REWRITE_EVERY_MESSAGES = 4     # the picture is rewritten once this many new messages are waiting (2 exchanges): always fewer than the raw tail the foreground reads, so nothing falls between
 MAX_PENDING = 12
+MAX_ANCHORS = 24
+ANCHOR_CHARS = 220
+ANCHOR_KINDS = ("event", "promise", "decision", "open_loop", "person", "external", "milestone", "claim")
+MAX_NEW_PER_PASS = 3
+EVICTION_RANK = {"claim": 0, "event": 1, "person": 2, "external": 3, "decision": 4, "promise": 5, "open_loop": 6, "milestone": 7}      # lowest goes first; the peaks of the bond go last
 
 SYSTEM = """You keep the running picture of one ongoing conversation between a person and a companion character, so the character can speak as one continuous self.
 You are given the PREVIOUS PICTURE (what was already known) and the LAST MESSAGES (verbatim). Write the picture as it stands NOW: 6 to 14 short plain sentences, no lists, no headings. BEGIN it with where the relationship stands and what has been built between them: moments of closeness, celebration, trust, vulnerability, affection or repair are the weightiest things in any conversation. Keep each such moment (a clause: what it was, how it landed) for as long as the scene lasts even when it is no longer the latest thing, and say how it should colour what follows. A later disagreement or strange turn is described against that background, as a rupture of it, never as if the bond did not exist; and when something a character says or does is out of keeping with that background, say that it is out of keeping.
@@ -32,7 +38,50 @@ A character's own account of their hidden past or secret feelings, offered for t
 Neutral description only: never an instruction, never a line for the character to say. The material may be fiction or explicit: describe it only as far as needed to track what is happening.
 STANDING REQUESTS are kept separately, NOT in the picture. Anything the person has asked of the character about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the character got wrong) goes in "standing_requests" as short plain statements in the person's own terms. You are given the PREVIOUS STANDING REQUESTS: return every one of them again unless the person has withdrawn or clearly changed it, plus any new one. Never drop one for space.
 Also judge how much the LAST MESSAGES change what these two people are to each other: "significance" 0 = ordinary flow, 1 = a small beat, 2 = a real moment (a confession or vulnerability, a celebration shared, real tenderness or intimacy, an apology or repair, a disagreement that matters, a promise), 3 = a turning point (the bond clearly deepened or ruptured). Positive moments count exactly as much as hard ones. "significance_kind": one of closeness, celebration, vulnerability, repair, rupture, promise, none.
-Output a JSON object: {"scene": "<the picture>", "standing_requests": ["<request>", ...], "significance": 0|1|2|3, "significance_kind": "<kind>"}"""
+ANCHORS are the sitting's fixed facts, kept separately from the picture and never rewritten. You are given the CURRENT ANCHORS (with ids). Return "new_anchors" (AT MOST 3 per pass; none is fine; never restate or reword an existing anchor; fold detail into it by leaving it alone): only concrete facts the LAST MESSAGES newly establish that anything later must stay consistent with: what happened (who did what to whom, with the real numbers, names, places), what was promised or decided, a question asked and not answered, a person who appeared, what a third party did to whom, a milestone of the bond (a celebration, a moment of tenderness, a confession). What a character SAYS about their own past or secret feelings, offered under questioning, is kind "claim" (a claim is not a fact of the scene). One plain factual sentence each, kind one of event, promise, decision, open_loop, person, external, milestone, claim. Do not restate an anchor already listed; moods, tone and texture are NOT anchors. Return "closed_anchor_ids": ids of CURRENT ANCHORS that the LAST MESSAGES resolved (an open loop answered, a promise kept or broken).
+Output a JSON object: {"scene": "<the picture>", "standing_requests": ["<request>", ...], "significance": 0|1|2|3, "significance_kind": "<kind>", "new_anchors": [{"kind": "<kind>", "text": "<fact>"}], "closed_anchor_ids": ["<id>", ...]}"""
+
+
+def load_anchors(row: Any) -> List[Dict[str, Any]]:
+    try:
+        value = json.loads(getattr(row, "anchors_json", None) or "[]")
+    except ValueError:
+        return []
+    return [a for a in value if isinstance(a, dict) and a.get("text")]
+
+
+def _similar(a: str, b: str) -> bool:
+    ta, tb = set(re.findall(r"[a-z0-9£$]+", a.lower())), set(re.findall(r"[a-z0-9£$]+", b.lower()))
+    return bool(ta and tb) and len(ta & tb) / len(ta | tb) >= 0.55
+
+
+def merge_anchors(existing: List[Dict[str, Any]], new: Any, closed: Any, now: Any) -> List[Dict[str, Any]]:
+    """Append-only within a sitting: the model proposes additions and closures, deterministic code applies them. An anchor's text is never rewritten, so a later pass cannot smooth a
+    concrete fact (a salary, a name, what a third party sent) into a generality. Bounded, and the bound protects the peaks: closed anchors go first, then claims and plain events
+    (oldest first); milestones, open loops and promises are the last to be shed."""
+    anchors = [dict(a) for a in existing]
+    shut = {str(c) for c in (closed or []) if c}
+    for a in anchors:
+        if a["id"] in shut:
+            a["status"] = "closed"
+    seq = max([int(str(a["id"]).lstrip("a") or 0) for a in anchors] + [0])
+    added = 0
+    for item in (new or []):
+        if added >= MAX_NEW_PER_PASS or not isinstance(item, dict):
+            continue
+        text = " ".join(str(item.get("text") or "").split())[:ANCHOR_CHARS]
+        kind = str(item.get("kind") or "event")
+        kind = kind if kind in ANCHOR_KINDS else "event"
+        if not text or any(_similar(text, a["text"]) for a in anchors):
+            continue
+        seq += 1
+        added += 1
+        anchors.append({"id": f"a{seq}", "kind": kind, "text": text, "status": "open" if kind in ("promise", "open_loop", "decision") else "claimed" if kind == "claim" else "established",
+                        "at": now.isoformat() if hasattr(now, "isoformat") else str(now)})
+    while len(anchors) > MAX_ANCHORS:
+        victim = min(enumerate(anchors), key=lambda ia: (0 if ia[1]["status"] == "closed" else 1, EVICTION_RANK.get(ia[1]["kind"], 1), ia[0]))[1]
+        anchors.remove(victim)
+    return anchors
 
 
 async def current(db: AsyncSession, workspace_id: str, session_id: str) -> Optional[SceneNarrative]:
@@ -64,11 +113,13 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
     from src.services import standing_requests
     held = await standing_requests.active(db, workspace_id, owner) if owner else []
     previous_requests = "\n".join(f"- {x}" for x in held)
+    anchors = load_anchors(row)
+    anchor_lines = "\n".join(f"[{a['id']}] ({a['status']}) {a['text']}" for a in anchors)
     prompt = (f"PEOPLE: {names.get('user', 'the person')} (the person), {names.get('assistant', 'the companion')} (the companion character)\n\n"
-              f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nPREVIOUS STANDING REQUESTS:\n{previous_requests or '(none)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
+              f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nPREVIOUS STANDING REQUESTS:\n{previous_requests or '(none)'}\n\nCURRENT ANCHORS:\n{anchor_lines or '(none yet)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
     model_id = model or SCENE_MODEL
     try:
-        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string", "standing_requests": ["string"], "significance": "integer", "significance_kind": "string"}, model_id=model_id, max_tokens=700,
+        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string", "standing_requests": ["string"], "significance": "integer", "significance_kind": "string", "new_anchors": [{"kind": "string", "text": "string"}], "closed_anchor_ids": ["string"]}, model_id=model_id, max_tokens=700,
                                                 temperature=0.2, strict=False, timeout=45)
     except Exception:
         row.pending_json = json.dumps(pending, ensure_ascii=False)       # keep the exchanges: the next pass covers them
@@ -84,10 +135,12 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
     if owner and isinstance(returned, list):        # a pass that omits the field changes nothing; only an explicit list (possibly empty = all withdrawn) is applied
         await standing_requests.sync(db, workspace_id, owner, [str(x) for x in returned], source="scene_pass")
     row.text, row.model, row.updated_at = text, model_id, utc_now()
+    anchors = merge_anchors(anchors, (out or {}).get("new_anchors"), (out or {}).get("closed_anchor_ids"), row.updated_at)
+    row.anchors_json = json.dumps(anchors, ensure_ascii=False)
     row.through_message_id = next((m.get("id") for m in reversed(pending) if m.get("id")), None)
     await db.commit()
     try:
         significance = max(0, min(3, int((out or {}).get("significance") or 0)))
     except (TypeError, ValueError):
         significance = 0
-    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "significance": significance, "significance_kind": str((out or {}).get("significance_kind") or "none"), "standing_requests": await standing_requests.active(db, workspace_id, owner) if owner else []}
+    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "anchors": anchors, "significance": significance, "significance_kind": str((out or {}).get("significance_kind") or "none"), "standing_requests": await standing_requests.active(db, workspace_id, owner) if owner else []}
