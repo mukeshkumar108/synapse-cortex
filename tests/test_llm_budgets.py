@@ -76,3 +76,27 @@ async def test_agency_chain_crosses_providers_and_the_fallback_is_budgeted(monke
     assert out["_model"] == "openrouter:openai/gpt-5.6-luna" and out["ok"] is True
     assert calls[0][0].startswith("https://nano-gpt.com") and calls[1][0].startswith("https://openrouter.ai")
     assert calls[1][2] == {"effort": "low", "exclude": True}
+
+
+@pytest.mark.asyncio
+async def test_a_model_truncated_at_the_output_ceiling_is_not_retried(monkeypatch):
+    # GLM spent all 3 000 output tokens and produced no JSON, twice per pass, on a pass that then fell to the next model anyway.
+    calls = []
+
+    class Truncated:
+        def __init__(self): pass
+        def raise_for_status(self): pass
+        def json(self): return {"choices": [{"message": {"content": "thinking..."}, "finish_reason": "length"}], "usage": {"prompt_tokens": 5, "completion_tokens": 3000}}
+
+    class C(_Client):
+        async def post(self, url, headers=None, json=None):
+            calls.append(json["model"])
+            return Truncated() if json["model"] == "z-ai/glm-5.3-flash" else _Resp({"prompt_tokens": 5, "completion_tokens": 7})
+    monkeypatch.setenv("NANO_API_KEY", "n")
+    monkeypatch.setattr(nano_adapter.httpx, "AsyncClient", C)
+    monkeypatch.setattr(nano_adapter, "ATTEMPTS_PER_MODEL", 2)
+
+    async def no_sleep(_): pass
+    monkeypatch.setattr(nano_adapter.asyncio, "sleep", no_sleep)
+    out = await nano_adapter.generate_json(system="s", prompt="p", models=["z-ai/glm-5.3-flash", "meta/muse-spark-1.3-contributor"], title="t")
+    assert calls == ["z-ai/glm-5.3-flash", "meta/muse-spark-1.3-contributor"] and out["_model"] == "meta/muse-spark-1.3-contributor"

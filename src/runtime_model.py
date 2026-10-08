@@ -90,6 +90,8 @@ class AgendaRankerAdapter:
             "temperature": temperature,
             "response_format": {"type": "json_object"},
         }
+        if "openrouter.ai" in url:
+            payload["usage"] = {"include": True}               # the response then carries its own cost (the breaker and the call ledger use it)
         if str(model_id).startswith("openai/gpt-5"):         # reasoning models: pick the effort for this job instead of letting the model decide how long to think
             payload["reasoning"] = {"effort": _policy(REASONING_EFFORT, "LLM_REASONING_EFFORT", module), "exclude": True}
         async with httpx.AsyncClient(timeout=timeout or float(os.getenv("AGENDA_RANKER_TIMEOUT_SECONDS", "12"))) as client:
@@ -104,6 +106,8 @@ class AgendaRankerAdapter:
             _spent[(_day(), module)] = _spent.get((_day(), module), 0.0) + float(cost)
             logger.info("llm_usage module=%s model=%s in=%s out=%s reasoning=%s cost_usd=%.5f day_total_usd=%.3f", module, model_id, usage.get("prompt_tokens"),
                         usage.get("completion_tokens"), (usage.get("completion_tokens_details") or {}).get("reasoning_tokens"), float(cost), _spent[(_day(), module)])
+            from src import call_context
+            call_context.record(module=module, provider="openrouter", model=model_id, usage=usage, cost=float(cost))
             content = body["choices"][0]["message"]["content"] or "{}"
             parsed = json.loads(content)
             if not isinstance(parsed, dict):

@@ -100,6 +100,7 @@ async def generate_json(*, system: str, prompt: str, models: Optional[Sequence[s
         if not key:
             continue
         for attempt in range(ATTEMPTS_PER_MODEL):
+            truncated = False
             try:
                 body_req: Dict[str, Any] = {"model": model, "max_tokens": min(max_tokens, HARD_MAX_OUTPUT_TOKENS), "temperature": temperature,
                                             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
@@ -110,19 +111,24 @@ async def generate_json(*, system: str, prompt: str, models: Optional[Sequence[s
                     resp.raise_for_status()
                     body = resp.json()
                     content = (body["choices"][0]["message"].get("content")) or ""
+                    truncated = body["choices"][0].get("finish_reason") == "length"
                     used = (body.get("usage") or {})
                     _usage["calls"] += 1
                     _usage["out"] += int(used.get("completion_tokens") or 0)
                     if via_or:
                         _usage["fallback_calls"] = _usage.get("fallback_calls", 0) + 1
                     _usage["by_model"][entry] = _usage["by_model"].get(entry, 0) + 1
+                    from src import call_context
+                    call_context.record(module=title, provider="openrouter" if via_or else "nanogpt", model=model, usage=used)
                     logger.info("llm_usage module=%s provider=%s model=%s in=%s out=%s day_out=%d", title, "openrouter" if via_or else "nanogpt", model,
                                 used.get("prompt_tokens"), used.get("completion_tokens"), _usage["out"])
                 parsed = extract_json(content)
                 if parsed is not None:
                     parsed["_model"] = entry
                     return parsed
-                logger.warning("%s: %s returned no JSON object (attempt %d)", title, entry, attempt + 1)
+                logger.warning("%s: %s returned no JSON object (attempt %d)%s", title, entry, attempt + 1, " [truncated at the output ceiling]" if truncated else "")
+                if truncated:
+                    break          # the same prompt hits the same ceiling again: spend the next attempt on the next model, not on another 3 000 wasted tokens
             except Exception as exc:
                 _usage["failures"] += 1
                 logger.warning("%s: %s failed (attempt %d): %s", title, entry, attempt + 1, type(exc).__name__)
