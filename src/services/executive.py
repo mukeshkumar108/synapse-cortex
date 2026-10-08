@@ -29,7 +29,7 @@ from src.services import world_lease
 
 logger = logging.getLogger(__name__)
 
-EXECUTIVE_MODEL = os.getenv("WORLD_EXECUTIVE_MODEL", os.getenv("WORLD_INTERPRETER_MODEL", "openai/gpt-5.6-luna-pro"))
+EXECUTIVE_MODEL = os.getenv("WORLD_EXECUTIVE_MODEL", os.getenv("WORLD_INTERPRETER_MODEL", "openai/gpt-5.6-luna"))
 EXECUTIVE_TIMEOUT = float(os.getenv("WORLD_EXECUTIVE_TIMEOUT_SECONDS", "120"))
 DEFAULT_POLICY: Dict[str, Any] = {
     "executive": {"enabled": False, "daily_review_hours": 24, "timezone": "Europe/London"},

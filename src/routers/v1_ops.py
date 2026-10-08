@@ -49,4 +49,13 @@ async def digest(hours: int = Query(24, ge=1, le=24 * 14), db: AsyncSession = De
     out["scene"] = {"layers_updated": (await db.execute(text("select count(*) from current_scenes where updated_at > :s"), {"s": since})).scalar(),
                     "briefs_written": (await db.execute(text("select count(*) from continuation_briefs where created_at > :s"), {"s": since})).scalar(),
                     "briefs_with_spent": (await db.execute(text("select count(*) from continuation_briefs where created_at > :s and scene_json like '%\"spent\": [\"%'"), {"s": since})).scalar()}
+    # Model spend and background-reasoning health as this process has seen them today: dollars per module on OpenRouter against its daily breaker, and NanoGPT calls /
+    # failures / output tokens (watch the failure rate: NanoGPT is flat-rate but flaky, and the chain falls back).
+    from src import runtime_model
+    from src.services import nano_adapter
+    out["llm_spend_today_usd"] = runtime_model.spent_today()
+    out["llm_daily_budget_usd"] = runtime_model.DAILY_BUDGET_USD
+    out["nanogpt_today"] = nano_adapter.usage_today()
+    agency = (await db.execute(text("select producer, status, count(*) from producer_runs where created_at > :s and producer in ('character-heart','story-pressure') group by 1,2"), {"s": since})).all()
+    out["agency"] = {f"{p}:{st}": n for p, st, n in agency}
     return out

@@ -21,6 +21,21 @@ BASE_URL = os.getenv("NANO_BASE_URL", "https://nano-gpt.com/api/v1")
 DEFAULT_CHAIN = [m.strip() for m in os.getenv("AGENCY_MODELS", "z-ai/glm-5.3-flash,meta/muse-spark-1.3-contributor,deepseek/deepseek-v4-flash").split(",") if m.strip()]
 ATTEMPTS_PER_MODEL = int(os.getenv("AGENCY_ATTEMPTS_PER_MODEL", "2"))
 TIMEOUT = float(os.getenv("AGENCY_TIMEOUT_SECONDS", "150"))
+HARD_MAX_OUTPUT_TOKENS = int(os.getenv("AGENCY_HARD_MAX_OUTPUT_TOKENS", "4000"))
+DAILY_OUTPUT_TOKEN_BUDGET = int(os.getenv("AGENCY_DAILY_OUTPUT_TOKEN_BUDGET", "600000"))     # flat-rate still has fair use, and a runaway loop would only waste it
+_usage = {"day": "", "out": 0, "calls": 0, "failures": 0, "by_model": {}}
+
+
+def usage_today() -> dict:
+    from datetime import datetime, timezone
+    return dict(_usage) if _usage["day"] == datetime.now(timezone.utc).strftime("%Y-%m-%d") else {"day": "", "out": 0, "calls": 0, "failures": 0, "by_model": {}}
+
+
+def _roll() -> None:
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if _usage["day"] != today:
+        _usage.update({"day": today, "out": 0, "calls": 0, "failures": 0, "by_model": {}})
 
 
 def configured() -> bool:
@@ -72,6 +87,10 @@ async def generate_json(*, system: str, prompt: str, models: Optional[Sequence[s
     key = os.getenv("NANO_API_KEY", "").strip()
     if not key:
         return None
+    _roll()
+    if _usage["out"] >= DAILY_OUTPUT_TOKEN_BUDGET:
+        logger.error("%s: daily output-token budget exhausted (%d): skipping until tomorrow", title, _usage["out"])
+        return None
     chain: List[str] = list(models or DEFAULT_CHAIN)
     for model in chain:
         for attempt in range(ATTEMPTS_PER_MODEL):
@@ -80,16 +99,23 @@ async def generate_json(*, system: str, prompt: str, models: Optional[Sequence[s
                     resp = await client.post(
                         f"{BASE_URL}/chat/completions",
                         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                        json={"model": model, "max_tokens": max_tokens, "temperature": temperature,
+                        json={"model": model, "max_tokens": min(max_tokens, HARD_MAX_OUTPUT_TOKENS), "temperature": temperature,
                               "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]})
                     resp.raise_for_status()
-                    content = (resp.json()["choices"][0]["message"].get("content")) or ""
+                    body = resp.json()
+                    content = (body["choices"][0]["message"].get("content")) or ""
+                    used = (body.get("usage") or {})
+                    _usage["calls"] += 1
+                    _usage["out"] += int(used.get("completion_tokens") or 0)
+                    _usage["by_model"][model] = _usage["by_model"].get(model, 0) + 1
+                    logger.info("llm_usage module=%s provider=nanogpt model=%s in=%s out=%s day_out=%d", title, model, used.get("prompt_tokens"), used.get("completion_tokens"), _usage["out"])
                 parsed = extract_json(content)
                 if parsed is not None:
                     parsed["_model"] = model
                     return parsed
                 logger.warning("%s: %s returned no JSON object (attempt %d)", title, model, attempt + 1)
             except Exception as exc:
+                _usage["failures"] += 1
                 logger.warning("%s: %s failed (attempt %d): %s", title, model, attempt + 1, type(exc).__name__)
             await asyncio.sleep(min(2.0 * (attempt + 1), 6.0))
     return None
