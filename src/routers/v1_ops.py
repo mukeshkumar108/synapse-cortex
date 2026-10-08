@@ -58,4 +58,19 @@ async def digest(hours: int = Query(24, ge=1, le=24 * 14), db: AsyncSession = De
     out["nanogpt_today"] = nano_adapter.usage_today()
     agency = (await db.execute(text("select producer, status, count(*) from producer_runs where created_at > :s and producer in ('character-heart','story-pressure') group by 1,2"), {"s": since})).all()
     out["agency"] = {f"{p}:{st}": n for p, st, n in agency}
+    alerts = []
+    nt = out["nanogpt_today"]
+    if nt.get("calls", 0) + nt.get("failures", 0) >= 5 and nt.get("failures", 0) / max(1, nt.get("calls", 0) + nt.get("failures", 0)) > 0.3:
+        alerts.append(f"NanoGPT failing: {nt['failures']} failures vs {nt['calls']} successes today (the chain is falling back; fallback_calls={nt.get('fallback_calls', 0)})")
+    if nt.get("fallback_calls", 0) >= 3:
+        alerts.append(f"agency passes served by the OpenRouter fallback {nt['fallback_calls']} times today: NanoGPT is unreliable right now")
+    for module, spent in out["llm_spend_today_usd"].items():
+        cap = out["llm_daily_budget_usd"].get(module, out["llm_daily_budget_usd"]["default"])
+        if spent >= 0.8 * cap:
+            alerts.append(f"{module} has spent ${spent:.2f} of its ${cap:.2f} daily model budget")
+    failed = sum(n for k, n in out["agency"].items() if k.endswith(":failed"))
+    ran = sum(out["agency"].values())
+    if ran >= 4 and failed / ran > 0.5:
+        alerts.append(f"character agency passes failing: {failed} of {ran} in the window")
+    out["alerts"] = alerts
     return out

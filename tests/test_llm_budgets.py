@@ -54,3 +54,25 @@ async def test_the_daily_breaker_refuses_further_calls_for_a_module_that_has_spe
 def test_nano_pass_is_capped_and_budgeted():
     assert nano_adapter.HARD_MAX_OUTPUT_TOKENS <= 4000 and nano_adapter.DAILY_OUTPUT_TOKEN_BUDGET > 0
     assert nano_adapter.usage_today()["out"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_agency_chain_crosses_providers_and_the_fallback_is_budgeted(monkeypatch):
+    calls = []
+
+    class C(_Client):
+        async def post(self, url, headers=None, json=None):
+            calls.append((url, json.get("model"), json.get("reasoning")))
+            if "nano-gpt.com" in url:
+                raise RuntimeError("nanogpt is down")
+            return _Resp({"prompt_tokens": 5, "completion_tokens": 7})
+    monkeypatch.setenv("NANO_API_KEY", "n"); monkeypatch.setenv("OPENROUTER_API_KEY", "o")
+    monkeypatch.setattr(nano_adapter.httpx, "AsyncClient", C)
+    monkeypatch.setattr(nano_adapter, "ATTEMPTS_PER_MODEL", 1)
+
+    async def no_sleep(_): pass
+    monkeypatch.setattr(nano_adapter.asyncio, "sleep", no_sleep)
+    out = await nano_adapter.generate_json(system="s", prompt="p", models=["z-ai/glm-5.3-flash", "openrouter:openai/gpt-5.6-luna"], title="t")
+    assert out["_model"] == "openrouter:openai/gpt-5.6-luna" and out["ok"] is True
+    assert calls[0][0].startswith("https://nano-gpt.com") and calls[1][0].startswith("https://openrouter.ai")
+    assert calls[1][2] == {"effort": "low", "exclude": True}

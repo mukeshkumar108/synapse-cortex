@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = os.getenv("NANO_BASE_URL", "https://nano-gpt.com/api/v1")
 # Ordered by how well each follows a strict JSON contract at this size (measured in the lab); every one is covered by the subscription.
-DEFAULT_CHAIN = [m.strip() for m in os.getenv("AGENCY_MODELS", "z-ai/glm-5.3-flash,meta/muse-spark-1.3-contributor,deepseek/deepseek-v4-flash").split(",") if m.strip()]
+DEFAULT_CHAIN = [m.strip() for m in os.getenv("AGENCY_MODELS", "z-ai/glm-5.3-flash,meta/muse-spark-1.3-contributor,openrouter:z-ai/glm-5.3-flash,openrouter:openai/gpt-5.6-luna,deepseek/deepseek-v4-flash").split(",") if m.strip()]
 ATTEMPTS_PER_MODEL = int(os.getenv("AGENCY_ATTEMPTS_PER_MODEL", "2"))
 TIMEOUT = float(os.getenv("AGENCY_TIMEOUT_SECONDS", "150"))
 HARD_MAX_OUTPUT_TOKENS = int(os.getenv("AGENCY_HARD_MAX_OUTPUT_TOKENS", "4000"))
@@ -84,38 +84,47 @@ def extract_json(text: str) -> Optional[Dict[str, Any]]:
 async def generate_json(*, system: str, prompt: str, models: Optional[Sequence[str]] = None, max_tokens: int = 3000, temperature: float = 0.7,
                         title: str = "agency") -> Optional[Dict[str, Any]]:
     """Walk the chain until one model returns a JSON object. Returns None when everything failed (the caller leaves the state as it was)."""
-    key = os.getenv("NANO_API_KEY", "").strip()
-    if not key:
+    nano_key = os.getenv("NANO_API_KEY", "").strip()
+    or_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not nano_key and not or_key:
         return None
     _roll()
     if _usage["out"] >= DAILY_OUTPUT_TOKEN_BUDGET:
         logger.error("%s: daily output-token budget exhausted (%d): skipping until tomorrow", title, _usage["out"])
         return None
     chain: List[str] = list(models or DEFAULT_CHAIN)
-    for model in chain:
+    for entry in chain:
+        via_or = entry.startswith("openrouter:")
+        model = entry.split(":", 1)[1] if via_or else entry
+        key, base = (or_key, "https://openrouter.ai/api/v1") if via_or else (nano_key, BASE_URL)
+        if not key:
+            continue
         for attempt in range(ATTEMPTS_PER_MODEL):
             try:
+                body_req: Dict[str, Any] = {"model": model, "max_tokens": min(max_tokens, HARD_MAX_OUTPUT_TOKENS), "temperature": temperature,
+                                            "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
+                if via_or and model.startswith("openai/gpt-5"):
+                    body_req["reasoning"] = {"effort": "low", "exclude": True}          # a budgeted fallback, never an open-ended thinker
                 async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                    resp = await client.post(
-                        f"{BASE_URL}/chat/completions",
-                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                        json={"model": model, "max_tokens": min(max_tokens, HARD_MAX_OUTPUT_TOKENS), "temperature": temperature,
-                              "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]})
+                    resp = await client.post(f"{base}/chat/completions", headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, json=body_req)
                     resp.raise_for_status()
                     body = resp.json()
                     content = (body["choices"][0]["message"].get("content")) or ""
                     used = (body.get("usage") or {})
                     _usage["calls"] += 1
                     _usage["out"] += int(used.get("completion_tokens") or 0)
-                    _usage["by_model"][model] = _usage["by_model"].get(model, 0) + 1
-                    logger.info("llm_usage module=%s provider=nanogpt model=%s in=%s out=%s day_out=%d", title, model, used.get("prompt_tokens"), used.get("completion_tokens"), _usage["out"])
+                    if via_or:
+                        _usage["fallback_calls"] = _usage.get("fallback_calls", 0) + 1
+                    _usage["by_model"][entry] = _usage["by_model"].get(entry, 0) + 1
+                    logger.info("llm_usage module=%s provider=%s model=%s in=%s out=%s day_out=%d", title, "openrouter" if via_or else "nanogpt", model,
+                                used.get("prompt_tokens"), used.get("completion_tokens"), _usage["out"])
                 parsed = extract_json(content)
                 if parsed is not None:
-                    parsed["_model"] = model
+                    parsed["_model"] = entry
                     return parsed
-                logger.warning("%s: %s returned no JSON object (attempt %d)", title, model, attempt + 1)
+                logger.warning("%s: %s returned no JSON object (attempt %d)", title, entry, attempt + 1)
             except Exception as exc:
                 _usage["failures"] += 1
-                logger.warning("%s: %s failed (attempt %d): %s", title, model, attempt + 1, type(exc).__name__)
+                logger.warning("%s: %s failed (attempt %d): %s", title, entry, attempt + 1, type(exc).__name__)
             await asyncio.sleep(min(2.0 * (attempt + 1), 6.0))
     return None
