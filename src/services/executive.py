@@ -105,6 +105,9 @@ def _iso(dt: Optional[datetime]) -> Optional[str]:
     return dt.isoformat() if dt else None
 
 
+MIN_REVIEW_INTERVAL_HOURS = float(os.getenv("EXECUTIVE_MIN_REVIEW_HOURS", "3"))
+
+
 def _parse(value: Any) -> Optional[datetime]:
     if not value or not isinstance(value, str):
         return None
@@ -466,6 +469,9 @@ async def apply_intents(db: AsyncSession, *, workspace_id: str, owner: str, raw:
     await db.commit()
     nxt = _parse(raw.get("next_review_at"))
     if nxt and nxt > now:
+        # The model asks to look again; "in an hour" was ~24 runs a day for a day with nothing in it. A review is a floor-limited check-in, not a polling loop: real events and
+        # meaningful changes wake the executive on their own.
+        nxt = max(nxt, now + timedelta(hours=MIN_REVIEW_INTERVAL_HOURS))
         wakes.append({"due": nxt, "reason": "next_review"})
     for w in wakes:
         await add_wake(db, workspace_id, owner, w["due"], w["reason"])

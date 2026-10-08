@@ -1,6 +1,7 @@
 """Executive layer properties: wake-driven cognition (no model call without a reason or policy), autonomy by consequence/reversibility/authority,
 untrusted ids are never applied, receipts are the only way an action becomes done."""
 import json
+import uuid
 from datetime import datetime, timedelta
 
 import pytest
@@ -381,3 +382,14 @@ def test_a_lab_pass_layer_is_derived_from_the_raw_response_without_persisting_an
     assert layer["carrying"][0]["title"] == "Cabin trip" and layer["plans"][0]["goal"].startswith("Make the cabin") and layer["plans"][0]["steps"][0]["title"] == "Pack the good blanket"
     assert layer["waiting_on"] == [{"title": "Ask how the supervisor lunch went", "waiting_on": "his answer"}] and layer["set_aside"][0]["reason"] == "already settled"
     assert layer_from_raw(None)["carrying"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_self_scheduled_review_is_floored_so_the_executive_does_not_poll():
+    owner = f"floor-{uuid.uuid4().hex[:6]}"
+    soon = (now() + timedelta(minutes=45)).isoformat()
+    async with async_session_maker() as db:
+        await executive.set_policy(db, WS, owner, {"executive": {"enabled": True}})
+        res = await executive.run_pass(db, workspace_id=WS, owner=owner, reasons=["test"], adapter=Model({"intents": [], "next_review_at": soon}))
+    review = next(w for w in res["wakes"] if w["reason"] == "next_review")
+    assert datetime.fromisoformat(review["due"]) >= now() + timedelta(hours=executive.MIN_REVIEW_INTERVAL_HOURS) - timedelta(minutes=1)
