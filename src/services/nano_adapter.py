@@ -116,6 +116,8 @@ async def generate_json(*, system: str, prompt: str, models: Optional[Sequence[s
                     if via_or:
                         _usage["fallback_calls"] = _usage.get("fallback_calls", 0) + 1
                     _usage["by_model"][entry] = _usage["by_model"].get(entry, 0) + 1
+                    from src import call_context
+                    call_context.record(module=title, provider="openrouter" if via_or else "nanogpt", model=model, usage=used)
                     logger.info("llm_usage module=%s provider=%s model=%s in=%s out=%s day_out=%d", title, "openrouter" if via_or else "nanogpt", model,
                                 used.get("prompt_tokens"), used.get("completion_tokens"), _usage["out"])
                 parsed = extract_json(content)

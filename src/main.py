@@ -56,6 +56,17 @@ app = FastAPI(
 
 
 @app.middleware("http")
+async def bind_call_context(request: Request, call_next):
+    """The caller's account of whose turn this work serves (see src/call_context.py); absent for anything Cortex starts itself."""
+    from src import call_context
+    token = call_context.CTX.set(call_context.parse_header(request.headers.get("x-call-context")) or None)
+    try:
+        return await call_next(request)
+    finally:
+        call_context.CTX.reset(token)
+
+
+@app.middleware("http")
 async def require_service_token(request: Request, call_next):
     token = settings.SYNAPSE_CORTEX_API_TOKEN
     if token and request.url.path != "/health":
