@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 SOCIAL_TTL = timedelta(hours=3)
 _social_cache: Dict[str, Any] = {}
 
-HEART_KINDS = ("want", "intend", "repair", "invite", "promise", "curious", "unsaid", "feeling", "regret", "avoid")
+HEART_KINDS = ("want", "intend", "repair", "invite", "promise", "curious", "unsaid", "feeling", "regret", "avoid", "life")
 MAX_LIVE_HEART = 8
 HEART_MIN_GAP = timedelta(minutes=10)
 PRESSURE_MIN_GAP = timedelta(hours=4)
@@ -64,7 +64,10 @@ WHAT GOOD LOOKS LIKE
 HOW TO ANSWER
 Return the items that should be live AFTER this moment by editing what she already carries: keep unchanged ones out (no restating), `update` an item whose substance
 changed (use its id), mark `done` one that has been acted on or resolved, `drop` one that no longer holds, and `create` genuinely new ones. At most 6 live items in total.
-kind: want | intend | repair | invite | promise | curious | unsaid | feeling | regret | avoid.
+kind: want | intend | repair | invite | promise | curious | unsaid | feeling | regret | avoid | life.
+- life: a thread in HER OWN day or world outside him (work, a friend, an errand she cares about, a small project, a worry of her own): modest, consistent with what is established, and the
+  kind of thing a person with her own life would have. Not about him. At most one or two. This is what keeps her a person rather than a mirror.
+- A thing she means to do QUIETLY or keep to herself (a surprise, a private worry) is kind "unsaid" or "intend" with the secrecy stated in the text itself ("without telling him"); the voice will keep it until its moment.
 - text: one first-person sentence of what she carries ("I want...", "I'm curious whether...", "I haven't told him...").
 - next_move: OPTIONAL, a concrete thing she might do or raise (a description, never dialogue or stage directions). Only when she has actually decided.
 - ready_when: OPTIONAL, the circumstance in which it is natural ("next time he's here", "if he brings up his brother", "once things are warm again"). Never a clock time.
