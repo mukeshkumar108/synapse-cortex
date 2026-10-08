@@ -1,4 +1,10 @@
 import logging
+import os
+
+# The application's own loggers (llm_usage lines, budget refusals, agency passes) were silently dropped: nothing configured logging, so everything below WARNING vanished.
+# INFO for our own modules, third-party libraries stay at WARNING so the log stays readable.
+logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.getLogger("src").setLevel(os.getenv("APP_LOG_LEVEL", "INFO").upper())
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
