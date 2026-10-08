@@ -23,7 +23,7 @@ REWRITE_EVERY_MESSAGES = 4     # the picture is rewritten once this many new mes
 MAX_PENDING = 12
 
 SYSTEM = """You keep the running picture of one ongoing conversation between a person and a companion character, so the character can speak as one continuous self.
-You are given the PREVIOUS PICTURE (what was already known) and the LAST MESSAGES (verbatim). Write the picture as it stands NOW: 5 to 12 short plain sentences, no lists, no headings.
+You are given the PREVIOUS PICTURE (what was already known) and the LAST MESSAGES (verbatim). Write the picture as it stands NOW: 6 to 14 short plain sentences, no lists, no headings. BEGIN it with where the relationship stands and what has been built between them: moments of closeness, celebration, trust, vulnerability, affection or repair are the weightiest things in any conversation. Keep each such moment (a clause: what it was, how it landed) for as long as the scene lasts even when it is no longer the latest thing, and say how it should colour what follows. A later disagreement or strange turn is described against that background, as a rupture of it, never as if the bond did not exist; and when something a character says or does is out of keeping with that background, say that it is out of keeping.
 Cover, in whatever order reads naturally: what is actually happening and in what register; what is genuinely still open between them (questions not answered, decisions pending,
 tension not settled); any decisions, promises, plans or commitments made; the texture (mood, humour, running jokes, tone) as observed, not as lasting unless it continues;
 and what has already been used up so it is not needlessly repeated (questions asked, stories told, callbacks made, points settled), saying who did it.
