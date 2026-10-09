@@ -1,0 +1,104 @@
+"""A rewound conversation: the person edited, retried or regenerated, so some messages no longer belong to the active timeline.
+
+What Cortex derived from those messages loses its authority. The interpreter's ledger is its applied runs, and "the run is the unit of re-derivation": every run
+whose evidence includes a discarded message (by id, or by the hash of a synthetic copy of that exchange) is retracted: the rows it created are deleted, anything it
+had superseded is restored, and its messages become uncovered again so the next pass re-derives the surviving history. The sitting's anchors and picture are
+reset to what predates the rewind. Nothing here touches durable identities (actors, relationships): a name that appeared is still a name."""
+from __future__ import annotations
+
+import json
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import delete, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from src.models.identity import ModelEntry
+from src.models.world import ContinuationBrief, ProducerRun, RelationshipDimension, RowProvenance, TrajectoryNote, WorldEvent, WorldLink, WorldObjective
+
+logger = logging.getLogger(__name__)
+
+# row_type recorded in row_provenance -> table
+TABLES = {"event": WorldEvent, "model_entry": ModelEntry, "objective": WorldObjective, "dimension": RelationshipDimension,
+          "trajectory_note": TrajectoryNote, "continuation_brief": ContinuationBrief}
+
+
+def _naive_utc(value: Any) -> Optional[datetime]:
+    try:
+        parsed = value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    return parsed.astimezone(timezone.utc).replace(tzinfo=None) if parsed.tzinfo else parsed
+
+
+async def retract_runs(db: AsyncSession, *, workspace_id: str, owner: str, deleted: List[Dict[str, str]]) -> Dict[str, int]:
+    from src.services.world_interpreter import message_hash
+    ids = {str(d.get("id")) for d in deleted if d.get("id")}
+    hashes = {message_hash(d.get("speaker") or "user", d.get("text") or "") for d in deleted if (d.get("text") or "").strip()}
+    runs = (await db.execute(select(ProducerRun).where(ProducerRun.honcho_workspace_id == workspace_id, ProducerRun.owner_peer_id == owner,
+                                                       ProducerRun.producer == "world-interpreter", ProducerRun.status == "applied"))).scalars().all()
+    hit = []
+    for run in runs:
+        try:
+            data = json.loads(run.input_json or "{}")
+        except ValueError:
+            continue
+        if ids & set(data.get("message_ids") or []) or hashes & set(data.get("synthetic_hashes") or []):
+            hit.append(run)
+    removed = 0
+    for run in hit:
+        prov = (await db.execute(select(RowProvenance).where(RowProvenance.run_id == run.id))).scalars().all()
+        for row_type, table in TABLES.items():
+            row_ids = [p.row_id for p in prov if p.row_type == row_type]
+            if not row_ids:
+                continue
+            made = [r for r in (await db.execute(select(table).where(table.id.in_(row_ids)))).scalars().all()
+                    if (_naive_utc(getattr(r, "created_at", None)) or datetime.min) >= (_naive_utc(run.created_at) or datetime.min)]     # only what this run CREATED; a row it merely touched stays
+            gone = [r.id for r in made]
+            if not gone:
+                continue
+            if hasattr(table, "superseded_by_id"):
+                await db.execute(update(table).where(table.superseded_by_id.in_(gone)).values(superseded_by_id=None))       # what it superseded is current again
+            await db.execute(delete(WorldLink).where(WorldLink.honcho_workspace_id == workspace_id,
+                                                     (WorldLink.from_id.in_(gone)) | (WorldLink.to_id.in_(gone))))
+            await db.execute(delete(table).where(table.id.in_(gone)))
+            removed += len(gone)
+        run.status = "retracted"
+        db.add(run)
+    await db.commit()
+    if hit:
+        from src.services import world_model_service
+        try:
+            await world_model_service.invalidate(db, workspace_id=workspace_id, owner_peer_id=owner)
+        except Exception as exc:        # the retraction stands; the snapshot refreshes on its own schedule
+            logger.warning("snapshot invalidation after rewind failed: %s", exc)
+    return {"runs_retracted": len(hit), "rows_removed": removed}
+
+
+async def reset_sitting(db: AsyncSession, *, workspace_id: str, session_ids: List[str], since: datetime) -> Dict[str, Any]:
+    """Anchors established before the rewind point stay; everything at or after it goes, and so does the prose picture (it cannot be un-written) and the
+    buffered exchanges: the next pass rebuilds the picture from the surviving messages with the surviving anchors in hand."""
+    from src.models.scene import SceneNarrative
+    from src.services.scene_narrative import load_anchors
+    dropped = kept = 0
+    for sid in dict.fromkeys(s for s in session_ids if s):
+        row = (await db.execute(select(SceneNarrative).where(SceneNarrative.honcho_workspace_id == workspace_id, SceneNarrative.honcho_session_id == sid))).scalars().first()
+        if row is None:
+            continue
+        anchors = load_anchors(row)
+        survivors = [a for a in anchors if (_naive_utc(a.get("at")) or datetime.min) < since]
+        dropped += len(anchors) - len(survivors)
+        kept += len(survivors)
+        row.anchors_json = json.dumps(survivors, ensure_ascii=False)
+        row.text, row.pending_json, row.through_message_id = "", "[]", None
+        db.add(row)
+    await db.commit()
+    return {"anchors_dropped": dropped, "anchors_kept": kept}
+
+
+async def rewind(db: AsyncSession, *, workspace_id: str, owner: str, session_ids: List[str], since: datetime, deleted: List[Dict[str, str]]) -> Dict[str, Any]:
+    since_naive = _naive_utc(since) or datetime.utcnow()
+    return {**await retract_runs(db, workspace_id=workspace_id, owner=owner, deleted=deleted),
+            **await reset_sitting(db, workspace_id=workspace_id, session_ids=session_ids, since=since_naive)}

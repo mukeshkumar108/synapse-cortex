@@ -89,6 +89,9 @@ async def current(db: AsyncSession, workspace_id: str, session_id: str) -> Optio
         SceneNarrative.honcho_workspace_id == workspace_id, SceneNarrative.honcho_session_id == session_id))).scalars().first()
 
 
+_LOCKS: Dict[str, Any] = {}
+
+
 async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, messages: List[Dict[str, str]], names: Dict[str, str],
                   model: Optional[str] = None, force: bool = False, owner: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Hand in the newest exchange. The picture is rewritten (one cheap model call) only when enough has accrued to leave the raw tail (or `force`, for a
@@ -96,6 +99,13 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
     fresh = [m for m in messages if str(m.get("text") or "").strip()]
     if not fresh:
         return None
+    import asyncio
+    async with _LOCKS.setdefault(f"{workspace_id}|{session_id}", asyncio.Lock()):       # passes for one sitting run one after another: a slow earlier pass must not finish after, and overwrite, a later one
+        return await _narrate_locked(db, adapter=adapter, workspace_id=workspace_id, session_id=session_id, fresh=fresh, names=names, model=model, force=force, owner=owner)
+
+
+async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, fresh: List[Dict[str, str]], names: Dict[str, str],
+                          model: Optional[str], force: bool, owner: Optional[str]) -> Optional[Dict[str, Any]]:
     row = await current(db, workspace_id, session_id)
     if row is None:
         row = SceneNarrative(honcho_workspace_id=workspace_id, honcho_session_id=session_id, text="")
@@ -146,10 +156,14 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
     return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "anchors": anchors, "significance": significance, "significance_kind": str((out or {}).get("significance_kind") or "none"), "standing_requests": await standing_requests.active(db, workspace_id, owner) if owner else []}
 
 
-TRUTH_SYSTEM = """You are the keeper of the story's ground truth. The person has asked the character, directly, about something in the PAST that the character knows and the story has NOT established (what happened at a party last year, where she was, what she did). The character cannot answer consistently about a fact that does not exist: left alone, the answer changes from reply to reply, or the character stalls for ever.
-Decide, once, what is actually true. Write 2 to 4 plain, concrete sentences of neutral fact about that past event (who did what, where, when, how it ended, and why it was kept back), consistent with EVERY ESTABLISHED FACT, the character's constitution and the register of the story so far. Not dialogue, not a script, not a plan for how to reveal it: only what happened. Specific (names, places, what was said or done), plausible for these people, and no more extreme than the story's own register.
-This is ONLY for a direct question about the past. Return {"needed": false} for everything else, in particular: what happens next in the scene, a pending decision or plan, whether someone will do something, an outcome the story has yet to play out, a feeling, a request, anything the person has not asked about, anything the established facts already answer (an ESTABLISHED FACT of kind private_truth that covers it counts: never author a second, different or fuller version of a truth that already exists), and anything about the person's own real life. Never decide the future of the scene. When unsure, return {"needed": false}.
-Output a JSON object: {"needed": true|false, "topic": "<what the question was about, a few words>", "truth": "<what actually happened>"}"""
+TRUTH_SYSTEM = """You are the keeper of the story's ground truth. The person has asked the character, directly, about something in the PAST that the character knows and the story has NOT established (what happened at a party last year, where she was, whether she kissed someone). The character cannot answer consistently about a fact that does not exist: left alone, the answer changes from reply to reply, or the character stalls for ever.
+You are given the EXISTING PRIVATE TRUTHS: each is ONE hidden event the story already has an answer for. Questions about the same underlying event (what happened at Lila's, did you kiss him, did you sleep with him, who was there, what exactly happened) are all questions about that one event and must resolve against it, never against a new one.
+Choose ONE action:
+- "none": the question is already answered by an existing private truth or by the established facts, or it is not a direct question about the past (what happens next in the scene, a pending decision or plan, whether someone will do something, a feeling, a request, anything the person has not asked about, the person's own real life). When unsure, "none". Never decide the future of the scene.
+- "extend": the question concerns an event an existing private truth already covers but asks about an aspect it leaves open. Give `target_id` and, in `truth`, ONLY the additional facts (1 to 3 plain sentences) that settle that aspect, consistent with everything already true.
+- "new": the question concerns a different past event that has no private truth. Write 2 to 4 plain, concrete sentences of neutral fact (who did what, where, when, how it ended, why it was kept back), consistent with EVERY established fact, the character's constitution and the register of the story so far. Specific, plausible, and no more extreme than the story's own register.
+Never dialogue, never a script, never a plan for how to reveal it: only what happened. Explicit or painful material is described only as far as needed to fix what happened.
+Output a JSON object: {"action": "none"|"extend"|"new", "target_id": "<id of the private truth, for extend>", "topic": "<what the question was about, a few words>", "truth": "<what actually happened / the additional facts>"}"""
 
 
 async def author_truth(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, question_anchor_id: Optional[str], question: str, picture: str, recent: List[Dict[str, str]],
@@ -164,17 +178,29 @@ async def author_truth(db: AsyncSession, *, adapter: Any, workspace_id: str, ses
     if target is not None and target.get("authored"):
         return {"needed": False, "reason": "already_authored", "anchors": anchors}
     who = lambda m: names.get(m.get("speaker"), m.get("speaker"))
-    established = "\n".join(f"- ({a['kind']}) {a['text']}" for a in anchors if a.get("status") != "closed")
-    prompt = (f"CHARACTER: {character}\nCONSTITUTION: {constitution or '(none given)'}\n\nTHE QUESTION THE PERSON IS ASKING: {question}\n\nPICTURE OF THE STORY SO FAR:\n{picture or row.text or '(none)'}\n\n"
-              f"ESTABLISHED FACTS:\n{established or '(none)'}\n\nRECENT MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in recent[-8:]))
-    out = await adapter.generate_structured(system=TRUTH_SYSTEM, prompt=prompt, json_schema={"needed": "boolean", "topic": "string", "truth": "string"}, model_id=model or SCENE_MODEL,
+    truths = [a for a in anchors if a.get("kind") == "private_truth"]
+    established = "\n".join(f"- ({a['kind']}) {a['text']}" for a in anchors if a.get("status") != "closed" and a.get("kind") != "private_truth")
+    existing = "\n".join(f"[{a['id']}] ({a.get('topic') or 'event'}) {a['text']}" for a in truths)
+    prompt = (f"CHARACTER: {character}\nCONSTITUTION: {constitution or '(none given)'}\n\nTHE QUESTION THE PERSON IS ASKING: {question}\n\nEXISTING PRIVATE TRUTHS:\n{existing or '(none)'}\n\n"
+              f"PICTURE OF THE STORY SO FAR:\n{picture or row.text or '(none)'}\n\nESTABLISHED FACTS:\n{established or '(none)'}\n\nRECENT MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in recent[-8:]))
+    out = await adapter.generate_structured(system=TRUTH_SYSTEM, prompt=prompt, json_schema={"action": "string", "target_id": "string", "topic": "string", "truth": "string"}, model_id=model or SCENE_MODEL,
                                             max_tokens=400, temperature=0.7, strict=False, timeout=30)
+    action = str((out or {}).get("action") or "none").lower()
     truth = " ".join(str((out or {}).get("truth") or "").split())[:600]
     if target is not None:
         target["authored"] = True
     verdict: Dict[str, Any] = {"needed": False}
-    if (out or {}).get("needed") and truth:
-        from src.models.scene import utc_now
+    from src.models.scene import utc_now
+    if action == "extend" and truth:
+        base = next((a for a in truths if a.get("id") == (out or {}).get("target_id")), None) or (truths[-1] if truths else None)
+        if base is not None:
+            if truth.lower() not in base["text"].lower():
+                base["text"] = (base["text"].rstrip() + " " + truth)[:1000]            # same event, same anchor: one identity, grown, never a second version
+                base["extended_at"] = utc_now().isoformat()
+            verdict = {"needed": True, "extended": base["id"], "topic": str(base.get("topic") or "")}
+        else:
+            action = "new"
+    if action == "new" and truth:
         seq = max([int(str(a["id"]).lstrip("a") or 0) for a in anchors] + [0]) + 1
         anchors.append({"id": f"a{seq}", "kind": "private_truth", "text": truth, "topic": str((out or {}).get("topic") or "")[:80], "status": "established", "at": utc_now().isoformat()})
         while len(anchors) > MAX_ANCHORS:

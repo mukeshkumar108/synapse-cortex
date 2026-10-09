@@ -119,18 +119,23 @@ def test_anchors_are_append_only_deduped_closable_and_the_bond_peaks_outlast_det
 
 
 @pytest.mark.asyncio
-async def test_an_unanswered_question_gets_one_authored_truth_that_is_protected_and_never_authored_twice():
-    ad = _Adapter({"scene": "Kai wants to know what happened at Lila's.", "new_anchors": [{"kind": "open_loop", "text": "Kai asked what happened at Lila's party and has not been told"}]},
-                  {"needed": True, "topic": "Lila's party", "truth": "At Lila's party last June Arabella left early with Tom, her ex, and spent the night at his flat; she has never told Kai because Tom was still in her life then."},
-                  {"needed": True, "truth": "must never be asked for again"})
+async def test_related_questions_resolve_against_one_private_event_and_are_never_authored_twice():
+    ad = _Adapter({"scene": "Kai wants to know what happened at Lila's.", "new_anchors": [{"kind": "open_loop", "text": "Kai asked what happened at Lila's party and has not been told"},
+                                                                                    {"kind": "open_loop", "text": "Kai asked whether Arabella kissed anyone at the party"}]},
+                  {"action": "new", "topic": "Lila's party", "truth": "At Lila's party last June Arabella left early with Tom, her ex, and spent the night at his flat; she has never told Kai because Tom was still in her life then."},
+                  {"action": "extend", "target_id": "a3", "truth": "They kissed once in the car before she went up; nothing more happened."},
+                  {"action": "new", "truth": "must never be used"})
     async with async_session_maker() as db:
         pic = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-t", session_id="s-t", names=N, messages=ex("tell me about lila's", "I can't"), force=True)
-        loop = next(a for a in pic["anchors"] if a["kind"] == "open_loop")
-        kw = dict(adapter=ad, workspace_id="w-t", session_id="s-t", question_anchor_id=loop["id"], question="what happened at Lila's?", picture=pic["text"], recent=ex("tell me", "I can't"),
-                  character="Arabella", constitution="", names=N)
-        out = await scene_narrative.author_truth(db, **kw)
-        truth = next(a for a in out["anchors"] if a["kind"] == "private_truth")
-        assert out["needed"] and "Tom" in truth["text"] and next(a for a in out["anchors"] if a["id"] == loop["id"])["authored"] is True
-        again = await scene_narrative.author_truth(db, **kw)
-        assert again["needed"] is False and again["reason"] == "already_authored" and len(ad.prompts) == 2       # one authoring call, ever, per question
+        loops = [a for a in pic["anchors"] if a["kind"] == "open_loop"]
+        kw = dict(adapter=ad, workspace_id="w-t", session_id="s-t", picture=pic["text"], recent=ex("tell me", "I can't"), character="Arabella", constitution="", names=N)
+        first = await scene_narrative.author_truth(db, question_anchor_id=loops[0]["id"], question="what happened at Lila's?", **kw)
+        truths = [a for a in first["anchors"] if a["kind"] == "private_truth"]
+        assert first["needed"] and len(truths) == 1 and "Tom" in truths[0]["text"]
+        second = await scene_narrative.author_truth(db, question_anchor_id=loops[1]["id"], question="did you kiss him?", **kw)
+        truths = [a for a in second["anchors"] if a["kind"] == "private_truth"]
+        assert len(truths) == 1 and second["extended"] == truths[0]["id"] and "Tom" in truths[0]["text"] and "kissed once in the car" in truths[0]["text"]      # one event, grown
+        assert "Arabella left early with Tom" in ad.prompts[2] and "EXISTING PRIVATE TRUTHS" in ad.prompts[2]                                               # the author sees the event it must stay inside
+        again = await scene_narrative.author_truth(db, question_anchor_id=loops[0]["id"], question="what happened at Lila's?", **kw)
+        assert again["needed"] is False and again["reason"] == "already_authored" and len(ad.prompts) == 3
         assert scene_narrative.EVICTION_RANK["private_truth"] > max(v for k, v in scene_narrative.EVICTION_RANK.items() if k != "private_truth")

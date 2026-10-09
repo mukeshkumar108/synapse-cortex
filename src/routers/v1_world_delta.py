@@ -134,6 +134,28 @@ async def author_truth(req: AuthorTruthRequest, db: AsyncSession = Depends(get_a
         raise HTTPException(status_code=500, detail=f"author_truth_failed:{type(exc).__name__}") from exc
 
 
+class RewindRequest(BaseModel):
+    workspace_id: str
+    owner: str
+    session_ids: List[str]                  # the conversation's sitting-state sessions (picture + anchors)
+    since: str                              # ISO time of the first discarded exchange
+    deleted: List[Dict[str, str]] = []      # [{id?, speaker: user|assistant, text}] the messages that left the active timeline
+
+
+@router.post("/rewind")
+async def rewind_world(req: RewindRequest, db: AsyncSession = Depends(get_async_session)):
+    """The person edited / retried / regenerated: what was derived from the discarded messages loses its authority (see world_rewind)."""
+    from datetime import datetime as _dt
+    from src.services import world_rewind
+    try:
+        since = _dt.fromisoformat(req.since.replace("Z", "+00:00"))
+        return await world_rewind.rewind(db, workspace_id=req.workspace_id, owner=req.owner, session_ids=req.session_ids, since=since, deleted=req.deleted)
+    except Exception as exc:
+        await db.rollback()
+        logger.exception("rewind failed")
+        raise HTTPException(status_code=500, detail=f"rewind_failed:{type(exc).__name__}") from exc
+
+
 @router.get("/interpreter-config")
 async def interpreter_config():
     """The authoritative description of the world interpreter AS DEPLOYED (never a copy): the exact system prompt, model, and where its output goes."""
