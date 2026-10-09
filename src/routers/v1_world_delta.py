@@ -105,6 +105,35 @@ async def narrate_scene(req: NarrateRequest, db: AsyncSession = Depends(get_asyn
         raise HTTPException(status_code=500, detail=f"narrate_failed:{type(exc).__name__}") from exc
 
 
+class AuthorTruthRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    question: str                           # the unanswered question, in the person's terms
+    question_anchor_id: Optional[str] = None
+    picture: str = ""
+    recent: List[Dict[str, str]] = []
+    character: str = "the character"
+    constitution: str = ""
+    names: Dict[str, str] = {}
+
+
+@router.post("/author-truth")
+async def author_truth(req: AuthorTruthRequest, db: AsyncSession = Depends(get_async_session)):
+    """Fiction only: author the ground truth behind a question the story has not answered, once, as a private sitting anchor. Fail-open for the caller."""
+    from src.runtime_model import get_agenda_adapter
+    from src.services import scene_narrative
+    adapter = get_agenda_adapter()
+    if adapter is None:
+        raise HTTPException(status_code=503, detail="no_model_credentials")
+    try:
+        return await scene_narrative.author_truth(db, adapter=adapter, workspace_id=req.workspace_id, session_id=req.session_id, question_anchor_id=req.question_anchor_id, question=req.question,
+                                                  picture=req.picture, recent=req.recent, character=req.character, constitution=req.constitution, names=req.names)
+    except Exception as exc:
+        await db.rollback()
+        logger.exception("author truth failed")
+        raise HTTPException(status_code=500, detail=f"author_truth_failed:{type(exc).__name__}") from exc
+
+
 @router.get("/interpreter-config")
 async def interpreter_config():
     """The authoritative description of the world interpreter AS DEPLOYED (never a copy): the exact system prompt, model, and where its output goes."""

@@ -24,9 +24,9 @@ REWRITE_EVERY_MESSAGES = 4     # the picture is rewritten once this many new mes
 MAX_PENDING = 12
 MAX_ANCHORS = 24
 ANCHOR_CHARS = 220
-ANCHOR_KINDS = ("event", "promise", "decision", "open_loop", "person", "external", "milestone", "claim")
+ANCHOR_KINDS = ("event", "promise", "decision", "open_loop", "person", "external", "milestone", "claim")      # (+ "private_truth", authored by author_truth, never proposed by the picture pass)
 MAX_NEW_PER_PASS = 3
-EVICTION_RANK = {"claim": 0, "event": 1, "person": 2, "external": 3, "decision": 4, "promise": 5, "open_loop": 6, "milestone": 7}      # lowest goes first; the peaks of the bond go last
+EVICTION_RANK = {"private_truth": 9, "claim": 0, "event": 1, "person": 2, "external": 3, "decision": 4, "promise": 5, "open_loop": 6, "milestone": 7}      # lowest goes first; the peaks of the bond go last
 
 SYSTEM = """You keep the running picture of one ongoing conversation between a person and a companion character, so the character can speak as one continuous self.
 You are given the PREVIOUS PICTURE (what was already known) and the LAST MESSAGES (verbatim). Write the picture as it stands NOW: 6 to 14 short plain sentences, no lists, no headings. BEGIN it with where the relationship stands and what has been built between them: moments of closeness, celebration, trust, vulnerability, affection or repair are the weightiest things in any conversation. Keep each such moment (a clause: what it was, how it landed) for as long as the scene lasts even when it is no longer the latest thing, and say how it should colour what follows. A later disagreement or strange turn is described against that background, as a rupture of it, never as if the bond did not exist; and when something a character says or does is out of keeping with that background, say that it is out of keeping.
@@ -114,7 +114,7 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
     held = await standing_requests.active(db, workspace_id, owner) if owner else []
     previous_requests = "\n".join(f"- {x}" for x in held)
     anchors = load_anchors(row)
-    anchor_lines = "\n".join(f"[{a['id']}] ({a['status']}) {a['text']}" for a in anchors)
+    anchor_lines = "\n".join(f"[{a['id']}] ({a['status']}) {a['text']}" for a in anchors if a.get("kind") != "private_truth")      # the authored truth stays out of the picture's prose: the person has not been told it
     prompt = (f"PEOPLE: {names.get('user', 'the person')} (the person), {names.get('assistant', 'the companion')} (the companion character)\n\n"
               f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nPREVIOUS STANDING REQUESTS:\n{previous_requests or '(none)'}\n\nCURRENT ANCHORS:\n{anchor_lines or '(none yet)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
     model_id = model or SCENE_MODEL
@@ -144,3 +144,43 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
     except (TypeError, ValueError):
         significance = 0
     return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "anchors": anchors, "significance": significance, "significance_kind": str((out or {}).get("significance_kind") or "none"), "standing_requests": await standing_requests.active(db, workspace_id, owner) if owner else []}
+
+
+TRUTH_SYSTEM = """You are the keeper of the story's ground truth. In an ongoing fiction, the person has asked the character about something that happened (or something the character is keeping back), and the story has NOT established the answer. The character cannot speak consistently about a fact that does not exist: left alone, the answer changes from reply to reply, or the character stalls.
+Decide, once, what is actually true. Write 2 to 4 plain, concrete sentences of neutral fact (who did what, where, when, how it ended, and what the character has not told and why it was kept back), consistent with EVERY ESTABLISHED FACT, the character's constitution and the register of the story so far. Not dialogue, not a script, not a plan for how to reveal it: only what happened. It must be specific (names, places, what was said or done), plausible for these people, and no more extreme than the story's own register. Explicit or painful material is described only as far as needed to fix what happened.
+Return {"needed": false} when the question is already answered by the established facts, or is not about a fact (a feeling, a plan, a request), or concerns the person's own life rather than the character's.
+Output a JSON object: {"needed": true|false, "topic": "<what the question was about, a few words>", "truth": "<what actually happened>"}"""
+
+
+async def author_truth(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, question_anchor_id: Optional[str], question: str, picture: str, recent: List[Dict[str, str]],
+                       character: str, constitution: str, names: Dict[str, str], model: Optional[str] = None) -> Dict[str, Any]:
+    """Author the hidden truth behind an unanswered question ONCE, as a sitting anchor of kind private_truth (append-only, so every later reply and regeneration has the same
+    answer). The system owns what happened; the foreground owns how the character tells it. Marks the question anchor so it is never authored twice, whatever the verdict."""
+    row = await current(db, workspace_id, session_id)
+    if row is None:
+        return {"needed": False, "reason": "no_sitting"}
+    anchors = load_anchors(row)
+    target = next((a for a in anchors if a.get("id") == question_anchor_id), None) if question_anchor_id else None
+    if target is not None and target.get("authored"):
+        return {"needed": False, "reason": "already_authored", "anchors": anchors}
+    who = lambda m: names.get(m.get("speaker"), m.get("speaker"))
+    established = "\n".join(f"- ({a['kind']}) {a['text']}" for a in anchors if a.get("status") != "closed")
+    prompt = (f"CHARACTER: {character}\nCONSTITUTION: {constitution or '(none given)'}\n\nTHE QUESTION THE PERSON IS ASKING: {question}\n\nPICTURE OF THE STORY SO FAR:\n{picture or row.text or '(none)'}\n\n"
+              f"ESTABLISHED FACTS:\n{established or '(none)'}\n\nRECENT MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in recent[-8:]))
+    out = await adapter.generate_structured(system=TRUTH_SYSTEM, prompt=prompt, json_schema={"needed": "boolean", "topic": "string", "truth": "string"}, model_id=model or SCENE_MODEL,
+                                            max_tokens=400, temperature=0.7, strict=False, timeout=30)
+    truth = " ".join(str((out or {}).get("truth") or "").split())[:600]
+    if target is not None:
+        target["authored"] = True
+    verdict: Dict[str, Any] = {"needed": False}
+    if (out or {}).get("needed") and truth:
+        from src.models.scene import utc_now
+        seq = max([int(str(a["id"]).lstrip("a") or 0) for a in anchors] + [0]) + 1
+        anchors.append({"id": f"a{seq}", "kind": "private_truth", "text": truth, "topic": str((out or {}).get("topic") or "")[:80], "status": "established", "at": utc_now().isoformat()})
+        while len(anchors) > MAX_ANCHORS:
+            victim = min(enumerate(anchors), key=lambda ia: (0 if ia[1]["status"] == "closed" else 1, EVICTION_RANK.get(ia[1]["kind"], 1), ia[0]))[1]
+            anchors.remove(victim)
+        verdict = {"needed": True, "topic": str((out or {}).get("topic") or "")}
+    row.anchors_json = json.dumps(anchors, ensure_ascii=False)
+    await db.commit()
+    return {**verdict, "anchors": anchors, "updated_at": row.updated_at.isoformat() if row.updated_at else None, "text": row.text}

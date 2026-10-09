@@ -72,6 +72,7 @@ PRINCIPLES
 - HONCHO CONTEXT (when present) is earlier evidence and summaries retrieved from the long-term store: use it to recognise continuity, never as
   fresher than the NEW EVIDENCE and never to invent ids.
 - BRIEF: 80-150 neutral words, what has happened and where each person stands now, including what is unknown and any contradictions left unresolved. The text is plain prose with NO refs or ids in it; the refs go only in `lines[].refs`.
+- PROVENANCE OF THE COMPANION'S OWN WORDS: what the companion character says about its own OFF-SCREEN past or secret acts, offered under questioning, or anything that contradicts events already established in the evidence or the CURRENT WORLD STATE, is a CLAIM held by that actor (list the established event in `conflicts_with`), never an event. It becomes an event only if the evidence independently shows it happened (it is shown happening in the scene, or the person confirms it). What the companion does and says in the present scene is evidence of what occurred there as usual.
 - Epistemic policy 'grounded' (a real person's life): facts that only the companion asserted about the user's life or other people are
   hypotheses, not facts. Policy 'generative' (collaborative fiction): story events and invented detail are canon, still attributed.
 - IDENTITIES are product-supplied, never inferred from prose: the actor refs `user` (the human's actor) and `companion` (the character) already exist in
