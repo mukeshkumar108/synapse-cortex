@@ -38,8 +38,8 @@ A character's own account of their hidden past or secret feelings, offered for t
 Neutral description only: never an instruction, never a line for the character to say. The material may be fiction or explicit: describe it only as far as needed to track what is happening.
 STANDING REQUESTS are kept separately, NOT in the picture. Anything the person has asked of the character about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the character got wrong) goes in "standing_requests" as short plain statements in the person's own terms. You are given the PREVIOUS STANDING REQUESTS: return every one of them again unless the person has withdrawn or clearly changed it, plus any new one. Never drop one for space.
 Also judge how much the LAST MESSAGES change what these two people are to each other: "significance" 0 = ordinary flow, 1 = a small beat, 2 = a real moment (a confession or vulnerability, a celebration shared, real tenderness or intimacy, an apology or repair, a disagreement that matters, a promise), 3 = a turning point (the bond clearly deepened or ruptured). Positive moments count exactly as much as hard ones. "significance_kind": one of closeness, celebration, vulnerability, repair, rupture, promise, none.
-ANCHORS are the sitting's fixed facts, kept separately from the picture and never rewritten. You are given the CURRENT ANCHORS (with ids). Return "new_anchors" (AT MOST 3 per pass; none is fine; never restate or reword an existing anchor; fold detail into it by leaving it alone): only concrete facts the LAST MESSAGES newly establish that anything later must stay consistent with: what happened (who did what to whom, with the real numbers, names, places), what was promised or decided, a question asked and not answered, a person who appeared, what a third party did to whom, a milestone of the bond (a celebration, a moment of tenderness, a confession). What a character SAYS about their own past or secret feelings, offered under questioning, is kind "claim" (a claim is not a fact of the scene). One plain factual sentence each, kind one of event, promise, decision, open_loop, person, external, milestone, claim. Do not restate an anchor already listed; moods, tone and texture are NOT anchors. Return "closed_anchor_ids": ids of CURRENT ANCHORS that the LAST MESSAGES resolved (an open loop answered, a promise kept or broken).
-Output a JSON object: {"scene": "<the picture>", "standing_requests": ["<request>", ...], "significance": 0|1|2|3, "significance_kind": "<kind>", "new_anchors": [{"kind": "<kind>", "text": "<fact>"}], "closed_anchor_ids": ["<id>", ...]}"""
+ANCHORS are the sitting's fixed facts, kept separately from the picture and never rewritten. You are given the CURRENT ANCHORS (with ids). Return "new_anchors" (AT MOST 3 per pass; none is fine; never restate or reword an existing anchor; fold detail into it by leaving it alone): only concrete facts the LAST MESSAGES newly establish that anything later must stay consistent with: what happened (who did what to whom, with the real numbers, names, places), what was promised or decided, a question asked and not answered, a person who appeared, what a third party did to whom, a milestone of the bond (a celebration, a moment of tenderness, a confession). What a character SAYS about their own past or secret feelings, offered under questioning, is kind "claim" (a claim is not a fact of the scene). One plain factual sentence each, kind one of event, promise, decision, open_loop, person, external, milestone, claim. Do not restate an anchor already listed; moods, tone and texture are NOT anchors. Give each new anchor "by": who established it: "user" (the person said or did it), "character" (only the character said it), "scene" (it happened in the scene as shown). Return "closed_anchor_ids": ids of CURRENT ANCHORS that the LAST MESSAGES resolved (an open loop answered, a promise kept or broken). Return "reasked_anchor_ids": ids of open CURRENT ANCHORS (a question or a promise) that the LAST MESSAGES ask for AGAIN or object is still unmet (the person repeats the question, or says it has not been answered or done); never an id that was only just created.
+Output a JSON object: {"scene": "<the picture>", "standing_requests": ["<request>", ...], "significance": 0|1|2|3, "significance_kind": "<kind>", "new_anchors": [{"kind": "<kind>", "text": "<fact>", "by": "user|character|scene"}], "closed_anchor_ids": ["<id>", ...], "reasked_anchor_ids": ["<id>", ...]}"""
 
 
 def load_anchors(row: Any) -> List[Dict[str, Any]]:
@@ -55,7 +55,7 @@ def _similar(a: str, b: str) -> bool:
     return bool(ta and tb) and len(ta & tb) / len(ta | tb) >= 0.55
 
 
-def merge_anchors(existing: List[Dict[str, Any]], new: Any, closed: Any, now: Any) -> List[Dict[str, Any]]:
+def merge_anchors(existing: List[Dict[str, Any]], new: Any, closed: Any, now: Any, reasked: Any = None) -> List[Dict[str, Any]]:
     """Append-only within a sitting: the model proposes additions and closures, deterministic code applies them. An anchor's text is never rewritten, so a later pass cannot smooth a
     concrete fact (a salary, a name, what a third party sent) into a generality. Bounded, and the bound protects the peaks: closed anchors go first, then claims and plain events
     (oldest first); milestones, open loops and promises are the last to be shed."""
@@ -64,6 +64,11 @@ def merge_anchors(existing: List[Dict[str, Any]], new: Any, closed: Any, now: An
     for a in anchors:
         if a["id"] in shut:
             a["status"] = "closed"
+    stamp = now.isoformat() if hasattr(now, "isoformat") else str(now)
+    for a in anchors:
+        if a["id"] in {str(r) for r in (reasked or []) if r} and a.get("status") == "open":
+            a["asked_n"] = int(a.get("asked_n") or 1) + 1           # an obligation is persistent state: how many times it has been asked, not only that it is open
+            a["last_asked_at"] = stamp
     seq = max([int(str(a["id"]).lstrip("a") or 0) for a in anchors] + [0])
     added = 0
     for item in (new or []):
@@ -76,8 +81,12 @@ def merge_anchors(existing: List[Dict[str, Any]], new: Any, closed: Any, now: An
             continue
         seq += 1
         added += 1
-        anchors.append({"id": f"a{seq}", "kind": kind, "text": text, "status": "open" if kind in ("promise", "open_loop", "decision") else "claimed" if kind == "claim" else "established",
-                        "at": now.isoformat() if hasattr(now, "isoformat") else str(now)})
+        by = str(item.get("by") or "").lower()
+        by = by if by in ("user", "character", "scene") else ("character" if kind == "claim" else "scene")
+        row = {"id": f"a{seq}", "kind": kind, "text": text, "by": by, "status": "open" if kind in ("promise", "open_loop", "decision") else "claimed" if kind == "claim" else "established", "at": stamp}
+        if kind in ("promise", "open_loop"):
+            row.update(asked_n=1, first_asked_at=stamp, last_asked_at=stamp)
+        anchors.append(row)
     while len(anchors) > MAX_ANCHORS:
         victim = min(enumerate(anchors), key=lambda ia: (0 if ia[1]["status"] == "closed" else 1, EVICTION_RANK.get(ia[1]["kind"], 1), ia[0]))[1]
         anchors.remove(victim)
@@ -135,7 +144,7 @@ async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, 
               f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nPREVIOUS STANDING REQUESTS:\n{previous_requests or '(none)'}\n\nCURRENT ANCHORS:\n{anchor_lines or '(none yet)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
     model_id = model or SCENE_MODEL
     try:
-        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string", "standing_requests": ["string"], "significance": "integer", "significance_kind": "string", "new_anchors": [{"kind": "string", "text": "string"}], "closed_anchor_ids": ["string"]}, model_id=model_id, max_tokens=700,
+        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string", "standing_requests": ["string"], "significance": "integer", "significance_kind": "string", "new_anchors": [{"kind": "string", "text": "string", "by": "string"}], "closed_anchor_ids": ["string"], "reasked_anchor_ids": ["string"]}, model_id=model_id, max_tokens=700,
                                                 temperature=0.2, strict=False, timeout=45)
     except Exception:
         row.pending_json = json.dumps(pending, ensure_ascii=False)       # keep the exchanges: the next pass covers them
@@ -151,7 +160,7 @@ async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, 
     if owner and isinstance(returned, list):        # a pass that omits the field changes nothing; only an explicit list (possibly empty = all withdrawn) is applied
         await standing_requests.sync(db, workspace_id, owner, [str(x) for x in returned], source="scene_pass")
     row.text, row.model, row.updated_at = text, model_id, utc_now()
-    anchors = merge_anchors(anchors, (out or {}).get("new_anchors"), (out or {}).get("closed_anchor_ids"), row.updated_at)
+    anchors = merge_anchors(anchors, (out or {}).get("new_anchors"), (out or {}).get("closed_anchor_ids"), row.updated_at, (out or {}).get("reasked_anchor_ids"))
     row.anchors_json = json.dumps(anchors, ensure_ascii=False)
     row.through_message_id = next((m.get("id") for m in reversed(pending) if m.get("id")), None)
     await db.commit()
@@ -217,7 +226,7 @@ async def author_truth(db: AsyncSession, *, adapter: Any, workspace_id: str, ses
             action = "new"
     if action == "new" and truth:
         seq = max([int(str(a["id"]).lstrip("a") or 0) for a in anchors] + [0]) + 1
-        anchors.append({"id": f"a{seq}", "kind": "private_truth", "text": truth, "topic": str((out or {}).get("topic") or "")[:80], "status": "established", "at": utc_now().isoformat()})
+        anchors.append({"id": f"a{seq}", "kind": "private_truth", "by": "system", "text": truth, "topic": str((out or {}).get("topic") or "")[:80], "status": "established", "at": utc_now().isoformat()})
         while len(anchors) > MAX_ANCHORS:
             victim = min(enumerate(anchors), key=lambda ia: (0 if ia[1]["status"] == "closed" else 1, EVICTION_RANK.get(ia[1]["kind"], 1), ia[0]))[1]
             anchors.remove(victim)

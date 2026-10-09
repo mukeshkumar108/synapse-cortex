@@ -145,3 +145,20 @@ async def test_related_questions_resolve_against_one_private_event_and_are_never
         truths = [a for a in forked["anchors"] if a["kind"] == "private_truth"]
         assert len(truths) == 1 and "second, different story" in truths[0]["text"]          # the model said "new"; the question shares the event's words, so it is the same event, extended
         assert scene_narrative.EVICTION_RANK["private_truth"] > max(v for k, v in scene_narrative.EVICTION_RANK.items() if k != "private_truth")
+
+
+@pytest.mark.asyncio
+async def test_an_obligation_is_persistent_state_with_a_count_and_a_provenance():
+    ad = _Adapter({"scene": "Kai wants to know.", "new_anchors": [{"kind": "open_loop", "text": "Kai asked what happened at Lila's and has not been told", "by": "user"},
+                                                                  {"kind": "claim", "text": "Isa says she never left the house", "by": "character"}]},
+                  {"scene": "Kai asks again.", "reasked_anchor_ids": ["a1"]},
+                  {"scene": "Kai asks a third time.", "reasked_anchor_ids": ["a1", "a2"]})        # a2 is a claim, not an obligation: never counted
+    async with async_session_maker() as db:
+        first = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-ob", session_id="s-ob", names=N, messages=ex("what happened at lila's?", "I can't"), force=True)
+        loop = next(a for a in first["anchors"] if a["kind"] == "open_loop")
+        assert loop["by"] == "user" and loop["asked_n"] == 1 and next(a for a in first["anchors"] if a["kind"] == "claim")["by"] == "character"
+        await scene_narrative.narrate(db, adapter=ad, workspace_id="w-ob", session_id="s-ob", names=N, messages=ex("tell me", "I'm scared"), force=True)
+        third = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-ob", session_id="s-ob", names=N, messages=ex("you still haven't answered", "..."), force=True)
+        loop = next(a for a in third["anchors"] if a["kind"] == "open_loop")
+        assert loop["asked_n"] == 3 and loop["first_asked_at"] <= loop["last_asked_at"]
+        assert "asked_n" not in next(a for a in third["anchors"] if a["kind"] == "claim")
