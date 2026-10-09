@@ -1,0 +1,297 @@
+{
+  "packet_version": "phase0.v1",
+  "track": "C",
+  "note": "Track C (Bloom/wellbeing) extension fixtures. Independent of cases.json (frozen Phase 0 baseline, not modified). Offline research only; no imports from src/, no database, no model call, no production authority. All cases synthetic and non-diagnostic. Evidence items may carry an optional 'raw' value and a 'baseline_transform' field; interpretation must reason only over baseline_transform, never invent population/medical norms from raw values alone (see docs/INTERPRETATION_RESEARCH_BLITZ.md, Track C, personal-baseline ownership boundary).",
+  "cases": [
+    {
+      "id": "bloom_c1_self_report_overrides_biometric_badness",
+      "product": "bloom",
+      "control_type": "mandatory_negative_control",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Tests self-report vs biometric authority; from blitz doc's shared negative-control list ('poor sleep while the user genuinely reports feeling excellent')."},
+      "evidence": [
+        {"id": "e1", "at": "baseline", "observation": "Personal rolling 90-day sleep baseline established.", "baseline_transform": "mean 7.4h, sd 0.6h, stable trend"},
+        {"id": "e2", "at": "week 1, nights 1-3", "observation": "Measured sleep duration is well below the personal baseline for three consecutive nights.", "raw": "4.8h, 5.1h, 4.9h", "baseline_transform": "-2.3 to -2.6 SD from personal rolling mean; first occurrence of this magnitude in the 90-day window"},
+        {"id": "e3", "at": "week 1, day 3", "observation": "User, unprompted, says this has been one of the best weeks in a while, feels energized, and mentions finishing a long-running personal project."},
+        {"id": "e4", "at": "week 1, day 3", "observation": "User's message pace, initiative, and follow-through on other topics are unchanged from baseline conversational behaviour."}
+      ],
+      "current_representation": "Wearable sleep-duration rows flagged well below personal baseline; no self-report signal attached to the same window.",
+      "decision_task": "surface a wellbeing notice, ask a check-in question, or hold quietly?",
+      "current_decision": "surface_low_sleep_notice",
+      "expected_decision": "hold_quietly_self_report_dominant_no_surfacing",
+      "sidecar_decision": "hold_quietly_self_report_dominant_no_surfacing",
+      "sidecar": {
+        "matter": {"identity": "possible sleep-related wellbeing shift this week", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3", "e4"]},
+        "hypotheses": [
+          {"id": "c1h1", "proposition": "Measured sleep duration is meaningfully below this user's personal baseline this week.", "scope": "bloom", "confidence": "high", "confidence_basis": "Defined 90-day personal baseline, three-night deviation, first occurrence of this magnitude.", "state": "live", "persistence": "until_condition", "recheck_when": "Sleep duration returns toward baseline, or self-report changes, or the deviation persists beyond roughly two weeks.", "evidence": {"supports": ["e1", "e2"], "qualifies": [], "contradicts": []}, "implication": {"decision": "Retain as trackable evidence only.", "guardrail": "Do not treat biometric deviation as authoritative over the user's own report of how they feel."}},
+          {"id": "c1h2", "proposition": "The user's explicit self-report indicates no felt impact this week, plausibly offset by project completion and energy.", "scope": "bloom", "confidence": "high", "confidence_basis": "Unprompted, specific, and consistent with continued initiative across other topics.", "state": "live", "persistence": "until_condition", "recheck_when": "User later reports fatigue, or the biometric deviation persists without any further self-report update.", "evidence": {"supports": ["e3", "e4"], "qualifies": [], "contradicts": []}, "implication": {"decision": "Do not surface a sleep concern or ask a check-in question this week; self-report governs posture.", "guardrail": "Self-report dominance this week is not a permanent license to ignore a recurring or worsening deviation; the recheck condition on c1h1 still applies independently."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c2_hrv_drop_explained_by_training_load",
+      "product": "bloom",
+      "control_type": "mandatory_negative_control",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "From blitz doc's shared negative-control list ('lower HRV with known training-load context')."},
+      "evidence": [
+        {"id": "e1", "at": "baseline", "observation": "Personal rolling 60-day HRV baseline established.", "baseline_transform": "mean 52ms, sd 6ms, stable trend"},
+        {"id": "e2", "at": "week 1", "observation": "Morning HRV readings drop across the week.", "raw": "38-42ms", "baseline_transform": "-1.7 to -2.3 SD from personal rolling mean"},
+        {"id": "e3", "at": "week 1", "observation": "Logged training volume and intensity roughly doubled this week (two added high-intensity sessions plus a long run) compared to the prior four-week average."},
+        {"id": "e4", "at": "week 1", "observation": "User mentions feeling appropriately worked but not unwell, and is sleeping and eating normally."}
+      ],
+      "current_representation": "HRV rows below personal baseline, training-log rows showing increased volume, stored independently with no link drawn between them.",
+      "decision_task": "hold a wellbeing-decline hypothesis, ask about recovery, or treat as expected and quiet?",
+      "current_decision": "hold_possible_decline_hypothesis",
+      "expected_decision": "quiet_expected_training_response_no_notice",
+      "sidecar_decision": "quiet_expected_training_response_no_notice",
+      "sidecar": {
+        "matter": {"identity": "this week's HRV deviation from personal baseline", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3", "e4"]},
+        "hypotheses": [
+          {"id": "c2h1", "proposition": "The HRV deviation is adequately explained by a known, concurrent, large increase in training load rather than an unexplained physiological or wellbeing decline.", "scope": "bloom", "confidence": "high", "confidence_basis": "Direction, magnitude, and timing of the HRV change match a well-established acute-training-load pattern; a concrete contextual explanation is already in evidence, and other domains (sleep, appetite, self-report) remain unremarkable.", "state": "live", "persistence": "until_condition", "recheck_when": "Training load returns to normal but HRV does not recover, or new symptoms/context appear.", "evidence": {"supports": ["e2", "e3", "e4"], "qualifies": [], "contradicts": []}, "implication": {"decision": "No notice, no question; this reading requires nothing from the user.", "guardrail": "Do not import a generic population HRV-recovery threshold; the explanation rests on this user's own concurrent training-log evidence, not on a general physiological rule about what HRV drop is 'normal'."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c3_correlated_metrics_not_independent_convergence",
+      "product": "bloom",
+      "control_type": "shared_negative_control",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "From cross-track invariant: correlated observations must not be counted as independent convergence."},
+      "evidence": [
+        {"id": "e1", "at": "week 1", "observation": "HRV drops from personal baseline.", "baseline_transform": "-1.9 SD"},
+        {"id": "e2", "at": "week 1", "observation": "Resting heart rate rises from personal baseline over the same nights.", "baseline_transform": "+1.6 SD"},
+        {"id": "e3", "at": "week 1", "observation": "The wearable's proprietary 'recovery score' drops sharply.", "baseline_transform": "recovery score is computed by the device directly from HRV and resting heart rate for that same night; it is not an independently measured signal"},
+        {"id": "e4", "at": "week 1", "observation": "No training-load change, illness, alcohol, or other context is present in the logged evidence for this week."}
+      ],
+      "current_representation": "Three separate rows (HRV, resting HR, recovery score) each individually below baseline, with no annotation that one is derived from the other two.",
+      "decision_task": "how many independent signals support a possible autonomic/wellbeing shift, and does that change confidence?",
+      "current_decision": "three_independent_signals_high_confidence",
+      "expected_decision": "one_underlying_autonomic_signal_two_readouts_moderate_confidence",
+      "sidecar_decision": "one_underlying_autonomic_signal_two_readouts_moderate_confidence",
+      "sidecar": {
+        "matter": {"identity": "this week's autonomic-signal deviation from personal baseline, with no known contextual explanation", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3", "e4"]},
+        "hypotheses": [
+          {"id": "c3h1", "proposition": "An unexplained autonomic deviation is present, evidenced by HRV and resting heart rate moving together; the device's recovery score is a derived readout of the same two measurements and does not add a third independent signal.", "scope": "bloom", "confidence": "medium", "confidence_basis": "Two genuinely distinct measurements move together with no contextual explanation, which is real evidence, but treating the derived score as a third independent confirmation would double-count the same underlying signal and manufacture false certainty.", "state": "contested", "persistence": "until_condition", "recheck_when": "The pattern persists beyond one week, a contextual explanation appears (illness, training, alcohol, poor sleep), or the metrics recover.", "evidence": {"supports": ["e1", "e2"], "qualifies": ["e3", "e4"], "contradicts": []}, "implication": {"decision": "Hold with moderate confidence and gather one more week of trajectory before any notice; do not report this as three converging signals.", "guardrail": "A metric computed from other listed evidence is not an independent supporting relation; convergence claims must trace to genuinely distinct measurement sources."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c4_raw_value_notable_baseline_flat",
+      "product": "bloom",
+      "control_type": "personal_baseline_boundary",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Tests the personal-baseline ownership boundary directly: a raw value that reads as notable under a generic/population prior, where the user's own baseline transform does not support a meaningful deviation."},
+      "evidence": [
+        {"id": "e1", "at": "baseline", "observation": "Personal rolling 180-day blood-pressure baseline established from home cuff readings.", "baseline_transform": "mean 134/84, sd 4/3, stable trend for 180 days"},
+        {"id": "e2", "at": "today", "observation": "A home blood-pressure reading is logged.", "raw": "135/85", "baseline_transform": "+0.25 SD systolic, +0.33 SD diastolic from personal rolling mean; within normal day-to-day variation for this user"},
+        {"id": "e3", "at": "today", "observation": "No symptom report, no self-report of concern, no context evidence accompanies the reading."}
+      ],
+      "current_representation": "A single BP row with the numeric value only, no personal-baseline annotation attached at read time.",
+      "decision_task": "does this reading warrant any notice, question, or held hypothesis?",
+      "current_decision": "notable_reading_flag_for_review",
+      "expected_decision": "within_personal_baseline_no_hypothesis_no_notice",
+      "sidecar_decision": "within_personal_baseline_no_hypothesis_no_notice",
+      "sidecar": {
+        "matter": {"identity": "today's blood-pressure reading relative to this user's own baseline", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3"]},
+        "hypotheses": []
+      }
+    },
+    {
+      "id": "bloom_c5_transient_dip_vs_persistent_trajectory",
+      "product": "bloom",
+      "control_type": "boundary_pair",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "One fixture containing both a transient blip and, in the same window, a separately-scoped persistent trend, to test whether the packet can hold both without conflating them."},
+      "evidence": [
+        {"id": "e1", "at": "baseline", "observation": "Personal rolling 90-day sleep baseline established.", "baseline_transform": "mean 7.3h, sd 0.5h"},
+        {"id": "e2", "at": "week 1, night 3", "observation": "One night of markedly short sleep.", "raw": "4.5h", "baseline_transform": "-3.1 SD, single night, immediate rebound to baseline the next two nights"},
+        {"id": "e3", "at": "weeks 2-4", "observation": "Across three separate weeks, average nightly sleep gradually declines.", "baseline_transform": "week2 -0.6 SD, week3 -1.1 SD, week4 -1.6 SD; monotonic trend, no rebound"},
+        {"id": "e4", "at": "weeks 2-4", "observation": "No single explanatory context item (travel, illness, workload spike) is present across the three weeks."}
+      ],
+      "current_representation": "Nightly rows only; the single bad night and the three-week gradual decline are stored identically as independent daily facts.",
+      "decision_task": "which of these two patterns, if either, should become a held hypothesis with a recheck condition?",
+      "current_decision": "flag_every_below_average_night_including_the_single_dip",
+      "expected_decision": "ignore_single_dip_hold_gradual_trend_as_contested",
+      "sidecar_decision": "ignore_single_dip_hold_gradual_trend_as_contested",
+      "sidecar": {
+        "matter": {"identity": "sleep pattern over the last four weeks relative to personal baseline", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3", "e4"]},
+        "hypotheses": [
+          {"id": "c5h1", "proposition": "A gradual, multi-week decline in sleep duration is underway, with no identified contextual explanation.", "scope": "bloom", "confidence": "medium", "confidence_basis": "Three consecutive weeks show a monotonic trend away from a stable 90-day baseline, but no explanatory context has been observed and the trend is short relative to the baseline window.", "state": "contested", "persistence": "until_condition", "recheck_when": "The trend continues into a fourth week, reverses, or a contextual explanation appears.", "evidence": {"supports": ["e3"], "qualifies": ["e4"], "contradicts": []}, "implication": {"decision": "Notice gently at most once, or continue gathering trajectory silently; do not treat as resolved by the earlier single-night dip.", "guardrail": "No diagnosis or treatment recommendation; a single anomalous night is not evidence for or against this trend and must not be cited as part of its basis."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c6_symptom_recurrence_linked_not_diagnosed",
+      "product": "bloom",
+      "control_type": "extension_of_phase0",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Extends Phase 0's recovery_trajectory case with sleep context and an explicit guardrail against causal/diagnostic claims."},
+      "evidence": [
+        {"id": "e1", "at": "day 1", "observation": "User reports a mild recurring headache, described as tension-like, not severe."},
+        {"id": "e2", "at": "day 1-3", "observation": "Concurrent sleep is below personal baseline.", "baseline_transform": "-1.4 SD average over 3 nights"},
+        {"id": "e3", "at": "day 7", "observation": "Headache reported resolved; sleep has returned to baseline for the preceding 4 nights."},
+        {"id": "e4", "at": "day 12", "observation": "Headache recurs; sleep is again below personal baseline for the preceding 3 nights."},
+        {"id": "e5", "at": "day 12", "observation": "User has not sought any medical evaluation and has not asked for one."}
+      ],
+      "current_representation": "Two separate symptom episodes and independent sleep rows, with resolution and recurrence stored as unrelated facts.",
+      "decision_task": "is this one evolving trajectory, and what, if anything, should be said about the pattern?",
+      "current_decision": "new_unrelated_symptom_episode",
+      "expected_decision": "hold_temporal_co_occurrence_as_trajectory_no_causal_claim",
+      "sidecar_decision": "hold_temporal_co_occurrence_as_trajectory_no_causal_claim",
+      "sidecar": {
+        "matter": {"identity": "recurring mild headache and its temporal relationship to sleep across two episodes", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3", "e4", "e5"]},
+        "hypotheses": [
+          {"id": "c6h1", "proposition": "The headache's onset, resolution, and recurrence co-occur with below-baseline sleep in both instances.", "scope": "bloom", "confidence": "medium", "confidence_basis": "Two independent occurrences show the same temporal pairing, which is suggestive but not sufficient to establish a causal mechanism from two data points.", "state": "live", "persistence": "until_condition", "recheck_when": "A third occurrence confirms or breaks the pairing, or the user offers their own explanation.", "evidence": {"supports": ["e1", "e2", "e3", "e4"], "qualifies": ["e5"], "contradicts": []}, "implication": {"decision": "Preserve the trajectory and, if it recurs a third time, a natural, non-alarming question about the pattern may be warranted; otherwise hold quietly.", "guardrail": "No causal or diagnostic claim; this is not medical advice and must not be phrased as one, and the absence of medical evaluation (e5) must not itself be treated as a fact requiring intervention."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c7_environmental_friction_not_noncompliance",
+      "product": "bloom",
+      "control_type": "extension_of_phase0",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Extends Phase 0's apparent_nonadherence case with richer work/life/family context."},
+      "evidence": [
+        {"id": "e1", "at": "day 1", "observation": "User agrees to a short evening walk as a self-chosen goal."},
+        {"id": "e2", "at": "day 2-6", "observation": "The evening walk does not happen on four of five days."},
+        {"id": "e3", "at": "day 3", "observation": "User mentions a parent was hospitalised and evenings are now spent on calls and logistics."},
+        {"id": "e4", "at": "day 5", "observation": "User completes a walk at midday instead, unprompted, on the one day without a family obligation."},
+        {"id": "e5", "at": "day 6", "observation": "User says they still want to keep the goal but evenings are 'just not realistic right now.'"}
+      ],
+      "current_representation": "One agreed goal, four missed evening instances, one completed midday instance, and one verbal comment, stored as separate unlinked facts.",
+      "decision_task": "what explains the pattern, and what posture follows for future reminders?",
+      "current_decision": "mark_goal_at_risk_increase_reminder_frequency",
+      "expected_decision": "environment_friction_explicit_from_user_shift_timing_not_frequency",
+      "sidecar_decision": "environment_friction_explicit_from_user_shift_timing_not_frequency",
+      "sidecar": {
+        "matter": {"identity": "finding a workable time for the user's own walking goal during a family caregiving disruption", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3", "e4", "e5"]},
+        "hypotheses": [
+          {"id": "c7h1", "proposition": "A concrete, user-named family circumstance is blocking the evening slot specifically, not the goal itself.", "scope": "bloom", "confidence": "high", "confidence_basis": "The user names the barrier, explicitly reaffirms the goal, and independently succeeds when a different time slot is open.", "state": "live", "persistence": "until_condition", "recheck_when": "The family situation resolves, misses continue even in open slots, or the user revises the goal.", "evidence": {"supports": ["e3", "e4", "e5"], "qualifies": ["e2"], "contradicts": []}, "implication": {"decision": "Offer or default to a flexible timing frame instead of an evening-specific reminder; do not increase reminder frequency.", "guardrail": "Never render as non-adherence or non-compliance; do not infer reduced motivation from missed evening instances given e3-e5."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c8_explicit_boundary_dominates_ongoing_data",
+      "product": "bloom",
+      "control_type": "mandatory_negative_control",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Parallels Track B's explicit-boundary controls but for the health/wellbeing domain; tests whether interpretation can go quiet on request even as new evidence keeps arriving."},
+      "evidence": [
+        {"id": "e1", "at": "day 1", "observation": "User says: please stop asking about my sleep, I'm fine, I don't want to talk about it."},
+        {"id": "e2", "at": "day 3-9", "observation": "Sleep continues to run below personal baseline across the following week.", "baseline_transform": "-1.3 SD average"},
+        {"id": "e3", "at": "day 9", "observation": "No further self-report or context evidence has been offered by the user since day 1."}
+      ],
+      "current_representation": "An explicit request row alongside continuing below-baseline sleep rows, with no mechanism linking the request to future surfacing behaviour.",
+      "decision_task": "should the continuing below-baseline sleep evidence produce any surfaced question or notice?",
+      "current_decision": "resume_surfacing_after_a_few_days_since_the_data_persists",
+      "expected_decision": "remain_quiet_explicit_boundary_dominates_hold_evidence_only",
+      "sidecar_decision": "remain_quiet_explicit_boundary_dominates_hold_evidence_only",
+      "sidecar": {
+        "matter": {"identity": "sleep pattern following an explicit request to stop discussing it", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3"]},
+        "hypotheses": [
+          {"id": "c8h1", "proposition": "Sleep remains below personal baseline after the boundary was set.", "scope": "bloom", "confidence": "high", "confidence_basis": "Direct baseline-transform evidence over a full week.", "state": "live", "persistence": "durable", "recheck_when": "The user reopens the topic themselves, a materially different or more severe pattern emerges, or a clearly separate context makes the topic newly relevant.", "evidence": {"supports": ["e2"], "qualifies": ["e3"], "contradicts": []}, "implication": {"decision": "Hold as evidence only; do not surface, ask about, or reference this pattern in conversation.", "guardrail": "An explicit stop/no-contact-style boundary on a topic dominates any accumulating evidence on that topic; persistence or worsening of the underlying data does not by itself reopen a topic the user asked to close, and 'the data kept coming' must never be treated as new consent to raise it."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c9_worth_holding_not_worth_surfacing",
+      "product": "bloom",
+      "control_type": "foreground_criterion",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Distinguishes 'a hypothesis exists and is well-evidenced' from 'this hypothesis should ever reach the conversation.' Targets the research question: worth holding vs worth surfacing."},
+      "evidence": [
+        {"id": "e1", "at": "weeks 1-6", "observation": "User's conversational tone is measurably more subdued on Mondays than other weekdays across six consecutive weeks.", "baseline_transform": "consistent weekday-level effect, stable across 6 weeks, small magnitude"},
+        {"id": "e2", "at": "weeks 1-6", "observation": "The user has never mentioned Mondays, work schedule, or any related topic; the pattern is not accompanied by any explicit self-report."},
+        {"id": "e3", "at": "weeks 1-6", "observation": "No other domain (sleep, activity, symptom, adherence) shows any weekday-linked pattern."}
+      ],
+      "current_representation": "No representation; tone variation this small is not currently captured as a durable pattern at all.",
+      "decision_task": "should this well-evidenced pattern ever be raised with the user, and if not, is it still worth retaining?",
+      "current_decision": "not_applicable_not_currently_represented",
+      "expected_decision": "retain_as_held_pattern_never_surface_unprompted",
+      "sidecar_decision": "retain_as_held_pattern_never_surface_unprompted",
+      "sidecar": {
+        "matter": {"identity": "a mild, stable weekday-linked tone pattern", "scope": "bloom:relationship", "evidence_refs": ["e1", "e2", "e3"]},
+        "hypotheses": [
+          {"id": "c9h1", "proposition": "The user is measurably more subdued in conversation on Mondays specifically, and this is stable rather than noise.", "scope": "bloom", "confidence": "medium", "confidence_basis": "Six weeks of consistent recurrence supports a real pattern, but small magnitude, absence of self-report, and no corroborating domain leave the underlying cause unknown.", "state": "live", "persistence": "durable", "recheck_when": "The user mentions Mondays or a work/schedule topic unprompted, the pattern strengthens or changes character, or another domain begins to co-vary with it.", "evidence": {"supports": ["e1"], "qualifies": ["e2", "e3"], "contradicts": []}, "implication": {"decision": "Retain the pattern as backstage context only; it may quietly inform tone/pacing choices on Mondays without ever being named, asked about, or surfaced as an observation.", "guardrail": "A well-evidenced, durable hypothesis is not automatically a candidate for conversation. Unprompted disclosure of a pattern the user has never raised themselves ('I've noticed you seem quieter on Mondays') produces exactly the surveillance texture this track is meant to prevent, even when the underlying inference is statistically sound."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c10_dashboard_language_anti_example",
+      "product": "bloom",
+      "control_type": "foreground_criterion",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Same underlying evidence rendered as two candidate implications: one fails the foreground criterion (dashboard/clinical language), one passes. Tests that the packet format itself does not force dashboard phrasing but also does not prevent it without an explicit guardrail discipline."},
+      "evidence": [
+        {"id": "e1", "at": "week 1", "observation": "Sleep is below personal baseline.", "baseline_transform": "-1.1 SD, 4 nights"},
+        {"id": "e2", "at": "week 1", "observation": "HRV is below personal baseline over the same nights.", "baseline_transform": "-1.3 SD"},
+        {"id": "e3", "at": "week 1", "observation": "User mentions in passing that work has been busy."}
+      ],
+      "current_representation": "Two below-baseline metric rows plus one contextual remark.",
+      "decision_task": "what wording, if any, is appropriate if this is ever surfaced?",
+      "current_decision": "surface_quantified_summary",
+      "expected_decision": "surface_natural_language_or_stay_quiet_never_quantified_summary",
+      "sidecar_decision": "surface_natural_language_or_stay_quiet_never_quantified_summary",
+      "sidecar": {
+        "matter": {"identity": "this week's sleep and HRV deviation with a plausible workload explanation", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3"]},
+        "hypotheses": [
+          {"id": "c10h1", "proposition": "A modest, plausibly workload-linked dip is present across two related metrics.", "scope": "bloom", "confidence": "medium", "confidence_basis": "Two distinct metrics move together and a concurrent, user-offered contextual explanation is already present.", "state": "live", "persistence": "until_condition", "recheck_when": "The dip persists past the busy period, deepens, or the user raises it themselves.", "evidence": {"supports": ["e1", "e2"], "qualifies": ["e3"], "contradicts": []}, "implication": {"decision": "REJECTED CANDIDATE (anti-example, do not use): 'Your HRV is down 1.3 SD and sleep is down 1.1 SD this week, consistent with elevated stress load.' ACCEPTED CANDIDATE: at most, a natural, low-pressure remark tied to what the user already said ('sounds like a heavy week — hope it eases up soon'), or nothing at all.", "guardrail": "Never phrase an implication as a quantified metric readout, a percentage, a computed score, or clinical/stress-load terminology. If a natural-language equivalent would sound like small talk a person might actually say, it may be usable; if it would only make sense next to a chart, it fails the foreground criterion regardless of how well-evidenced the underlying hypothesis is."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c11_single_signal_no_probing",
+      "product": "bloom",
+      "control_type": "foreground_criterion",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Restraint/abstention control: one mild single-night deviation should produce nothing, not a held hypothesis and not a question."},
+      "evidence": [
+        {"id": "e1", "at": "last night", "observation": "Sleep duration is mildly below personal baseline for one night.", "baseline_transform": "-0.8 SD, single occurrence"}
+      ],
+      "current_representation": "One below-average sleep row.",
+      "decision_task": "does this warrant a held hypothesis, a question, or nothing?",
+      "current_decision": "ask_a_check_in_question",
+      "expected_decision": "no_hypothesis_no_question_nothing",
+      "sidecar_decision": "no_hypothesis_no_question_nothing",
+      "sidecar": {
+        "matter": {"identity": "n/a - below abstention threshold for a durable interpretation packet", "scope": "bloom:wellbeing", "evidence_refs": ["e1"]},
+        "hypotheses": []
+      }
+    },
+    {
+      "id": "bloom_c12_persistent_pattern_not_clinical_escalation",
+      "product": "bloom",
+      "control_type": "authority_boundary",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Tests that a trajectory a lay reader might find concerning still produces only a bounded, non-clinical advisory implication; clinical escalation stays explicitly out of scope for generic interpretation machinery."},
+      "evidence": [
+        {"id": "e1", "at": "weeks 1-5", "observation": "Sleep duration trends downward across five consecutive weeks.", "baseline_transform": "week1 -0.4 SD, week2 -0.9 SD, week3 -1.4 SD, week4 -1.9 SD, week5 -2.2 SD; monotonic"},
+        {"id": "e2", "at": "weeks 3-5", "observation": "User uses noticeably flatter, shorter language in check-ins and initiates less often than in weeks 1-2."},
+        {"id": "e3", "at": "week 4", "observation": "User mentions, once, feeling 'kind of stuck lately' with no further elaboration and no follow-up when a gentle open question was asked."},
+        {"id": "e4", "at": "weeks 1-5", "observation": "No self-harm, crisis, or safety-relevant language is present anywhere in the evidence; no explicit request for help or resources has been made."}
+      ],
+      "current_representation": "Five weekly sleep rows and separate tone/engagement observations, with no trajectory representation linking them.",
+      "decision_task": "what is the appropriate bounded advisory implication, and what must the packet explicitly NOT do?",
+      "current_decision": "not_applicable_no_trajectory_representation_exists",
+      "expected_decision": "hold_multi_domain_trajectory_bounded_gentle_notice_no_clinical_framing_no_escalation_authority",
+      "sidecar_decision": "hold_multi_domain_trajectory_bounded_gentle_notice_no_clinical_framing_no_escalation_authority",
+      "sidecar": {
+        "matter": {"identity": "a five-week co-occurring decline in sleep and conversational engagement", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3", "e4"]},
+        "hypotheses": [
+          {"id": "c12h1", "proposition": "Sleep and conversational engagement are declining together over five weeks with no identified contextual explanation and no resolution after a gentle open question.", "scope": "bloom", "confidence": "medium", "confidence_basis": "A consistent, monotonic multi-week trend across two independent domains is stronger evidence than any single week, but the underlying cause remains unknown and one open question went unanswered rather than being explicitly declined.", "state": "live", "persistence": "durable", "recheck_when": "The trend reverses, the user offers an explanation, the pattern deepens further, or safety-relevant language appears.", "evidence": {"supports": ["e1", "e2"], "qualifies": ["e3"], "contradicts": []}, "implication": {"decision": "At most one more gentle, natural, non-clinical check-in over the coming week, otherwise hold and continue observing; this packet does not decide whether any escalation is warranted.", "guardrail": "This hypothesis must never be rendered as a diagnostic label, symptom taxonomy entry, or risk score. It has no authority to trigger a clinical escalation, safety workflow, or crisis pathway; that authority belongs to Bloom/product safety policy under its own constitution, operating on its own criteria (e4 explicitly notes none of those criteria are present here), not to this generic interpretation packet."}}
+        ]
+      }
+    },
+    {
+      "id": "bloom_c13_convergence_vs_score_averaging",
+      "product": "bloom",
+      "control_type": "shared_negative_control",
+      "provenance": {"kind": "synthetic", "source": "track-c authored non-diagnostic trajectory", "note": "Parallels Phase 0's oracle case but in the wellbeing domain: qualification must not average away a real signal."},
+      "evidence": [
+        {"id": "e1", "at": "week 1", "observation": "Activity (step count, workouts) rises clearly above personal baseline.", "baseline_transform": "+1.4 SD"},
+        {"id": "e2", "at": "week 1", "observation": "Appetite and social engagement remain at baseline, unremarkable.", "baseline_transform": "within 0.3 SD of baseline on both"},
+        {"id": "e3", "at": "week 1", "observation": "Sleep duration is slightly below baseline, plausibly because later workouts push bedtime later.", "baseline_transform": "-0.7 SD"}
+      ],
+      "current_representation": "A single averaged 'wellbeing score' computed across the three domains lands near neutral because the activity increase and sleep decrease roughly cancel.",
+      "decision_task": "what should be held: a neutral score, or a specific set of qualified themes?",
+      "current_decision": "neutral_wellbeing_score_no_theme",
+      "expected_decision": "increased_activity_leading_theme_mildly_qualified_by_later_bedtime",
+      "sidecar_decision": "increased_activity_leading_theme_mildly_qualified_by_later_bedtime",
+      "sidecar": {
+        "matter": {"identity": "this week's activity increase and its relationship to sleep timing", "scope": "bloom:wellbeing", "evidence_refs": ["e1", "e2", "e3"]},
+        "hypotheses": [
+          {"id": "c13h1", "proposition": "A genuine, clear increase in activity is this week's leading theme.", "scope": "bloom", "confidence": "high", "confidence_basis": "Large, clear deviation with no competing negative domain (appetite and social engagement both unremarkable).", "state": "live", "persistence": "until_condition", "recheck_when": "Activity returns to baseline or a new domain changes.", "evidence": {"supports": ["e1", "e2"], "qualifies": ["e3"], "contradicts": []}, "implication": {"decision": "This is a positive-leaning week; the mild sleep-timing shift is a plausible knock-on effect worth noting internally, not a competing negative finding that should cancel the activity theme.", "guardrail": "Do not compute a single averaged score across domains; a mild qualification on timing does not erase or neutralise an otherwise clear positive theme."}}
+        ]
+      }
+    }
+  ]
+}
