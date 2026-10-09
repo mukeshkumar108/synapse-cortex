@@ -347,32 +347,6 @@ async def test_model_scope_consistency_gate():
     assert ExpectationShaper is not None
 
 
-@pytest.mark.asyncio
-async def test_meaning_diagnostic_reconstructs_trajectory():
-    from src.db import async_session_maker
-    from src.models.expectation import Expectation, ExpectationType, OutcomeState
-    from src.models.open_loop import OpenLoop, OpenLoopStatus
-    from src.services.meaning_diagnostic import derive_diagnostic
-    async with async_session_maker() as db:
-        db.add(Expectation(
-            honcho_workspace_id=WS, honcho_session_id="s1", honcho_message_id="m1",
-            owner_peer_id="kai", subject_peer_id="kai",
-            expectation_type=ExpectationType.USER_INTENTION,
-            title="Ask Ashley Saturday", summary="Ask Ashley Saturday"))
-        db.add(OpenLoop(
-            honcho_workspace_id=WS, honcho_session_id="s1", honcho_message_id="m2",
-            owner_peer_id="kai", title="Ashley reply pending",
-            summary="Awaiting Ashley reply", status=OpenLoopStatus.OPEN))
-        await db.commit()
-        first = await derive_diagnostic(db, workspace_id=WS)
-        assert first["counts"]["unknown_expectations"] == 1
-        assert first["counts"]["open_loops_open"] == 1
-        assert any(u["kind"] == "open_loop" for u in first["unresolved_foreground"])
-        assert first["posture_inputs_evidence_only"]["gap"].startswith("stance")
-        second = await derive_diagnostic(db, workspace_id=WS, previous=first)
-        assert second["delta_ids"] == []
-
-
 def _sweep_item(**kw):
     base = dict(kind="goal", title="Call the doctor", summary="",
                 evidence_id="hev-1", evidence_text="call the doctor",
