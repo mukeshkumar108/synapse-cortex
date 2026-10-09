@@ -90,6 +90,12 @@ async def current(db: AsyncSession, workspace_id: str, session_id: str) -> Optio
 
 
 _LOCKS: Dict[str, Any] = {}
+_GENERIC = set("""the a an and or but of to in on at for with from about this that these those was were is are be been did do does done had has have it its you your youre your i me my we our they them their he she him her his hers what when where which who why how
+tell told telling say said please baby exactly really happened happen last just still ever never then there here not yes you'll""".split())
+
+
+def _content_terms(text: str) -> set:
+    return {w[:5] for w in re.findall(r"[a-z0-9]+", str(text).lower().replace("'s", "")) if len(w) >= 3 and w not in _GENERIC}
 
 
 async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, messages: List[Dict[str, str]], names: Dict[str, str],
@@ -191,6 +197,15 @@ async def author_truth(db: AsyncSession, *, adapter: Any, workspace_id: str, ses
         target["authored"] = True
     verdict: Dict[str, Any] = {"needed": False}
     from src.models.scene import utc_now
+    if action == "new" and truth and truths:
+        # Identity is decided here, not left to the model's mood: a question that shares a content word with a hidden event already authored (the party, Lila's, Marco, the kiss) is about
+        # THAT event; only a question that touches none of them can open another, and a sitting holds at most two.
+        asked = _content_terms(question + " " + str((out or {}).get("topic") or ""))
+        best = max(truths, key=lambda a: len(asked & _content_terms(a["text"] + " " + str(a.get("topic") or ""))))
+        if asked & _content_terms(best["text"] + " " + str(best.get("topic") or "")):
+            action, out = "extend", {**(out or {}), "target_id": best["id"]}
+        elif len(truths) >= 2:
+            action = "none"
     if action == "extend" and truth:
         base = next((a for a in truths if a.get("id") == (out or {}).get("target_id")), None) or (truths[-1] if truths else None)
         if base is not None:

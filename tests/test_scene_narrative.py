@@ -124,7 +124,8 @@ async def test_related_questions_resolve_against_one_private_event_and_are_never
                                                                                     {"kind": "open_loop", "text": "Kai asked whether Arabella kissed anyone at the party"}]},
                   {"action": "new", "topic": "Lila's party", "truth": "At Lila's party last June Arabella left early with Tom, her ex, and spent the night at his flat; she has never told Kai because Tom was still in her life then."},
                   {"action": "extend", "target_id": "a3", "truth": "They kissed once in the car before she went up; nothing more happened."},
-                  {"action": "new", "truth": "must never be used"})
+                  {"action": "new", "topic": "the kiss", "truth": "She actually slept with Tom, a second, different story."},
+                  {"action": "new", "topic": "her salary", "truth": "She earns 90k, unrelated hidden thing."})
     async with async_session_maker() as db:
         pic = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-t", session_id="s-t", names=N, messages=ex("tell me about lila's", "I can't"), force=True)
         loops = [a for a in pic["anchors"] if a["kind"] == "open_loop"]
@@ -138,4 +139,9 @@ async def test_related_questions_resolve_against_one_private_event_and_are_never
         assert "Arabella left early with Tom" in ad.prompts[2] and "EXISTING PRIVATE TRUTHS" in ad.prompts[2]                                               # the author sees the event it must stay inside
         again = await scene_narrative.author_truth(db, question_anchor_id=loops[0]["id"], question="what happened at Lila's?", **kw)
         assert again["needed"] is False and again["reason"] == "already_authored" and len(ad.prompts) == 3
+        pic2 = await scene_narrative.narrate(db, adapter=_Adapter({"scene": "x", "new_anchors": [{"kind": "open_loop", "text": "Kai asked whether she slept with Tom at the party"}]}), workspace_id="w-t", session_id="s-t", names=N, messages=ex("did you sleep with Tom at the party?", "..."), force=True)
+        third = next(a for a in pic2["anchors"] if a["kind"] == "open_loop" and "slept" in a["text"])
+        forked = await scene_narrative.author_truth(db, question_anchor_id=third["id"], question="did you sleep with Tom at the party?", **kw)
+        truths = [a for a in forked["anchors"] if a["kind"] == "private_truth"]
+        assert len(truths) == 1 and "second, different story" in truths[0]["text"]          # the model said "new"; the question shares the event's words, so it is the same event, extended
         assert scene_narrative.EVICTION_RANK["private_truth"] > max(v for k, v in scene_narrative.EVICTION_RANK.items() if k != "private_truth")
