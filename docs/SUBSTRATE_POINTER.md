@@ -4,3 +4,5 @@ The single source of truth for how Cortex, Companion Runtime and Honcho work tog
 live conversational memory, product contract, infrastructure, history and gaps) is **`../companion-runtime/docs/SUBSTRATE.md`** (2026-10-07). It is kept
 next to the Runtime because the Runtime owns the turn and the compiler. This repo keeps the product intent (`COMPANION_NORTH_STAR.md`, `COMPANION_CANON.md`)
 and the data model (`CORTEX_ARCHITECTURE.md`); where those describe cadence, retrieval or consolidation, SUBSTRATE.md supersedes them.
+
+**2026-10-09:** the what-is-actually-running table and decision ledger are `../companion-runtime/docs/SUBSTRATE_STATE.md`, `ARCHITECTURE_DECISIONS.md` and `HANDOFF.md`; they win over SUBSTRATE.md where they differ.

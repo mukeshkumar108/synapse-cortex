@@ -1,3 +1,5 @@
+> **STALE (2026-10-09).** Inventory of 2026-10-04. Several listed paths are deleted (working-set judge, scout, ranker). Current truth: `../companion-runtime/docs/SUBSTRATE_STATE.md` + `ARCHITECTURE_DECISIONS.md` + `HANDOFF.md`.
+
 # Semantic-boundary inventory (Runtime + Cortex live paths)
 
 Rule: deterministic code validates, grounds, canonicalises, expires, renders. Models decide open-ended meaning. A cheap lexical step may NOMINATE

@@ -1,3 +1,5 @@
+> **STALE — Part A is no longer "as built" (2026-10-09).** Verified 2026-10-04 against production; the Cortex working set judge, per-turn scene delta and interpreter cadence it describes were removed 2026-10-07. Part B was never built. Current truth: `../companion-runtime/docs/SUBSTRATE_STATE.md` + `ARCHITECTURE_DECISIONS.md` + `HANDOFF.md`.
+
 # Companion cognition architecture
 
 Two parts, kept apart on purpose (design docs have repeatedly described things that were not running):

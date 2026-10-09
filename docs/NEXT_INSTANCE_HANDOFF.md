@@ -1,3 +1,5 @@
+> **STALE — DO NOT TRUST (2026-10-09).** Written 2026-10-04 before the 2026-10-07 blitz. It describes the working-set judge, an interpreter run every few turns, an episode ledger and executive details that were changed or deleted. Current handoff: `../companion-runtime/docs/SUBSTRATE_STATE.md` + `ARCHITECTURE_DECISIONS.md` + `HANDOFF.md`.
+
 **Agency-loop pass (later the same evening, deployed: Cortex `80f7ad2`, Runtime `31f48e5`):** writer audit for Sophie done (live writers now: the interpreter; app-owned objects via
 `/v1/events/object`; user-accepted commitment candidates; the executive's own work_items): the assistant-turn lane was the last legacy writer and is closed for
 interpreter-owned worlds. Deep-memory retrieval (A3) no longer returns Honcho's derived conclusions (default mode was `conclusions/query`, i.e. old Honcho reasoning about

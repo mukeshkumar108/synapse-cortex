@@ -1,3 +1,5 @@
+> **STALE (2026-10-09).** Assigns recent conversational compaction to the interpreter brief "every 3 user turns" and lists a Runtime episode ledger / working note; both gone. Session-level facts now live in `scene_narratives` (picture + anchors). Current truth: `../companion-runtime/docs/SUBSTRATE_STATE.md` + `ARCHITECTURE_DECISIONS.md` + `HANDOFF.md`.
+
 # Who owns what: situational and conversational state (Honcho + Cortex + Runtime only)
 
 Audited from the code and production data on 2026-10-05; the live-scene section was then BUILT the same day (see 'Live scene: as built'). Product-agnostic: RPD2 and Sophie consume the same substrate.

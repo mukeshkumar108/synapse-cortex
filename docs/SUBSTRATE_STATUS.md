@@ -1,3 +1,5 @@
+> **STALE (2026-10-09).** Baseline `9aadba5`/Runtime `00e8364`, 2026-09-27. Current truth: `../companion-runtime/docs/SUBSTRATE_STATE.md` + `ARCHITECTURE_DECISIONS.md` + `HANDOFF.md`.
+
 # Substrate status (operational orientation for future agents)
 
 ## Current phase
