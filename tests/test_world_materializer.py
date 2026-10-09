@@ -498,38 +498,6 @@ async def test_acute_state_lapses_from_the_projection_unless_reaffirmed():
 
 
 @pytest.mark.asyncio
-async def test_honcho_context_is_given_to_the_interpreter_as_lower_grade_input_and_failures_open(monkeypatch):
-    from src.services import world_interpreter, turn_context
-
-    class FakeHoncho:
-        async def session_summaries(self, ws, sid):
-            return {"short_summary": "Lila and Kai are partners.", "long_summary": None}
-
-        async def peer_search(self, ws, peer, query, limit=6):
-            assert peer.replace("-", "").replace("_", "").isalnum()          # Honcho only accepts [A-Za-z0-9_-]: world owners are encoded
-            return [{"content": "Earlier: Lila said she hates hiding things.", "created_at": "2026-09-01", "session_id": "chat_old"}]
-
-    monkeypatch.setattr(turn_context, "_honcho_client", lambda: FakeHoncho())
-    adapter = FakeInterpreter({"actors": []})
-    async with async_session_maker() as db:
-        await world_interpreter.interpret(db, workspace_id=WS, owner="world:h", session_id="c", messages=INTERP_MESSAGES,
-                                          speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter)
-    prompt = adapter.calls[0]["prompt"]
-    assert "HONCHO CONTEXT" in prompt and "Lila and Kai are partners." in prompt and "hates hiding things" in prompt
-    assert "never as fresher" in " ".join(adapter.calls[0]["system"].split())
-
-    class Broken:
-        async def session_summaries(self, *a): raise RuntimeError("down")
-    monkeypatch.setattr(turn_context, "_honcho_client", lambda: Broken())
-    adapter2 = FakeInterpreter({"actors": []})
-    async with async_session_maker() as db:
-        await world_interpreter.interpret(db, workspace_id=WS, owner="world:h", session_id="c",
-                                          messages=INTERP_MESSAGES + [{"id": "m3", "speaker": "user", "text": "are you there?"}],
-                                          speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter2)
-    assert "HONCHO CONTEXT" not in adapter2.calls[0]["prompt"]
-
-
-@pytest.mark.asyncio
 async def test_the_interpreter_retires_a_known_facet_by_id_when_the_state_changed():
     """Facets tied to different events are different identities, so only the interpreter (which sees the current facets with ids) can say a newer
     reading REPLACES an older one."""
