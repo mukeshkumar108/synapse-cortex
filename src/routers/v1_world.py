@@ -7,6 +7,7 @@ wholesale into a prompt; Runtime asks projections for small fragments.
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -66,6 +67,27 @@ async def get_world_model(req: WorldModelRequest, db: AsyncSession = Depends(get
     return await world_model_service.get_world_model(
         db, workspace_id=req.workspace_id, owner_peer_id=req.peer_id, now=req.now,
         timezone_str=req.timezone, session_id=req.session_id, force=req.force)
+
+
+class SnapshotAtRequest(BaseModel):
+    workspace_id: str
+    peer_id: str
+    version: int
+
+
+@router.post("/world-model/at")
+async def get_world_model_at(req: SnapshotAtRequest, db: AsyncSession = Depends(get_async_session)):
+    """READ-ONLY. The exact materialisation of one past version (superseded snapshots are retained), so a turn's packet can be re-read as it was compiled. Never recomputes or writes."""
+    from src.models.world_model import WorldModelSnapshot
+    row = (await db.execute(select(WorldModelSnapshot).where(
+        WorldModelSnapshot.honcho_workspace_id == req.workspace_id, WorldModelSnapshot.owner_peer_id == req.peer_id,
+        WorldModelSnapshot.version == req.version))).scalars().first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="no snapshot at that version")
+    body = json.loads(row.snapshot_json)
+    body["meta"] = {**body.get("meta", {}), "snapshot_id": str(row.id), "version": row.version, "compiled_at": row.compiled_at.isoformat() if row.compiled_at else None}      # the same meta the live read stamps
+    return {"version": row.version, "compiled_at": row.compiled_at.isoformat() if row.compiled_at else None, "superseded_by_id": str(row.superseded_by_id) if row.superseded_by_id else None,
+            "fingerprints": json.loads(row.fingerprints_json or "{}"), "snapshot": body}
 
 
 class InvalidateRequest(BaseModel):

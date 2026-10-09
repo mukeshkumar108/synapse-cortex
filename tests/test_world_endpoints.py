@@ -108,3 +108,17 @@ async def test_product_weights_are_policy_over_generic_kinds_only(async_client):
     assert {m["kind"] for m in neutral} == {m["kind"] for m in weighted}
 
 
+
+
+@pytest.mark.asyncio
+async def test_a_past_world_version_can_be_read_back_exactly(async_client):
+    """The replay bundle names a turn's world by (owner, version); the superseded snapshot must come back as it was, and a version that never existed is a 404."""
+    await build_longitudinal_world()
+    v1 = (await post(async_client, "/world-model")).json()
+    await async_client.post("/v1/cortex/world-model/invalidate", json={"workspace_id": WS, "peer_id": USER, "sections": ["forward"]})
+    v2 = (await post(async_client, "/world-model", force=True)).json()
+    assert v1["meta"]["version"] == 1 and v2["meta"]["version"] == 2
+    old = await async_client.post("/v1/cortex/world-model/at", json={"workspace_id": WS, "peer_id": USER, "version": 1})
+    assert old.status_code == 200, old.text
+    assert old.json()["snapshot"]["meta"]["version"] == 1 and old.json()["superseded_by_id"]
+    assert (await async_client.post("/v1/cortex/world-model/at", json={"workspace_id": WS, "peer_id": USER, "version": 99})).status_code == 404
