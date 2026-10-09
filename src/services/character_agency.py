@@ -31,6 +31,8 @@ from src.services import nano_adapter
 
 logger = logging.getLogger(__name__)
 
+SOCIAL_TTL = timedelta(hours=3)
+_social_cache: Dict[str, Any] = {}
 
 HEART_KINDS = ("want", "intend", "repair", "invite", "promise", "curious", "unsaid", "feeling", "regret", "avoid", "life",
                "curious_user", "unfinished", "revisit", "share", "curious_world")          # the last five belong to the grounded profile
@@ -133,6 +135,45 @@ OUTPUT: ONE JSON object: {"development": null | {"title": "short neutral headlin
 relationship or her situation", "scale": "small|medium"}, "reason_if_none": ""}"""
 
 
+async def social_cognition(*, workspace_id: str, owner: str, companion_id: Optional[str], user_actor: Optional[str], companion_actor: Optional[str], policy: str = "generative") -> Optional[Dict[str, str]]:
+    """What Honcho has INFERRED, over the whole history, about the character and about how the user relates to her. Honcho is social cognition: patterns, fears, desires,
+    how the dynamic has changed. It is hypothesis, not world truth, and it is never stored as such; the Heart decides what (if anything) becomes a durable want or intention.
+    Returns None when Honcho holds no representation for these peers (e.g. observation is off) or is unavailable."""
+    from src.config import settings
+    if not companion_id or not settings.HONCHO_HEART_SOCIAL_ENABLED:
+        return None
+    held = _social_cache.get((owner, policy))
+    if held and _utc() - held["at"] < SOCIAL_TTL:
+        return held["value"]
+    try:
+        from src.services.turn_context import _honcho_client, honcho_peer_id
+        client = _honcho_client()
+        if client is None:
+            return None
+        character, person = ("sophie" if companion_id == "sophie" else f"assistant_{companion_id}"), honcho_peer_id(owner)
+        she, he = companion_actor or "the character", user_actor or "the person"
+        import asyncio
+        if policy == "generative":
+            q_her = (f"What does {she} appear to want from her relationship with {he}? What recurring patterns, fears or desires does she show, and what has changed in the dynamic "
+                     f"recently? Keep what she has stated outright separate from what you are inferring. Be specific; no generic devotion.")
+            q_him = (f"How does {he} tend to respond to {she}, what does he seem to want or need from her, and what has changed in how he treats her? Separate what he has said "
+                     f"from what you infer.")
+        else:
+            q_her = (f"What does {she} keep returning to, ask about or seem curious about in her conversations with {he}? Which of her questions never really got answered? "
+                     f"Keep what is stated apart from what you infer.")
+            q_him = (f"What does {he} light up about, avoid, or only half-explain to {she}? What does he seem to be working through lately that she might want to understand better? "
+                     f"Separate what he has said from what you infer.")
+        mine, hers = await asyncio.gather(client.peer_chat(workspace_id, character, q_her), client.peer_chat(workspace_id, character, q_him, target=person))
+    except Exception as exc:
+        logger.warning("social cognition failed open: %s", exc)
+        return None
+    if not mine and not hers:
+        return None
+    value = {"about_her": (mine or "")[:2500], "about_him_as_she_sees_him": (hers or "")[:2500]}
+    _social_cache[(owner, policy)] = {"at": _utc(), "value": value}
+    return value
+
+
 def _key(text: str) -> str:
     return hashlib.sha1(re.sub(r"[^a-z0-9]+", " ", text.lower()).strip().encode()).hexdigest()[:40]
 
@@ -170,7 +211,8 @@ async def _context(db: AsyncSession, *, workspace_id: str, owner: str, session_i
     if session_id:
         row = await scene_narrative.current(db, workspace_id, session_id)
         narrative = row.text if row is not None and row.text else None
-    return {"state": state, "narrative": narrative, "constitution": (constitution or {}).get("text"),
+    social = await social_cognition(workspace_id=workspace_id, owner=owner, companion_id=companion_id, user_actor=user_actor, companion_actor=companion_actor, policy=policy)
+    return {"state": state, "narrative": narrative, "social": social, "constitution": (constitution or {}).get("text"),
             "who": f"{companion_actor or 'the character'} (the character) and {user_actor or 'the person'} (the user's character)"}
 
 
@@ -179,6 +221,9 @@ def _heart_prompt(ctx: Dict[str, Any], carrying: List[Any]) -> str:
     return (f"CHARACTER AND PERSON: {ctx['who']}\nHER DEEPEST ORIENTATION: {ctx['constitution'] or 'to protect and deepen this relationship'}\n\n"
             f"WORLD STATE (ids are real):\n{json.dumps(ctx['state'], ensure_ascii=False, default=str)[:14000]}\n\n"
             f"HOW THE CONVERSATION STANDS NOW:\n{ctx['narrative'] or '(no running picture yet)'}\n\n"
+            + (f"SOCIAL COGNITION (a separate system inferred this from the whole history; it is HYPOTHESIS about her and about him, not fact about the world — use it to understand "
+               f"who she is and how they move together, never quote it, never treat it as established):\n- about her: {ctx['social']['about_her']}\n- about him, as she'd see him: "
+               f"{ctx['social']['about_him_as_she_sees_him']}\n\n" if ctx.get("social") else "")
             + f"WHAT SHE IS ALREADY CARRYING:\n{json.dumps(items, ensure_ascii=False)}")
 
 

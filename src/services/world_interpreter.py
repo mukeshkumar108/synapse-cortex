@@ -69,6 +69,8 @@ PRINCIPLES
   constitution; judge the situation). If there is tension, explain what is driving the behaviour (hurt, fear, shame...) and describe what
   psychologically plausible movement could restore coherence. This is an interpretation, not an instruction: never script a line, never require
   a confession or reconciliation, never rewrite or soften what happened. If behaviour is coherent, say so with state on_track.
+- HONCHO CONTEXT (when present) is earlier evidence and summaries retrieved from the long-term store: use it to recognise continuity, never as
+  fresher than the NEW EVIDENCE and never to invent ids.
 - BRIEF: 80-150 neutral words, what has happened and where each person stands now, including what is unknown and any contradictions left unresolved. The text is plain prose with NO refs or ids in it; the refs go only in `lines[].refs`.
 - PROVENANCE OF THE COMPANION'S OWN WORDS: what the companion character says about its own OFF-SCREEN past or secret acts, offered under questioning, or anything that contradicts events already established in the evidence or the CURRENT WORLD STATE, is a CLAIM held by that actor (list the established event in `conflicts_with`), never an event. It becomes an event only if the evidence independently shows it happened (it is shown happening in the scene, or the person confirms it). What the companion does and says in the present scene is evidence of what occurred there as usual.
 - FACTS ABOUT THE PERSON THAT ONLY THE COMPANION SUPPLIED: when the person asks the companion to remind them of, or recall, something about the person's own life (their name, pets, work, family, history, what they said before) and the companion answers with detail the person has not stated anywhere in the evidence or the CURRENT WORLD STATE, that detail is a hypothesis held by the companion (formation hypothesis), never an event or a fact about the person. It is promoted only if the person later states or confirms it. This holds in every policy, fiction included: invented story world is canon, invented knowledge of the person's own side is not.
@@ -500,6 +502,25 @@ async def world_state_for_prompt(db: AsyncSession, workspace_id: str, owner: str
     }
 
 
+async def honcho_context(workspace_id: str, owner: str, session_id: str, evidence_text: str) -> Optional[Dict[str, Any]]:
+    """Long-horizon input from Honcho (derived summaries + semantic search over the stored raw evidence). Honcho is evidence storage and retrieval
+    for these worlds; this interpreter remains the single semantic author. Bounded, fail-open."""
+    try:
+        from src.config import settings
+        from src.services.turn_context import _honcho_client, honcho_peer_id
+        client = _honcho_client() if settings.HONCHO_CONTEXT_ENABLED else None
+        if client is None:
+            return None
+        summaries = await client.session_summaries(workspace_id, session_id)
+        hits = await client.peer_search(workspace_id, honcho_peer_id(owner), evidence_text[-450:], limit=6)
+        earlier = [{"text": str(h.get("content") or "")[:300], "when": h.get("created_at"), "session": h.get("session_id")} for h in (hits or [])]
+        out = {"summary": {k: (v or "")[:900] for k, v in (summaries or {}).items() if v}, "earlier_evidence": earlier}
+        return out if out["summary"] or earlier else None
+    except Exception as exc:
+        logger.warning("honcho context failed open: %s", exc)
+        return None
+
+
 def message_hash(speaker: str, text: str) -> str:
     import hashlib
     return hashlib.sha1(f"{speaker}|{' '.join(str(text).split()).lower()}".encode()).hexdigest()[:20]
@@ -657,12 +678,14 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     proactive = await executive.outbound_index(db, workspace_id, owner, [m["id"] for m in context + fresh])
     line = lambda m: f"[{m['id']}] {speaker_label.get(m['speaker'], speakers.get(m['speaker'], m['speaker']))} ({'user' if m['speaker'] == 'user' else 'companion'}): {m['text']}" + (f"  [a proactive message you sent to carry out: {proactive[m['id']]['title']}]" if m['id'] in proactive else "")
     evidence = "\n".join(line(m) for m in fresh)
+    honcho = await honcho_context(workspace_id, owner, session_id, evidence)
     toward = constitution.get("toward") if constitution else None
     prompt = (f"PRODUCT POLICY: {policy}\n"
               f"IDENTITIES (product-supplied): `user` = {user_actor or 'the human (name not supplied)'}; `companion` = {companion_actor or speakers.get('assistant', 'the companion')}\n"
               f"CHARACTER CONSTITUTIONAL ORIENTATION (product-authored; {constitution.get('actor') if constitution else 'the companion'} toward "
               f"{toward or 'the user'}): {constitution.get('text') if constitution else 'none'}\n\n"
               f"CURRENT WORLD STATE (ids are real; `operational_state` lists the open time-bound items):\n{json.dumps(state, ensure_ascii=False, default=str)}\n\n"
+              + (f"HONCHO CONTEXT (long-term store):\n{json.dumps(honcho, ensure_ascii=False)}\n\n" if honcho else "")
               + (("EARLIER MESSAGES (already interpreted; context only, do not re-derive what the CURRENT WORLD STATE already holds):\n"
                   + "\n".join(line(m) for m in context) + "\n\n") if context else "")
               + f"NEW EVIDENCE:\n{evidence}")
@@ -700,6 +723,7 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
         "evidence": {"session_id": session_id, "fresh_ids": [m["id"] for m in fresh], "context_ids": [m["id"] for m in context],
                      "covered_through": receipt.get("covered_through")},
         "identities": {role: {"entity_id": str(e.id), "name": e.display_name, "provisional": e.provisional} for role, e in pinned.items()},
+        "honcho": {"used": bool(honcho), "summaries": sorted((honcho or {}).get("summary", {}).keys()), "earlier_hits": len((honcho or {}).get("earlier_evidence", []))},
         "state_shown": {k: len(v) for k, v in state.items() if isinstance(v, list)} | {"review_ids": shown},
         "proposed": receipt["proposed"], "kept": receipt["interpreted"], "dropped": drops.items, "rejected": receipt["rejected"], "repaired": receipt["repaired"],
         "operational": receipt["operational"], "superseded": receipt.get("superseded", []), "reviews": receipt.get("reviews", []), "review_coverage": receipt["review_coverage"],
