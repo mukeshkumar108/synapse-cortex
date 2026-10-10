@@ -1012,3 +1012,19 @@ def test_the_lane_one_extractor_accepts_json_a_model_wrapped_in_a_markdown_fence
     assert loads_lenient('Here you go:\n{"a": 2}\nThanks') == {"a": 2}
     with _pt.raises(Exception):
         loads_lenient("no json at all")
+
+
+@pytest.mark.asyncio
+async def test_events_with_nothing_written_about_them_join_the_matter_that_already_exists():
+    """Live 2026-10-10: pass three of a party-planning chat named the party's next event as a member of the existing project and was rejected. It joins the project instead."""
+    await run(sophie_delta())                                   # founds the 'Bluum' project from a commitment
+    body = sophie_delta().model_dump()
+    body["source"]["messages"] = body["source"]["messages"] + [{"id": "m4", "speaker": "user", "text": "the Bluum demo is on Monday"}]
+    body["source"]["covered_through"] = {"message_id": "m4", "ordinal": 4}
+    body["events"] = [{"ref": "e9", "label": "Bluum demo on Monday", "kind": "event", "participants": ["u"], "holder": "u", "formation": "explicit", "evidence": ["m4"]}]
+    body["claims"], body["commitments"] = [], []
+    body["matter_candidates"] = [{"ref": "mc7", "concept": "bluum", "display_title": "Bluum", "kind": "project", "actors": ["u"], "members": ["e9"], "continuity_required": True,
+                                  "continuity_reason": "ongoing project", "evidence": ["m4"]}]
+    receipt = await run(WorldDelta(**body))
+    assert not [r for r in receipt["rejected"] if r["ref"] == "mc7"], receipt["rejected"]
+    assert len(await all_rows(Matter, honcho_workspace_id=WS)) == 1 and receipt["counts"].get("matters_attached") == 1

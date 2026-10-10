@@ -440,6 +440,16 @@ def _relationship_matter_key(ctx: _Ctx, edge: Any) -> str:
     return f"relationship:{other}"
 
 
+async def _existing_matter(ctx: _Ctx, mc: Any) -> Optional[Matter]:
+    """A live Matter of this world that the candidate names (by id) or shares its concept key with."""
+    from src.models.matter import Matter as _Matter
+    rows = (await ctx.db.execute(select(_Matter).where(_Matter.honcho_workspace_id == ctx.ws, _Matter.owner_peer_id == ctx.owner, _Matter.merged_into_id.is_(None),
+                                                        _Matter.status.in_(("active", "dormant"))))).scalars().all()
+    named = str(mc.attach_to_existing_matter_id or "")
+    key = f"concept:{_slug(mc.concept)}"
+    return next((m for m in rows if str(m.id) == named or m.canonical_key == key), None)
+
+
 def _matter_member_entries(ctx: _Ctx, mc: Any) -> List[ModelEntry]:
     """The claims that are a Matter's record. A candidate names its members as refs of anything the pass produced; a project is naturally a group of EVENTS or a relationship or a
     person ('the party', 'the printer deadline'), and what is recorded about those is the claims and narrative written ABOUT them. Those count, so a Matter does not die because
@@ -471,6 +481,21 @@ async def _matters(ctx: _Ctx, adapter: Any) -> None:
             ctx.reject(mc.ref, f"no_continuity_need:{(mc.continuity_reason or 'interpreter judged none')[:120]}")
             continue
         member_entries = _matter_member_entries(ctx, mc)
+        if not member_entries and any(m in ctx.events for m in mc.members):
+            # Events with nothing written about them yet cannot found a Matter (it needs a claim to anchor on), but they can join one that already exists: the same concept, or the one the
+            # interpreter named. Seen live 2026-10-10: the third pass of a party-planning chat named the party's next event and lost it.
+            existing = await _existing_matter(ctx, mc)
+            if existing is not None:
+                for m in mc.members:
+                    if m in ctx.events:
+                        await ctx.link("event", ctx.events[m].id, "matter", existing.id, "member")
+                existing.last_touched = ctx.now
+                ctx.db.add(existing)
+                await ctx.db.commit()
+                ctx.matters.append(existing)
+                ctx.refs[mc.ref] = {"type": "matter", "id": str(existing.id), "resolution": "events_joined_existing"}
+                ctx.count("matters_attached")
+                continue
         if not member_entries:
             held = {"events": sum(1 for m in mc.members if m in ctx.events), "claims": sum(1 for m in mc.members if m in ctx.entries), "actors": sum(1 for m in mc.members if m in ctx.entities),
                     "other": sum(1 for m in mc.members if m not in ctx.events and m not in ctx.entries and m not in ctx.entities)}
