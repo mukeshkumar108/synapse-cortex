@@ -31,7 +31,7 @@ from src.services import nano_adapter
 
 logger = logging.getLogger(__name__)
 
-SOCIAL_TTL = timedelta(hours=3)
+SOCIAL_TTL = timedelta(hours=24)       # two agentic Honcho dialectic calls per refresh; it was 3 h and recomputed on every restart
 _social_cache: Dict[str, Any] = {}
 
 HEART_KINDS = ("want", "intend", "repair", "invite", "promise", "curious", "unsaid", "feeling", "regret", "avoid", "life",

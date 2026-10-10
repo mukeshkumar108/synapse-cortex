@@ -631,6 +631,12 @@ async def interpret(db: AsyncSession, *, workspace_id: str, owner: str, session_
     db.add(run)
     await db.commit()
     rid = run.id                  # read now: later rollbacks expire the instance
+    from src import call_context as _cc, runtime_model as _rm
+    _person = _cc.person_of(owner)
+    if not overrides and _person and _rm.PERSON_DAILY_BUDGET_USD > 0 and await _cc.person_spent_today(_person) >= _rm.PERSON_DAILY_BUDGET_USD:
+        # The cost contract: a person's background cognition stops at the daily ceiling; nothing is lost (the evidence stays uncovered and the next delivery after 00:00 UTC takes it).
+        await _finish(db, rid, "deferred", {"reason": "person_budget"}, {"deferred": "person_budget"})
+        return _busy_receipt(str(rid), model_id)
     key, holder = world_lease.lease_key(workspace_id, owner), str(rid)
     if not await world_lease.acquire(db, key, holder, wait_seconds=LEASE_WAIT_SECONDS):
         await _finish(db, rid, "deferred", {"reason": "lease_timeout"}, {"deferred": "lease_timeout"})

@@ -62,3 +62,39 @@ def record(*, module: str, provider: str, model: str, usage: Optional[Dict[str, 
         task.add_done_callback(_pending.discard)
     except Exception as exc:
         logger.debug("model_call record failed: %s", type(exc).__name__)
+
+
+def person_of(world_owner: Optional[str]) -> Optional[str]:
+    """The human behind an owner key: `user_<id>` (a person-scoped world) or `world:rpd2:<id>:<character>:<chat>` (a per-chat story world). Cost is a property of the PERSON,
+    not of a chat: ten chats are still one user's bill."""
+    owner = str(world_owner or "")
+    if owner.startswith("world:"):
+        parts = owner.split(":")
+        return parts[2] if len(parts) > 2 and parts[2] else owner
+    if owner.startswith("user_"):
+        return owner[5:]
+    return owner or None
+
+
+_spend_cache: Dict[str, Any] = {}
+
+
+async def person_spent_today(person: str, *, ttl: float = 20.0) -> float:
+    """Dollars of recorded model spend for this person since 00:00 UTC (all their worlds). Cached briefly: it is consulted before every model call. Unknown (no database) -> 0."""
+    import time
+    hit = _spend_cache.get(person)
+    if hit and time.monotonic() - hit[0] < ttl:
+        return hit[1]
+    try:
+        from sqlalchemy import text
+        from src.db import engine
+        async with engine.begin() as conn:
+            row = (await conn.execute(text(
+                "SELECT COALESCE(SUM(cost_usd), 0) FROM model_calls WHERE at >= date_trunc('day', now() AT TIME ZONE 'utc') AT TIME ZONE 'utc' "
+                "AND (world_owner = :u OR world_owner LIKE :w)"), {"u": f"user_{person}", "w": f"world:%:{person}:%"})).first()
+        value = float(row[0] or 0.0)
+    except Exception as exc:
+        logger.debug("person spend lookup failed: %s", type(exc).__name__)
+        value = hit[1] if hit else 0.0
+    _spend_cache[person] = (time.monotonic(), value)
+    return value

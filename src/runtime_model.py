@@ -24,8 +24,12 @@ REASONING_EFFORT = {                       # per calling module; override with L
     "world_interpreter": "low", "scene_narrative": "none", "executive": "low", "current_meaning_service": "none",
     "semantic_judge": "none", "turn_interpretation": "none", "default": "low",
 }
-DAILY_BUDGET_USD = {                       # per module per UTC day; override with LLM_DAILY_BUDGET_USD_<MODULE>
-    "world_interpreter": 3.00, "scene_narrative": 0.75, "executive": 0.75, "current_meaning_service": 0.25, "semantic_judge": 0.25, "default": 0.25,
+# THE PRODUCT'S COST CONTRACT: background cognition costs a person less than $1 on a heavy day and a few dollars a month on a normal one. The ceiling is per PERSON (all their worlds,
+# all modules): above it Cortex's optional work stops until 00:00 UTC and callers fail open to the next boundary. (On 9 Oct one dogfooding user cost ~$3.3 because the interpreter ran
+# after nearly every turn; the cadence was fixed at the source and this is the guarantee that a trigger bug can never do that again.)
+PERSON_DAILY_BUDGET_USD = float(os.getenv("LLM_DAILY_BUDGET_PER_PERSON_USD", "0.80"))
+DAILY_BUDGET_USD = {                       # per module per UTC day across EVERYONE: a runaway breaker only (it was $3 total, which would have stopped the whole product at ~4 users)
+    "world_interpreter": 40.00, "scene_narrative": 15.00, "executive": 15.00, "current_meaning_service": 5.00, "semantic_judge": 5.00, "default": 5.00,
 }
 HARD_MAX_OUTPUT_TOKENS = int(os.getenv("LLM_HARD_MAX_OUTPUT_TOKENS", "12000"))
 _spent: dict = {}
@@ -67,6 +71,11 @@ class AgendaRankerAdapter:
         except Exception:
             pass
         budget = float(_policy(DAILY_BUDGET_USD, "LLM_DAILY_BUDGET_USD", module))
+        from src import call_context as _cc
+        person = _cc.person_of(_cc.current().get("world_owner"))
+        if person and PERSON_DAILY_BUDGET_USD > 0 and await _cc.person_spent_today(person) >= PERSON_DAILY_BUDGET_USD:
+            logger.error("llm_person_budget_exceeded person=%s module=%s ceiling_usd=%.2f: refused until 00:00 UTC (callers fail open)", person, module, PERSON_DAILY_BUDGET_USD)
+            raise BudgetExceeded(f"daily per-person budget exhausted ({module})")
         if _spent.get((_day(), module), 0.0) >= budget:
             logger.error("llm_budget_exceeded module=%s budget_usd=%.2f: call refused until tomorrow (callers fail open)", module, budget)
             raise BudgetExceeded(f"daily budget for {module} exhausted")

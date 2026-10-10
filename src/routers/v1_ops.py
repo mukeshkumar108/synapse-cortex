@@ -57,6 +57,17 @@ async def digest(hours: int = Query(24, ge=1, le=24 * 14), db: AsyncSession = De
     out["interpreter"] = {"runs": len(runs), "by_status": by_status, "worlds": len(worlds), "p50_s": _pct(durations, 0.5), "p95_s": _pct(durations, 0.95),
                           "models": models, "failure_reasons": errors,
                           "rejected_by_reason": dict(sorted(rejected_by_reason.items(), key=lambda kv: -kv[1])[:8]), "matter_candidates": matters}
+    rows = (await db.execute(text("select world_owner, coalesce(sum(cost_usd),0), count(*), count(*) filter (where cost_usd is null) from model_calls where at > :s group by 1"), {"s": since})).all()
+    from src import call_context as _cc, runtime_model as _rm
+    people: Dict[str, Dict[str, float]] = {}
+    for owner, usd, calls, uncosted in rows:
+        who = _cc.person_of(owner) or "(no owner: self-scheduled)"
+        p = people.setdefault(who, {"usd": 0.0, "calls": 0, "uncosted_calls": 0})
+        p["usd"] += float(usd or 0); p["calls"] += int(calls or 0); p["uncosted_calls"] += int(uncosted or 0)
+    top = sorted(people.items(), key=lambda kv: -kv[1]["usd"])[:6]
+    out["cost"] = {"hours": hours, "total_usd": round(sum(v["usd"] for v in people.values()), 2), "ceiling_per_person_usd": _rm.PERSON_DAILY_BUDGET_USD,
+                   "top_people": [{"person": k[:12], "usd": round(v["usd"], 2), "calls": v["calls"], "uncosted_calls": v["uncosted_calls"]} for k, v in top],
+                   "note": "recorded OpenRouter cost only; NanoGPT-served calls (Heart, story pressure) report no cost"}
     wakes = (await db.execute(text(
         "select (consumed_at is not null) c, count(*), min(case when consumed_at is null then due_at end) from executive_wakes where created_at > :s group by 1"), {"s": since})).all()
     overdue = (await db.execute(text("select count(*) from executive_wakes where consumed_at is null and due_at < :t"),

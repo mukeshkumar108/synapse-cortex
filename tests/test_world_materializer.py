@@ -1028,3 +1028,21 @@ async def test_events_with_nothing_written_about_them_join_the_matter_that_alrea
     receipt = await run(WorldDelta(**body))
     assert not [r for r in receipt["rejected"] if r["ref"] == "mc7"], receipt["rejected"]
     assert len(await all_rows(Matter, honcho_workspace_id=WS)) == 1 and receipt["counts"].get("matters_attached") == 1
+
+
+@pytest.mark.asyncio
+async def test_a_person_over_their_daily_ceiling_gets_no_more_background_interpretation_and_loses_nothing(monkeypatch):
+    """The cost contract: background cognition is capped per PERSON (all their worlds). Over the ceiling the pass is deferred with a reason; the evidence stays uncovered."""
+    from src import call_context, runtime_model
+    from src.services import world_interpreter
+    monkeypatch.setattr(runtime_model, "PERSON_DAILY_BUDGET_USD", 0.50)
+    async def spent(person, ttl=20.0): return 0.51
+    monkeypatch.setattr(call_context, "person_spent_today", spent)
+    assert call_context.person_of("world:rpd2:u123:lila:chatA") == "u123" and call_context.person_of("user_u123") == "u123"
+    adapter = FakeInterpreter({"actors": []})
+    async with async_session_maker() as db:
+        out = await world_interpreter.interpret(db, workspace_id=WS, owner="world:rpd2:u123:lila:chatA", session_id="c", messages=INTERP_MESSAGES,
+                                                speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter)
+    assert adapter.calls == [] and out.get("status") in ("busy", "deferred")
+    runs = await all_rows(ProducerRun, honcho_workspace_id=WS)
+    assert runs and runs[-1].status == "deferred" and "person_budget" in (runs[-1].detail_json or "")
