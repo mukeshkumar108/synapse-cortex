@@ -512,8 +512,15 @@ async def honcho_context(workspace_id: str, owner: str, session_id: str, evidenc
         if client is None:
             return None
         summaries = await client.session_summaries(workspace_id, session_id)
+        if summaries:
+            try:
+                if await client.session_has_rewound(workspace_id, session_id):
+                    summaries = None     # written over the discarded branch too: it does not describe the live timeline
+            except Exception:
+                pass
         hits = await client.peer_search(workspace_id, honcho_peer_id(owner), evidence_text[-450:], limit=6)
-        earlier = [{"text": str(h.get("content") or "")[:300], "when": h.get("created_at"), "session": h.get("session_id")} for h in (hits or [])]
+        # a message the product discarded (edit / retry / rewind) is not evidence of the live timeline: the Runtime's own retrieval already drops it, and so must this read
+        earlier = [{"text": str(h.get("content") or "")[:300], "when": h.get("created_at"), "session": h.get("session_id")} for h in (hits or []) if not (h.get("metadata") or {}).get("rewound")]
         out = {"summary": {k: (v or "")[:900] for k, v in (summaries or {}).items() if v}, "earlier_evidence": earlier}
         return out if out["summary"] or earlier else None
     except Exception as exc:

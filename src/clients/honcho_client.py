@@ -165,6 +165,13 @@ class HonchoClient:
 
         return await self._get_json(key, fetch)
 
+    async def session_has_rewound(self, workspace_id: str, session_id: str) -> bool:
+        """Does this session hold messages the product discarded (an edit, retry or rewind)? Honcho's summaries are written over every message, discarded ones included, so a session that
+        has any must not lend its summary to an interpreter as if it described the live timeline. Unknown (error) answers False: the summary is lower-grade input anyway."""
+        data = await self._request("POST", f"/workspaces/{workspace_id}/sessions/{session_id}/messages/list", params={"size": 1}, body={"filters": {"metadata": {"rewound": True}}})
+        items = data.get("items") if isinstance(data, dict) else data
+        return bool(items)
+
     async def peer_search(
         self,
         workspace_id: str,

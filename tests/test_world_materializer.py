@@ -957,3 +957,25 @@ async def test_the_executive_is_woken_only_by_changes_it_acts_on_not_by_every_in
     await interpret({"actors": [{"ref": "l", "name": "Lila", "entity_type": "character", "explicit": True, "evidence": ["b1"]}],
                      "commitments": [{"ref": "c1", "committer": "user", "text": "I will call her Friday", "evidence": ["b1"]}]}, msgs("b"))
     assert await wakes() == 1                                      # a commitment is something the companion carries
+
+
+@pytest.mark.asyncio
+async def test_honcho_context_never_offers_a_discarded_branch_to_the_interpreter(monkeypatch):
+    """A rewound / edited-away message is not evidence of the live timeline, and a session summary written over it does not describe that timeline either (found live 2026-10-10)."""
+    from src.services import world_interpreter, turn_context
+
+    class FakeHoncho:
+        async def session_summaries(self, ws, sid):
+            return {"short_summary": "They hid the key under the flowerpot.", "long_summary": None}
+
+        async def session_has_rewound(self, ws, sid):
+            return True
+
+        async def peer_search(self, ws, peer, query, limit=6):
+            return [{"content": "I buried the key under the blue flowerpot", "created_at": "2026-09-01", "session_id": "chat_old", "metadata": {"rewound": True}},
+                    {"content": "The key is in my coat pocket", "created_at": "2026-09-02", "session_id": "chat_old", "metadata": {}}]
+
+    monkeypatch.setattr(turn_context, "_honcho_client", lambda: FakeHoncho())
+    ctx = await world_interpreter.honcho_context(WS, "world:h", "chat_c", "where is the key")
+    assert ctx is not None and "summary" in ctx and ctx["summary"] == {}
+    assert [e["text"] for e in ctx["earlier_evidence"]] == ["The key is in my coat pocket"]
