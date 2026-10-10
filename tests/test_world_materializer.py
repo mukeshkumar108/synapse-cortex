@@ -1046,3 +1046,22 @@ async def test_a_person_over_their_daily_ceiling_gets_no_more_background_interpr
     assert adapter.calls == [] and out.get("status") in ("busy", "deferred")
     runs = await all_rows(ProducerRun, honcho_workspace_id=WS)
     assert runs and runs[-1].status == "deferred" and "person_budget" in (runs[-1].detail_json or "")
+
+
+@pytest.mark.asyncio
+async def test_sitting_notes_reach_the_interpreter_only_when_the_experiment_is_on(monkeypatch):
+    """Arm B/C of the consolidation experiment: the running picture's anchors are offered as labelled hints; off by default so production behaviour is unchanged."""
+    import types
+    from src.services import world_interpreter, scene_narrative
+
+    async def current(db, ws, sid):
+        return types.SimpleNamespace(text="Kai is waiting for Lila to answer about the key.", anchors_json='[{"kind": "open_loop", "status": "open", "text": "Lila has not said where the key is"}]')
+    monkeypatch.setattr(scene_narrative, "current", current)
+    for flag, expect in ((False, False), (True, True)):
+        monkeypatch.setattr(world_interpreter, "SITTING_NOTES", flag)
+        adapter = FakeInterpreter({"actors": []})
+        async with async_session_maker() as db:
+            await world_interpreter.interpret(db, workspace_id=WS, owner=f"world:notes{flag}", session_id="chat_n", messages=INTERP_MESSAGES,
+                                              speakers={"user": "Kai", "assistant": "Lila"}, policy="generative", constitution=None, adapter=adapter)
+        prompt = adapter.calls[0]["prompt"]
+        assert ("SITTING NOTES" in prompt and "Lila has not said where the key is" in prompt) is expect

@@ -502,6 +502,32 @@ async def world_state_for_prompt(db: AsyncSession, workspace_id: str, owner: str
     }
 
 
+SITTING_NOTES = os.getenv("INTERPRETER_SITTING_NOTES", "0") == "1"
+
+
+async def sitting_notes(db: AsyncSession, workspace_id: str, session_id: str) -> Optional[str]:
+    """EXPERIMENT (off by default): hand the interpreter what the running picture already noticed during this sitting (its anchors: events, promises, decisions, open loops), as hints to
+    check against the evidence, never as evidence. Two passes currently read the same messages and each derive structure from scratch; this tests whether the second can lean on the first
+    (lower cost, fewer misses) or inherits its mistakes. Measure with the Ashley / RPD2 fixtures (docs/CONSOLIDATION.md, arms B and C)."""
+    if not SITTING_NOTES:
+        return None
+    try:
+        from src.services import scene_narrative
+        row = await scene_narrative.current(db, workspace_id, session_id)
+        if row is None:
+            return None
+        anchors = json.loads(getattr(row, "anchors_json", None) or "[]")
+        lines = [f"- [{a.get('kind')}/{a.get('status') or 'open'}] {str(a.get('text') or '')[:160]}" for a in anchors[-12:] if isinstance(a, dict)]
+        picture = str(getattr(row, "text", "") or "")[:500]
+        if not lines and not picture:
+            return None
+        return ("SITTING NOTES (what the running picture noticed while this conversation was live; hints to verify against the NEW EVIDENCE, never evidence themselves):\n"
+                + (f"picture: {picture}\n" if picture else "") + "\n".join(lines))
+    except Exception as exc:
+        logger.warning("sitting notes unavailable (continuing without): %s", exc)
+        return None
+
+
 async def honcho_context(workspace_id: str, owner: str, session_id: str, evidence_text: str) -> Optional[Dict[str, Any]]:
     """Long-horizon input from Honcho (derived summaries + semantic search over the stored raw evidence). Honcho is evidence storage and retrieval
     for these worlds; this interpreter remains the single semantic author. Bounded, fail-open."""
@@ -692,6 +718,7 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     line = lambda m: f"[{m['id']}] {speaker_label.get(m['speaker'], speakers.get(m['speaker'], m['speaker']))} ({'user' if m['speaker'] == 'user' else 'companion'}): {m['text']}" + (f"  [a proactive message you sent to carry out: {proactive[m['id']]['title']}]" if m['id'] in proactive else "")
     evidence = "\n".join(line(m) for m in fresh)
     honcho = await honcho_context(workspace_id, owner, session_id, evidence)
+    notes = await sitting_notes(db, workspace_id, session_id)
     toward = constitution.get("toward") if constitution else None
     prompt = (f"PRODUCT POLICY: {policy}\n"
               f"IDENTITIES (product-supplied): `user` = {user_actor or 'the human (name not supplied)'}; `companion` = {companion_actor or speakers.get('assistant', 'the companion')}\n"
@@ -699,6 +726,7 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
               f"{toward or 'the user'}): {constitution.get('text') if constitution else 'none'}\n\n"
               f"CURRENT WORLD STATE (ids are real; `operational_state` lists the open time-bound items):\n{json.dumps(state, ensure_ascii=False, default=str)}\n\n"
               + (f"HONCHO CONTEXT (long-term store):\n{json.dumps(honcho, ensure_ascii=False)}\n\n" if honcho else "")
+              + (f"{notes}\n\n" if notes else "")
               + (("EARLIER MESSAGES (already interpreted; context only, do not re-derive what the CURRENT WORLD STATE already holds):\n"
                   + "\n".join(line(m) for m in context) + "\n\n") if context else "")
               + f"NEW EVIDENCE:\n{evidence}")
