@@ -132,6 +132,22 @@ def _fold_string(value: str) -> str:
     return _normalize_match(value)[0].strip()
 
 
+def loads_lenient(content: str) -> Any:
+    """JSON from a model that wrapped it in a markdown fence (```json … ```) or added a sentence around it: the cheap extractors do this and every turn was failing on it
+    (observed 100 % on gemini-2.5-flash-lite, 2026-10-10). Strict first, then the fenced block, then the outermost braces; still raises JSONDecodeError if there is no JSON."""
+    try:
+        return json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        text = str(content or "")
+        fenced = re.search(r"```(?:json)?\s*(.*?)```", text, re.S | re.I)
+        if fenced:
+            return json.loads(fenced.group(1).strip())
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end > start:
+            return json.loads(text[start:end + 1])
+        raise
+
+
 class BaseExtractorProvider:
     """Interface for turn extraction providers (LLM or Rule-based)."""
     def extract(self, text: str, peer_id: Optional[str] = None,
@@ -627,7 +643,7 @@ class LLMExtractorProvider(BaseExtractorProvider):
                 payload = response.json()
                 self._last_call_usage = payload.get("usage") or {}
                 content = payload["choices"][0]["message"]["content"]
-                return json.loads(content)
+                return loads_lenient(content)
         except httpx.HTTPError as err:
             raise ModelCallError(
                 model_retry.classify_exception(err),

@@ -440,6 +440,24 @@ def _relationship_matter_key(ctx: _Ctx, edge: Any) -> str:
     return f"relationship:{other}"
 
 
+def _matter_member_entries(ctx: _Ctx, mc: Any) -> List[ModelEntry]:
+    """The claims that are a Matter's record. A candidate names its members as refs of anything the pass produced; a project is naturally a group of EVENTS or a relationship or a
+    person ('the party', 'the printer deadline'), and what is recorded about those is the claims and narrative written ABOUT them. Those count, so a Matter does not die because
+    the interpreter named the thing and not the sentence (production 2026-10-10: 154 of 564 candidates lost that way in RPD2, 6 of 8 in Sophie's world)."""
+    wanted = set(mc.members)
+    found: Dict[Any, ModelEntry] = {}
+    for m in mc.members:
+        if m in ctx.entries:
+            found[ctx.entries[m].id] = ctx.entries[m]
+    for c in ctx.delta.claims:
+        if c.subject in wanted and c.ref in ctx.entries:
+            found[ctx.entries[c.ref].id] = ctx.entries[c.ref]
+    for n in ctx.delta.narrative:
+        if wanted & set(n.about) and n.ref in ctx.entries:
+            found[ctx.entries[n.ref].id] = ctx.entries[n.ref]
+    return list(found.values())
+
+
 async def _matters(ctx: _Ctx, adapter: Any) -> None:
     """Whether something needs continuity (future behaviour depends on it) is a semantic judgement made by the interpreter and carried as
     `continuity_required` with a reason. Code resolves identity through the existing Matter resolver (nominate, bounded model judge) and stores."""
@@ -452,9 +470,11 @@ async def _matters(ctx: _Ctx, adapter: Any) -> None:
         if not mc.continuity_required:
             ctx.reject(mc.ref, f"no_continuity_need:{(mc.continuity_reason or 'interpreter judged none')[:120]}")
             continue
-        member_entries = [ctx.entries[m] for m in mc.members if m in ctx.entries]
+        member_entries = _matter_member_entries(ctx, mc)
         if not member_entries:
-            ctx.reject(mc.ref, "matter_candidate_has_no_materialised_claim_members")
+            held = {"events": sum(1 for m in mc.members if m in ctx.events), "claims": sum(1 for m in mc.members if m in ctx.entries), "actors": sum(1 for m in mc.members if m in ctx.entities),
+                    "other": sum(1 for m in mc.members if m not in ctx.events and m not in ctx.entries and m not in ctx.entities)}
+            ctx.reject(mc.ref, "matter_candidate_has_no_materialised_claim_members:" + ",".join(f"{k}={v}" for k, v in held.items()))
             continue
         kind = "relationship_situation" if mc.kind == "relationship_thread" else mc.kind
         actor_ids = {ctx.entities[a].id for a in mc.actors if a in ctx.entities}

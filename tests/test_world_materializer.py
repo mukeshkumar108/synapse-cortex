@@ -979,3 +979,36 @@ async def test_honcho_context_never_offers_a_discarded_branch_to_the_interpreter
     ctx = await world_interpreter.honcho_context(WS, "world:h", "chat_c", "where is the key")
     assert ctx is not None and "summary" in ctx and ctx["summary"] == {}
     assert [e["text"] for e in ctx["earlier_evidence"]] == ["The key is in my coat pocket"]
+
+
+@pytest.mark.asyncio
+async def test_a_matter_whose_members_are_events_takes_the_claims_written_about_them():
+    """Production evidence (2026-10-10): 154 of 564 candidates in RPD2 and 6 of 8 in Sophie's world were rejected as 'no materialised claim members'. A project is naturally a group of EVENTS
+    ('the party', 'the printer deadline'); the claims written about those events are its record. They must count."""
+    body = sophie_delta().model_dump()
+    body["claims"].append({"ref": "c3", "subject": "e1", "text": "the gym session is part of Sam's plan to rebuild his fitness", "kind": "assertion", "holder": "u", "formation": "explicit", "evidence": ["m1"]})
+    body["matter_candidates"] = [{"ref": "mc9", "concept": "fitness", "display_title": "Rebuilding fitness", "kind": "project", "actors": ["u"], "members": ["e1"],
+                                  "continuity_required": True, "continuity_reason": "an ongoing effort", "evidence": ["m1"]}]
+    receipt = await run(WorldDelta(**body))
+    assert not [r for r in receipt["rejected"] if r["ref"] == "mc9"], receipt["rejected"]
+    assert [m.title for m in await all_rows(Matter, honcho_workspace_id=WS)] == ["Rebuilding fitness"]
+
+
+@pytest.mark.asyncio
+async def test_a_matter_with_nothing_to_stand_on_is_rejected_and_the_receipt_says_what_it_had():
+    body = sophie_delta().model_dump()
+    body["matter_candidates"] = [{"ref": "mc9", "concept": "gym", "display_title": "Gym", "kind": "routine", "actors": ["u"], "members": ["e1"],
+                                  "continuity_required": True, "continuity_reason": "recurring", "evidence": ["m1"]}]
+    receipt = await run(WorldDelta(**body))
+    reason = next(r["reason"] for r in receipt["rejected"] if r["ref"] == "mc9")
+    assert reason.startswith("matter_candidate_has_no_materialised_claim_members") and "events=1" in reason
+
+
+def test_the_lane_one_extractor_accepts_json_a_model_wrapped_in_a_markdown_fence():
+    import pytest as _pt
+    from src.services.turn_extractor import loads_lenient
+    assert loads_lenient('{"a": 1}') == {"a": 1}
+    assert loads_lenient('```json\n{"a": [1, 2]}\n```') == {"a": [1, 2]}
+    assert loads_lenient('Here you go:\n{"a": 2}\nThanks') == {"a": 2}
+    with _pt.raises(Exception):
+        loads_lenient("no json at all")

@@ -27,8 +27,23 @@ async def digest(hours: int = Query(24, ge=1, le=24 * 14), db: AsyncSession = De
     by_status: Dict[str, int] = {}
     durations, errors, models = [], {}, {}
     worlds = set()
+    rejected_by_reason: Dict[str, int] = {}
+    matters = {"proposed": 0, "kept": 0, "rejected_no_members": 0}
     for status, started, finished, detail, model, owner in runs:
         by_status[status] = by_status.get(status, 0) + 1
+        if status == "applied":            # silent loss upstream starves everything downstream (Matters were losing a quarter to three quarters of candidates unseen): count what the materialiser throws away
+            try:
+                d = json.loads(detail or "{}")
+                for r in d.get("rejected") or []:
+                    reason = str(r.get("reason") or "")
+                    key = reason.split(":")[0][:60]
+                    rejected_by_reason[key] = rejected_by_reason.get(key, 0) + 1
+                    if key == "matter_candidate_has_no_materialised_claim_members":
+                        matters["rejected_no_members"] += 1
+                matters["proposed"] += int((d.get("proposed") or {}).get("matter_candidates") or 0)
+                matters["kept"] += int((d.get("kept") or {}).get("matter_candidates") or 0)
+            except (ValueError, TypeError, AttributeError):
+                pass
         models[model] = models.get(model, 0) + 1
         worlds.add(owner)
         if started and finished and status == "applied":
@@ -40,7 +55,8 @@ async def digest(hours: int = Query(24, ge=1, le=24 * 14), db: AsyncSession = De
                 err = "unparseable"
             errors[err] = errors.get(err, 0) + 1
     out["interpreter"] = {"runs": len(runs), "by_status": by_status, "worlds": len(worlds), "p50_s": _pct(durations, 0.5), "p95_s": _pct(durations, 0.95),
-                          "models": models, "failure_reasons": errors}
+                          "models": models, "failure_reasons": errors,
+                          "rejected_by_reason": dict(sorted(rejected_by_reason.items(), key=lambda kv: -kv[1])[:8]), "matter_candidates": matters}
     wakes = (await db.execute(text(
         "select (consumed_at is not null) c, count(*), min(case when consumed_at is null then due_at end) from executive_wakes where created_at > :s group by 1"), {"s": since})).all()
     overdue = (await db.execute(text("select count(*) from executive_wakes where consumed_at is null and due_at < :t"),
