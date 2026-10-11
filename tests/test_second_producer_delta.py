@@ -85,6 +85,25 @@ async def test_second_producer_closes_by_exact_id_with_receipt(async_client):
     assert review["operational"]["reviews"][0]["applied"] is True
 
 
+async def test_repeated_close_reports_already_applied_without_rewriting_history(async_client):
+    created = (await async_client.post("/v1/events/object", json=object_payload())).json()
+    expectation_id = created["expectation_id"]
+
+    first = (await async_client.post("/v1/world/delta", json=delta_payload(expectation_id))).json()
+    assert first["operational"]["committed"][0].get("already_applied") is not True
+    state = (await async_client.get("/v1/debug/owner-state", params={"workspace_id": "ws-delta2", "owner_peer_id": "user_1"})).json()
+    evidence_before = [e for e in state["expectations"] if e["id"] == expectation_id][0]["resolution_evidence"]
+
+    second = (await async_client.post("/v1/world/delta", json=delta_payload(
+        expectation_id, evidence_id="msg-cancel-9"))).json()
+    assert second["operational"]["committed"][0].get("already_applied") is True
+    assert second["operational"]["failed"] == []
+
+    state = (await async_client.get("/v1/debug/owner-state", params={"workspace_id": "ws-delta2", "owner_peer_id": "user_1"})).json()
+    rows = [e for e in state["expectations"] if e["id"] == expectation_id]
+    assert rows[0]["outcome_state"] == "cancelled" and rows[0]["resolution_evidence"] == evidence_before
+
+
 async def test_unknown_id_refuses_without_mutation(async_client):
     created = (await async_client.post("/v1/events/object", json=object_payload())).json()
     expectation_id = created["expectation_id"]

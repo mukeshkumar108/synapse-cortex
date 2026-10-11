@@ -836,7 +836,12 @@ async def commit_operational(db: AsyncSession, items: List[Any], *, messages: Li
 
 
 async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: str, now: Any) -> Optional[Dict[str, Any]]:
-    """Complete / cancel one open operational item (expectation, open loop, or commitment candidate) by its exact id, and close what hangs off it."""
+    """Complete / cancel one open operational item (expectation, open loop, or commitment candidate) by its exact id, and close what hangs off it.
+
+    Idempotent honesty: an item already in the requested (or any settled) state is NOT
+    rewritten — the receipt reports already_applied with the standing outcome, so a retry
+    or a repeated instruction is distinguishable from a fresh close and history is never
+    re-stamped."""
     from uuid import UUID
     from src.models.commitment_candidate import CommitmentCandidate, CommitmentCandidateStatus
     from src.models.expectation import Expectation, OutcomeState
@@ -849,7 +854,10 @@ async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: s
     stamp = now.replace(tzinfo=None) if getattr(now, "tzinfo", None) else now
     exp = await db.get(Expectation, tid)
     if exp is not None:
-        exp.outcome_state = OutcomeState.FULFILLED if done else OutcomeState.CANCELLED
+        outcome = OutcomeState.FULFILLED if done else OutcomeState.CANCELLED
+        if exp.outcome_state == outcome:
+            return {"closed": "expectation", "id": str(tid), "outcome": exp.outcome_state.value if hasattr(exp.outcome_state, "value") else str(exp.outcome_state), "already_applied": True}
+        exp.outcome_state = outcome
         exp.resolution_evidence, exp.updated_at = evidence, stamp
         db.add(exp)
         for loop in (await db.execute(select(OpenLoop).where(OpenLoop.expectation_id == tid, OpenLoop.status == OpenLoopStatus.OPEN))).scalars().all():
@@ -859,12 +867,16 @@ async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: s
         return {"closed": "expectation", "id": str(tid), "outcome": exp.outcome_state.value if hasattr(exp.outcome_state, "value") else str(exp.outcome_state)}
     loop = await db.get(OpenLoop, tid)
     if loop is not None:
+        if loop.status != OpenLoopStatus.OPEN:
+            return {"closed": "open_loop", "id": str(tid), "outcome": str(loop.status.value if hasattr(loop.status, "value") else loop.status), "already_applied": True}
         loop.status, loop.resolution_evidence, loop.updated_at = (OpenLoopStatus.RESOLVED if done else OpenLoopStatus.ABANDONED), evidence, stamp
         db.add(loop)
         await db.commit()
         return {"closed": "open_loop", "id": str(tid)}
     cc = await db.get(CommitmentCandidate, tid)
     if cc is not None:
+        if cc.status != CommitmentCandidateStatus.PENDING:
+            return {"closed": "commitment", "id": str(tid), "outcome": str(cc.status.value if hasattr(cc.status, "value") else cc.status), "already_applied": True}
         cc.status, cc.resolution_evidence, cc.updated_at = (CommitmentCandidateStatus.FULFILLED if done else CommitmentCandidateStatus.DISMISSED), evidence, stamp
         db.add(cc)
         await db.commit()
