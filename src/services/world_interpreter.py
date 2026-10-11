@@ -743,7 +743,8 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     known_operational = [x["id"] for kind in ("expectations", "open_loops", "commitments") for x in state["operational_state"][kind]]
     receipt = await world_materializer.materialize(db, delta, now=now, adapter=matter_adapter, constitution=constitution, run=run)
     if isinstance(raw.get("standing_requests"), list):
-        receipt["standing_requests"] = await _sr.sync(db, workspace_id, owner, [str(x) for x in raw["standing_requests"]], source="interpreter")
+        receipt["standing_requests"] = await _sr.sync(db, workspace_id, owner, [str(x) for x in raw["standing_requests"]], source="interpreter",
+                                                                 revise=True, now=now, timezone_str=timezone)
     receipt["operational"] = await commit_operational(db, delta.operational, messages=messages, workspace_id=workspace_id, owner=owner, session_id=session_id,
                                                       timezone=timezone, now=now)
     receipt["operational"]["reviews"] = await apply_operational_reviews(db, delta.operational_reviews, messages=messages, now=now)

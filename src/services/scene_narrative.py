@@ -194,7 +194,7 @@ async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, 
     from src.models.scene import utc_now
     returned = (out or {}).get("standing_requests")
     if owner and isinstance(returned, list):        # a pass that omits the field changes nothing; only an explicit list (possibly empty = all withdrawn) is applied
-        await standing_requests.sync(db, workspace_id, owner, [str(x) for x in returned], source="scene_pass")
+        await standing_requests.sync(db, workspace_id, owner, [str(x) for x in returned], source="scene_pass", revise=True)
     row.text, row.model, row.updated_at = text, model_id, utc_now()
     latest = (await db.execute(select(SceneNarrative.anchors_json).where(SceneNarrative.honcho_workspace_id == workspace_id, SceneNarrative.honcho_session_id == session_id))).scalar()
     try:

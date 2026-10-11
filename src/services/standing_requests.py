@@ -48,11 +48,25 @@ async def active(db: AsyncSession, workspace_id: str, owner: str) -> List[str]:
     return [r.text for r in rows]
 
 
-async def sync(db: AsyncSession, workspace_id: str, owner: str, desired: List[str], *, source: str) -> dict:
+async def sync(db: AsyncSession, workspace_id: str, owner: str, desired: List[str], *, source: str,
+             revise: bool = False, now: Optional[datetime] = None, timezone_str: str = "UTC") -> dict:
     """Make the active set equal `desired`: new texts are created, active ones no longer listed are withdrawn (kept for history), a listed one that was
-    withdrawn is reopened. Callers pass the full list only when they actually produced one (an omitted field means 'no change')."""
+    withdrawn is reopened. Callers pass the full list only when they actually produced one (an omitted field means 'no change').
+
+    With revise=True, record-first routing applies before storing: a candidate that is a dated
+    correction of an open event/expectation revises that record (evidence attached) and is NOT
+    stored as prose; genuine preferences and unmatchable texts store exactly as before. The
+    receipt gains revised/already_current lists. Nothing is ever silently dropped."""
     if not owner:
         return {"created": 0, "withdrawn": 0}
+    revised: list = []
+    already: list = []
+    if revise and desired:
+        from src.services import record_revision as _rr
+        routed = await _rr.route_corrections(db, workspace_id, owner, [str(x) for x in desired],
+                                             now=now or _now(), timezone_str=timezone_str)
+        desired = routed["prose_kept"]
+        revised, already = routed["revised"], routed["already_current"]
     wanted = {}
     for text in desired:
         text = " ".join(str(text).split())[:240]
@@ -79,4 +93,8 @@ async def sync(db: AsyncSession, workspace_id: str, owner: str, desired: List[st
             db.add(row)
             withdrawn += 1
     await db.commit()
-    return {"created": created, "withdrawn": withdrawn}
+    receipt: dict = {"created": created, "withdrawn": withdrawn}
+    if revise:
+        receipt["revised"] = revised
+        receipt["already_current"] = already
+    return receipt
