@@ -162,3 +162,16 @@ async def test_an_obligation_is_persistent_state_with_a_count_and_a_provenance()
         loop = next(a for a in third["anchors"] if a["kind"] == "open_loop")
         assert loop["asked_n"] == 3 and loop["first_asked_at"] <= loop["last_asked_at"]
         assert "asked_n" not in next(a for a in third["anchors"] if a["kind"] == "claim")
+
+
+@pytest.mark.asyncio
+async def test_the_foregrounds_notes_join_the_sitting_without_a_model_call_and_the_next_pass_sees_them():
+    ad = _Adapter({"scene": "Kai is planning lunch.", "closed_anchor_ids": ["a1"]})
+    async with async_session_maker() as db:
+        got = await scene_narrative.add_notes(db, workspace_id="wn", session_id="sn", notes=[{"kind": "decision", "text": "Lunch with James is on for Friday", "by": "user"}])
+        assert [a["text"] for a in got["anchors"]] == ["Lunch with James is on for Friday"] and not ad.prompts
+        again = await scene_narrative.add_notes(db, workspace_id="wn", session_id="sn", notes=[{"kind": "decision", "text": "lunch with James is on for friday"}])
+        assert len(again["anchors"]) == 1                                                  # a repeat is not a second note
+        await scene_narrative.narrate(db, adapter=ad, workspace_id="wn", session_id="sn", names=N, messages=ex("cancel lunch", "ok"), force=True)
+        assert "[a1] (open) Lunch with James is on for Friday" in ad.prompts[0]            # the consolidating pass reads the note as a current anchor...
+        assert [a["status"] for a in (await scene_narrative.add_notes(db, workspace_id="wn", session_id="sn", notes=[]))["anchors"]] == ["closed"]      # ...and can close it

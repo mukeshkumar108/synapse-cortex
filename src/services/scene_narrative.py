@@ -30,8 +30,8 @@ EVICTION_RANK = {"private_truth": 9, "claim": 0, "event": 1, "person": 2, "exter
 
 SYSTEM = """You keep the running picture of one ongoing conversation between a person and a companion character, so the character can speak as one continuous self.
 You are given the PREVIOUS PICTURE (what was already known) and the LAST MESSAGES (verbatim). Write the picture as it stands NOW: 6 to 14 short plain sentences, no lists, no headings. BEGIN it with where the relationship stands and what has been built between them: moments of closeness, celebration, trust, vulnerability, affection or repair are the weightiest things in any conversation. Keep each such moment (a clause: what it was, how it landed) for as long as the scene lasts even when it is no longer the latest thing, and say how it should colour what follows. A later disagreement or strange turn is described against that background, as a rupture of it, never as if the bond did not exist; and when something a character says or does is out of keeping with that background, say that it is out of keeping.
-Cover, in whatever order reads naturally: what is actually happening and in what register; what is genuinely still open between them (questions not answered, decisions pending,
-tension not settled); any decisions, promises, plans or commitments made; the texture (mood, humour, running jokes, tone) as observed, not as lasting unless it continues;
+Cover, in whatever order reads naturally: what is actually happening; what is genuinely still open between them (questions not answered, decisions pending,
+tension not settled); any decisions, promises, plans or commitments made; running jokes and callbacks (what they are, who made them, whether they are still live), without describing mood or tone;
 and what has already been used up so it is not needlessly repeated (questions asked, stories told, callbacks made, points settled), saying who did it.
 Carry forward from the PREVIOUS PICTURE whatever still matters. DROP mood and moment-to-moment texture that has passed, but KEEP, as short factual clauses, the concrete things that have happened in this scene and that anything later must stay consistent with: who did what to whom, what was sent, received, refused or accepted, where each person physically is and what they are waiting for, and what each said they did or did not do. A long scene must not lose its earlier events just because they are no longer the latest thing.
 A character's own account of their hidden past or secret feelings, offered for the first time under questioning, is described as what they SAID ("she said ..."), never as a fact of the scene; if it contradicts something that already happened in the scene, say that it contradicts it, and keep the event. A fact about the PERSON's own life (their pet, work, family, history) that only the character supplied when asked to recall it, and that the person never stated in these messages, is not a fact of the scene: describe it as what the character SAID, and never as an anchor of kind event. Name people by the names given. Say only what the messages support.
@@ -117,6 +117,22 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
     import asyncio
     async with _LOCKS.setdefault(f"{workspace_id}|{session_id}", asyncio.Lock()):       # passes for one sitting run one after another: a slow earlier pass must not finish after, and overwrite, a later one
         return await _narrate_locked(db, adapter=adapter, workspace_id=workspace_id, session_id=session_id, fresh=fresh, names=names, model=model, force=force, owner=owner)
+
+
+async def add_notes(db: AsyncSession, *, workspace_id: str, session_id: str, notes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """The foreground's own notes for this sitting. No model call: the deterministic merge dedupes, bounds and evicts exactly as for the picture pass's anchors, and the next
+    picture pass sees the notes as CURRENT ANCHORS (it can close or fold them). Returns the sitting's anchors."""
+    import asyncio
+    from src.models.scene import utc_now
+    async with _LOCKS.setdefault(f"{workspace_id}|{session_id}", asyncio.Lock()):
+        row = await current(db, workspace_id, session_id)
+        if row is None:
+            row = SceneNarrative(honcho_workspace_id=workspace_id, honcho_session_id=session_id, text="")
+            db.add(row)
+        anchors = merge_anchors(load_anchors(row), [n for n in (notes or []) if isinstance(n, dict)], [], utc_now())
+        row.anchors_json = json.dumps(anchors, ensure_ascii=False)
+        await db.commit()
+        return {"anchors": anchors}
 
 
 async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, fresh: List[Dict[str, str]], names: Dict[str, str],

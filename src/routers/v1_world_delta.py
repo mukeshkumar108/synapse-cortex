@@ -88,6 +88,24 @@ class NarrateRequest(BaseModel):
     model: Optional[str] = None             # LAB ONLY (session must be a lab chat)
 
 
+class NotesRequest(BaseModel):
+    workspace_id: str
+    session_id: str
+    notes: List[Dict[str, str]]             # {kind, text, by?}: what the foreground itself chose to keep for this sitting
+
+
+@router.post("/notes")
+async def sitting_notes(req: NotesRequest, db: AsyncSession = Depends(get_async_session)):
+    """The foreground's notes join the sitting's anchors (deterministic merge, no model call)."""
+    from src.services import scene_narrative
+    try:
+        return await scene_narrative.add_notes(db, workspace_id=req.workspace_id, session_id=req.session_id, notes=req.notes[:3])
+    except Exception as exc:
+        await db.rollback()
+        logger.exception("sitting notes failed")
+        raise HTTPException(status_code=500, detail=f"notes_failed:{type(exc).__name__}") from exc
+
+
 @router.post("/narrate")
 async def narrate_scene(req: NarrateRequest, db: AsyncSession = Depends(get_async_session)):
     """The fast scene pass: rewrite the conversation's running picture (a few plain sentences) from the last messages. Fail-open for the caller."""
