@@ -17,8 +17,9 @@ from src.models.scene import SceneNarrative
 
 logger = logging.getLogger(__name__)
 
-# Chosen on the 12-session picture contract (reports/model_eval/2026-10-11 in companion-runtime): fact recall 0.71 vs luna 0.73 at 0.21x the cost; the pass is asynchronous, so its latency is not on the reply.
-SCENE_MODEL = os.getenv("SCENE_NARRATIVE_MODEL", "google/gemma-3-12b-it")
+# luna: on the 12-session picture contract (companion-runtime reports/model_eval/2026-10-11) it invents 1.0 tokens per pass against 3.0 for gemma-3-12b / ministral-8b, and in live sittings the cheaper models turned banter into
+# "still waiting for" obligations the character then acts on. Fact recall alone (0.73 vs 0.71) hid that; the saving is under a cent a sitting.
+SCENE_MODEL = os.getenv("SCENE_NARRATIVE_MODEL", "openai/gpt-5.6-luna")
 TAIL = 6
 MAX_REQUESTS = 12
 REWRITE_EVERY_MESSAGES = 4     # the picture is rewritten once this many new messages are waiting (2 exchanges): always fewer than the raw tail the foreground reads, so nothing falls between
