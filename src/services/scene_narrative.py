@@ -78,7 +78,7 @@ def merge_anchors(existing: List[Dict[str, Any]], new: Any, closed: Any, now: An
         text = " ".join(str(item.get("text") or "").split())[:ANCHOR_CHARS]
         kind = str(item.get("kind") or "event")
         kind = kind if kind in ANCHOR_KINDS else "event"
-        if not text or any(_similar(text, a["text"]) for a in anchors):
+        if not text or any(_similar(text, a["text"]) for a in anchors if a.get("status") != "closed"):
             continue
         seq += 1
         added += 1
@@ -121,19 +121,32 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
 
 
 async def add_notes(db: AsyncSession, *, workspace_id: str, session_id: str, notes: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """The foreground's own notes for this sitting. No model call: the deterministic merge dedupes, bounds and evicts exactly as for the picture pass's anchors, and the next
-    picture pass sees the notes as CURRENT ANCHORS (it can close or fold them). Returns the sitting's anchors."""
-    import asyncio
+    """The foreground's own notes for this sitting. No model call and no wait on one: the deterministic merge dedupes, bounds and evicts exactly as for the picture pass's anchors, and the
+    next picture pass sees the notes as CURRENT ANCHORS (it can close or fold them). A note may name the earlier fact it cancels or replaces (`closes`): the closest open anchor is closed.
+    Returns the sitting's anchors."""
     from src.models.scene import utc_now
-    async with _LOCKS.setdefault(f"{workspace_id}|{session_id}", asyncio.Lock()):
-        row = await current(db, workspace_id, session_id)
-        if row is None:
-            row = SceneNarrative(honcho_workspace_id=workspace_id, honcho_session_id=session_id, text="")
-            db.add(row)
-        anchors = merge_anchors(load_anchors(row), [n for n in (notes or []) if isinstance(n, dict)], [], utc_now())
-        row.anchors_json = json.dumps(anchors, ensure_ascii=False)
-        await db.commit()
-        return {"anchors": anchors}
+    row = await current(db, workspace_id, session_id)
+    if row is None:
+        row = SceneNarrative(honcho_workspace_id=workspace_id, honcho_session_id=session_id, text="")
+        db.add(row)
+    anchors = load_anchors(row)
+    shut = []
+    for n in notes or []:
+        target = " ".join(str(n.get("closes") or "").split())
+        if not target:
+            continue
+        best = max((a for a in anchors if a.get("status") != "closed"), key=lambda a: _overlap(target, a["text"]), default=None)
+        if best is not None and _overlap(target, best["text"]) >= 0.35:
+            shut.append(best["id"])
+    anchors = merge_anchors(anchors, [n for n in (notes or []) if isinstance(n, dict)], shut, utc_now())
+    row.anchors_json = json.dumps(anchors, ensure_ascii=False)
+    await db.commit()
+    return {"anchors": anchors}
+
+
+def _overlap(a: str, b: str) -> float:
+    ta, tb = set(re.findall(r"[a-z0-9£$]+", a.lower())), set(re.findall(r"[a-z0-9£$]+", b.lower()))
+    return len(ta & tb) / len(ta | tb) if ta and tb else 0.0
 
 
 async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, fresh: List[Dict[str, str]], names: Dict[str, str],
@@ -177,6 +190,11 @@ async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, 
     if owner and isinstance(returned, list):        # a pass that omits the field changes nothing; only an explicit list (possibly empty = all withdrawn) is applied
         await standing_requests.sync(db, workspace_id, owner, [str(x) for x in returned], source="scene_pass")
     row.text, row.model, row.updated_at = text, model_id, utc_now()
+    latest = (await db.execute(select(SceneNarrative.anchors_json).where(SceneNarrative.honcho_workspace_id == workspace_id, SceneNarrative.honcho_session_id == session_id))).scalar()
+    try:
+        anchors = [a for a in json.loads(latest or "[]") if isinstance(a, dict) and a.get("text")] or anchors      # notes written during the model call are kept
+    except ValueError:
+        pass
     anchors = merge_anchors(anchors, (out or {}).get("new_anchors"), (out or {}).get("closed_anchor_ids"), row.updated_at, (out or {}).get("reasked_anchor_ids"))
     row.anchors_json = json.dumps(anchors, ensure_ascii=False)
     row.through_message_id = next((m.get("id") for m in reversed(pending) if m.get("id")), None)

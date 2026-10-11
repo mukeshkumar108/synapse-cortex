@@ -175,3 +175,23 @@ async def test_the_foregrounds_notes_join_the_sitting_without_a_model_call_and_t
         await scene_narrative.narrate(db, adapter=ad, workspace_id="wn", session_id="sn", names=N, messages=ex("cancel lunch", "ok"), force=True)
         assert "[a1] (open) Lunch with James is on for Friday" in ad.prompts[0]            # the consolidating pass reads the note as a current anchor...
         assert [a["status"] for a in (await scene_narrative.add_notes(db, workspace_id="wn", session_id="sn", notes=[]))["anchors"]] == ["closed"]      # ...and can close it
+
+
+@pytest.mark.asyncio
+async def test_a_note_can_cancel_the_fact_it_replaces_and_a_note_written_during_a_pass_is_not_lost():
+    import asyncio
+
+    class _Slow(_Adapter):
+        async def generate_structured(self, **kw):
+            await asyncio.sleep(0.3); return await super().generate_structured(**kw)
+    ad = _Slow({"scene": "Kai is pottering about."})
+    async with async_session_maker() as db, async_session_maker() as db2:
+        await scene_narrative.add_notes(db, workspace_id="wc", session_id="sc", notes=[{"kind": "event", "text": "Friday lunch with James, noodle place"}])
+        got = await scene_narrative.add_notes(db, workspace_id="wc", session_id="sc", notes=[{"kind": "event", "text": "Lunch with James on Friday is cancelled", "closes": "Friday lunch with James, noodle place"}])
+        assert [(a["text"], a["status"]) for a in got["anchors"]] == [("Friday lunch with James, noodle place", "closed"), ("Lunch with James on Friday is cancelled", "established")]
+        task = asyncio.create_task(scene_narrative.narrate(db, adapter=ad, workspace_id="wc", session_id="sc", names=N, messages=ex("hi", "hello"), force=True))
+        await asyncio.sleep(0.1)                                                            # the pass is thinking: a note arrives without waiting for it
+        await scene_narrative.add_notes(db2, workspace_id="wc", session_id="sc", notes=[{"kind": "promise", "text": "Send Priya the invoice by Wednesday"}])
+        await task
+        texts = [a["text"] for a in (await scene_narrative.add_notes(db2, workspace_id="wc", session_id="sc", notes=[]))["anchors"]]
+        assert "Send Priya the invoice by Wednesday" in texts

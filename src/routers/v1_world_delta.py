@@ -91,7 +91,7 @@ class NarrateRequest(BaseModel):
 class NotesRequest(BaseModel):
     workspace_id: str
     session_id: str
-    notes: List[Dict[str, str]]             # {kind, text, by?}: what the foreground itself chose to keep for this sitting
+    notes: List[Dict[str, str]]             # {kind, text, by?, closes?}: what the foreground itself chose to keep for this sitting (`closes` = the earlier fact it cancels or replaces)
 
 
 @router.post("/notes")
