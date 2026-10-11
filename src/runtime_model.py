@@ -117,8 +117,11 @@ class AgendaRankerAdapter:
                         usage.get("completion_tokens"), (usage.get("completion_tokens_details") or {}).get("reasoning_tokens"), float(cost), _spent[(_day(), module)])
             from src import call_context
             call_context.record(module=module, provider="openrouter", model=model_id, usage=usage, cost=float(cost))
-            content = body["choices"][0]["message"]["content"] or "{}"
-            parsed = json.loads(content)
+            content = body["choices"][0]["message"].get("content") or "{}"
+            from src.services.nano_adapter import extract_json
+            parsed = extract_json(content)
+            if parsed is None:
+                parsed = json.loads(content.strip() or "{}")
             if not isinstance(parsed, dict):
                 raise ValueError("agenda ranker returned non-object")
             return parsed
