@@ -17,7 +17,8 @@ from src.models.scene import SceneNarrative
 
 logger = logging.getLogger(__name__)
 
-SCENE_MODEL = os.getenv("SCENE_NARRATIVE_MODEL", "openai/gpt-5.6-luna")
+# Chosen on the 12-session picture contract (reports/model_eval/2026-10-11 in companion-runtime): fact recall 0.71 vs luna 0.73 at 0.21x the cost; the pass is asynchronous, so its latency is not on the reply.
+SCENE_MODEL = os.getenv("SCENE_NARRATIVE_MODEL", "google/gemma-3-12b-it")
 TAIL = 6
 MAX_REQUESTS = 12
 REWRITE_EVERY_MESSAGES = 4     # the picture is rewritten once this many new messages are waiting (2 exchanges): always fewer than the raw tail the foreground reads, so nothing falls between
