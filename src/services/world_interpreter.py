@@ -801,6 +801,11 @@ async def commit_operational(db: AsyncSession, items: List[Any], *, messages: Li
     for it in items:
         try:
             msg = by_id[it.evidence[0]]
+            if it.decision in ("complete", "cancel") and not it.target:
+                # A close without a bound record is a refusal, never a guess: the caller
+                # (interpreter, tool, second producer) must name exactly one id or clarify.
+                failed.append({"title": it.title, "reason": "target_required"})
+                continue
             if it.decision in ("complete", "cancel") and it.target:
                 # The interpreter named exactly which listed item this closes: applying a known id is mechanics, not interpretation (and works across
                 # sessions, unlike the fuzzy session-scoped matchers).

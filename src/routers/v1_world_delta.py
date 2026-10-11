@@ -20,7 +20,22 @@ router = APIRouter(prefix="/v1/world", tags=["world-delta"])
 @router.post("/delta")
 async def submit_world_delta(delta: WorldDelta, db: AsyncSession = Depends(get_async_session)):
     try:
-        return await materialize(db, delta)
+        receipt = await materialize(db, delta)
+        if delta.operational or delta.operational_reviews:
+            # Second-producer path: anyone authorised (interpreter, Runtime tool, UI) may
+            # close by exact id through the same validated commit path — mechanics, not
+            # interpretation. Operands arrive in delta.operational / operational_reviews with
+            # evidence message ids resolved against delta.source.messages.
+            from datetime import datetime as _dt
+            from datetime import timezone as _tz
+            from src.services import world_interpreter as _wi
+            messages = [m.model_dump() for m in (delta.source.messages or [])]
+            now = _dt.now(_tz.utc)
+            op = await _wi.commit_operational(db, list(delta.operational), messages=messages, workspace_id=delta.workspace_id, owner=delta.owner,
+                                              session_id=delta.source.session_id, timezone="UTC", now=now)
+            op["reviews"] = await _wi.apply_operational_reviews(db, list(delta.operational_reviews), messages=messages, now=now)
+            receipt["operational"] = op
+        return receipt
     except Exception as exc:  # a bad delta must never corrupt canonical state or take the service down
         await db.rollback()
         logger.exception("world delta materialisation failed")
