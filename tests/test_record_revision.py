@@ -102,3 +102,58 @@ def test_matcher_refuses_ties_and_amounts_are_not_times():
     assert rr.extract_when("It is Friday 08:00")[0] == 4
     assert rr.extract_when("moved to Saturday")[0] == 5
     assert rr.match_record("unrelated prose about nothing", [], []) is None
+
+
+@pytest.mark.asyncio
+async def test_picture_pass_correction_revises_record_end_to_end():
+    """Entry-point coverage: the picture pass emits the S12-style prose; the record moves
+    and no competing standing request is stored — the exact replay failure, deterministically."""
+    from src.services import scene_narrative
+
+    class _Adapter:
+        async def generate_structured(self, *, system, prompt, **_):
+            assert "[ref:" not in prompt  # no pointers yet; binding is by match
+            return {"scene": "Flower delivery moved.", "standing_requests": [
+                "Do not describe the corporate flower delivery as today; it is Friday 08:00"]}
+
+    async with async_session_maker() as db:
+        await _seed(db)
+        out = await scene_narrative.narrate(db, adapter=_Adapter(), workspace_id=WS, session_id="s-pic",
+                                            names={"user": "Ashley", "assistant": "Sophie"},
+                                            messages=[{"speaker": "user", "text": "flowers moved to Friday 8am"},
+                                                      {"speaker": "assistant", "text": "got it, Friday 8am"},
+                                                      {"speaker": "user", "text": "and Thursday just the vases"},
+                                                      {"speaker": "assistant", "text": "noted"}],
+                                            force=True, owner=OWNER)
+        assert out["standing_requests"] == []                              # consumed into the record
+        import sqlmodel
+        ev = (await db.execute(sqlmodel.select(WorldEvent).where(WorldEvent.label == "Corporate flowers job"))).scalars().one()
+        # picture path grounds against wall-clock now, so assert the weekday + precision, not the date
+        assert ev.when_start.weekday() == 4 and ev.when_precision == "exact"
+
+
+@pytest.mark.asyncio
+async def test_polluted_state_repairs_without_duplicates():
+    """Migration case: the replay's fragmented state (stale Wednesday event + active flower
+    prose, written before the fix) converges on the next routed pass — event moves, old
+    prose withdraws, no second copy appears."""
+    from src.services import standing_requests as sr2
+    from src.services.standing_requests import StandingRequest
+
+    async with async_session_maker() as db:
+        await _seed(db)
+        db.add(StandingRequest(honcho_workspace_id=WS, owner_peer_id=OWNER,
+                               text="Do not describe the corporate flower delivery as today; it is Friday 08:00",
+                               key="do not describe the corporate flower delivery as today it is friday 08 00",
+                               source="interpreter"))
+        await db.commit()
+        out = await sr2.sync(db, WS, OWNER, ["Do not describe the corporate flower delivery as today; it is Friday 08:00"],
+                             source="interpreter", revise=True, now=WED, timezone_str="America/Guatemala")
+        assert len(out["revised"]) == 1
+        import sqlmodel
+        ev = (await db.execute(sqlmodel.select(WorldEvent).where(WorldEvent.label == "Corporate flowers job"))).scalars().one()
+        assert ev.when_start.date().isoformat() == "2026-10-09"
+        rows = (await db.execute(sqlmodel.select(StandingRequest).where(
+            StandingRequest.honcho_workspace_id == WS, StandingRequest.owner_peer_id == OWNER))).scalars().all()
+        assert [r.status for r in rows] == ["withdrawn"]                  # old prose retired, no duplicate
+        assert await sr2.active(db, WS, OWNER) == []
