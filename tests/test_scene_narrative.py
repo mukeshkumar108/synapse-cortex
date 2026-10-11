@@ -195,3 +195,20 @@ async def test_a_note_can_cancel_the_fact_it_replaces_and_a_note_written_during_
         await task
         texts = [a["text"] for a in (await scene_narrative.add_notes(db2, workspace_id="wc", session_id="sc", notes=[]))["anchors"]]
         assert "Send Priya the invoice by Wednesday" in texts
+
+
+@pytest.mark.asyncio
+async def test_record_refs_survive_notes_merge_and_picture_passes():
+    ad = _Adapter({"scene": "Lunch stands."})
+    rid = "11111111-1111-1111-1111-111111111111"
+    async with async_session_maker() as db:
+        got = await scene_narrative.add_notes(db, workspace_id="wr", session_id="sr",
+                                              notes=[{"kind": "event", "text": "Friday lunch with James", "by": "user", "ref": rid}])
+        assert got["anchors"][0].get("ref") == rid                          # notes may carry a record pointer
+        await scene_narrative.narrate(db, adapter=ad, workspace_id="wr", session_id="sr", names=N, messages=ex("still on?", "yes"), force=True)
+        assert f"[ref: {rid}]" in ad.prompts[0]                             # the picture pass sees the pointer...
+        kept = (await scene_narrative.add_notes(db, workspace_id="wr", session_id="sr", notes=[]))["anchors"]
+        assert any(a.get("ref") == rid for a in kept)                       # ...and the pass does not strip it
+        bad = await scene_narrative.add_notes(db, workspace_id="wr", session_id="sr",
+                                              notes=[{"kind": "event", "text": " invented ref here", "by": "user", "ref": "not-an-id!!"}])
+        assert all("ref" not in a or a.get("ref") == rid for a in bad["anchors"])
