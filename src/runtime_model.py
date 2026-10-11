@@ -117,7 +117,16 @@ class AgendaRankerAdapter:
                         usage.get("completion_tokens"), (usage.get("completion_tokens_details") or {}).get("reasoning_tokens"), float(cost), _spent[(_day(), module)])
             from src import call_context
             call_context.record(module=module, provider="openrouter", model=model_id, usage=usage, cost=float(cost))
-            content = body["choices"][0]["message"].get("content") or "{}"
+            content = body["choices"][0]["message"].get("content") or ""
+            finish = body["choices"][0].get("finish_reason")
+            if not content.strip():
+                # Empty content is NEVER valid empty data: it means the budget went to
+                # reasoning (or nothing came back). Defaulting to "{}" would apply an
+                # empty run and silently orphan the evidence. Fail loudly instead: the
+                # caller marks the run failed and the evidence stays uncovered for later.
+                raise ValueError(f"agenda ranker returned empty content (finish_reason={finish})")
+            if finish == "length":
+                raise ValueError("agenda ranker hit max_tokens mid-object (finish_reason=length); evidence stays uncovered")
             from src.services.nano_adapter import extract_json
             parsed = extract_json(content)
             if parsed is None:
