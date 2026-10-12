@@ -250,3 +250,31 @@ def test_an_inference_alone_never_makes_a_reading_durable():
     assert ep.effective_durability("durable", "explicit") == "durable" and ep.effective_durability("durable", "observed") == "durable"
     assert ep.effective_durability("acute", "inferred") == "acute" and ep.effective_durability("provisional", "inferred") == "provisional"
     assert ep.effective_durability("durable", "something_unknown") == "provisional"          # unknown formations are treated as inferred, as everywhere else
+
+
+@pytest.mark.asyncio
+async def test_an_external_cancellation_closes_the_matching_anchor_and_states_the_change():
+    import json
+    from datetime import datetime, timezone
+    from src.services import semantic_judge
+    from src.models.scene import SceneNarrative
+    async def fake_judge(*, kind, earlier, later, context="", adapter=None):
+        return semantic_judge.Adjudication(kind, "yes", 0.9, "Birthday dinner", "same", "answered") if "dinner" in earlier.lower() else None
+    orig = semantic_judge.judge
+    semantic_judge.judge = fake_judge
+    try:
+        anchors = [{"id": "a1", "kind": "event", "text": "Mara said the sister's birthday dinner is Saturday at 7pm at Nonna's.", "by": "user", "status": "established", "at": "2026-10-12T10:00:00"},
+                   {"id": "a2", "kind": "event", "text": "The plumber fixed the boiler.", "by": "user", "status": "established", "at": "2026-10-12T10:05:00"}]
+        async with async_session_maker() as db:
+            db.add(SceneNarrative(honcho_workspace_id="w-ext", honcho_session_id="s-ext", text="dinner Saturday", anchors_json=json.dumps(anchors)))
+            await db.commit()
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            change = "The calendar event 'Birthday dinner at Nonna's' was cancelled (google_calendar)."
+            assert await scene_narrative.reflect_external_change(db, workspace_id="w-ext", subject="Birthday dinner at Nonna's", change=change, now=now) == 1
+            assert await scene_narrative.reflect_external_change(db, workspace_id="w-ext", subject="Birthday dinner at Nonna's", change=change, now=now) == 0       # re-delivery is a no-op
+            row = await scene_narrative.current(db, "w-ext", "s-ext")
+            by_id = {a["id"]: a for a in scene_narrative.load_anchors(row)}
+            assert by_id["a1"]["status"] == "closed" and by_id["a2"]["status"] == "established"
+            assert any(a["kind"] == "external" and "cancelled" in a["text"] and a["status"] == "established" for a in by_id.values())
+    finally:
+        semantic_judge.judge = orig

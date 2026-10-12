@@ -150,6 +150,36 @@ async def add_notes(db: AsyncSession, *, workspace_id: str, session_id: str, not
     return {"anchors": anchors}
 
 
+async def reflect_external_change(db: AsyncSession, *, workspace_id: str, subject: str, change: str, now: Any, max_rows: int = 3, max_judged: int = 3) -> int:
+    """A canonical object (a calendar event, an app task) was cancelled or completed outside the conversation. The picture and anchors are written from conversation only, so
+    without this they keep asserting the old plan ("dinner is Saturday at 7pm" as an ESTABLISHED fact) beside the record that says it was cancelled. Add one `external` anchor stating
+    the change, and close any open anchor the bounded `same_matter` judge says is the same matter (a verbatim-grounded yes only). Deterministic code picks the candidates; fail-closed."""
+    import asyncio
+    from src.services import semantic_judge
+    rows = (await db.execute(select(SceneNarrative).where(SceneNarrative.honcho_workspace_id == workspace_id)
+                             .order_by(SceneNarrative.updated_at.desc()).limit(max_rows))).scalars().all()
+    wanted = set(re.findall(r"[a-z]{4,}", subject.lower()))
+    touched = 0
+    for row in rows:
+        async with _LOCKS.setdefault(f"{workspace_id}|{row.honcho_session_id}", asyncio.Lock()):
+            await db.refresh(row)
+            anchors = load_anchors(row)
+            if any(a.get("kind") == "external" and a.get("text") == change for a in anchors):
+                continue                                                  # re-delivery of the same change
+            candidates = [a for a in anchors if a.get("status") != "closed" and a.get("kind") in ("event", "decision", "promise", "open_loop")
+                          and wanted & set(re.findall(r"[a-z]{4,}", str(a.get("text") or "").lower()))]
+            shut = []
+            for a in candidates[:max_judged]:
+                if await semantic_judge.judge(kind="same_matter", earlier=str(a["text"]), later=f"{subject}: {change}") is not None:
+                    shut.append(a["id"])
+            row.anchors_json = json.dumps(merge_anchors(anchors, [{"kind": "external", "text": change, "by": "scene"}], shut, now), ensure_ascii=False)
+            db.add(row)
+            touched += 1
+    if touched:
+        await db.commit()
+    return touched
+
+
 def _overlap(a: str, b: str) -> float:
     ta, tb = set(re.findall(r"[a-z0-9£$]+", a.lower())), set(re.findall(r"[a-z0-9£$]+", b.lower()))
     return len(ta & tb) / len(ta | tb) if ta and tb else 0.0

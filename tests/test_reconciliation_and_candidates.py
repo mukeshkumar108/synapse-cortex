@@ -426,3 +426,38 @@ async def test_candidate_dismiss_via_endpoint_is_durable(async_client):
     assert all(
         c["candidate_key"] != row.candidate_key for c in listing.json()["candidates"]
     )
+
+
+@pytest.mark.asyncio
+async def test_an_independent_canonical_object_retires_the_users_own_twin_once_the_judge_agrees(async_client, monkeypatch):
+    """The user said 'dinner Saturday 7pm' in chat; a synced calendar event for the same dinner arrives with no origin message. When the bounded same_matter
+    judge agrees (verbatim-grounded), the conversational twin is superseded, so cancelling the event cannot leave the old plan standing."""
+    from src.services import semantic_judge
+    calls = []
+
+    async def fake_judge(*, kind, earlier, later, context="", adapter=None):
+        calls.append((kind, earlier, later))
+        return semantic_judge.Adjudication(kind, "yes", 0.9, "Birthday dinner", "same dinner", "answered") if "dinner" in earlier.lower() and "dinner" in later.lower() else None
+    monkeypatch.setattr(semantic_judge, "judge", fake_judge)
+    from src.db import async_session_maker
+    from src.models.expectation import Expectation, ExpectationType, OutcomeState
+    from uuid import uuid4
+    start = datetime.now(UTC) + timedelta(days=3)
+    async with async_session_maker() as db:
+        for title, etype, key in (("Sister's birthday dinner", ExpectationType.PLANNED_EVENT, "d1"), ("Pay the gas bill", ExpectationType.PLANNED_EVENT, "d2")):
+            db.add(Expectation(honcho_workspace_id="ws-twin", honcho_session_id="s", honcho_message_id=f"m-{key}", owner_peer_id="user_1", candidate_key=key,
+                               subject_peer_id="user_1", expectation_type=etype, title=title, summary=title, outcome_state=OutcomeState.UNKNOWN, formation="explicit",
+                               expected_window_start=start.replace(tzinfo=None), expected_window_end=(start + timedelta(hours=3)).replace(tzinfo=None),
+                               created_at=datetime.now(UTC).replace(tzinfo=None), updated_at=datetime.now(UTC).replace(tzinfo=None)))
+        await db.commit()
+    payload = object_payload(workspace_id="ws-twin", title="Birthday dinner at Nonna's", source={"system": "google_calendar", "object_id": "cal-twin-1", "version": 1, "kind": "calendar_event"},
+                             event_start=start.isoformat(), event_end=(start + timedelta(hours=3)).isoformat(), due_at=None)
+    body = (await post_object(async_client, payload)).json()
+    assert len(body.get("twin_expectation_ids", [])) == 1                       # the dinner, not the gas bill (no shared words, never reaches the judge)
+    assert len(calls) == 1 and calls[0][0] == "same_matter"
+    cancelled = (await post_object(async_client, object_payload(workspace_id="ws-twin", action="cancelled", title="Birthday dinner at Nonna's",
+                 source={"system": "google_calendar", "object_id": "cal-twin-1", "version": 2, "kind": "calendar_event"}, event_start=start.isoformat(), due_at=None))).status_code
+    assert cancelled == 202
+    packet = (await async_client.get("/v1/cortex/attention-state", params={"workspace_id": "ws-twin", "session_id": "s", "peer_id": "user_1", "timezone": "Europe/London"})).json()
+    live = [x.get("title") for x in packet.get("active_expectations", [])]
+    assert not any("dinner" in (t or "").lower() for t in live)                 # no live plan for the cancelled dinner

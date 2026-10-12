@@ -15,6 +15,7 @@ Ownership boundaries preserved:
 from __future__ import annotations
 
 import json
+import re
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -67,7 +68,86 @@ class ObjectLifecycleService:
             "completed": self._apply_completed,
             "cancelled": self._apply_cancelled,
         }[payload.action]
-        return await handler(db, payload, current, owner_peer_id)
+        result = await handler(db, payload, current, owner_peer_id)
+        # A canonical object that arrives on its own (a synced calendar event, a task made in another app) carries no origin message, so the user's own
+        # earlier words about the same thing ("dinner Saturday at 7") stay live beside it and keep saying the old thing after it is cancelled or done.
+        twins = await self._link_semantic_twins(db, payload, owner_peer_id, result.get("expectation_id"))
+        if twins:
+            result["twin_expectation_ids"] = twins
+        if payload.action in ("completed", "cancelled"):
+            try:
+                from src.services import scene_narrative
+                what = "calendar event" if payload.source.kind == "calendar_event" else "task"
+                reflected = await scene_narrative.reflect_external_change(
+                    db, workspace_id=payload.workspace_id, subject=payload.title,
+                    change=f"The {what} '{payload.title}' was {payload.action} ({payload.source.system}).", now=_now_naive())
+                if reflected:
+                    result["scene_reflected"] = reflected
+            except Exception as exc:
+                logger.warning("reflecting an external change in the scene failed open: %s", exc)
+                await db.rollback()
+        return result
+
+    _TWIN_STOP = frozenset("with this that will have from your they them then than about into over some just very".split())
+    _TWIN_WINDOW = timedelta(hours=36)
+    _TWIN_MAX_JUDGED = 3
+
+    @classmethod
+    def _twin_words(cls, text: str) -> set:
+        return {w for w in re.findall(r"[a-z]{4,}", (text or "").lower()) if w not in cls._TWIN_STOP}
+
+    async def _link_semantic_twins(self, db: AsyncSession, payload: ObjectStateIngest, owner_peer_id: str,
+                                   canonical_id: Optional[str]) -> list[str]:
+        """Retire conversation-derived expectations that describe the SAME real-world thing as this canonical object. Deterministic code only chooses a bounded
+        candidate set (shared words, compatible time); the bounded `same_matter` judge decides meaning, and only a verbatim-grounded yes acts. Fail-closed."""
+        if not canonical_id:
+            return []
+        try:
+            from uuid import UUID as _UUID
+            from src.services import semantic_judge
+            canonical = await db.get(Expectation, _UUID(str(canonical_id)))
+            if canonical is None:
+                return []
+            equivalent_types = (
+                (ExpectationType.USER_COMMITMENT, ExpectationType.USER_INTENTION, ExpectationType.FOLLOWUP_INVITATION)
+                if payload.source.kind == "task" else (ExpectationType.PLANNED_EVENT,))
+            rows = (await db.execute(select(Expectation).where(
+                Expectation.honcho_workspace_id == payload.workspace_id, Expectation.owner_peer_id == owner_peer_id,
+                Expectation.source_system.is_(None), Expectation.superseded_by_id.is_(None),
+                Expectation.outcome_state == OutcomeState.UNKNOWN, Expectation.expectation_type.in_(equivalent_types),
+                Expectation.id != canonical.id))).scalars().all()
+            canon_words = self._twin_words(f"{payload.title} {payload.notes or ''}")
+            anchor = payload.event_start or payload.due_at
+            anchor_naive = _naive_utc(anchor) if anchor is not None else None
+            scored = []
+            for row in rows:
+                shared = canon_words & self._twin_words(f"{row.title} {row.summary or ''}")
+                if not shared:
+                    continue
+                if anchor_naive is not None and row.expected_window_start is not None and abs(row.expected_window_start - anchor_naive) > self._TWIN_WINDOW:
+                    continue                     # both are timed and they are not on the same day: different things
+                scored.append((len(shared), row))
+            scored.sort(key=lambda pair: -pair[0])
+            later = f"{payload.title}. {payload.notes or ''} ({payload.source.kind}, {anchor.isoformat() if anchor is not None else 'no time'})".strip()
+            linked: list[str] = []
+            for _, row in scored[: self._TWIN_MAX_JUDGED]:
+                earlier = f"{row.title}. {row.summary or ''} ({row.raw_temporal_phrase or 'no stated time'})"
+                verdict = await semantic_judge.judge(kind="same_matter", earlier=earlier, later=later)
+                if verdict is None:
+                    continue
+                row.outcome_state = OutcomeState.SUPERSEDED
+                row.superseded_by_id = canonical.id
+                row.resolution_evidence = f"canonicalized_by:{payload.source.system}:{payload.source.object_id}:semantic_twin"
+                row.updated_at = _now_naive()
+                db.add(row)
+                linked.append(str(row.id))
+            if linked:
+                await db.commit()
+            return linked
+        except Exception as exc:                  # never let reconciliation break ingestion
+            logger.warning("semantic twin linking failed open: %s", exc)
+            await db.rollback()
+            return []
 
     # ── lookups ──────────────────────────────────────────────────────────────
 
