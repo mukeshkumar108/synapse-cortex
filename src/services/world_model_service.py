@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
+from src.services import epistemics
 from sqlmodel import select
 
 from src.models.world_model import WorldModelSnapshot
@@ -464,7 +465,7 @@ async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, na
                                               if const else None), "objectives": [], "trajectory_note": None}
     for o in [o for o in objectives if o.scope != "constitutional"][:16]:
         intent["objectives"].append({"ref": str(o.id), "actor": names.get(o.actor_entity_id), "toward": names.get(o.toward_entity_id) if o.toward_entity_id else None,
-                                     "text": o.text, "scope": o.scope, "state": o.state, "durability": o.durability, "strength": o.strength, "cause": o.cause,
+                                     "text": o.text, "scope": o.scope, "state": o.state, "durability": epistemics.effective_durability(o.durability, o.formation), "strength": o.strength, "cause": o.cause,
                                      "conflicts": _json_list(o.conflicts_json), "source": o.source, "kind": o.kind, "next_move": o.next_move, "ready_when": o.ready_when})
     mine = [n for n in notes if const is not None and n.actor_entity_id == const.actor_entity_id] or notes     # the constitutional actor's own note
     if mine:
@@ -480,7 +481,7 @@ async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, na
                   "scene": (json.loads(brief.scene_json or "{}") if brief and getattr(brief, "scene_json", None) else {}),
                   "derived_from": "interpreter projection of structured world state"},
         "dimensions": [{"ref": str(d.id), "from": names.get(d.from_entity_id), "to": names.get(d.to_entity_id), "dimension": d.dimension, "value": d.value,
-                        "durability": d.durability, "formation": d.formation} for d in dims],
+                        "durability": epistemics.effective_durability(d.durability, d.formation), "formation": d.formation} for d in dims],
         "active_intent": intent, "manifest": manifest}}
 
 

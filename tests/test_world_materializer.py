@@ -724,7 +724,7 @@ async def test_a_durable_reading_replaces_an_older_facet_of_any_tier_but_a_momen
     from src.models.world import RelationshipDimension
     owner = "world:rpd2:u:tier:c1"
     def dim(ref, value, durability, evidence):
-        return {"ref": ref, "relationship": "r1", "from_actor": "user", "to_actor": "companion", "dimension": "awareness_of_event", "value": value, "durability": durability, "evidence": [evidence]}
+        return {"ref": ref, "relationship": "r1", "from_actor": "user", "to_actor": "companion", "dimension": "awareness_of_event", "value": value, "durability": durability, "formation": "explicit", "evidence": [evidence]}
     rel = {"relationships": [{"ref": "r1", "actors": ["user", "companion"], "type": "partners", "evidence": ["m1"]}]}
     base = INTERP_MESSAGES
     await _run(FakeInterpreter({**rel, "dimensions": [dim("d1", "not established", "unknown", "m1")]}), base, owner=owner)

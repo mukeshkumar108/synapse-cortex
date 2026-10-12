@@ -71,6 +71,14 @@ def formation_class(value: Any) -> str:
     return _PROVENANCE_TO_FORMATION.get(raw, INFERRED)
 
 
+def effective_durability(durability: Any, formation: Any) -> Any:
+    """`durable` means sustained across the evidence, so it is earned by statements or observation, never by inference alone: a reading Cortex merely inferred (or
+    hypothesised) is at most `provisional`, however confident the model sounded. Applied when records are written and again when they are read, so older rows are covered."""
+    if durability == "durable" and formation_class(formation) in (INFERRED, HYPOTHESIS):
+        return "provisional"
+    return durability
+
+
 def is_firm(value: Any) -> bool:
     return formation_class(value) in FIRM_FORMATIONS
 

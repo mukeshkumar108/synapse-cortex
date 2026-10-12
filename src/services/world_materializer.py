@@ -591,6 +591,7 @@ async def _objectives(ctx: _Ctx) -> None:
                 ctx.reject(o.ref, "unknown_or_protected_objective")
                 continue
         if row is None:
+            o.durability = epistemics.effective_durability(o.durability, o.formation)
             row = WorldObjective(honcho_workspace_id=ctx.ws, owner_peer_id=ctx.owner, actor_entity_id=actor.id,
                                  canonical_key=hashlib.sha1(f"{actor.id}|{o.ref}|{ctx.run.id}".encode()).hexdigest()[:20], text=o.text[:300],
                                  scope=o.scope, toward_entity_id=toward.id if toward else None, strength=o.strength, cause=o.cause, state=o.state, durability=o.durability,
@@ -641,6 +642,7 @@ async def _dimensions(ctx: _Ctx) -> None:
             continue
         about = ctx.events.get(d.about or "")
         formation = epistemics.formation_class(d.formation)
+        d.durability = epistemics.effective_durability(d.durability, formation)          # an inference alone never makes a reading durable
         name = _slug(d.dimension).replace("-", "_") or "dimension"
         tier_durable = d.durability == "durable"          # promotion policy: a sustained reading may replace a facet of any tier; a moment or an unconfirmed reading never replaces a sustained one (they coexist)
         stmt = select(RelationshipDimension).where(

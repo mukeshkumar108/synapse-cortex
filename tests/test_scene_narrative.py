@@ -241,3 +241,12 @@ async def test_a_writer_without_a_sitting_drops_sitting_scoped_requests_and_plai
         await sr.sync(db, "w-int", "o-int", [{"text": "Not tonight.", "scope": "sitting"}], source="scene_pass", sitting_ref="s9")
         await sr.sync(db, "w-int", "o-int", [], source="interpreter")                    # the boundary pass sees only durable requests; it must not touch a live sitting's
         assert await sr.active_sitting(db, "w-int", "o-int", "s9") == ["Not tonight."]
+
+
+def test_an_inference_alone_never_makes_a_reading_durable():
+    from src.services import epistemics as ep
+    assert ep.effective_durability("durable", "inferred") == "provisional"
+    assert ep.effective_durability("durable", "hypothesis") == "provisional"
+    assert ep.effective_durability("durable", "explicit") == "durable" and ep.effective_durability("durable", "observed") == "durable"
+    assert ep.effective_durability("acute", "inferred") == "acute" and ep.effective_durability("provisional", "inferred") == "provisional"
+    assert ep.effective_durability("durable", "something_unknown") == "provisional"          # unknown formations are treated as inferred, as everywhere else
