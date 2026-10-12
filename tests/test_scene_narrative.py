@@ -278,3 +278,23 @@ async def test_an_external_cancellation_closes_the_matching_anchor_and_states_th
             assert any(a["kind"] == "external" and "cancelled" in a["text"] and a["status"] == "established" for a in by_id.values())
     finally:
         semantic_judge.judge = orig
+
+
+@pytest.mark.asyncio
+async def test_the_brief_states_what_external_records_changed_after_it_was_written():
+    from datetime import datetime, timedelta, timezone
+    from uuid import uuid4
+    from src.models.world import ContinuationBrief
+    from src.models.expectation import Expectation, ExpectationType, OutcomeState
+    from src.services import world_model_service as wms
+    t0 = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=5)
+    async with async_session_maker() as db:
+        db.add(ContinuationBrief(honcho_workspace_id="w-brief", owner_peer_id="o-brief", text="The Saturday dinner remains planned.", created_at=t0))
+        for key, outcome, title, when in (("a", OutcomeState.CANCELLED, "Dinner at Nonna's", t0 + timedelta(hours=2)), ("b", OutcomeState.CANCELLED, "Old thing", t0 - timedelta(hours=2))):
+            db.add(Expectation(honcho_workspace_id="w-brief", honcho_session_id="s", honcho_message_id=f"m-{key}", owner_peer_id="o-brief", candidate_key=key, subject_peer_id="o-brief",
+                               expectation_type=ExpectationType.PLANNED_EVENT, title=title, summary=title, outcome_state=outcome, formation="explicit", source_system="google_calendar",
+                               source_object_id=f"c-{key}", created_at=t0 - timedelta(hours=3), updated_at=when))
+        await db.commit()
+        text = await wms._changed_since(db, "w-brief", "o-brief", t0)
+        assert "'Dinner at Nonna's' was cancelled (google calendar)" in text and "Old thing" not in text
+        assert await wms._changed_since(db, "w-brief", "o-none", t0) == ""

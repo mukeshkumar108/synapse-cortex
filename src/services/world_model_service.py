@@ -437,6 +437,23 @@ async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional
 ACUTE_TTL = timedelta(hours=72)     # explicit lifecycle policy: a moment-in-time reading lapses unless a later pass re-affirms it
 
 
+async def _changed_since(db: AsyncSession, workspace_id: str, owner: str, since: datetime) -> str:
+    """The brief is rewritten only after a sitting, so a calendar event cancelled or a task completed since then would still read as planned. Derived at read time from the
+    canonical records (never stored, so it cannot go stale): what external systems resolved after the brief was written."""
+    from src.models.expectation import Expectation, OutcomeState
+    try:
+        rows = (await db.execute(select(Expectation).where(
+            Expectation.honcho_workspace_id == workspace_id, Expectation.owner_peer_id == owner, Expectation.source_system.is_not(None),
+            Expectation.outcome_state.in_([OutcomeState.CANCELLED, OutcomeState.FULFILLED]), Expectation.updated_at > since)
+            .order_by(Expectation.updated_at.desc()).limit(5))).scalars().all()
+    except Exception:
+        return ""
+    if not rows:
+        return ""
+    lines = [f"'{r.title}' was {'cancelled' if r.outcome_state == OutcomeState.CANCELLED else 'completed'} ({r.source_system.replace('_', ' ')})" for r in rows]
+    return "\n\nChanged since the above was written, from their own records (these outrank what the text above says about them): " + "; ".join(lines) + "."
+
+
 async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, names: Dict[Any, str], edges: List[Any], narrative_rows: List[Any],
                              actors: List[Dict[str, Any]], now: Optional[datetime] = None) -> Dict[str, Any]:
     """Continuation projection: the interpreter's versioned brief (a projection of structured state, never a source of truth), plus the current
@@ -477,7 +494,7 @@ async def build_continuation(db: AsyncSession, workspace_id: str, owner: str, na
                 "relationships": [{"ref": str(ed.id), "type": ed.role} for ed in edges],
                 "matters": [{"ref": str(m.id), "title": m.title} for m in matters[:8]], "objectives": len(objectives)}
     return {"continuation": {
-        "brief": {"text": brief.text if brief else "", "lines": _json_list(brief.lines_json) if brief else [], "version": str(brief.id) if brief else None,
+        "brief": {"text": ((brief.text + await _changed_since(db, workspace_id, owner, brief.created_at)) if brief else ""), "lines": _json_list(brief.lines_json) if brief else [], "version": str(brief.id) if brief else None,
                   "scene": (json.loads(brief.scene_json or "{}") if brief and getattr(brief, "scene_json", None) else {}),
                   "derived_from": "interpreter projection of structured world state"},
         "dimensions": [{"ref": str(d.id), "from": names.get(d.from_entity_id), "to": names.get(d.to_entity_id), "dimension": d.dimension, "value": d.value,
