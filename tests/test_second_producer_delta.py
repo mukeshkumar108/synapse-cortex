@@ -130,3 +130,27 @@ async def test_close_without_bound_id_refuses_without_mutation(async_client):
     state = (await async_client.get("/v1/debug/owner-state", params={"workspace_id": "ws-delta2", "owner_peer_id": "user_1"})).json()
     rows = [e for e in state["expectations"] if e["id"] == expectation_id]
     assert rows[0]["outcome_state"] == "unknown"
+
+
+async def test_fresh_close_retires_matching_dated_prose_but_keeps_preferences(async_client):
+    from src.db import async_session_maker
+    from src.services.standing_requests import StandingRequest
+    created = (await async_client.post("/v1/events/object", json=object_payload())).json()
+    expectation_id = created["expectation_id"]
+    async with async_session_maker() as db:
+        db.add(StandingRequest(honcho_workspace_id="ws-delta2", owner_peer_id="user_1",
+                               text="Friday lunch with James moved to Saturday noon",
+                               key="friday lunch with james moved to saturday noon", source="scene_pass"))
+        db.add(StandingRequest(honcho_workspace_id="ws-delta2", owner_peer_id="user_1",
+                               text="Don't frame things as therapy", key="don t frame things as therapy",
+                               source="scene_pass"))
+        await db.commit()
+    receipt = (await async_client.post("/v1/world/delta", json=delta_payload(expectation_id))).json()
+    assert receipt["operational"]["committed"][0].get("requests_retired") == ["Friday lunch with James moved to Saturday noon"]
+    import sqlmodel
+    from src.services.standing_requests import StandingRequest as _SR
+    async with async_session_maker() as db:
+        active = sorted(r.text for r in (await db.execute(sqlmodel.select(_SR).where(
+            _SR.honcho_workspace_id == "ws-delta2", _SR.owner_peer_id == "user_1",
+            _SR.status == "active"))).scalars().all())
+    assert active == ["Don't frame things as therapy"]

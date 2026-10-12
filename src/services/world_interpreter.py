@@ -101,7 +101,7 @@ PRINCIPLES
 - OPERATIONAL REVIEW: for EVERY item listed under OPERATIONAL STATE return one `operational_review` verdict {id, status, note, evidence}: holds (still open as
   is), updated (its timing or substance changed: also emit the change in `operational`), completed (it happened / was resolved, including something someone was
   waiting on), cancelled (called off), superseded (replaced by a newer item you create), unclear. completed / cancelled / superseded / updated need `evidence`
-  (message ids). Resolving an item and creating a new one are separate acts and can both happen in one response. Silence is not a verdict.
+  (message ids). completed requires explicit completion evidence quoted from NEW EVIDENCE (it happened, was delivered, was confirmed done): a miss, a maybe, a proposal, or silence is never completion — use holds or unclear. Resolving an item and creating a new one are separate acts and can both happen in one response. Silence is not a verdict.
 - STANDING REQUESTS: anything the person has asked of the companion about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the companion got wrong) is listed under STANDING REQUESTS in CURRENT WORLD STATE. Return the full list that should be active after the NEW EVIDENCE as `standing_requests` (strings in the person's own terms): keep each one that still stands, add new ones, and leave out any the person has withdrawn or changed. Omit the field entirely if you have no view.
 - BRIEF carries the durable story only. The live scene (what is happening right now, what has just been used up) is written by a separate fast pass; do not describe it here.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
@@ -747,7 +747,8 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
                                                                  revise=True, now=now, timezone_str=timezone)
     receipt["operational"] = await commit_operational(db, delta.operational, messages=messages, workspace_id=workspace_id, owner=owner, session_id=session_id,
                                                       timezone=timezone, now=now)
-    receipt["operational"]["reviews"] = await apply_operational_reviews(db, delta.operational_reviews, messages=messages, now=now)
+    receipt["operational"]["reviews"] = await apply_operational_reviews(db, delta.operational_reviews, messages=messages, now=now,
+                                                                          workspace_id=workspace_id, owner=owner)
     listed = list(known_operational)
     reviewed = {r.id for r in delta.operational_reviews}
     receipt["operational"]["coverage"] = {"listed": len(listed), "reviewed": len([i for i in listed if i in reviewed]), "unreviewed_ids": [i for i in listed if i not in reviewed]}
@@ -810,7 +811,8 @@ async def commit_operational(db: AsyncSession, items: List[Any], *, messages: Li
             if it.decision in ("complete", "cancel") and it.target:
                 # The interpreter named exactly which listed item this closes: applying a known id is mechanics, not interpretation (and works across
                 # sessions, unlike the fuzzy session-scoped matchers).
-                applied = await _close_by_id(db, it.target, it.decision, msg["text"][:500], stamp)
+                applied = await _close_by_id(db, it.target, it.decision, msg["text"][:500], stamp,
+                                             workspace_id=workspace_id, owner=owner)
                 (committed if applied else failed).append({"decision": it.decision, "title": it.canonical_title or it.title, **applied} if applied else
                                                           {"title": it.title, "reason": "target_not_found"})
                 continue
@@ -836,13 +838,18 @@ async def commit_operational(db: AsyncSession, items: List[Any], *, messages: Li
     return {"committed": committed, "failed": failed}
 
 
-async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: str, now: Any) -> Optional[Dict[str, Any]]:
+async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: str, now: Any,
+                     workspace_id: Optional[str] = None, owner: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Complete / cancel one open operational item (expectation, open loop, or commitment candidate) by its exact id, and close what hangs off it.
 
     Idempotent honesty: an item already in the requested (or any settled) state is NOT
     rewritten — the receipt reports already_applied with the standing outcome, so a retry
     or a repeated instruction is distinguishable from a fresh close and history is never
-    re-stamped."""
+    re-stamped.
+
+    Fulfill-cascade: a fresh close retires dated prose tracking the same item (record-first
+    routing in reverse), so the standing-request list cannot keep asking for what just
+    resolved. Pure preferences stay untouched."""
     from uuid import UUID
     from src.models.commitment_candidate import CommitmentCandidate, CommitmentCandidateStatus
     from src.models.expectation import Expectation, OutcomeState
@@ -865,7 +872,11 @@ async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: s
             loop.status, loop.resolution_evidence = (OpenLoopStatus.RESOLVED if done else OpenLoopStatus.ABANDONED), evidence
             db.add(loop)
         await db.commit()
-        return {"closed": "expectation", "id": str(tid), "outcome": exp.outcome_state.value if hasattr(exp.outcome_state, "value") else str(exp.outcome_state)}
+        out: Dict[str, Any] = {"closed": "expectation", "id": str(tid), "outcome": exp.outcome_state.value if hasattr(exp.outcome_state, "value") else str(exp.outcome_state)}
+        if workspace_id and owner:
+            from src.services import record_revision as _rr
+            out["requests_retired"] = (await _rr.withdraw_matching_requests(db, workspace_id, owner, exp.title or ""))["withdrawn"]
+        return out
     loop = await db.get(OpenLoop, tid)
     if loop is not None:
         if loop.status != OpenLoopStatus.OPEN:
@@ -873,7 +884,11 @@ async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: s
         loop.status, loop.resolution_evidence, loop.updated_at = (OpenLoopStatus.RESOLVED if done else OpenLoopStatus.ABANDONED), evidence, stamp
         db.add(loop)
         await db.commit()
-        return {"closed": "open_loop", "id": str(tid)}
+        out = {"closed": "open_loop", "id": str(tid)}
+        if workspace_id and owner:
+            from src.services import record_revision as _rr
+            out["requests_retired"] = (await _rr.withdraw_matching_requests(db, workspace_id, owner, loop.title or ""))["withdrawn"]
+        return out
     cc = await db.get(CommitmentCandidate, tid)
     if cc is not None:
         if cc.status != CommitmentCandidateStatus.PENDING:
@@ -881,11 +896,16 @@ async def _close_by_id(db: AsyncSession, target: str, decision: str, evidence: s
         cc.status, cc.resolution_evidence, cc.updated_at = (CommitmentCandidateStatus.FULFILLED if done else CommitmentCandidateStatus.DISMISSED), evidence, stamp
         db.add(cc)
         await db.commit()
-        return {"closed": "commitment", "id": str(tid)}
+        out = {"closed": "commitment", "id": str(tid)}
+        if workspace_id and owner:
+            from src.services import record_revision as _rr
+            out["requests_retired"] = (await _rr.withdraw_matching_requests(db, workspace_id, owner, cc.title or ""))["withdrawn"]
+        return out
     return None
 
 
-async def apply_operational_reviews(db: AsyncSession, reviews: List[Any], *, messages: List[Dict[str, str]], now: Optional[datetime]) -> List[Dict[str, Any]]:
+async def apply_operational_reviews(db: AsyncSession, reviews: List[Any], *, messages: List[Dict[str, str]], now: Optional[datetime],
+                                    workspace_id: Optional[str] = None, owner: Optional[str] = None) -> List[Dict[str, Any]]:
     """Apply the interpreter's verdicts on listed open items. completed / cancelled / superseded close the item by its exact id (mechanics); holds / updated /
     unclear change nothing here (an update's new timing arrives through `operational`). Every verdict is recorded with whether it took effect."""
     from datetime import timezone as dt_tz
@@ -896,7 +916,8 @@ async def apply_operational_reviews(db: AsyncSession, reviews: List[Any], *, mes
         entry = {"id": r.id, "status": r.status, "applied": r.status in ("holds", "updated", "unclear")}
         if r.status in ("completed", "cancelled", "superseded"):
             text = by_id[r.evidence[0]]["text"][:500] if r.evidence and r.evidence[0] in by_id else (r.note or "")
-            result = await _close_by_id(db, r.id, "complete" if r.status == "completed" else "cancel", text, stamp)
+            result = await _close_by_id(db, r.id, "complete" if r.status == "completed" else "cancel", text, stamp,
+                                        workspace_id=workspace_id, owner=owner)
             entry["applied"] = bool(result)
             if result:
                 entry["closed"] = result.get("closed")

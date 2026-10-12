@@ -273,3 +273,29 @@ async def route_corrections(db: AsyncSession, workspace_id: str, owner: str, tex
                 preferences.append(clean)
                 kept.append(clean)
     return {"preferences": preferences, "revised": revised, "already_current": already, "prose_kept": kept}
+
+
+async def withdraw_matching_requests(db: AsyncSession, workspace_id: str, owner: str, title: str) -> Dict[str, Any]:
+    """Fulfill-cascade: an item just closed retires the dated prose that tracked it. Active
+    standing requests matching the closed item's title AND carrying an explicit temporal
+    mention are withdrawn (their subject is settled; the instruction has nothing to attach
+    to). Pure preferences and undateable remarks stay. Returns {withdrawn: [texts]}."""
+    from src.services.standing_requests import StandingRequest, _now
+    rows = (await db.execute(select(StandingRequest).where(
+        StandingRequest.honcho_workspace_id == workspace_id, StandingRequest.owner_peer_id == owner,
+        StandingRequest.status == "active"))).scalars().all()
+    title_stems = _stems(title)
+    withdrawn = []
+    for row in rows:
+        text = str(row.text or "")
+        rw = _stems(text)
+        if not title_stems or len(rw & title_stems) / len(title_stems) < MATCH_THRESHOLD:
+            continue
+        if extract_when(text) is None:
+            continue
+        row.status, row.withdrawn_at, row.updated_at = "withdrawn", _now(), _now()
+        db.add(row)
+        withdrawn.append(text)
+    if withdrawn:
+        await db.commit()
+    return {"withdrawn": withdrawn}
