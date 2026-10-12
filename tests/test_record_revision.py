@@ -157,3 +157,24 @@ async def test_polluted_state_repairs_without_duplicates():
             StandingRequest.honcho_workspace_id == WS, StandingRequest.owner_peer_id == OWNER))).scalars().all()
         assert [r.status for r in rows] == ["withdrawn"]                  # old prose retired, no duplicate
         assert await sr2.active(db, WS, OWNER) == []
+
+
+@pytest.mark.asyncio
+async def test_reemitted_prose_about_settled_records_absorbs_without_resurrection():
+    """An old interpretation re-listing a completed item's prose must not reopen it: the
+    identical text absorbs into history, while genuinely new instruction still stores."""
+    from src.models.expectation import OutcomeState
+    async with async_session_maker() as db:
+        db.add(Expectation(honcho_workspace_id=WS, honcho_session_id="s", honcho_message_id="m",
+                           owner_peer_id=OWNER, subject_peer_id=OWNER, title="Friday lunch with James",
+                           summary="s", outcome_state=OutcomeState.CANCELLED,
+                           resolution_evidence="Friday lunch with James is cancelled"))
+        await db.commit()
+        repeat = await sr.sync(db, WS, OWNER, ["Friday lunch with James is cancelled"], source="interpreter",
+                               revise=True, now=WED, timezone_str="UTC")
+        assert repeat["revised"] == [] and repeat["already_current"][0]["reason"] == "already_settled"
+        assert await sr.active(db, WS, OWNER) == []
+        new = await sr.sync(db, WS, OWNER, ["Do not mention Friday lunch with James anymore"], source="interpreter",
+                            revise=True, now=WED, timezone_str="UTC")
+        assert new["created"] == 1
+        assert await sr.active(db, WS, OWNER) == ["Do not mention Friday lunch with James anymore"]

@@ -70,12 +70,10 @@ def _tokens(text: str) -> List[str]:
     return re.findall(r"[a-z0-9£$]+", str(text or "").lower())
 
 
-def match_record(text: str, events: List[Any], expectations: List[Any]) -> Optional[Tuple[str, UUID, str, float]]:
-    """Best open record this correction is about, or None. Recall-oriented: the fraction of
-    the RECORD's content terms present in the text (a verbose correction still scores high).
-    Strictly-best-only with a 0.5 floor — ties and weak matches refuse into prose. A short
-    title matching passing chatter is harmless: revision additionally requires an explicit
-    temporal mention, and same-day holdings stay prose."""
+def match_record(text: str, events: List[Any], expectations: List[Any], settled: List[Any] = []) -> Optional[Tuple[str, UUID, str, float]]:
+    """Best open — or recently settled — record this correction is about, or None.
+    Settled matches (kind "settled") let re-emitted prose absorb into history instead of
+    resurrecting dead obligations; see revise_record. Same recall + strictly-best discipline."""
     tw = _stems(text)
     scored = []
     for ev in events or []:
@@ -88,6 +86,11 @@ def match_record(text: str, events: List[Any], expectations: List[Any]) -> Optio
         rw = _stems(title)
         if rw:
             scored.append((len(tw & rw) / len(rw), ("expectation", ex.id, title)))
+    for s in settled or []:
+        title = str(getattr(s, "title", "") or "")
+        rw = _stems(title)
+        if rw:
+            scored.append((len(tw & rw) / len(rw), ("settled", s.id, title)))
     scored.sort(key=lambda t: -t[0])
     if not scored or scored[0][0] < MATCH_THRESHOLD:
         return None
@@ -186,6 +189,14 @@ async def revise_record(db: AsyncSession, kind: str, row_id: UUID, *, day_start:
                         mention: str, evidence: str) -> Dict[str, Any]:
     """Apply the corrected timing to the matched record. Same-day holdings are no-ops
     (already_current) so re-reads never churn timestamps or resurrect prose."""
+    if kind == "settled":
+        # A re-emitted correction for a settled record: repeat (text already its evidence)
+        # absorbs silently; genuinely new instruction on settled history still stores.
+        row = await db.get(Expectation, row_id)
+        if row is None:
+            return {"revised": False, "reason": "record_gone"}
+        return {"revised": False, "reason": "already_settled", "id": str(row_id),
+                "repeat": _known_evidence(row, evidence)}
     if kind == "event":
         row = await db.get(WorldEvent, row_id)
         if row is None:
@@ -237,7 +248,7 @@ async def route_corrections(db: AsyncSession, workspace_id: str, owner: str, tex
     pending = [(raw, clean) for raw, clean in pending if clean]
     if not pending:
         return {"preferences": [], "revised": [], "already_current": [], "prose_kept": []}
-    events, expectations = [], []
+    events, expectations, settled = [], [], []
     if pending:
         events = (await db.execute(select(WorldEvent).where(
             WorldEvent.honcho_workspace_id == workspace_id, WorldEvent.owner_peer_id == owner,
@@ -245,8 +256,13 @@ async def route_corrections(db: AsyncSession, workspace_id: str, owner: str, tex
         expectations = (await db.execute(select(Expectation).where(
             Expectation.honcho_workspace_id == workspace_id, Expectation.owner_peer_id == owner,
             Expectation.outcome_state == OutcomeState.UNKNOWN))).scalars().all()
+        cutoff = (now - timedelta(days=14)).replace(tzinfo=None) if getattr(now, "tzinfo", None) else now - timedelta(days=14)
+        settled = (await db.execute(select(Expectation).where(
+            Expectation.honcho_workspace_id == workspace_id, Expectation.owner_peer_id == owner,
+            Expectation.outcome_state != OutcomeState.UNKNOWN,
+            Expectation.updated_at >= cutoff))).scalars().all()
     for raw, clean in pending:
-        hit = match_record(clean, events, expectations)
+        hit = match_record(clean, events, expectations, settled)
         if hit is None:
             preferences.append(clean)      # genuine preference or unmatchable: today's behavior
             kept.append(clean)
