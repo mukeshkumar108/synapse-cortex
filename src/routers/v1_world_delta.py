@@ -236,6 +236,57 @@ async def world_version(req: Dict[str, str], db: AsyncSession = Depends(get_asyn
             "scene": {"story": await layer(req.get("session_id")), "real": await layer(f"real_{real_owner}" if real_owner else None)}}
 
 
+@router.get("/uncovered")
+async def world_uncovered(workspace_id: str, owner: str, limit: int = 200, db: AsyncSession = Depends(get_async_session)):
+    """Message ids offered to interpretation but covered by no applied run (failed passes,
+    skipped evidence, partial windows). Deterministic id-set math over the run ledger —
+    stronger than timestamp heuristics: the Runtime re-offers these texts at the next
+    boundary so failed evidence is actually reinterpreted, not merely un-failed. Read-only."""
+    import json
+    from sqlmodel import select
+    from src.models.world import ProducerRun
+    runs = (await db.execute(select(ProducerRun).where(
+        ProducerRun.honcho_workspace_id == workspace_id, ProducerRun.owner_peer_id == owner,
+        ProducerRun.status.in_(["applied", "failed", "skipped"])).order_by(ProducerRun.created_at))).scalars().all()
+
+    def _ids(blob: Any) -> List[str]:
+        try:
+            data = json.loads(blob or "{}")
+        except ValueError:
+            return []
+        out = []
+        for key in ("message_ids", "offered_ids"):
+            for mid in data.get(key) or []:
+                if isinstance(mid, str) and mid and mid not in out:
+                    out.append(mid)
+        ct = data.get("covered_through") or {}
+        if isinstance(ct, dict) and isinstance(ct.get("message_id"), str) and ct["message_id"]:
+            out.append(ct["message_id"])
+        return out
+
+    offered: List[str] = []
+    covered: set = set()
+    sessions: Dict[str, str] = {}
+    for run in runs:
+        ids = _ids(run.input_json)
+        try:
+            run_session = (json.loads(run.input_json or "{}") or {}).get("session_id")
+        except ValueError:
+            run_session = None
+        for mid in ids:
+            if mid not in offered:
+                offered.append(mid)
+                if isinstance(run_session, str) and run_session:
+                    sessions[mid] = run_session
+        if run.status == "applied":
+            covered.update(_ids(run.input_json))
+            covered.update(_ids(run.covered_through_json))
+    uncovered = [mid for mid in offered if mid not in covered][:max(1, min(limit, 500))]
+    return {"workspace_id": workspace_id, "owner": owner, "uncovered": uncovered,
+            "sessions": {mid: sessions[mid] for mid in uncovered if mid in sessions},
+            "offered_count": len(offered), "covered_count": len(covered)}
+
+
 @router.get("/trace")
 async def world_trace(workspace_id: str, owner: str, run_id: Optional[str] = None, limit: int = 10, db: AsyncSession = Depends(get_async_session)):
     """The one diagnostic surface for a world: its recent interpretation runs (lifecycle, evidence range, honcho use, candidates kept / dropped /
