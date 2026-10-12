@@ -100,6 +100,7 @@ class NarrateRequest(BaseModel):
     names: Dict[str, str] = {}              # {user, assistant} display names (product-supplied)
     force: bool = False                     # a significant moment: rewrite now instead of batching
     owner: Optional[str] = None             # the world owner: standing requests are stored against it, not against the conversation
+    sitting_ref: Optional[str] = None       # the Runtime's id for this sitting: requests made 'for now' are scoped to it and end with it
     model: Optional[str] = None             # LAB ONLY (session must be a lab chat)
 
 
@@ -131,7 +132,7 @@ async def narrate_scene(req: NarrateRequest, db: AsyncSession = Depends(get_asyn
         raise HTTPException(status_code=503, detail="no_model_credentials")
     try:
         return await scene_narrative.narrate(db, adapter=adapter, workspace_id=req.workspace_id, session_id=req.session_id, messages=req.messages,
-                                             names=req.names, model=req.model if req.session_id.startswith("chat-lab") else None, force=req.force, owner=req.owner)
+                                             names=req.names, model=req.model if req.session_id.startswith("chat-lab") else None, force=req.force, owner=req.owner, sitting_ref=req.sitting_ref)
     except Exception as exc:
         await db.rollback()
         logger.exception("scene narrative failed")
@@ -231,7 +232,7 @@ async def world_version(req: Dict[str, str], db: AsyncSession = Depends(get_asyn
     narrative_session = req.get("narrative_session_id") or req.get("session_id")      # a person-scoped product keeps ONE running picture across chats and voice
     nar = await scene_narrative.current(db, workspace_id, narrative_session) if narrative_session else None
     from src.services import standing_requests as _sr, character_agency as _ca
-    return {"carry": await _ca.carry_feed(db, workspace_id, owner), "developments": await _ca.pending_arrivals(db, workspace_id, owner), "narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat(), "anchors": scene_narrative.load_anchors(nar), "pending": len(_json.loads(nar.pending_json or "[]"))} if nar else None), "standing_requests": await _sr.active(db, workspace_id, owner), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
+    return {"carry": await _ca.carry_feed(db, workspace_id, owner), "developments": await _ca.pending_arrivals(db, workspace_id, owner), "narrative": ({"text": nar.text, "updated_at": nar.updated_at.isoformat(), "anchors": scene_narrative.load_anchors(nar), "pending": len(_json.loads(nar.pending_json or "[]"))} if nar else None), "standing_requests": await _sr.active(db, workspace_id, owner), "sitting_requests": await _sr.active_sitting(db, workspace_id, owner, req.get("sitting_ref")), "version": snap.version if snap else None, "awaiting_reply": await executive.awaiting_reply(db, workspace_id, owner),
             # The canonical live scene, two layers: this conversation's story, and the person's real-world situation (shared across chats/devices).
             "scene": {"story": await layer(req.get("session_id")), "real": await layer(f"real_{real_owner}" if real_owner else None)}}
 

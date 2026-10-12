@@ -60,7 +60,7 @@ async def test_standing_requests_are_stored_apart_from_the_prose_and_survive_a_p
         assert first["standing_requests"] == ["Do not call him babe; Mukesh is fine."] and "babe" not in first["text"]
         second = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", owner="o-req", session_id="s-req", messages=ex("deck first?", "yes") + ex("ok", "ok"), names=N)
         assert second["standing_requests"] == ["Do not call him babe; Mukesh is fine."]
-        assert "PREVIOUS STANDING REQUESTS:\n- Do not call him babe" in ad.prompts[1]
+        assert "PREVIOUS STANDING REQUESTS:\n- [standing] Do not call him babe" in ad.prompts[1]
         third = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-req", owner="o-req", session_id="s-req", messages=ex("fewer questions please", "sure") + ex("done", "nice"), names=N)
         assert len(third["standing_requests"]) == 2
 
@@ -83,7 +83,7 @@ async def test_standing_requests_are_owned_by_the_world_not_the_conversation_and
         assert await sr.active(db, "w-x", "owner-1") == ["Do not call him babe."]
         assert await sr.active(db, "w-x", "owner-2") == []                       # another world never sees it
         await scene_narrative.narrate(db, adapter=ad, workspace_id="w-x", owner="owner-1", session_id="chat_b", messages=ex("hi", "hello") + ex("x", "y"), names=N)
-        assert "PREVIOUS STANDING REQUESTS:\n- Do not call him babe." in ad.prompts[1]       # a different chat of the same owner starts from the durable list
+        assert "PREVIOUS STANDING REQUESTS:\n- [standing] Do not call him babe." in ad.prompts[1]       # a different chat of the same owner starts from the durable list
 
 
 @pytest.mark.asyncio
@@ -212,3 +212,32 @@ async def test_record_refs_survive_notes_merge_and_picture_passes():
         bad = await scene_narrative.add_notes(db, workspace_id="wr", session_id="sr",
                                               notes=[{"kind": "event", "text": " invented ref here", "by": "user", "ref": "not-an-id!!"}])
         assert all("ref" not in a or a.get("ref") == rid for a in bad["anchors"])
+
+
+@pytest.mark.asyncio
+async def test_a_sitting_scoped_request_ends_with_its_sitting_and_never_becomes_standing():
+    from src.services import standing_requests as sr
+    ad = _Adapter({"scene": "Working.", "standing_requests": [{"text": "No diet advice.", "scope": "standing"}, {"text": "Keep me focused on work this afternoon.", "scope": "sitting"}]},
+                  {"scene": "Dinner.", "standing_requests": [{"text": "No diet advice.", "scope": "standing"}]})
+    async with async_session_maker() as db:
+        first = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-sit", owner="o-sit", session_id="s-sit", messages=ex("keep me focused this afternoon", "ok") + ex("and no diet advice ever", "ok"), names=N, sitting_ref="sit-1")
+        assert first["standing_requests"] == ["No diet advice."] and first["sitting_requests"] == ["Keep me focused on work this afternoon."]
+        assert await sr.active_sitting(db, "w-sit", "o-sit", "sit-1") == ["Keep me focused on work this afternoon."]
+        assert await sr.active_sitting(db, "w-sit", "o-sit", "sit-2") == []             # the next sitting never sees it
+        assert await sr.active(db, "w-sit", "o-sit") == ["No diet advice."]
+        # a pass in the NEXT sitting neither shows the old sitting's request to the model nor withdraws it as a side effect
+        second = await scene_narrative.narrate(db, adapter=ad, workspace_id="w-sit", owner="o-sit", session_id="s-sit", messages=ex("dinner?", "pasta") + ex("nice", "yes"), names=N, sitting_ref="sit-2")
+        assert "Keep me focused" not in ad.prompts[1] and "[standing] No diet advice." in ad.prompts[1]
+        assert second["standing_requests"] == ["No diet advice."] and second["sitting_requests"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_writer_without_a_sitting_drops_sitting_scoped_requests_and_plain_strings_stay_standing():
+    from src.services import standing_requests as sr
+    async with async_session_maker() as db:
+        await sr.sync(db, "w-int", "o-int", ["Fewer questions.", {"text": "Not tonight.", "scope": "sitting"}], source="interpreter")
+        assert await sr.active(db, "w-int", "o-int") == ["Fewer questions."]
+        assert await sr.active_sitting(db, "w-int", "o-int", None) == []
+        await sr.sync(db, "w-int", "o-int", [{"text": "Not tonight.", "scope": "sitting"}], source="scene_pass", sitting_ref="s9")
+        await sr.sync(db, "w-int", "o-int", [], source="interpreter")                    # the boundary pass sees only durable requests; it must not touch a live sitting's
+        assert await sr.active_sitting(db, "w-int", "o-int", "s9") == ["Not tonight."]

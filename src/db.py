@@ -73,6 +73,8 @@ _ADDITIVE_COLUMNS = (
     ("work_items", "run_id", "VARCHAR"),
     ("work_items", "tool_json", "TEXT"),
     ("scene_narratives", "anchors_json", "TEXT DEFAULT '[]'"),
+    ("standing_requests", "scope", "VARCHAR DEFAULT 'standing' NOT NULL"),
+    ("standing_requests", "sitting_ref", "VARCHAR"),
     ("work_items", "receipt_json", "TEXT"),
 )
 

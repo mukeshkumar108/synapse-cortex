@@ -102,7 +102,7 @@ PRINCIPLES
   is), updated (its timing or substance changed: also emit the change in `operational`), completed (it happened / was resolved, including something someone was
   waiting on), cancelled (called off), superseded (replaced by a newer item you create), unclear. completed / cancelled / superseded / updated need `evidence`
   (message ids). completed requires explicit completion evidence quoted from NEW EVIDENCE (it happened, was delivered, was confirmed done): a miss, a maybe, a proposal, or silence is never completion — use holds or unclear. Resolving an item and creating a new one are separate acts and can both happen in one response. Silence is not a verdict.
-- STANDING REQUESTS: anything the person has asked of the companion about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the companion got wrong) is listed under STANDING REQUESTS in CURRENT WORLD STATE. Return the full list that should be active after the NEW EVIDENCE as `standing_requests` (strings in the person's own terms): keep each one that still stands, add new ones, and leave out any the person has withdrawn or changed. Omit the field entirely if you have no view.
+- STANDING REQUESTS: anything the person has asked of the companion about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the companion got wrong) is listed under STANDING REQUESTS in CURRENT WORLD STATE. Return the full list that should be active after the NEW EVIDENCE as `standing_requests` (strings in the person's own terms): keep each one that still stands, add new ones, and leave out any the person has withdrawn or changed. A request is standing only if it has no time frame; something asked for one stretch of time ("keep me focused this afternoon", "just listen for now", "not tonight") ended with the sitting and is NOT a standing request, so leave it out unless the person made it open-ended. Omit the field entirely if you have no view.
 - BRIEF carries the durable story only. The live scene (what is happening right now, what has just been used up) is written by a separate fast pass; do not describe it here.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
@@ -743,7 +743,7 @@ async def _interpret_locked(db: AsyncSession, *, run: Any, rid: Any, workspace_i
     known_operational = [x["id"] for kind in ("expectations", "open_loops", "commitments") for x in state["operational_state"][kind]]
     receipt = await world_materializer.materialize(db, delta, now=now, adapter=matter_adapter, constitution=constitution, run=run)
     if isinstance(raw.get("standing_requests"), list):
-        receipt["standing_requests"] = await _sr.sync(db, workspace_id, owner, [str(x) for x in raw["standing_requests"]], source="interpreter",
+        receipt["standing_requests"] = await _sr.sync(db, workspace_id, owner, raw["standing_requests"], source="interpreter",
                                                                  revise=True, now=now, timezone_str=timezone)
     receipt["operational"] = await commit_operational(db, delta.operational, messages=messages, workspace_id=workspace_id, owner=owner, session_id=session_id,
                                                       timezone=timezone, now=now)

@@ -38,10 +38,10 @@ and what has already been used up so it is not needlessly repeated (questions as
 Carry forward from the PREVIOUS PICTURE whatever still matters. DROP mood and moment-to-moment texture that has passed, but KEEP, as short factual clauses, the concrete things that have happened in this scene and that anything later must stay consistent with: who did what to whom, what was sent, received, refused or accepted, where each person physically is and what they are waiting for, and what each said they did or did not do. A long scene must not lose its earlier events just because they are no longer the latest thing.
 A character's own account of their hidden past or secret feelings, offered for the first time under questioning, is described as what they SAID ("she said ..."), never as a fact of the scene; if it contradicts something that already happened in the scene, say that it contradicts it, and keep the event. A fact about the PERSON's own life (their pet, work, family, history) that only the character supplied when asked to recall it, and that the person never stated in these messages, is not a fact of the scene: describe it as what the character SAID, and never as an anchor of kind event. Name people by the names given. Say only what the messages support.
 Neutral description only: never an instruction, never a line for the character to say. The material may be fiction or explicit: describe it only as far as needed to track what is happening.
-STANDING REQUESTS are kept separately, NOT in the picture. Anything the person has asked of the character about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the character got wrong) goes in "standing_requests" as short plain statements in the person's own terms. You are given the PREVIOUS STANDING REQUESTS: return every one of them again unless the person has withdrawn or clearly changed it, plus any new one. Never drop one for space.
+STANDING REQUESTS are kept separately, NOT in the picture. Anything the person has asked of the character about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the character got wrong) goes in "standing_requests" as short plain statements in the person's own terms, each as {"text": "...", "scope": "standing" | "sitting"}. scope "sitting" ONLY when the person tied the request to this conversation or a stretch of time ("this afternoon", "today", "for now", "tonight", "while we work", "until we finish", "just listen right now"): it ends when this conversation ends. Anything with no such limit ("no diet advice", "don't call me babe", "fewer questions") is "standing", and so is anything you are unsure of. You are given the PREVIOUS STANDING REQUESTS with their scope: return every one of them again (same scope) unless the person has withdrawn or clearly changed it, plus any new one. Never drop one for space.
 Also judge how much the LAST MESSAGES change what these two people are to each other: "significance" 0 = ordinary flow, 1 = a small beat, 2 = a real moment (a confession or vulnerability, a celebration shared, real tenderness or intimacy, an apology or repair, a disagreement that matters, a promise), 3 = a turning point (the bond clearly deepened or ruptured). Positive moments count exactly as much as hard ones. "significance_kind": one of closeness, celebration, vulnerability, repair, rupture, promise, none.
 ANCHORS are the sitting's fixed facts, kept separately from the picture and never rewritten. You are given the CURRENT ANCHORS (with ids). Return "new_anchors" (AT MOST 3 per pass; none is fine; never restate or reword an existing anchor; fold detail into it by leaving it alone): only concrete facts the LAST MESSAGES newly establish that anything later must stay consistent with: what happened (who did what to whom, with the real numbers, names, places), what was promised or decided, a question asked and not answered, a person who appeared, what a third party did to whom, a milestone of the bond (a celebration, a moment of tenderness, a confession). What a character SAYS about their own past or secret feelings, offered under questioning, is kind "claim" (a claim is not a fact of the scene). One plain factual sentence each, kind one of event, promise, decision, open_loop, person, external, milestone, claim. Do not restate an anchor already listed; moods, tone and texture are NOT anchors. Give each new anchor "by": who established it: "user" (the person said or did it), "character" (only the character said it), "scene" (it happened in the scene as shown). Return "closed_anchor_ids": ids of CURRENT ANCHORS that the LAST MESSAGES resolved (an open loop answered, a promise kept or broken). Return "reasked_anchor_ids": ids of open CURRENT ANCHORS (a question or a promise) that the LAST MESSAGES ask for AGAIN or object is still unmet (the person repeats the question, or says it has not been answered or done); never an id that was only just created. An anchor may carry a [ref: ...] tag pointing at the shared canonical record: keep the tag on that same fact, never move a ref to another anchor, and never invent one (new anchors never carry refs).
-Output a JSON object: {"scene": "<the picture>", "standing_requests": ["<request>", ...], "significance": 0|1|2|3, "significance_kind": "<kind>", "new_anchors": [{"kind": "<kind>", "text": "<fact>", "by": "user|character|scene"}], "closed_anchor_ids": ["<id>", ...], "reasked_anchor_ids": ["<id>", ...]}"""
+Output a JSON object: {"scene": "<the picture>", "standing_requests": [{"text": "<request>", "scope": "standing|sitting"}, ...], "significance": 0|1|2|3, "significance_kind": "<kind>", "new_anchors": [{"kind": "<kind>", "text": "<fact>", "by": "user|character|scene"}], "closed_anchor_ids": ["<id>", ...], "reasked_anchor_ids": ["<id>", ...]}"""
 
 
 def load_anchors(row: Any) -> List[Dict[str, Any]]:
@@ -115,7 +115,7 @@ def _content_terms(text: str) -> set:
 
 
 async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, messages: List[Dict[str, str]], names: Dict[str, str],
-                  model: Optional[str] = None, force: bool = False, owner: Optional[str] = None) -> Optional[Dict[str, Any]]:
+                  model: Optional[str] = None, force: bool = False, owner: Optional[str] = None, sitting_ref: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Hand in the newest exchange. The picture is rewritten (one cheap model call) only when enough has accrued to leave the raw tail (or `force`, for a
     significant moment); otherwise the exchange is just buffered. `messages` = [{id?, speaker: user|assistant, text}], oldest first."""
     fresh = [m for m in messages if str(m.get("text") or "").strip()]
@@ -123,7 +123,7 @@ async def narrate(db: AsyncSession, *, adapter: Any, workspace_id: str, session_
         return None
     import asyncio
     async with _LOCKS.setdefault(f"{workspace_id}|{session_id}", asyncio.Lock()):       # passes for one sitting run one after another: a slow earlier pass must not finish after, and overwrite, a later one
-        return await _narrate_locked(db, adapter=adapter, workspace_id=workspace_id, session_id=session_id, fresh=fresh, names=names, model=model, force=force, owner=owner)
+        return await _narrate_locked(db, adapter=adapter, workspace_id=workspace_id, session_id=session_id, fresh=fresh, names=names, model=model, force=force, owner=owner, sitting_ref=sitting_ref)
 
 
 async def add_notes(db: AsyncSession, *, workspace_id: str, session_id: str, notes: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -156,7 +156,7 @@ def _overlap(a: str, b: str) -> float:
 
 
 async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, session_id: str, fresh: List[Dict[str, str]], names: Dict[str, str],
-                          model: Optional[str], force: bool, owner: Optional[str]) -> Optional[Dict[str, Any]]:
+                          model: Optional[str], force: bool, owner: Optional[str], sitting_ref: Optional[str] = None) -> Optional[Dict[str, Any]]:
     row = await current(db, workspace_id, session_id)
     if row is None:
         row = SceneNarrative(honcho_workspace_id=workspace_id, honcho_session_id=session_id, text="")
@@ -172,15 +172,15 @@ async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, 
         return {"status": "buffered", "pending": len(pending)}
     who = lambda m: names.get(m.get("speaker"), m.get("speaker"))
     from src.services import standing_requests
-    held = await standing_requests.active(db, workspace_id, owner) if owner else []
-    previous_requests = "\n".join(f"- {x}" for x in held)
+    held = await standing_requests.visible(db, workspace_id, owner, sitting_ref) if owner else []
+    previous_requests = "\n".join(f"- [{x['scope']}] {x['text']}" for x in held)
     anchors = load_anchors(row)
     anchor_lines = "\n".join(f"[{a['id']}] ({a['status']}) {a['text']}" + (f" [ref: {a['ref']}]" if a.get("ref") else "") for a in anchors if a.get("kind") != "private_truth")      # the authored truth stays out of the picture's prose: the person has not been told it
     prompt = (f"PEOPLE: {names.get('user', 'the person')} (the person), {names.get('assistant', 'the companion')} (the companion character)\n\n"
               f"PREVIOUS PICTURE:\n{row.text or '(none yet)'}\n\nPREVIOUS STANDING REQUESTS:\n{previous_requests or '(none)'}\n\nCURRENT ANCHORS:\n{anchor_lines or '(none yet)'}\n\nLAST MESSAGES:\n" + "\n".join(f"{who(m)}: {m['text']}" for m in pending[-TAIL - 2:]))
     model_id = model or SCENE_MODEL
     try:
-        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string", "standing_requests": ["string"], "significance": "integer", "significance_kind": "string", "new_anchors": [{"kind": "string", "text": "string", "by": "string"}], "closed_anchor_ids": ["string"], "reasked_anchor_ids": ["string"]}, model_id=model_id, max_tokens=700,
+        out = await adapter.generate_structured(system=SYSTEM, prompt=prompt, json_schema={"scene": "string", "standing_requests": [{"text": "string", "scope": "string"}], "significance": "integer", "significance_kind": "string", "new_anchors": [{"kind": "string", "text": "string", "by": "string"}], "closed_anchor_ids": ["string"], "reasked_anchor_ids": ["string"]}, model_id=model_id, max_tokens=700,
                                                 temperature=0.2, strict=False, timeout=45)
     except Exception:
         row.pending_json = json.dumps(pending, ensure_ascii=False)       # keep the exchanges: the next pass covers them
@@ -194,7 +194,7 @@ async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, 
     from src.models.scene import utc_now
     returned = (out or {}).get("standing_requests")
     if owner and isinstance(returned, list):        # a pass that omits the field changes nothing; only an explicit list (possibly empty = all withdrawn) is applied
-        await standing_requests.sync(db, workspace_id, owner, [str(x) for x in returned], source="scene_pass", revise=True)
+        await standing_requests.sync(db, workspace_id, owner, returned, source="scene_pass", revise=True, sitting_ref=sitting_ref)
     row.text, row.model, row.updated_at = text, model_id, utc_now()
     latest = (await db.execute(select(SceneNarrative.anchors_json).where(SceneNarrative.honcho_workspace_id == workspace_id, SceneNarrative.honcho_session_id == session_id))).scalar()
     try:
@@ -209,7 +209,8 @@ async def _narrate_locked(db: AsyncSession, *, adapter: Any, workspace_id: str, 
         significance = max(0, min(3, int((out or {}).get("significance") or 0)))
     except (TypeError, ValueError):
         significance = 0
-    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "anchors": anchors, "significance": significance, "significance_kind": str((out or {}).get("significance_kind") or "none"), "standing_requests": await standing_requests.active(db, workspace_id, owner) if owner else []}
+    return {"text": text, "updated_at": row.updated_at.isoformat(), "model": model_id, "anchors": anchors, "significance": significance, "significance_kind": str((out or {}).get("significance_kind") or "none"), "standing_requests": await standing_requests.active(db, workspace_id, owner) if owner else [],
+            "sitting_requests": await standing_requests.active_sitting(db, workspace_id, owner, sitting_ref) if owner else []}
 
 
 TRUTH_SYSTEM = """You are the keeper of the story's ground truth. The person has asked the character, directly, about something in the PAST that the character knows and the story has NOT established (what happened at a party last year, where she was, whether she kissed someone). The character cannot answer consistently about a fact that does not exist: left alone, the answer changes from reply to reply, or the character stalls for ever.
