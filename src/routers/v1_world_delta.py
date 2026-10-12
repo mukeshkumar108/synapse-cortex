@@ -278,7 +278,10 @@ async def world_uncovered(workspace_id: str, owner: str, limit: int = 200, db: A
                 offered.append(mid)
                 if isinstance(run_session, str) and run_session:
                     sessions[mid] = run_session
-        if run.status == "applied":
+        # Discovery coverage comes only from interpreter passes: a second-producer close
+        # (tool op) processes evidence for a decision but never mines it, so its applied
+        # run must not clear these ids — the interpreter still owes them a reading.
+        if run.status == "applied" and run.producer == "world-interpreter":
             covered.update(_ids(run.input_json))
             covered.update(_ids(run.covered_through_json))
     uncovered = [mid for mid in offered if mid not in covered][:max(1, min(limit, 500))]
