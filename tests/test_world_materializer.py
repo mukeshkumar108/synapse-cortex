@@ -387,14 +387,20 @@ async def test_correction_kind_claims_are_projected_structurally_with_full_text_
         {"ref": "c9", "subject": "a2", "kind": "correction", "holder": "a2", "formation": "explicit",
          "text": "Kai corrected Audrey's reading that he wanted space; he said he wanted her near without pressure",
          "evidence": ["m8"]},
+        {"ref": "c11", "subject": "a2", "kind": "misunderstanding_resolved", "holder": "a2", "formation": "explicit",
+         "text": "Kai clarified the cancelled dinner was never a rejection",
+         "evidence": ["m8"]},
         {"ref": "c10", "subject": "a2", "text": "Kai likes the gym", "holder": "a2", "formation": "explicit",
          "evidence": ["m8"]},
     ]
     await run(with_body(d, claims=body["claims"]))
     async with async_session_maker() as db:
         layer = await world_model_service.build_world_layer(db, WS, OWNER)
-    assert layer["corrections"] and len(layer["corrections"]) == 1
-    c = layer["corrections"][0]
+    assert len(layer["corrections"]) == 2
+    texts = [x["text"] for x in layer["corrections"]]
+    assert any(t.startswith("Kai corrected Audrey's reading") for t in texts)
+    assert any(t.startswith("Kai clarified the cancelled dinner") for t in texts)
+    c = next(x for x in layer["corrections"] if x["text"].startswith("Kai corrected Audrey's reading"))
     assert c["text"].startswith("Kai corrected Audrey's reading") and c["about"] == "Kai"
     assert c["holder"] and c["formation"] == "explicit" and c["status"] == "current"
 

@@ -113,7 +113,7 @@ dimensions, objectives, matter_candidates, trajectory, state_review, operational
 actors:[{ref,name,aliases[],entity_type(person|character|organisation|team),explicit(bool),existing_id|null,confidence,evidence[]}]
 relationships:[{ref,actors[a,b],type,directional(bool),existing_id|null,formation,confidence,evidence[]}]
 events:[{ref,label,kind,when_phrase|null,where|null,participants[],holder|null,formation,confidence,evidence[],conflicts_with[],same_as|null,possibly_same_as|null}]
-claims:[{ref,subject(ref of actor/event/relationship),text,kind(assertion|attribute),holder(actor ref|null),formation,confidence,evidence[],span|null(verbatim),conflicts_with[]}]
+claims:[{ref,subject(ref of actor/event/relationship),text,kind(assertion|attribute|correction: use `correction` when the person corrects an earlier understanding, so the correction is retrievable as structure, not only in the brief),holder(actor ref|null),formation,confidence,evidence[],span|null(verbatim),conflicts_with[]}]
 narrative:[{ref,kind(open: rupture, concealment, resentment, self_expression, ...),about[refs],holder(actor ref|null),text,formation,confidence,evidence[]}]
 commitments:[{ref,committer,to|null,text,tentative(bool),confidence,evidence[]}]
 dimensions:[{ref,relationship(ref),from_actor,to_actor,dimension,value,about(event ref)|null,durability(acute|provisional|durable|unknown),supersedes(known facet id)|null,formation,confidence,evidence[]}]

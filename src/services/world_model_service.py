@@ -346,6 +346,9 @@ SECTION_BUILDERS = {
 # Claim kinds that state plain propositions or operational facts. Every other kind written through the world path is model-authored narrative
 # state (open vocabulary: rupture, resentment, ...), so there is no closed list of narrative kinds to fall out of date.
 _PROPOSITION_KINDS = frozenset({"assertion", "attribute", "commitment", "user_model", "correction", "decision", "matter_summary", "observation"})
+# Correction-kind vocabulary observed in live rows. Open vocabulary: the interpreter coins near-synonyms, so this set
+# must grow when a new correction kind is observed (see production-decisions §27), never by guessing.
+_CORRECTION_KINDS = frozenset({"correction", "misunderstanding_resolved"})
 
 
 def _is_narrative(kind: Optional[str]) -> bool:
@@ -422,11 +425,12 @@ async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional
     # The interpreter already writes these as `correction`-kind claims in the same pass that authors the brief; the brief
     # prose is only their other carrier. Projected structurally (full text, not the 90-char actor stub) so a foreground
     # that omits the mixed brief can still hold the correction. Live rows only; recency decides when two conflict.
+    # Kind vocabulary is open (the interpreter also writes `misunderstanding_resolved`); both observed correction kinds match.
     corrections = [{"ref": str(x.id), "text": x.claim[:500], "holder": x.holder_actor,
                     "about": names.get(x.subject_entity_id), "formation": x.formation, "status": x.epistemic_status,
                     "updated_at": x.updated_at.isoformat() if x.updated_at else None}
                    for x in sorted(
-                       (e for e in entries if e.claim_kind == "correction" and e.epistemic_status != "superseded"),
+                       (e for e in entries if e.claim_kind in _CORRECTION_KINDS and e.epistemic_status != "superseded"),
                        key=lambda e: (e.updated_at, e.claim), reverse=True)[:4]]
     runs = (await db.execute(select(ProducerRun).where(ProducerRun.honcho_workspace_id == workspace_id, ProducerRun.owner_peer_id == owner,
                                                        ProducerRun.status == "applied").order_by(ProducerRun.created_at.desc()))).scalars().all()
