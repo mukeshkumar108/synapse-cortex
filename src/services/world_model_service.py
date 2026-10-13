@@ -418,6 +418,16 @@ async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional
                 for ev in events]
     narrative = [{"ref": str(x.id), "kind": x.claim_kind, "text": x.claim[:130], "formation": x.formation, "status": x.epistemic_status}
                  for x in sorted(narrative_rows, key=lambda x: (-x.confidence, x.claim))[:8]]
+    # Explicitly corrected understandings, newest first: what was corrected, by whose account, and what it superseded.
+    # The interpreter already writes these as `correction`-kind claims in the same pass that authors the brief; the brief
+    # prose is only their other carrier. Projected structurally (full text, not the 90-char actor stub) so a foreground
+    # that omits the mixed brief can still hold the correction. Live rows only; recency decides when two conflict.
+    corrections = [{"ref": str(x.id), "text": x.claim[:500], "holder": x.holder_actor,
+                    "about": names.get(x.subject_entity_id), "formation": x.formation, "status": x.epistemic_status,
+                    "updated_at": x.updated_at.isoformat() if x.updated_at else None}
+                   for x in sorted(
+                       (e for e in entries if e.claim_kind == "correction" and e.epistemic_status != "superseded"),
+                       key=lambda e: (e.updated_at, e.claim), reverse=True)[:4]]
     runs = (await db.execute(select(ProducerRun).where(ProducerRun.honcho_workspace_id == workspace_id, ProducerRun.owner_peer_id == owner,
                                                        ProducerRun.status == "applied").order_by(ProducerRun.created_at.desc()))).scalars().all()
     covered = {}
@@ -426,7 +436,7 @@ async def build_world_layer(db: AsyncSession, workspace_id: str, owner: Optional
             covered[r.producer] = {**_json.loads(r.covered_through_json), "run_id": str(r.id), "at": r.created_at.isoformat()}
     continuation = await build_continuation(db, workspace_id, owner, names, edges, narrative_rows, actors, now=datetime.now(timezone.utc).replace(tzinfo=None))
     return {
-        "actors": actors, "relationships": relationships, "events": ev_stubs, "narrative": narrative, **continuation,
+        "actors": actors, "relationships": relationships, "events": ev_stubs, "narrative": narrative, "corrections": corrections, **continuation,
         "world_index": {"actors": [{"ref": a["ref"], "name": a["name"]} for a in actors], "events": len(events), "narrative": len(narrative_rows),
                         "available_via": {"actor": "projection person(entity_id)", "matter": "projection matter(matter_id)",
                                           "timeline": "projection timeline", "evidence": "Honcho message ids in evidence_refs"}},

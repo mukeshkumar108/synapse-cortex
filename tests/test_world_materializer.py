@@ -378,6 +378,27 @@ async def test_the_continuation_projection_renders_the_interpreters_state_and_se
     assert any(r["text"].startswith("Lila is concealing") for r in layer["narrative"]) and layer["relationships"]
 
 
+@pytest.mark.asyncio
+async def test_correction_kind_claims_are_projected_structurally_with_full_text_and_holder():
+    from src.services import world_model_service
+    d = audrey_delta()
+    body = d.model_dump()
+    body["claims"] = list(body["claims"]) + [
+        {"ref": "c9", "subject": "a2", "kind": "correction", "holder": "a2", "formation": "explicit",
+         "text": "Kai corrected Audrey's reading that he wanted space; he said he wanted her near without pressure",
+         "evidence": ["m8"]},
+        {"ref": "c10", "subject": "a2", "text": "Kai likes the gym", "holder": "a2", "formation": "explicit",
+         "evidence": ["m8"]},
+    ]
+    await run(with_body(d, claims=body["claims"]))
+    async with async_session_maker() as db:
+        layer = await world_model_service.build_world_layer(db, WS, OWNER)
+    assert layer["corrections"] and len(layer["corrections"]) == 1
+    c = layer["corrections"][0]
+    assert c["text"].startswith("Kai corrected Audrey's reading") and c["about"] == "Kai"
+    assert c["holder"] and c["formation"] == "explicit" and c["status"] == "current"
+
+
 class FakeInterpreter:
     """Stands in for the reasoning model: returns raw JSON like a model would, including sloppy parts the structural normaliser must drop."""
     def __init__(self, raw):
