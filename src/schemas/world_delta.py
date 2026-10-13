@@ -204,6 +204,7 @@ class BriefC(_Item):
     spent: List[str] = Field(default_factory=list)          # already asked / told / joked / promised / settled: conversational expenditure
     raw_turns: Optional[int] = Field(default=None, ge=0, le=3)
     raw_reason: Optional[str] = None
+    relational: Optional[str] = None          # how the two stand, as meaning: no tasks, plans or reminders (those are operational and live elsewhere)
 
 
 class ReviewC(_Item):

@@ -104,6 +104,7 @@ PRINCIPLES
   (message ids). completed requires explicit completion evidence quoted from NEW EVIDENCE (it happened, was delivered, was confirmed done): a miss, a maybe, a proposal, or silence is never completion — use holds or unclear. Resolving an item and creating a new one are separate acts and can both happen in one response. Silence is not a verdict.
 - STANDING REQUESTS: anything the person has asked of the companion about how to talk or behave (a name not to use, a topic to avoid, less of something, a correction to what the companion got wrong) is listed under STANDING REQUESTS in CURRENT WORLD STATE. Return the full list that should be active after the NEW EVIDENCE as `standing_requests` (strings in the person's own terms): keep each one that still stands, add new ones, and leave out any the person has withdrawn or changed. A request is standing only if it has no time frame; something asked for one stretch of time ("keep me focused this afternoon", "just listen for now", "not tonight") ended with the sitting and is NOT a standing request, so leave it out unless the person made it open-ended. Omit the field entirely if you have no view.
 - CARRY FORWARD WHAT WAS CORRECTED: the BRIEF must keep, from the previous brief, any understanding the person has explicitly corrected, confirmed or asked you to hold in a particular way, together with what it corrected and when they said it if known (for example: 'she told the companion in November that she goes to those places because she is lonely at night, not because she likes being alone; the companion had read it the other way and was corrected; she asked it not to be made a thing of'), even when the latest session is about something unrelated. Treat it as their own account at that time, not a permanent trait: keep it until later evidence changes it, and if later evidence points elsewhere, say so. One or two plain sentences; never generalise it into a personality label.
+- RELATIONAL (optional, inside the brief): 40-90 words in plain prose on how these two stand with each other, written as meaning and never as a to-do list: what they have been through together and how it landed (keep the meaning of shared experiences even when they were practical, for example how frustrating it was when the boiler broke), what the person has corrected or asked to be held a particular way, what the companion has said it would do or wonder about, and the tone between them. Leave out anything that is an outstanding task, appointment, plan, deadline or reminder ('repair still outstanding', 'needs to book'): those are operational state and live elsewhere. Omit the field when there is nothing relational to say.
 - BRIEF carries the durable story only. The live scene (what is happening right now, what has just been used up) is written by a separate fast pass; do not describe it here.
 - Use short local refs (a1, r1, e1, c1, n1, k1, o1, d1, mc1, t1). Every item needs evidence: message ids from the NEW EVIDENCE. Omit anything unsure.
 
@@ -122,7 +123,7 @@ trajectory:[{ref,actor,state(on_track|drifting|at_risk|failing|unknown),note,obj
 state_review:[{id(of a listed objective or dimension),status(holds|superseded|resolved|unclear),note}]
 operational_review:[{id(of a listed open item),status(holds|updated|completed|cancelled|superseded|unclear),note,evidence[]}]
 operational:[{decision(create|complete|cancel|progress|reschedule),kind(reminder|event|deadline|commitment),title,temporal_phrase|null,target(id of a listed open item)|null,canonical_title|null,new_temporal_phrase|null,progress_amount|null,progress_unit|null,confidence,evidence[]}]
-brief:{text,lines:[{text,refs[]}]}
+brief:{text,lines:[{text,refs[]}],relational?}
 standing_requests:["<request>", ...]  (optional; the full active list)"""
 
 
@@ -449,7 +450,7 @@ def normalize(raw: Dict[str, Any], *, messages: List[Dict[str, str]], speakers: 
                  "transient": [str(x).strip() for x in _list(b.get("transient")) if _str(x)][:6],
                  "changed": [str(x).strip() for x in _list(b.get("changed")) if _str(x)][:6],
                  "spent": [str(x).strip() for x in _list(b.get("spent")) if _str(x)][:10],
-                 "raw_turns": raw_turns if isinstance(raw_turns, int) and not isinstance(raw_turns, bool) and 0 <= raw_turns <= 3 else None,
+                 "relational": _str(b.get("relational")) or None, "raw_turns": raw_turns if isinstance(raw_turns, int) and not isinstance(raw_turns, bool) and 0 <= raw_turns <= 3 else None,
                  "raw_reason": _str(b.get("raw_reason"))}
     return {
         "contract_version": "world-delta-v1", "workspace_id": workspace_id, "owner": owner,
