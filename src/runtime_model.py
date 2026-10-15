@@ -1,5 +1,6 @@
-"""Agenda ranker adapter: a minimal generate_structured over the OpenRouter
-chat-completions API, reusing the extractor's key/model configuration. Fails
+"""Agenda ranker adapter: a minimal generate_structured over OpenAI-compatible
+chat-completions APIs. Provider routing is env-driven (NANOGPT_MODELS):
+NanoGPT flat-rate where listed, OpenRouter otherwise. Fails
 closed (returns None-shaped errors) so the agenda falls back deterministically."""
 
 from __future__ import annotations
@@ -62,9 +63,20 @@ class AgendaRankerAdapter:
                                   model_id: str, max_tokens: int = 900,
                                   temperature: float = 0.2, strict: bool = True, timeout: float | None = None, **_: object):
         api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
-        url = ("https://openrouter.ai/api/v1/chat/completions"
-               if os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY")
-               else os.getenv("SYNAPSE_MODEL_URL") or "https://api.openai.com/v1/chat/completions")
+        # Provider routing (no hardcoding): models listed in NANOGPT_MODELS go to
+        # NanoGPT flat-rate when a key is present; everything else keeps the
+        # existing OpenRouter route. Tomorrow's model change is an env edit.
+        _nano_models = {m.strip() for m in os.getenv(
+            "NANOGPT_MODELS",
+            "qwen/qwen3.8-27b,moonshotai/kimi-k2.6,moonshotai/kimi-k2.5,minimax/minimax-m3,z-ai/glm-5.3-flash,deepseek/deepseek-v4-flash,deepseek-ai/deepseek-v3.2-exp").split(",") if m.strip()}
+        _nano_key = os.getenv("NANO_API_KEY", "").strip()
+        if _nano_key and model_id in _nano_models:
+            url, api_key, provider = "https://nano-gpt.com/api/v1/chat/completions", _nano_key, "nanogpt"
+        else:
+            url = ("https://openrouter.ai/api/v1/chat/completions"
+                   if os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY")
+                   else os.getenv("SYNAPSE_MODEL_URL") or "https://api.openai.com/v1/chat/completions")
+            provider = "openrouter"
         module = "unknown"
         try:
             module = str(sys._getframe(1).f_globals.get("__name__", "unknown")).rsplit(".", 1)[-1]
@@ -116,7 +128,7 @@ class AgendaRankerAdapter:
             logger.info("llm_usage module=%s model=%s in=%s out=%s reasoning=%s cost_usd=%.5f day_total_usd=%.3f", module, model_id, usage.get("prompt_tokens"),
                         usage.get("completion_tokens"), (usage.get("completion_tokens_details") or {}).get("reasoning_tokens"), float(cost), _spent[(_day(), module)])
             from src import call_context
-            call_context.record(module=module, provider="openrouter", model=model_id, usage=usage, cost=float(cost))
+            call_context.record(module=module, provider=provider, model=model_id, usage=usage, cost=float(cost))
             content = body["choices"][0]["message"].get("content") or ""
             finish = body["choices"][0].get("finish_reason")
             if not content.strip():
