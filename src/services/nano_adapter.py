@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = os.getenv("NANO_BASE_URL", "https://nano-gpt.com/api/v1")
 # Ordered by how well each follows a strict JSON contract at this size (measured in the lab); every one is covered by the subscription.
-DEFAULT_CHAIN = [m.strip() for m in os.getenv("AGENCY_MODELS", "z-ai/glm-5.3-flash,meta/muse-spark-1.3-contributor,openrouter:z-ai/glm-5.3-flash,openrouter:openai/gpt-5.6-luna,deepseek/deepseek-v4-flash").split(",") if m.strip()]
+DEFAULT_CHAIN = [m.strip() for m in os.getenv("AGENCY_MODELS", "z-ai/glm-5.3-flash,qwen/qwen3.8-27b,moonshotai/kimi-k2.6,deepseek/deepseek-v4-flash").split(",") if m.strip()]
 ATTEMPTS_PER_MODEL = int(os.getenv("AGENCY_ATTEMPTS_PER_MODEL", "2"))
 TIMEOUT = float(os.getenv("AGENCY_TIMEOUT_SECONDS", "150"))
 HARD_MAX_OUTPUT_TOKENS = int(os.getenv("AGENCY_HARD_MAX_OUTPUT_TOKENS", "4000"))
