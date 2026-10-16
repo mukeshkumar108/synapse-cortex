@@ -238,16 +238,20 @@ class LedgerItem(SQLModel, table=True):
     """Dated, stateful temporal reality: appointments, commitments, deadlines,
     dependencies, plans, situations, conversational threads. Reality, not
     attention: time changes relevance, never facts. Resolved only by evidence
-    (done/cancelled/answered) or explicit dismissal — never by silence."""
+    (done/cancelled/answered) or explicit dismissal — never by silence.
+    Evolved: situations carry stable identity (situation_key), evidence +
+    confidence, provisional timing, what is awaited, open questions and links
+    to other situations — the smallest structure that lets understanding of an
+    unfolding life persist across sessions without a taxonomy."""
     __tablename__ = "ledger_items"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     honcho_workspace_id: str = Field(index=True, nullable=False)
     owner_peer_id: Optional[str] = Field(default=None, index=True)
-    kind: str = Field(index=True, nullable=False)                  # commitment | event | thread | situation | reminder
+    kind: str = Field(index=True, nullable=False)                  # commitment | event | thread | situation | reminder | aspiration | invitation ... (open vocabulary, never compulsory)
     title: str = Field(nullable=False)                             # plain human line
     detail: str = Field(default="")                                # circumstance, terms, what's known/unknown
-    status: str = Field(index=True, nullable=False, default="open")  # open | done | cancelled | answered
+    status: str = Field(index=True, nullable=False, default="open")  # open | waiting | watching | done | cancelled | answered
     window_start: Optional[datetime] = Field(default=None)
     window_end: Optional[datetime] = Field(default=None)
     evidence_refs_json: str = Field(default="[]")
@@ -255,6 +259,15 @@ class LedgerItem(SQLModel, table=True):
     superseded_by_id: Optional[UUID] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+    # Situational understanding (all optional; missing stays missing):
+    situation_key: Optional[str] = Field(default=None)             # stable identity across sessions, e.g. thursday-presentation
+    confidence: str = Field(default="reported")                    # observed | reported | inferred
+    source_refs_json: str = Field(default="[]")                    # [{session, quote}] evidence it rests on
+    timing_text: str = Field(default="")                           # provisional timing in own words ("Thursday", "for two weeks", "someday")
+    expected_date: Optional[datetime] = Field(default=None)       # exact date only, never a guess
+    waiting_on: str = Field(default="")                            # who/what is awaited, if anything
+    question_text: str = Field(default="")                         # unresolved question / missing info / clarification candidate
+    linked_keys_json: str = Field(default="[]")                    # situation_keys this connects to
 
 
 class SittingPreparation(SQLModel, table=True):

@@ -76,6 +76,14 @@ _ADDITIVE_COLUMNS = (
     ("standing_requests", "scope", "VARCHAR DEFAULT 'standing' NOT NULL"),
     ("standing_requests", "sitting_ref", "VARCHAR"),
     ("work_items", "receipt_json", "TEXT"),
+    ("ledger_items", "situation_key", "VARCHAR"),
+    ("ledger_items", "confidence", "VARCHAR DEFAULT 'reported'"),
+    ("ledger_items", "source_refs_json", "TEXT DEFAULT '[]'"),
+    ("ledger_items", "timing_text", "TEXT DEFAULT ''"),
+    ("ledger_items", "expected_date", "DATE"),
+    ("ledger_items", "waiting_on", "TEXT DEFAULT ''"),
+    ("ledger_items", "question_text", "TEXT DEFAULT ''"),
+    ("ledger_items", "linked_keys_json", "TEXT DEFAULT '[]'"),
 )
 
 

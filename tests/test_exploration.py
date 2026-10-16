@@ -40,7 +40,7 @@ def fakes(monkeypatch):
                 return {"text": "# Things I'm Exploring\n\n- Octopus cognition: 500M neurons, mostly in arms. Still open: how autonomous is each arm?", "model": "f", "provider": "f", "usage": {}, "ms": 1}
             return {"text": "# other\n\nUnchanged.\n", "model": "f", "provider": "f", "usage": {}, "ms": 1}
         if kind == "ledger":
-            return {"text": "[]", "model": "f", "provider": "f", "usage": {}, "ms": 1}
+            return {"text": '{"new": [], "update": [], "close": []}', "model": "f", "provider": "f", "usage": {}, "ms": 1}
         if kind == "preparation":
             return {"text": "", "model": "f", "provider": "f", "usage": {}, "ms": 1}
         raise AssertionError(kind)

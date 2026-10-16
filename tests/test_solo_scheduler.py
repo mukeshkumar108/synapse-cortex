@@ -63,12 +63,14 @@ async def test_daily_cap_counts_solo_runs():
 
 @pytest.mark.asyncio
 async def test_recent_user_turn_defers(monkeypatch):
+    from datetime import datetime as _d
     from src.models.operational_state import TurnStamp
+    now = _d.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
     async with async_session_maker() as db:
         db.add(TurnStamp(honcho_workspace_id="ws1", owner_peer_id="u1", honcho_message_id="m1",
-                         turn_at=datetime.now(timezone.utc).replace(tzinfo=None)))
+                         turn_at=now.replace(tzinfo=None)))
         await db.commit()
-        ok, reason, _ = await solo_scheduler.eligibility(db, workspace_id="ws1", owner="u1")
+        ok, reason, _ = await solo_scheduler.eligibility(db, workspace_id="ws1", owner="u1", now=now)
     assert not ok and reason.startswith("user_active")
 
 
@@ -98,7 +100,9 @@ async def test_immediate_stop_is_declined_not_consolidated():
 
 
 @pytest.mark.asyncio
-async def test_solo_tick_dry_run(async_client):
+async def test_solo_tick_dry_run(async_client, monkeypatch):
+    monkeypatch.setenv("SOPHIE_SOLO_QUIET_START_H", "0")  # never quiet regardless of wall clock
+    monkeypatch.setenv("SOPHIE_SOLO_QUIET_END_H", "0")
     r = await async_client.post("/v1/memory/solo-tick",
                                 json={"workspace_id": "ws1", "owner": "u1", "dry_run": True})
     assert r.status_code == 200, r.text

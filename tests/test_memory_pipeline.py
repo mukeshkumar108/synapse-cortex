@@ -21,7 +21,7 @@ def _fake_model(kind, prompt, max_tokens, models):
         return {"text": f"# {page}\n\nEvening walk ~5 miles established. Morning walk is an aspiration, not a routine.",
                 "model": "fake", "provider": "fake", "usage": {}, "ms": 1}
     if kind == "ledger":
-        return {"text": '[{"title": "Deliver the render by Thursday", "kind": "commitment", "date": "unknown", "status": "open"}]',
+        return {"text": '{"new": [{"key": "thursday-render", "title": "Deliver the render by Thursday", "kind": "commitment", "confidence": "reported", "timing_text": "Thursday", "expected_date": null, "waiting_on": "", "question_text": "", "linked_keys": [], "detail": "", "evidence": ["test"]}], "update": [], "close": []}',
                 "model": "fake", "provider": "fake", "usage": {}, "ms": 1}
     if kind == "arc":
         return {"text": "They talked walking; the morning walk remains an open idea.",
@@ -63,9 +63,11 @@ async def test_baseline_prompts_verbatim():
     assert "Deliver no more than 2-3 sentences at most." in HANDOFF_PROMPT
     assert "Structure" not in LISTENING_PROMPT
     blob = (memory_pipeline.NOTEBOOK_EDITOR_PROMPT + memory_pipeline.ARC_UPDATE_PROMPT
-            + memory_pipeline.LEDGER_EXTRACT_PROMPT + memory_pipeline.PREPARATION_PROMPT)
+            + memory_pipeline.SITUATIONS_PROMPT + memory_pipeline.PREPARATION_PROMPT)
     for guard in ("Do not carry the mood", "never turn one difficult exchange into a lasting verdict",
-                  "an aspiration is not a task", "honest about what you don't know"):
+                  "aspiration is not a task and never closes by silence", "honest about what you don't know",
+                  "Close only on evidence", "An invitation is not an accepted commitment",
+                  "Inferred is not observed"):
         assert guard in blob
 
 
@@ -125,3 +127,81 @@ async def test_legacy_interpret_retired_for_sophie(async_client):
 async def test_empty_transcript_rejected(async_client):
     r = await async_client.post("/v1/memory/consolidate", json={**BASE, "session_id": "s0", "messages": []})
     assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_situations_update_by_key_and_close_needs_evidence():
+    from src.db import async_session_maker
+    async with async_session_maker() as db:
+        c = await memory_pipeline.apply_situations(
+            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s1",
+            statements={"new": [{"key": "thursday-talk", "title": "Big presentation Thursday, research outstanding",
+                                 "kind": "commitment", "confidence": "reported", "timing_text": "Thursday",
+                                 "waiting_on": "", "question_text": "What is still missing from the research?",
+                                 "linked_keys": [], "detail": "", "evidence": ["big talk Thursday, research TBD"]}],
+                        "update": [], "close": []})
+        assert c == {"added": 1, "updated": 0, "closed": 0}
+        await db.commit()
+        # duplicate title does not duplicate
+        c = await memory_pipeline.apply_situations(
+            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s2",
+            statements={"new": [{"key": "thursday-talk", "title": "Big presentation Thursday, research outstanding",
+                                 "kind": "commitment", "evidence": []}], "update": [], "close": []})
+        assert c["added"] == 0
+        # update by key patches fields and appends evidence
+        c = await memory_pipeline.apply_situations(
+            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s2",
+            statements={"new": [], "update": [{"key": "thursday-talk", "waiting_on": "research notes from Ana",
+                                               "status": "waiting", "evidence": "still waiting on Ana"}], "close": []})
+        assert c["updated"] == 1
+        # close without evidence is refused
+        c = await memory_pipeline.apply_situations(
+            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s3",
+            statements={"new": [], "update": [], "close": [{"key": "thursday-talk", "status": "done"}]})
+        assert c["closed"] == 0
+        # close with evidence applies
+        c = await memory_pipeline.apply_situations(
+            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s3",
+            statements={"new": [], "update": [],
+                        "close": [{"key": "thursday-talk", "status": "done", "evidence": "delivered it Thursday, went well"}]})
+        assert c["closed"] == 1
+        await db.commit()
+        items = await memory_pipeline.open_ledger(db, "ws1", "u1")
+        assert items == []  # done items leave the open list
+
+
+@pytest.mark.asyncio
+async def test_review_notices_without_closing():
+    from src.db import async_session_maker
+
+    async def memfn(kind, prompt, max_tokens, models):
+        if kind == "review":
+            return {"text": '{"updates": [{"key": "rent-invoice", "waiting_on": "still nothing after 9 days"}], '
+                            '"noticed": ["invoice wait is getting long; may be worth a nudge"]}',
+                    "model": "f", "provider": "f", "usage": {}, "ms": 1}
+        raise AssertionError(kind)
+
+    memory_pipeline.set_model_fn(memfn)
+    try:
+        async with async_session_maker() as db:
+            await memory_pipeline.apply_situations(
+                db, workspace_id="ws1", owner="u1", run_id=None, session_id="s1",
+                statements={"new": [{"key": "rent-invoice", "title": "Unpaid invoice, waiting on client",
+                                     "kind": "situation", "waiting_on": "client payment", "evidence": ["sent it"]}],
+                            "update": [], "close": []})
+            await db.commit()
+            rep = await memory_pipeline.review(db, workspace_id="ws1", owner="u1")
+        assert rep["updates_applied"] == 1 and len(rep["noticed"]) == 1
+        async with async_session_maker() as db:
+            items = await memory_pipeline.open_ledger(db, "ws1", "u1")
+            assert items and items[0].status == "open"  # review never closes
+            assert "9 days" in items[0].waiting_on
+    finally:
+        memory_pipeline.set_model_fn(None)
+
+
+@pytest.mark.asyncio
+async def test_review_endpoint(async_client):
+    r = await async_client.post("/v1/memory/review", json={"workspace_id": "ws1", "owner": "nobody"})
+    assert r.status_code == 200, r.text
+    assert r.json()["open_count"] == 0

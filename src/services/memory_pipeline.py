@@ -87,11 +87,26 @@ Resolution: preserve what remains relevant. When an ordinary disagreement has be
 
 Return ONLY the revised account as short plain prose, no commentary. If there was no previous account, write one from the handoff alone."""
 
-LEDGER_EXTRACT_PROMPT = """From the findings below, list only genuine time-sensitive or actionable operational items: meetings, appointments, to-dos the person explicitly requested, commitments with real expectations, deadlines, trips, in-flight situations with pending outcomes, unanswered threads that need a reply.
+SITUATIONS_PROMPT = """Maintain an understanding of this person's unfolding circumstances from the findings below. You are updating situations, not filing tasks.
 
-Rules: an aspiration is not a task ("I want to start walking in the morning" creates nothing). A mentioned idea with no commitment creates nothing. Never invent dates, owners, or obligations. For each item return: title, kind (appointment/todo/commitment/deadline/trip/open_thread), date if stated (YYYY-MM-DD or 'unknown'), status (open/done/dismissed).
+Currently open situations (with stable keys):
+{open_items}
 
-Return ONLY a JSON array of such items, e.g. [{"title": "...", "kind": "todo", "date": "unknown", "status": "open"}]. Return [] if there is nothing genuinely actionable."""
+From the findings, return ONLY a JSON object: {"new": [...], "update": [...], "close": [...]}.
+- new: {key (short stable slug, e.g. thursday-presentation), title, kind (open vocabulary: commitment/event/thread/situation/reminder/aspiration/invitation/...), confidence (observed/reported/inferred), detail (circumstance, terms, what's known AND unknown), timing_text (provisional timing in own words, "someday" allowed), expected_date (YYYY-MM-DD only if an exact date was stated, else null), waiting_on (who/what is awaited, else ""), question_text (unresolved question or missing info, else ""), linked_keys (keys of related open situations), evidence (short quotes or session refs it rests on)}
+- update: {key (must match an open key), plus only the fields that changed, plus new evidence appended}
+- close: {key, status (done/cancelled/answered), evidence (the quote or fact proving it — required)}
+
+Rules, no exceptions:
+- An aspiration is not a task and never closes by silence; record it (kind aspiration) or leave it alone.
+- An invitation is not an accepted commitment; a provisional invitation stays provisional.
+- Inferred is not observed: mark confidence honestly. A hypothesis is not a fact.
+- An unresolved question isn't a task; put it in question_text, don't invent an obligation.
+- Never invent dates, owners, or obligations. expected_date only for exact stated dates.
+- Close only on evidence in these findings. Time passing proves nothing.
+- A reminder the person asked for is an attention mechanism: keep the underlying situation, note the reminder in detail.
+- Match to open keys wherever the finding concerns an already-known situation instead of creating a duplicate.
+- Return {} lists empty when there is nothing: {"new": [], "update": [], "close": []}."""
 
 PREPARATION_PROMPT = """You are forming a brief private perspective for Sophie, a companion who genuinely cares about this person, ahead of their next conversation. Inputs: the living notebook, the operational ledger, the continuing arc of recent conversations, and the current date/time.
 
@@ -135,6 +150,131 @@ def _fingerprint(*parts: str) -> str:
     for p in parts:
         h.update(str(p).encode())
     return h.hexdigest()[:16]
+
+
+def _parse_situations(raw: str) -> Dict[str, List[Dict[str, Any]]]:
+    out = {"new": [], "update": [], "close": []}
+    try:
+        if "[" not in raw and "{" not in raw:
+            return out
+        start = raw.find("{")
+        parsed = json.loads(raw[start:raw.rfind("}") + 1])
+        if not isinstance(parsed, dict):
+            return out
+        for k in out:
+            items = parsed.get(k)
+            if isinstance(items, list):
+                out[k] = [e for e in items if isinstance(e, dict)]
+    except Exception as exc:
+        logger.warning("[memory] situations parse failed open: %s", exc)
+    return out
+
+
+def _parse_date(value: Any) -> Optional[datetime]:
+    try:
+        s = str(value or "").strip()
+        if not s or s.lower() in ("null", "unknown", "none"):
+            return None
+        from datetime import datetime as _dt
+        return _dt.strptime(s[:10], "%Y-%m-%d")
+    except Exception:
+        return None
+
+
+async def apply_situations(db: AsyncSession, *, workspace_id: str, owner: str, run_id: Any,
+                           session_id: str, statements: Dict[str, List[Dict[str, Any]]],
+                           known: Optional[List[LedgerItem]] = None) -> Dict[str, int]:
+    """Apply model-produced situation statements. New rows, field patches by
+    stable key, closes only with evidence. Returns counts."""
+    counts = {"added": 0, "updated": 0, "closed": 0}
+    if known is None:
+        known = await open_ledger(db, workspace_id, owner, limit=100)
+    by_key: Dict[str, Any] = {str(i.situation_key): i for i in known if i.situation_key}
+    by_title = {(str(i.title).strip().lower(), str(i.kind)): i for i in known}
+    for e in statements.get("new", []):
+        title = str(e.get("title") or "").strip()
+        if not title:
+            continue
+        key = str(e.get("key") or "").strip().lower().replace(" ", "-")[:80]
+        if (key and key in by_key) or (title.lower(), str(e.get("kind") or "situation")) in by_title:
+            continue  # already known: the update path owns it, never duplicate
+        db.add(LedgerItem(
+            honcho_workspace_id=workspace_id, owner_peer_id=owner,
+            kind=str(e.get("kind") or "situation")[:40], title=title[:500],
+            detail=str(e.get("detail") or "")[:2000], status="open",
+            situation_key=key or None, confidence=str(e.get("confidence") or "reported")[:20],
+            source_refs_json=json.dumps({"session": session_id, "evidence": e.get("evidence") or []})[:4000],
+            timing_text=str(e.get("timing_text") or "")[:300], expected_date=_parse_date(e.get("expected_date")),
+            waiting_on=str(e.get("waiting_on") or "")[:300], question_text=str(e.get("question_text") or "")[:500],
+            linked_keys_json=json.dumps([k for k in (e.get("linked_keys") or []) if isinstance(k, str)])[:1000],
+            run_id=run_id))
+        counts["added"] += 1
+        if key:
+            by_key[key] = True
+    for e in statements.get("update", []):
+        item = by_key.get(str(e.get("key") or ""))
+        if item is True or item is None:
+            continue
+        changed = False
+        for f in ("detail", "timing_text", "waiting_on", "question_text"):
+            v = e.get(f)
+            limit = 2000 if f == "detail" else 500
+            if isinstance(v, str) and v.strip() and v.strip()[:limit] != getattr(item, f):
+                setattr(item, f, v.strip()[:limit])
+                changed = True
+        if e.get("expected_date"):
+            d = _parse_date(e.get("expected_date"))
+            if d is not None and d != item.expected_date:
+                item.expected_date = d
+                changed = True
+        if e.get("confidence") in ("observed", "reported", "inferred"):
+            item.confidence = str(e["confidence"])
+            changed = True
+        if e.get("status") in ("open", "waiting", "watching"):
+            item.status = str(e["status"])
+            changed = True
+        for lk in (e.get("linked_keys") or []):
+            if not isinstance(lk, str):
+                continue
+            try:
+                cur = json.loads(item.linked_keys_json or "[]")
+            except Exception:
+                cur = []
+            if lk not in cur:
+                cur.append(lk)
+                item.linked_keys_json = json.dumps(cur)[:1000]
+                changed = True
+        ev = e.get("evidence")
+        if ev:
+            try:
+                refs = json.loads(item.source_refs_json or "{}")
+            except Exception:
+                refs = {}
+            prior = refs.get("evidence") if isinstance(refs, dict) else []
+            refs = {"session": session_id, "evidence": ([prior] if isinstance(prior, str) else (prior or [])) + [ev]}
+            item.source_refs_json = json.dumps(refs)[:4000]
+            changed = True
+        if changed:
+            item.run_id = run_id
+            item.updated_at = utc_now()
+            counts["updated"] += 1
+    for e in statements.get("close", []):
+        item = by_key.get(str(e.get("key") or ""))
+        if not isinstance(item, LedgerItem):
+            continue
+        if str(e.get("status") or "") not in ("done", "cancelled", "answered") or not str(e.get("evidence") or "").strip():
+            continue  # closes require a status and evidence, no exceptions
+        item.status, item.run_id = str(e["status"]), run_id
+        item.updated_at = utc_now()
+        try:
+            refs = json.loads(item.source_refs_json or "{}")
+        except Exception:
+            refs = {}
+        refs["closed_evidence"] = str(e["evidence"])[:1000]
+        refs["closed_session"] = session_id
+        item.source_refs_json = json.dumps(refs)[:4000]
+        counts["closed"] += 1
+    return counts
 
 
 def format_transcript(messages: List[Dict[str, Any]]) -> str:
@@ -188,7 +328,7 @@ async def open_ledger(db: AsyncSession, workspace_id: str, owner: str, limit: in
     rows = (await db.execute(select(LedgerItem).where(
         LedgerItem.honcho_workspace_id == workspace_id,
         LedgerItem.owner_peer_id == owner,
-        LedgerItem.status == "open").order_by(LedgerItem.created_at.desc()).limit(limit))).scalars().all()
+        LedgerItem.status.in_(["open", "waiting", "watching"])).order_by(LedgerItem.created_at.desc()).limit(limit))).scalars().all()
     return list(rows)
 
 
@@ -231,8 +371,11 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str) -> Dict
     prep = await get_preparation(db, workspace_id=workspace_id, owner=owner)
     return {
         "notebook": {k: {"title": PAGE_TITLES[k], "version": p.version, "text": p.text} for k, p in pages.items()},
-        "ledger": [{"id": str(i.id), "kind": i.kind, "title": i.title, "status": i.status,
-                    "detail": i.detail} for i in ledger],
+        "ledger": [{"id": str(i.id), "key": i.situation_key, "kind": i.kind, "title": i.title,
+                    "status": i.status, "confidence": i.confidence, "detail": i.detail,
+                    "timing": i.timing_text, "waiting_on": i.waiting_on, "question": i.question_text,
+                    "linked": (json.loads(i.linked_keys_json) if (i.linked_keys_json or "").startswith("[") else [])}
+                   for i in ledger],
         "arc": {"version": arc.version, "text": arc.text},
         "preparation": prep,
     }
@@ -324,28 +467,21 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
             pages[key] = nxt
     bundle["notebook_after"] = {k: p.text for k, p in pages.items()}
 
-    extract = await _generate("ledger", f"{LEDGER_EXTRACT_PROMPT}\n\n--- findings ---\n{findings or handoff_text}",
-                              600, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
+    open_lines = "\n".join(
+        f"- key={i.situation_key or '(no key)'} [{i.kind}|{i.status}|{i.confidence}] {i.title}"
+        f"{(' | timing: ' + i.timing_text) if i.timing_text else ''}"
+        f"{(' | waiting on: ' + i.waiting_on) if i.waiting_on else ''}"
+        f"{(' | open question: ' + i.question_text) if i.question_text else ''}"
+        for i in ledger) or "(none open)"
+    extract = await _generate("ledger", SITUATIONS_PROMPT.replace("{open_items}", open_lines) +
+                              f"\n\n--- findings ---\n{findings or handoff_text}",
+                              1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
     bundle["ledger_extract"] = extract or {"skipped": True}
-    added = 0
-    try:
-        raw = str((extract or {}).get("text") or "").strip()
-        items = json.loads(raw[raw.find("["):raw.rfind("]") + 1]) if "[" in raw and "]" in raw else []
-        known = {(i.title, i.kind) for i in ledger}
-        for e in items if isinstance(items, list) else []:
-            if not isinstance(e, dict) or not str(e.get("title") or "").strip():
-                continue
-            title, kind = str(e["title"]).strip(), str(e.get("kind") or "todo")
-            if (title, kind) in known:
-                continue
-            db.add(LedgerItem(honcho_workspace_id=workspace_id, owner_peer_id=owner, kind=kind, title=title,
-                              detail="", status=str(e.get("status") or "open"),
-                              window_start=None, window_end=None, run_id=run.id))
-            known.add((title, kind))
-            added += 1
-    except Exception as exc:
-        logger.warning("[memory] ledger parse failed open: %s", exc)
-    bundle["ledger_added"] = added
+    statements = _parse_situations(str((extract or {}).get("text") or ""))
+    counts = await apply_situations(db, workspace_id=workspace_id, owner=owner, run_id=run.id,
+                                    session_id=session_id, statements=statements, known=ledger)
+    bundle["ledger_added"] = counts["added"]
+    bundle["ledger_counts"] = counts
 
     if sitting_kind == "independent":
         # The shared continuing arc belongs to the user-facing relationship;
@@ -377,7 +513,13 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
     ledger = await open_ledger(db, workspace_id, owner)
     arc = await get_arc(db, workspace_id, owner)
     notebook_text = "\n\n".join(f"## {PAGE_TITLES[k]}\n{pages[k].text}" for k in PAGES)
-    ledger_text = "\n".join(f"- [{i.kind}] {i.title}" for i in ledger) or "(nothing open)"
+    ledger_text = "\n".join(
+        f"- [{i.kind}|{i.status}|{i.confidence}] {i.title}"
+        f"{(' | ' + i.detail) if i.detail else ''}"
+        f"{(' | timing: ' + i.timing_text) if i.timing_text else ''}"
+        f"{(' | waiting on: ' + i.waiting_on) if i.waiting_on else ''}"
+        f"{(' | open question: ' + i.question_text) if i.question_text else ''}"
+        for i in ledger) or "(nothing open)"
     call = await _generate("preparation",
                            f"{PREPARATION_PROMPT}\n\n--- now ---\n{now_iso}\n\n--- notebook ---\n{notebook_text}\n\n--- operational ledger (open) ---\n{ledger_text}\n\n--- where conversations stand ---\n{arc.text}",
                            600, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
@@ -397,6 +539,67 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
             o.superseded_by_id = prep.id
         prep_id = str(prep.id)
     return {"text": text, "id": prep_id, "inputs_fingerprint": fingerprint, **(call or {"skipped": True})}
+
+
+REVIEW_PROMPT = """Review this person's open situations against what recent sessions actually established. You are noticing change, not generating work.
+
+Open situations:
+{open_items}
+
+Recent session findings (newest last):
+{recent}
+
+Return ONLY a JSON object: {"updates": [{key (must match an open key), plus changed fields: detail/timing_text/waiting_on/question_text/expected_date/confidence/status (open/waiting/watching only — never close here; closes need session evidence via consolidation), linked_keys, evidence}], "noticed": ["short plain observations: connections between situations, recurring concerns, contradictions, missing information worth asking about"]}.
+
+Rules: repetition is not a personality judgement. Time passing proves nothing — never mark something resolved, abandoned or completed without evidence. An aspiration stays an aspiration. Keep every update grounded in the findings above; if nothing changed, return empty lists."""
+
+
+async def review(db: AsyncSession, *, workspace_id: str, owner: str, lookback_runs: int = 6) -> Dict[str, Any]:
+    """Longitudinal noticing across recent sessions: one model call over open
+    situations + recent findings. Applies updates, never closes."""
+    from datetime import datetime as _dt
+    items = await open_ledger(db, workspace_id, owner, limit=100)
+    runs = (await db.execute(select(MemoryRun).where(
+        MemoryRun.honcho_workspace_id == workspace_id,
+        MemoryRun.owner_peer_id == owner,
+        MemoryRun.status == "consolidated").order_by(MemoryRun.created_at.desc()).limit(max(1, lookback_runs)))).scalars().all()
+    recent = []
+    for r in sorted(runs, key=lambda x: x.created_at or _dt.min):
+        try:
+            bundle = json.loads(r.bundle_json or "{}")
+        except Exception:
+            continue
+        f = str(bundle.get("findings") or "")[:1500]
+        if f:
+            recent.append(f"[{r.session_id}] {f}")
+    open_lines = "\n".join(
+        f"- key={i.situation_key or '(no key)'} [{i.kind}|{i.status}|{i.confidence}] {i.title}"
+        f"{(' | ' + i.detail) if i.detail else ''}"
+        f"{(' | timing: ' + i.timing_text) if i.timing_text else ''}"
+        f"{(' | waiting on: ' + i.waiting_on) if i.waiting_on else ''}"
+        for i in items) or "(none open)"
+    call = await _generate("review", REVIEW_PROMPT.replace("{open_items}", open_lines).replace(
+        "{recent}", "\n\n".join(recent) or "(no recent sessions)"),
+        1500, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
+    report: Dict[str, Any] = {"updates_applied": 0, "noticed": [], "open_count": len(items)}
+    try:
+        raw = str((call or {}).get("text") or "")
+        parsed = json.loads(raw[raw.find("{"):raw.rfind("}") + 1]) if "{" in raw else {}
+        updates = [e for e in (parsed.get("updates") or []) if isinstance(e, dict)]
+        counts = await apply_situations(db, workspace_id=workspace_id, owner=owner, run_id=None,
+                                        session_id="review", statements={"new": [], "update": updates, "close": []},
+                                        known=items)
+        report["updates_applied"] = counts["updated"]
+        report["noticed"] = [str(n) for n in (parsed.get("noticed") or []) if isinstance(n, str)][:20]
+        await db.commit()
+    except Exception as exc:
+        logger.warning("[memory] review failed open: %s", exc)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+    report["call"] = call or {"skipped": True}
+    return report
 
 
 async def get_preparation(db: AsyncSession, *, workspace_id: str, owner: str,

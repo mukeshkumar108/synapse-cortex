@@ -105,7 +105,6 @@ class PrepareRequest(BaseModel):
     workspace_id: str
     owner: str
 
-
 @router.post("/prepare")
 async def prepare_now(req: PrepareRequest, db: AsyncSession = Depends(get_async_session)):
     """Compose a fresh preparation now (time or state moved on). Supersedes the
@@ -191,3 +190,21 @@ async def independent_sitting(req: IndependentSittingRequest, db: AsyncSession =
                                    "max_model_calls": req.max_model_calls}))
     return {"status": "accepted", "sitting_id": sitting_id,
             "conversation_id": f"solo-{sitting_id}"}
+
+
+class ReviewRequest(BaseModel):
+    workspace_id: str
+    owner: str
+    lookback_runs: int = 6
+
+
+@router.post("/review")
+async def review_situations(req: ReviewRequest, db: AsyncSession = Depends(get_async_session)):
+    """Longitudinal noticing: one model call over open situations + recent
+    session findings. Updates, never closes (closes need session evidence)."""
+    try:
+        return await memory_pipeline.review(db, workspace_id=req.workspace_id, owner=req.owner,
+                                            lookback_runs=max(1, min(req.lookback_runs, 12)))
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"review_failed:{type(exc).__name__}") from exc
