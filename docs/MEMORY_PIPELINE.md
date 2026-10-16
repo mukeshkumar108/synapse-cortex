@@ -116,3 +116,10 @@ tonight's-sitting verification.
   skipped for solo). Consolidation is ~half the calls — the mechanical
   overhead, not her thinking. Per-decision usage is now logged for future
   compact-context experiments (not yet run; behaviour first).
+- **Unattended opportunities (scheduler).** `solo_scheduler` ticks every 15 min:
+  allowlisted owners, max 2/day (UTC), quiet hours 23–07 UTC, no running
+  sitting, user idle > 30 min (TurnStamp recency). The tick *offers*; she may
+  decline immediately — a stop-before-activity sitting is recorded `declined`
+  with its log and changes no state (no consolidation burn). No user-facing
+  notification path exists anywhere in this pipeline. Operator:
+  `POST /v1/memory/solo-tick` (dry_run check or live run).
