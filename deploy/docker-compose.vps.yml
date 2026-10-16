@@ -52,6 +52,14 @@ services:
       # Local Postgres by default (sub-millisecond queries). Set SYNAPSE_CORTEX_DATABASE_URL only to point at a hosted store.
       DATABASE_URL: ${SYNAPSE_CORTEX_DATABASE_URL:-postgresql+asyncpg://synapse_cortex:${SYNAPSE_CORTEX_DB_PASSWORD}@postgres:5432/synapse_cortex}
       SYNAPSE_CORTEX_API_TOKEN: ${SYNAPSE_CORTEX_API_TOKEN}
+      SOPHIE_SOLO_SCHEDULER: ${SOPHIE_SOLO_SCHEDULER:-false}
+      SOPHIE_SOLO_WORKSPACE: ${SOPHIE_SOLO_WORKSPACE:-llm-test-agent}
+      SOPHIE_SOLO_OWNERS: ${SOPHIE_SOLO_OWNERS:-}
+      SOPHIE_SOLO_MAX_PER_DAY: ${SOPHIE_SOLO_MAX_PER_DAY:-2}
+      SOPHIE_SOLO_TICK_SECONDS: ${SOPHIE_SOLO_TICK_SECONDS:-900}
+      SOPHIE_SOLO_QUIET_START_H: ${SOPHIE_SOLO_QUIET_START_H:-23}
+      SOPHIE_SOLO_QUIET_END_H: ${SOPHIE_SOLO_QUIET_END_H:-7}
+      SOPHIE_SOLO_USER_ACTIVE_MIN: ${SOPHIE_SOLO_USER_ACTIVE_MIN:-30}
     expose: ["8010"]
     networks: [internal, proxy]
     healthcheck:
