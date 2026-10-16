@@ -89,7 +89,7 @@ async def run_status(run_id: str, db: AsyncSession = Depends(get_async_session))
     if row.status in ("consolidated", "replay_noop", "failed", "empty"):
         out["summary"] = {k: bundle.get(k) for k in (
             "message_count", "new_message_count", "findings", "arc_after",
-            "ledger_added", "preparation_text", "ms_total") if k in bundle}
+            "ledger_added", "ledger_counts", "preparation_text", "ms_total") if k in bundle}
     return out
 
 

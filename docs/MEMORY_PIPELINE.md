@@ -123,3 +123,26 @@ tonight's-sitting verification.
   with its log and changes no state (no consolidation burn). No user-facing
   notification path exists anywhere in this pipeline. Operator:
   `POST /v1/memory/solo-tick` (dry_run check or live run).
+
+## Situational understanding (2026-10-17, deployed, demonstrated)
+
+Ledger items grew stable identity + evidence with minimal additive columns
+(`situation_key, confidence, source_refs_json, timing_text, expected_date,
+waiting_on, question_text, linked_keys_json`; init_db auto-adds, no
+migrations). No taxonomy, no Matters revival. One extractor call returns
+{new, update-by-key, close-only-with-evidence}; closes without evidence are
+refused in code; `waiting/watching` stay on the open list (a real bug caught:
+they used to vanish). `POST /v1/memory/review` does longitudinal noticing
+over recent findings — updates only, never closes.
+
+14-session demo (demo owner, production models): presentation tracked
+open→waiting-on-Ana→done on delivery evidence; invoice open with timing +
+waiting_on through overdue; provisional invitation declined cleanly while the
+promised mum-call stayed open; sleep concern hypothesized (late coffee),
+confirmed, closed, cutoff kept; marathon aspiration open across 13 silent
+sessions — never promoted, never closed; holiday routine shift held in the
+notebook as explicitly temporary, never ledger-ified, never made permanent.
+Review added nothing on top (consolidation had handled every update — reported
+honestly, not as a win). Preparation answered "what's on the plate" directly
+from the ledger. Cost: 140 calls, 93k/28k tokens, ~56 s/session wall, $0
+metered (≈ low single cents at cheap paid rates — estimate, not a quote).
