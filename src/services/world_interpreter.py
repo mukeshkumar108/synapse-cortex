@@ -114,6 +114,7 @@ actors:[{ref,name,aliases[],entity_type(person|character|organisation|team),expl
 relationships:[{ref,actors[a,b],type,directional(bool),existing_id|null,formation,confidence,evidence[]}]
 events:[{ref,label,kind,when_phrase|null,where|null,participants[],holder|null,formation,confidence,evidence[],conflicts_with[],same_as|null,possibly_same_as|null}]
 claims:[{ref,subject(ref of actor/event/relationship),text,kind(assertion|attribute|correction: use `correction` when the person corrects an earlier understanding, so the correction is retrievable as structure, not only in the brief),holder(actor ref|null),formation,confidence,evidence[],span|null(verbatim),conflicts_with[]}]
+- DURABLE THREADS: a substantive topic the person explained at length — their work, plans, things they are building (including for the companion), stated interests, an answered curiosity — is a durable assertion (kind assertion, formation explicit), not sitting color. Write it even when no correction or decision is involved, so a later brief regeneration cannot drop what was actually established.
 narrative:[{ref,kind(open: rupture, concealment, resentment, self_expression, ...),about[refs],holder(actor ref|null),text,formation,confidence,evidence[]}]
 commitments:[{ref,committer,to|null,text,tentative(bool),confidence,evidence[]}]
 dimensions:[{ref,relationship(ref),from_actor,to_actor,dimension,value,about(event ref)|null,durability(acute|provisional|durable|unknown),supersedes(known facet id)|null,formation,confidence,evidence[]}]
