@@ -55,12 +55,20 @@ standing requests, notes and anchors are live-sitting state and stay.
   well overall but are not perfect filters.
 - Long sessions may need the discovery budget raised further (was 1200→2000).
 
-## Deploy checklist (not done from here)
+## Deploy state (2026-10-16, VPS)
 
-Rebuild/redeploy the Cortex container with this code; confirm VPS env
-(`NANO_API_KEY`, `AGENCY_MODELS` — Ling must be reachable; note the pipeline
-pins Ling for the handoff via `MEMORY_HANDOFF_MODELS`). The Runtime needs no
-flag change: its legacy Sophie calls become instant superseded receipts, and
-its memory signals start landing once Cortex is up. Then recover remaining
-history via backfill and flip `SOPHIE_LEGACY_INTERPRETER_ENABLED=false` once
-one live sitting is observed.
+Deployed: Cortex `8913d64` + Runtime `7352f34` rebuilt, both healthy.
+Production evidence (NanoGPT, metered $0):
+- Scratch session → `consolidated` (~40 s); aspiration kept as aspiration, ledger [].
+- Deer/tools 50-message session backfilled to the real owner → `consolidated`,
+  50/50 covered, ~63 s, ledger 0 (no dated commitments in that session — correct).
+- Deployed Runtime fetched the preparation over the service network and rendered
+  the `[SOPHIE PREPARED PERSPECTIVE]` block (1267 chars).
+- Legacy Sophie interpret → `superseded_by_memory_pipeline` live.
+
+## Remaining next step
+
+Observe one live Sophie sitting end-to-end, then flip
+`SOPHIE_LEGACY_INTERPRETER_ENABLED=false` (Runtime) once the new path is seen
+serving a real sitting. Confirm VPS env keeps Ling reachable on NanoGPT
+(`MEMORY_HANDOFF_MODELS` defaults to `inclusionai/ling-3.0-flash`).
