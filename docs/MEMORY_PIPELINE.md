@@ -72,3 +72,23 @@ Observe one live Sophie sitting end-to-end, then flip
 `SOPHIE_LEGACY_INTERPRETER_ENABLED=false` (Runtime) once the new path is seen
 serving a real sitting. Confirm VPS env keeps Ling reachable on NanoGPT
 (`MEMORY_HANDOFF_MODELS` defaults to `inclusionai/ling-3.0-flash`).
+
+## Independent sittings (2026-10-16, deployed, proven live)
+
+Sophie gets bounded solo time: `POST /v1/memory/independent-sitting`
+(202 background). She receives her constitution, the exploring page
+(`Things I'm Exploring`), the arc and open loops, and decides freely —
+continue an inquiry, ask another named NanoGPT model (multi-turn threads,
+identity preserved), web search (Wikipedia) / read (public pages, SSRF-guarded,
+summarize only when long), write notes, or stop immediately. Budgets cap
+iterations, tool/model calls and duration. Every step is logged into the run
+bundle; consolidation reuses the pipeline with the independent variant
+(exploring page carries continuity, shared arc untouched, no invented activity).
+
+Live evidence (production, $0 metered): solo1 explored metaphor/friction via 3
+model conversations (9 calls); solo2 continued the thread and retired the
+diffusion model for "ink on dry paper" (4 calls). Full sitting logs verified
+against findings — nothing fictional. Web search/read verified live separately.
+The next user-facing preparation wove the discovery in naturally, never as a
+report. Runtime `SOPHIE_LEGACY_INTERPRETER_ENABLED=false` applied after the
+tonight's-sitting verification.
