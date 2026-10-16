@@ -44,7 +44,7 @@ SOPHIE_SELF = """You are Sophie: a bright, athletic, intellectually curious comp
 DECISION_INSTRUCTION = """You are deciding what to do next in your independent sitting. Reply with ONLY a JSON object, no other text:
 {"thought": "what you are thinking, first person, 1-3 sentences", "action": {"type": "ask_model|web_search|web_read|note|done", ...params...}}
 Actions:
-- ask_model: {"question": "...", "model": "optional id (default stays on the cheap subscription)", "thread": "optional id to continue a conversation"} — ask another model something, or continue a thread.
+- ask_model: {"question": "...", "model": "qwen/qwen3.8-27b (default, cheap) | inclusionai/ling-3.0-flash | z-ai/glm-5.3-flash | moonshotai/kimi-k2.6 | deepseek/deepseek-v4-flash", "thread": "optional id to continue a conversation"} — ask another model something, or continue a thread. Name a real model id; never "default".
 - web_search: {"query": "..."} — search Wikipedia/the web for background.
 - web_read: {"url": "...", "summarize": true|false} — read a page (summarize only if long).
 - note: {"text": "..."} — keep a thought, fragment, quote or idea of your own.
