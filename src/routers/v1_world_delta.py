@@ -62,6 +62,17 @@ class InterpretRequest(BaseModel):
 @router.post("/interpret")
 async def interpret_world(req: InterpretRequest, db: AsyncSession = Depends(get_async_session)):
     """One reasoning pass over new evidence + current world state; the result is materialised and a receipt (with the new snapshot version) returned."""
+    import os
+    if (req.companion_id == "sophie" and req.policy == "grounded"
+            and os.getenv("SOPHIE_MEMORY_CORTEX", "true").strip().lower() not in ("0", "false", "no", "off")):
+        # Retired path: durable understanding for Sophie lives in the memory
+        # pipeline (notebook + ledger + arc, POST /v1/memory/consolidate).
+        # The legacy claims/Matters/dimensions/Heart pass no longer writes for
+        # her. Rollback: SOPHIE_MEMORY_CORTEX=false. RPD2 and other products
+        # are unaffected (gate is companion-specific).
+        logger.info("[memory] legacy interpret skipped for sophie (memory pipeline owns it)")
+        return {"status": "superseded_by_memory_pipeline", "snapshot_version": None,
+                "counts": {}, "covered_through": None}
     from src.runtime_model import get_agenda_adapter
     from src.services import world_interpreter
     adapter = get_agenda_adapter()

@@ -207,8 +207,105 @@ class WorldIdentity(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     honcho_workspace_id: str = Field(index=True, nullable=False)
     owner_peer_id: str = Field(index=True, nullable=False)
-    role: str = Field(nullable=False)                             # user_actor | companion_actor
-    entity_id: UUID = Field(nullable=False)
-    name_supplied: bool = Field(default=True)                     # False: the product did not say who the human is; the actor is a typed placeholder
+    role: str = Field(index=True, nullable=False)                             # user_actor | companion_actor
+    entity_id: UUID = Field(index=True, nullable=False)
+    name_supplied: bool = Field(default=True)                                 # False: the product did not say who the human is; the actor is a typed placeholder
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class NotebookPage(SQLModel, table=True):
+    """A living page of maintained understanding: routines, projects, people,
+    beliefs, shared history. Human-readable bullets, edited in place by the
+    notebook editor (never regenerated from scratch). Refs to evidence rows
+    ride alongside, invisible until needed. Versioned; history is the chain."""
+    __tablename__ = "notebook_pages"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    page_key: str = Field(index=True, nullable=False)              # routines | projects | people | perspective
+    text: str = Field(nullable=False)                              # markdown bullets, human-readable
+    version: int = Field(default=1, nullable=False)
+    evidence_refs_json: str = Field(default="[]")
+    run_id: Optional[UUID] = Field(default=None, index=True)
+    superseded_by_id: Optional[UUID] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class LedgerItem(SQLModel, table=True):
+    """Dated, stateful temporal reality: appointments, commitments, deadlines,
+    dependencies, plans, situations, conversational threads. Reality, not
+    attention: time changes relevance, never facts. Resolved only by evidence
+    (done/cancelled/answered) or explicit dismissal — never by silence."""
+    __tablename__ = "ledger_items"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    kind: str = Field(index=True, nullable=False)                  # commitment | event | thread | situation | reminder
+    title: str = Field(nullable=False)                             # plain human line
+    detail: str = Field(default="")                                # circumstance, terms, what's known/unknown
+    status: str = Field(index=True, nullable=False, default="open")  # open | done | cancelled | answered
+    window_start: Optional[datetime] = Field(default=None)
+    window_end: Optional[datetime] = Field(default=None)
+    evidence_refs_json: str = Field(default="[]")
+    run_id: Optional[UUID] = Field(default=None, index=True)
+    superseded_by_id: Optional[UUID] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class SittingPreparation(SQLModel, table=True):
+    """A prepared first-person perspective for a coming sitting/daypart: what she
+    knows, understands, wonders about, intends. Composed from notebook + ledger +
+    clock + arc. Advisory, never instruction; the foreground may ignore it freely.
+    Superseded by the next preparation, never edited in place."""
+    __tablename__ = "sitting_preparations"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    window: str = Field(index=True, nullable=False)                # morning | midday | afternoon | evening | sitting
+    text: str = Field(nullable=False)                              # first-person perspective prose
+    based_on_json: str = Field(default="{}")                       # notebook versions + ledger ids consumed
+    run_id: Optional[UUID] = Field(default=None, index=True)
+    superseded_by_id: Optional[UUID] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class ContinuingArc(SQLModel, table=True):
+    """Where recent conversations have arrived: what happened, what changed,
+    what was clarified or resolved, what remains unfinished. Events and
+    developments, never character verdicts; mood stays session-local. One live
+    row per owner, revised in place; history lives in memory_runs."""
+    __tablename__ = "continuing_arcs"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    text: str = Field(nullable=False)
+    version: int = Field(default=1, nullable=False)
+    run_id: Optional[UUID] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class MemoryRun(SQLModel, table=True):
+    """One post-session consolidation: exact model inputs/outputs, provider,
+    usage, latency, coverage and before/after state. The unit of observability
+    and replay-safety (covered message ids make replays no-ops for state)."""
+    __tablename__ = "memory_runs"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    conversation_id: str = Field(index=True, nullable=False)
+    session_id: str = Field(index=True, nullable=False)
+    status: str = Field(index=True, nullable=False, default="running")  # running | consolidated | replay_noop | empty | failed
+    covered_ids_json: str = Field(default="[]")     # message ids this run processed
+    bundle_json: str = Field(default="{}")          # exact prompts, outputs, provider, usage, latency, before/after
+    started_at: Optional[datetime] = Field(default=None)
+    finished_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)

@@ -81,6 +81,64 @@ def extract_json(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+async def generate_text(*, system: str, prompt: str, models: Optional[Sequence[str]] = None, max_tokens: int = 2000, temperature: float = 0.7,
+                      title: str = "agency") -> Optional[Dict[str, Any]]:
+    """Walk the chain until one model returns non-empty text. Returns
+    {text, model, provider, usage} or None when everything failed (the caller
+    leaves the state as it was). NanoGPT first; openrouter:-prefixed entries
+    are budgeted fallbacks."""
+    import time
+    nano_key = os.getenv("NANO_API_KEY", "").strip()
+    or_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not nano_key and not or_key:
+        return None
+    _roll()
+    if _usage["out"] >= DAILY_OUTPUT_TOKEN_BUDGET:
+        logger.error("%s: daily output-token budget exhausted (%d): skipping until tomorrow", title, _usage["out"])
+        return None
+    chain: List[str] = list(models or DEFAULT_CHAIN)
+    for entry in chain:
+        via_or = entry.startswith("openrouter:")
+        model = entry.split(":", 1)[1] if via_or else entry
+        key, base = (or_key, "https://openrouter.ai/api/v1") if via_or else (nano_key, BASE_URL)
+        if not key:
+            continue
+        for attempt in range(ATTEMPTS_PER_MODEL):
+            t0 = time.monotonic()
+            try:
+                body_req: Dict[str, Any] = {"model": model, "max_tokens": min(max_tokens, HARD_MAX_OUTPUT_TOKENS), "temperature": temperature,
+                                            "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
+                if via_or and model.startswith("openai/gpt-5"):
+                    body_req["reasoning"] = {"effort": "low", "exclude": True}
+                headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+                if via_or:
+                    headers["X-Title"] = f"cortex-{title}"
+                async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+                    resp = await client.post(f"{base}/chat/completions", headers=headers, json=body_req)
+                    resp.raise_for_status()
+                    body = resp.json()
+                    content = ((body["choices"][0]["message"].get("content")) or "").strip()
+                    used = (body.get("usage") or {})
+                    _usage["calls"] += 1
+                    _usage["out"] += int(used.get("completion_tokens") or 0)
+                    if via_or:
+                        _usage["fallback_calls"] = _usage.get("fallback_calls", 0) + 1
+                    _usage["by_model"][entry] = _usage["by_model"].get(entry, 0) + 1
+                    from src import call_context
+                    call_context.record(module=title, provider="openrouter" if via_or else "nanogpt", model=model, usage=used)
+                    ms = int((time.monotonic() - t0) * 1000)
+                    logger.info("llm_usage module=%s provider=%s model=%s in=%s out=%s ms=%d day_out=%d", title, "openrouter" if via_or else "nanogpt",
+                                model, used.get("prompt_tokens"), used.get("completion_tokens"), ms, _usage["out"])
+                if content:
+                    return {"text": content, "model": entry, "provider": "openrouter" if via_or else "nanogpt", "usage": used, "ms": ms}
+                logger.warning("%s: %s returned empty text (attempt %d)", title, entry, attempt + 1)
+            except Exception as exc:
+                _usage["failures"] += 1
+                logger.warning("%s: %s failed (attempt %d): %s", title, entry, attempt + 1, type(exc).__name__)
+            await asyncio.sleep(min(2.0 * (attempt + 1), 6.0))
+    return None
+
+
 async def generate_json(*, system: str, prompt: str, models: Optional[Sequence[str]] = None, max_tokens: int = 3000, temperature: float = 0.7,
                         title: str = "agency") -> Optional[Dict[str, Any]]:
     """Walk the chain until one model returns a JSON object. Returns None when everything failed (the caller leaves the state as it was)."""
