@@ -126,7 +126,7 @@ async def test_failed_ask_is_visible_to_sophie():
         async with async_session_maker() as db:
             out = await run_independent_sitting(db, workspace_id="ws1", owner="u777", sitting_id="err1",
                                                 budget=SoloBudget(max_iterations=3, max_tool_calls=3, max_model_calls=5))
-        assert out["status"] in ("consolidated", "empty", "replay_noop")
+        assert out["status"] == "declined"  # attempts failed: nothing substantive to consolidate
         async with async_session_maker() as db:
             state = await memory_pipeline.read_state(db, workspace_id="ws1", owner="u777")
         # the error must be recorded where she can see it (transcript label), not dropped

@@ -213,6 +213,7 @@ class SoloSitting:
     tool_calls: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
+    substantive: bool = False  # real activity (a question answered, a page read, a note kept) vs thoughts alone
 
 
 def _tally(sit: SoloSitting, out: Optional[Dict[str, Any]]) -> None:
@@ -273,6 +274,7 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
             sit.log.append({"seq": len(sit.log), "kind": "sitting_end", "reason": str(action.get("reason") or atype or "no action")})
             break
         elif atype == "note":
+            sit.substantive = True
             sit.transcript.append({"id": f"{sitting_id}-n{it}", "speaker": "sophie", "label": "Sophie (note)",
                                    "text": str(action.get("text") or "")[:2000]})
         elif atype == "ask_model":
@@ -305,6 +307,7 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
                      "provider": (out or {}).get("provider"), "usage": (out or {}).get("usage"), "ms": (out or {}).get("ms")}
             sit.log.append(entry)
             if reply or truncated:
+                sit.substantive = True
                 shown = reply + ("\n[This response was cut off at the length limit — part of the argument is missing. "
                                  "You can ask the model to continue from where it stopped.]" if truncated else "")
                 sit.threads[thread] = hist + [{"role": "user", "content": q}, {"role": "assistant", "content": reply[:2000]}]
@@ -316,6 +319,8 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
             sit.log.append({"seq": len(sit.log), "kind": "web_search", "iteration": it, **{k: v for k, v in res.items() if k != "hits"},
                             "hit_count": len(res.get("hits") or [])})
             lines = "\n".join(f"- {h['title']}: {h['snippet'][:200]} ({h['url']})" for h in res.get("hits") or [])
+            if res.get("hits"):
+                sit.substantive = True
             sit.transcript.append({"id": f"{sitting_id}-s{it}", "speaker": "assistant", "label": "tool:web_search",
                                    "text": f"Search '{res.get('query')}':\n{lines or '(no hits)'}"[:3000]})
             sit.log[-1]["hits"] = res.get("hits")
@@ -328,11 +333,37 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
                             "title": res.get("title"), "chars": res.get("chars"), "summarized": res.get("summarized"),
                             "model": res.get("model"), "error": res.get("error")})
             if res.get("text"):
+                sit.substantive = True
                 sit.transcript.append({"id": f"{sitting_id}-r{it}", "speaker": "assistant", "label": "tool:web_read",
                                        "text": f"Read {res.get('url')} ({res.get('title', '')}):\n{res['text']}"[:3000]})
         else:
             sit.log.append({"seq": len(sit.log), "kind": "unknown_action", "iteration": it, "action": action})
 
+    if not sit.substantive:
+        # She stopped before doing anything: an opportunity declined, not a
+        # sitting to consolidate. Record the log, change no state.
+        run_id = await memory_pipeline.create_run(
+            db, workspace_id=workspace_id, owner=owner, conversation_id=f"solo-{sitting_id}",
+            session_id=f"solo:{sitting_id}", message_count=len(sit.transcript))
+        run = await memory_pipeline.get_run(db, run_id)
+        ms = int((time.monotonic() - t0) * 1000)
+        if run is not None:
+            run.status = "declined"
+            run.covered_ids_json = json.dumps([str(m.get("id")) for m in sit.transcript if str(m.get("id") or "")])
+            run.bundle_json = json.dumps({"workspace_id": workspace_id, "owner": owner,
+                                           "conversation_id": f"solo-{sitting_id}", "session_id": f"solo:{sitting_id}",
+                                           "sitting_kind": "independent", "status": "declined",
+                                           "note": "stopped_before_any_activity", "sitting_log": sit.log,
+                                           "sitting_summary": {"iterations": it, "model_calls": sit.model_calls,
+                                                               "tool_calls": sit.tool_calls, "tokens_in": sit.tokens_in,
+                                                               "tokens_out": sit.tokens_out}, "ms_total": ms})[:500_000]
+            from datetime import datetime as _dtc, timezone as _tz
+            run.finished_at = _dtc.now(_tz.utc).replace(tzinfo=None)
+            await db.commit()
+        logger.info("[solo] %s %s declined (nothing pursued)", owner, sitting_id)
+        return {"sitting_id": sitting_id, "status": "declined", "run_id": run_id,
+                "model_calls": sit.model_calls, "tool_calls": sit.tool_calls,
+                "tokens_in": sit.tokens_in, "tokens_out": sit.tokens_out, "ms": ms}
     result = await memory_pipeline.consolidate(
         db, workspace_id=workspace_id, owner=owner, conversation_id=f"solo-{sitting_id}",
         session_id=f"solo:{sitting_id}", messages=sit.transcript, companion_id="sophie", sitting_kind="independent")

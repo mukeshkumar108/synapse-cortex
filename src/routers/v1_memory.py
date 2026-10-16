@@ -127,6 +127,29 @@ async def state(workspace_id: str, owner: str, db: AsyncSession = Depends(get_as
     return await memory_pipeline.read_state(db, workspace_id=workspace_id, owner=owner)
 
 
+class SoloTickRequest(BaseModel):
+    workspace_id: str = "llm-test-agent"
+    owner: str = ""
+    dry_run: bool = True
+
+
+@router.post("/solo-tick")
+async def solo_tick(req: SoloTickRequest, db: AsyncSession = Depends(get_async_session)):
+    """Operator tick: check opportunity eligibility (dry_run), or run one live
+    opportunity inline when dry_run=false (bounded, minutes)."""
+    from src.services import solo_scheduler
+    if not req.owner:
+        owners = [o for o in solo_scheduler.config()["owners"]]
+        if not owners:
+            return {"tick": "no_allowlisted_owners"}
+        req = req.model_copy(update={"owner": owners[0]})
+    ok, reason, facts = await solo_scheduler.eligibility(db, workspace_id=req.workspace_id, owner=req.owner)
+    out: Dict[str, Any] = {"eligible": ok, "reason": reason, "facts": facts}
+    if ok and not req.dry_run:
+        out["result"] = await solo_scheduler.offer_once(workspace_id=req.workspace_id, owner=req.owner)
+    return out
+
+
 class IndependentSittingRequest(BaseModel):
     workspace_id: str
     owner: str

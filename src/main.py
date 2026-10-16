@@ -41,10 +41,13 @@ async def lifespan(app: FastAPI):
     import asyncio
     from src.services import executive_loop
     task = asyncio.create_task(executive_loop.run_forever())
+    from src.services import solo_scheduler
+    solo_task = asyncio.create_task(solo_scheduler.run_forever())
     try:
         yield
     finally:
         task.cancel()
+        solo_task.cancel()
 
 
 app = FastAPI(
