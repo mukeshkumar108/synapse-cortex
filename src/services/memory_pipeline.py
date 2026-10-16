@@ -73,6 +73,8 @@ Distinguish clearly: things actually done and established, things intended or as
 
 Do not carry the mood of the last conversation forward as a current state. Remember events and what they mean; yesterday's feelings are not today's feelings.
 
+Resolution: preserve what remains relevant. When an ordinary disagreement has been explicitly repaired, do not promote the argument, its emotional framing or its supposed implications into enduring knowledge merely because it happened. The archived evidence keeps the full history; this page keeps only what still matters.
+
 Return ONLY the revised page as Markdown, no commentary."""
 
 ARC_UPDATE_PROMPT = """You maintain a short continuing account of where recent conversations between a person and their companion Sophie have arrived. Below is the current account and a 2-3 sentence handoff from the session that just ended.
@@ -80,6 +82,8 @@ ARC_UPDATE_PROMPT = """You maintain a short continuing account of where recent c
 Revise the account: what happened, what changed between them, what was clarified or resolved, what remains unfinished or worth carrying forward. Describe events and developments, including repairs and unresolved substance.
 
 Rules: never turn one difficult exchange into a lasting verdict about Sophie, the person, or the relationship. Never carry the last session's mood into the next one as a standing state. Significant ongoing circumstances may stay relevant without claiming the person feels a particular way now.
+
+Resolution: preserve what remains relevant. When an ordinary disagreement has been explicitly repaired, do not carry its emotional framing forward merely because it happened — drop the argument, its emotional interpretation and its supposed relationship implications from the active account. The archived evidence keeps the full history; this account keeps only what still matters. Exceptions: repeated serious patterns, unresolved safety concerns, or an explicit wish to remember.
 
 Return ONLY the revised account as short plain prose, no commentary. If there was no previous account, write one from the handoff alone."""
 

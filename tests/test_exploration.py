@@ -103,3 +103,67 @@ async def test_independent_endpoint_accepts(async_client):
                                       "max_tool_calls": 0, "max_model_calls": 1})
     assert r.status_code == 202, r.text
     assert r.json()["sitting_id"]
+
+
+@pytest.mark.asyncio
+async def test_failed_ask_is_visible_to_sophie():
+    """A failed model call must appear in her transcript, not vanish."""
+    calls = {"n": 0}
+
+    async def chat(model, messages, max_tokens=800, title="solo"):
+        if "JSON object" in messages[-1]["content"]:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {"text": '{"thought": "Let me ask.", "action": {"type": "ask_model", "question": "Q?"}}',
+                        "model": model, "provider": "fake", "usage": {}, "ms": 1}
+            return {"text": '{"thought": "Nothing worked; stopping.", "action": {"type": "done", "reason": "blocked"}}',
+                    "model": model, "provider": "fake", "usage": {}, "ms": 1}
+        return {"error": "ConnectError: nano unreachable"}
+
+    exploration.set_chat_fn(chat)
+    try:
+        from src.db import async_session_maker
+        async with async_session_maker() as db:
+            out = await run_independent_sitting(db, workspace_id="ws1", owner="u777", sitting_id="err1",
+                                                budget=SoloBudget(max_iterations=3, max_tool_calls=3, max_model_calls=5))
+        assert out["status"] in ("consolidated", "empty", "replay_noop")
+        async with async_session_maker() as db:
+            state = await memory_pipeline.read_state(db, workspace_id="ws1", owner="u777")
+        # the error must be recorded where she can see it (transcript label), not dropped
+        from sqlmodel import select
+        async with async_session_maker() as db:
+            rows = (await db.execute(select(memory_pipeline.MemoryRun))).scalars().all()
+            logs = [json.loads(r.bundle_json)["sitting_log"] for r in rows
+                    if r.bundle_json and "sitting_log" in r.bundle_json and r.session_id == "solo:err1"]
+        assert logs and any(e["kind"] == "ask_model_error" for e in logs[0])
+    finally:
+        exploration.set_chat_fn(None)
+
+
+@pytest.mark.asyncio
+async def test_truncated_reply_is_marked():
+    seen = {}
+
+    async def chat(model, messages, max_tokens=800, title="solo"):
+        if "JSON object" in messages[-1]["content"]:
+            return {"text": '{"thought": "Ask once.", "action": {"type": "ask_model", "question": "Q?"}}',
+                    "model": model, "provider": "fake", "usage": {}, "ms": 1}
+        seen["truncated"] = True
+        return {"text": "Partial argument...", "model": model, "provider": "fake",
+                "usage": {}, "ms": 1, "truncated": True}
+
+    exploration.set_chat_fn(chat)
+    try:
+        from src.db import async_session_maker
+        async with async_session_maker() as db:
+            await run_independent_sitting(db, workspace_id="ws1", owner="u778", sitting_id="tr1",
+                                          budget=SoloBudget(max_iterations=2, max_tool_calls=2, max_model_calls=4))
+        from sqlmodel import select
+        async with async_session_maker() as db:
+            rows = (await db.execute(select(memory_pipeline.MemoryRun))).scalars().all()
+            logs = [json.loads(r.bundle_json)["sitting_log"] for r in rows
+                    if r.bundle_json and "sitting_log" in r.bundle_json and r.session_id == "solo:tr1"]
+        asks = [e for e in logs[0] if e["kind"] == "ask_model"]
+        assert seen.get("truncated") and asks and asks[0]["truncated"] is True
+    finally:
+        exploration.set_chat_fn(None)

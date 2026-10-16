@@ -101,6 +101,27 @@ async def preparation(workspace_id: str, owner: str, db: AsyncSession = Depends(
     return {"found": True, **prep}
 
 
+class PrepareRequest(BaseModel):
+    workspace_id: str
+    owner: str
+
+
+@router.post("/prepare")
+async def prepare_now(req: PrepareRequest, db: AsyncSession = Depends(get_async_session)):
+    """Compose a fresh preparation now (time or state moved on). Supersedes the
+    cached one. Background-worthy; awaited here for operator use."""
+    try:
+        prep = await memory_pipeline.prepare(db, workspace_id=req.workspace_id, owner=req.owner)
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"prepare_failed:{type(exc).__name__}") from exc
+    if not prep.get("text"):
+        raise HTTPException(status_code=503, detail="prepare_no_model")
+    return {"found": True, "text": prep["text"], "id": prep.get("id"),
+            "inputs_fingerprint": prep.get("inputs_fingerprint"), "model": prep.get("model")}
+
+
 @router.get("/state")
 async def state(workspace_id: str, owner: str, db: AsyncSession = Depends(get_async_session)):
     return await memory_pipeline.read_state(db, workspace_id=workspace_id, owner=owner)

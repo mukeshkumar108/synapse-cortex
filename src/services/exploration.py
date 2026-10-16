@@ -84,20 +84,24 @@ async def _chat(model: str, messages: List[Dict[str, str]], max_tokens: int = 80
                                      json={"model": mid, "messages": messages, "max_tokens": max_tokens})
             resp.raise_for_status()
             body = resp.json()
-            text = ((body["choices"][0]["message"].get("content")) or "").strip()
+            content = ((body["choices"][0]["message"].get("content")) or "").strip()
+            truncated = (body["choices"][0].get("finish_reason") == "length")
             used = body.get("usage") or {}
             ms = int((time.monotonic() - t0) * 1000)
             from src import call_context
             call_context.record(module=f"sophie-{title}", provider="openrouter" if via_or else "nanogpt",
                                 model=mid, usage=used)
-            logger.info("llm_usage module=sophie-%s provider=%s model=%s in=%s out=%s ms=%d",
+            logger.info("llm_usage module=sophie-%s provider=%s model=%s in=%s out=%s ms=%d%s",
                         title, "openrouter" if via_or else "nanogpt", mid,
-                        used.get("prompt_tokens"), used.get("completion_tokens"), ms)
-            return {"text": text, "model": model, "provider": "openrouter" if via_or else "nanogpt",
-                    "usage": used, "ms": ms} if text else None
+                        used.get("prompt_tokens"), used.get("completion_tokens"), ms,
+                        " TRUNCATED" if truncated else "")
+            if not content and not truncated:
+                return None
+            return {"text": content, "model": model, "provider": "openrouter" if via_or else "nanogpt",
+                    "usage": used, "ms": ms, "truncated": truncated} if (content or truncated) else None
     except Exception as exc:
         logger.warning("sophie solo chat failed open (%s): %s", model, type(exc).__name__)
-        return None
+        return {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
 
 
 class _Text(HTMLParser):
@@ -254,13 +258,15 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
         sit.model_calls += 1
         _tally(sit, dec)
         if not dec or not dec.get("text"):
-            sit.log.append({"seq": len(sit.log), "kind": "no_decision", "iteration": it})
+            sit.log.append({"seq": len(sit.log), "kind": "no_decision", "iteration": it,
+                            "reason": str((dec or {}).get("error") or "empty response")})
             break
         parsed = extract_json(dec["text"]) or {}
         thought, action = str(parsed.get("thought") or ""), parsed.get("action") or {}
         atype = str(action.get("type") or "")
         sit.log.append({"seq": len(sit.log), "kind": "decision", "iteration": it, "thought": thought,
-                        "action": action, "model": dec.get("model")})
+                        "action": action, "model": dec.get("model"),
+                        "usage": dec.get("usage"), "ms": dec.get("ms")})
         if thought:
             sit.transcript.append({"id": f"{sitting_id}-t{it}", "speaker": "sophie", "label": "Sophie (solo)", "text": thought})
         if atype == "done" or not atype:
@@ -282,15 +288,28 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
             out = await _chat(model, msgs, max_tokens=800, title="solo-ask")
             sit.model_calls += 1
             _tally(sit, out)
+            if out is not None and out.get("error") and not out.get("text"):
+                # A failed call is information she needs: say so in her transcript, don't hide it.
+                err = str(out["error"])
+                sit.log.append({"seq": len(sit.log), "kind": "ask_model_error", "iteration": it, "model": model,
+                                "thread": thread, "question": q, "error": err})
+                sit.transcript.append({"id": f"{sitting_id}-e{it}", "speaker": "assistant",
+                                       "label": f"tool:model:{model} (error)",
+                                       "text": f"Your question to {model} failed before an answer came back ({err}). "
+                                               f"Your question was: {q[:500]} You can retry, try another model, or move on."[:1500]})
+                continue
             reply = str((out or {}).get("text") or "")
+            truncated = bool((out or {}).get("truncated"))
             entry = {"seq": len(sit.log), "kind": "ask_model", "iteration": it, "model": model,
-                     "thread": thread, "question": q, "reply": reply,
+                     "thread": thread, "question": q, "reply": reply, "truncated": truncated,
                      "provider": (out or {}).get("provider"), "usage": (out or {}).get("usage"), "ms": (out or {}).get("ms")}
             sit.log.append(entry)
-            if reply:
+            if reply or truncated:
+                shown = reply + ("\n[This response was cut off at the length limit — part of the argument is missing. "
+                                 "You can ask the model to continue from where it stopped.]" if truncated else "")
                 sit.threads[thread] = hist + [{"role": "user", "content": q}, {"role": "assistant", "content": reply[:2000]}]
                 sit.transcript.append({"id": f"{sitting_id}-a{it}", "speaker": "assistant",
-                                       "label": f"model:{model}", "text": f"Q: {q}\nA: {reply}"[:3000]})
+                                       "label": f"model:{model}", "text": f"Q: {q}\nA: {shown}"[:3000]})
         elif atype == "web_search":
             res = await web_search(str(action.get("query") or "")[:500])
             sit.tool_calls += 1
