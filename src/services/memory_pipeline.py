@@ -31,12 +31,13 @@ logger = logging.getLogger(__name__)
 
 MAX_TRANSCRIPT_MESSAGES = int(os.getenv("MEMORY_MAX_MESSAGES", "400"))
 
-PAGES = ("routines", "projects", "people", "perspective")
+PAGES = ("routines", "projects", "people", "perspective", "exploring")
 PAGE_TITLES = {
     "routines": "Routines & Physical Life",
     "projects": "Projects & Shared Work",
     "people": "People & Life",
     "perspective": "Perspective, Standing & Open Loops",
+    "exploring": "Things I'm Exploring",
 }
 PAGE_SEEDS = {k: f"# {PAGE_TITLES[k]}\n\nNothing established yet.\n" for k in PAGES}
 PAGE_SCOPES = {
@@ -44,8 +45,19 @@ PAGE_SCOPES = {
     "projects": "This page covers ONLY: work, projects, things being built together, plans with real-world follow-through, and technical/infrastructure changes. Keep ONLY material relevant to that. Leave everything else out, even if it feels important — other pages cover it.",
     "people": "This page covers ONLY: relationships, family, friends, people in their life, social events, and meaningful personal experiences. Keep ONLY material relevant to that. Leave everything else out, even if it feels important — other pages cover it.",
     "perspective": "This page covers ONLY: what the person believes and values, where the relationship stands, and what is unfinished or still open between them. Keep ONLY material relevant to that. Leave everything else out, even if it feels important — other pages cover it.",
+    "exploring": "This page is Sophie's own intellectual life, not the user's. It covers ONLY: her half-formed thoughts, emerging curiosities, unanswered questions, ideas worth revisiting, independent discoveries, changed perspectives, unfinished or abandoned explorations, and connections between them. An expressed interest is not an established enduring preference. An intended investigation is not completed research. A question may remain unanswered indefinitely. Keep ONLY material relevant to that.",
 }
 ARC_SEED = "No conversations recorded yet."
+
+PAGE_SUBJECT = {
+    "exploring": "These findings concern Sophie herself — her own curiosities, questions and discoveries — not the user. Update the page from her point of view.",
+}
+INDEPENDENT_RULE = ("This was one of Sophie's independent sittings, without the user present. "
+    "Update shared pages ONLY for findings that genuinely concern Mukesh or their shared life; "
+    "her solo explorations belong on the exploring page. Never invent activities, conversations, "
+    "research results or experiences beyond what the transcript shows.")
+
+INDEPENDENT_LISTENING_PROMPT = """This was one of Sophie's independent sittings, without the user present. What did she actually do here — what did she choose to investigate, which sources and conversations did she actually access, what did she find interesting or unconvincing, and what remains open or unfinished? Only keep what genuinely matters. Write it as short, plain, standalone sentences. Never invent activities, results or experiences."""
 
 LISTENING_PROMPT = """Read this conversation and bring me up to speed: What did we actually learn here that is worth remembering, and what's still left hanging between them? Only keep what genuinely matters. Write it as short, plain, standalone sentences."""
 
@@ -81,7 +93,7 @@ PREPARATION_PROMPT = """You are forming a brief private perspective for Sophie, 
 
 Write short, first-person, future-oriented thoughts: what matters to him and why, what's on his plate now and approaching, what changed since they last spoke, what she is genuinely curious about or could usefully notice. Be honest about what you don't know — never present a guess as a fact, never turn "he wants to try X" into "he failed at X again". Notice opportunities without manufacturing judgments.
 
-This is not a script and not instructions for what she must say — just things she can think from. Do not perform being a companion, declare your role, or use therapeutic language. Do not carry yesterday's mood into today; begin open to the present.
+This is not a script and not instructions for what she must say — just things she can think from. Her independent explorations are her own; she may bring one up if it is genuinely relevant to the moment, never as a report of everything she did. Do not perform being a companion, declare your role, or use therapeutic language. Do not carry yesterday's mood into today; begin open to the present.
 
 Return ONLY 3-8 short paragraphs or lines, plain and warm, no headers, no commentary."""
 
@@ -124,10 +136,12 @@ def _fingerprint(*parts: str) -> str:
 def format_transcript(messages: List[Dict[str, Any]]) -> str:
     lines = []
     for m in messages:
-        role = "Him" if str(m.get("speaker") or "") in ("user", "him") else "Sophie"
+        label = str(m.get("label") or "").strip()
+        if not label:
+            label = "Him" if str(m.get("speaker") or "") in ("user", "him") else "Sophie"
         text = str(m.get("text") or "").strip()
         if text:
-            lines.append(f"{role}: {text}")
+            lines.append(f"{label}: {text}")
     return "\n".join(lines)
 
 
@@ -222,8 +236,11 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str) -> Dict
 
 async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conversation_id: str,
                       session_id: str, messages: List[Dict[str, Any]], companion_id: str = "sophie",
-                      now_iso: Optional[str] = None) -> Dict[str, Any]:
-    """Consolidate one COMPLETED session. Full transcript in, replay-safe."""
+                      now_iso: Optional[str] = None, sitting_kind: str = "user") -> Dict[str, Any]:
+    """Consolidate one COMPLETED session. Full transcript in, replay-safe.
+    sitting_kind: "user" (with the person) or "independent" (Sophie's own
+    sitting, user absent — the shared arc is left alone; continuity lives on
+    the exploring page)."""
     from datetime import datetime as _dt
     started = _dt.now(_tz_utc())
     now_iso = now_iso or started.isoformat()
@@ -239,7 +256,8 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
         db.add(run)
         await db.flush()
     bundle: Dict[str, Any] = {"workspace_id": workspace_id, "owner": owner, "conversation_id": conversation_id,
-                              "session_id": session_id, "companion_id": companion_id, "run_id": str(run.id)}
+                              "session_id": session_id, "companion_id": companion_id, "run_id": str(run.id),
+                              "sitting_kind": sitting_kind}
 
     trimmed = [m for m in messages if str(m.get("text") or "").strip()]
     ids = [str(m.get("id") or "") for m in trimmed if str(m.get("id") or "")]
@@ -270,7 +288,8 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
     bundle["notebook_before"] = {k: p.text for k, p in pages.items()}
     bundle["arc_before"] = arc.text
 
-    discovery = await _generate("discovery", f"{LISTENING_PROMPT}\n\n--- conversation ---\n{transcript}",
+    listen = INDEPENDENT_LISTENING_PROMPT if sitting_kind == "independent" else LISTENING_PROMPT
+    discovery = await _generate("discovery", f"{listen}\n\n--- conversation ---\n{transcript}",
                                 2000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
     handoff = await _generate("handoff", f"{HANDOFF_PROMPT}\n\n--- transcript ---\n{transcript}",
                               300, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
@@ -284,9 +303,11 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
         return await finish("replay_noop" if not fresh else "empty", [],
                             {"note": "replay_no_new_messages" if not fresh else "no_findings"})
 
+    sitting_rule = f"\n\n{INDEPENDENT_RULE}" if sitting_kind == "independent" else ""
     for key in PAGES:
+        subject = f"\n\n{PAGE_SUBJECT[key]}" if key in PAGE_SUBJECT else ""
         edit = await _generate(f"edit:{key}",
-                               f"{NOTEBOOK_EDITOR_PROMPT}\n\n{PAGE_SCOPES[key]}\n\n--- page: {PAGE_TITLES[key]} ---\n{pages[key].text}\n\n--- new findings ---\n{findings or handoff_text}",
+                               f"{NOTEBOOK_EDITOR_PROMPT}\n\n{PAGE_SCOPES[key]}{subject}{sitting_rule}\n\n--- page: {PAGE_TITLES[key]} ---\n{pages[key].text}\n\n--- new findings ---\n{findings or handoff_text}",
                                1500, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
         bundle[f"edit_{key}"] = edit or {"skipped": True}
         new_text = str((edit or {}).get("text") or "").strip()
@@ -322,14 +343,19 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
         logger.warning("[memory] ledger parse failed open: %s", exc)
     bundle["ledger_added"] = added
 
-    arc_edit = await _generate("arc",
-                               f"{ARC_UPDATE_PROMPT}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
-                               500, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
-    bundle["arc_edit"] = arc_edit or {"skipped": True}
-    new_arc = str((arc_edit or {}).get("text") or "").strip()
-    if new_arc and new_arc != arc.text.strip():
-        arc.text, arc.version, arc.run_id = new_arc, arc.version + 1, run.id
-        arc.updated_at = utc_now()
+    if sitting_kind == "independent":
+        # The shared continuing arc belongs to the user-facing relationship;
+        # an independent sitting leaves it alone (continuity lives on exploring).
+        bundle["arc_edit"] = {"skipped": "independent_sitting"}
+    else:
+        arc_edit = await _generate("arc",
+                                   f"{ARC_UPDATE_PROMPT}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
+                                   500, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
+        bundle["arc_edit"] = arc_edit or {"skipped": True}
+        new_arc = str((arc_edit or {}).get("text") or "").strip()
+        if new_arc and new_arc != arc.text.strip():
+            arc.text, arc.version, arc.run_id = new_arc, arc.version + 1, run.id
+            arc.updated_at = utc_now()
     bundle["arc_after"] = arc.text
 
     prep = await prepare(db, workspace_id=workspace_id, owner=owner, now_iso=now_iso, run_id=run.id)
