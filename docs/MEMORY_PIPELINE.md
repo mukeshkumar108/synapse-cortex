@@ -92,3 +92,27 @@ against findings — nothing fictional. Web search/read verified live separately
 The next user-facing preparation wove the discovery in naturally, never as a
 report. Runtime `SOPHIE_LEGACY_INTERPRETER_ENABLED=false` applied after the
 tonight's-sitting verification.
+
+## Follow-ups (2026-10-17, all deployed)
+
+- **Resolution-aware carry-forward.** Arc + notebook prompts now say: once an
+  ordinary disagreement is repaired, drop its emotional framing from active
+  state (archive keeps history). One-time correction applied: arc v3→v4 and
+  perspective v5→v6 with the coldness framing removed, all else intact; fresh
+  preparation generated afterwards contains zero repair framing.
+- **Failure visibility.** Failed model calls now appear in her transcript as
+  explicit errors (retry / switch / move on); truncated replies are marked
+  incomplete with a continue option. Decision log entries record usage + ms
+  (previously only totals), so per-call cost work is measurable.
+- **`POST /v1/memory/prepare`** refreshes preparation on demand (time or state
+  moved on), superseding the cache.
+- **Sitting boundaries verified.** Tonight's 34-message sitting consolidated via
+  idle: last turn 20:56:29 was an explicit sign-off ("im gonna love you and
+  leave"), consolidation 21:27 after 31 min quiet (> 30 min IDLE threshold),
+  nothing after. Genuine completion, not an arbitrary pause.
+- **Cost architecture (two solo sittings: 37 calls).** Per sitting: 6 decisions
+  (full constitution + repeated context, ~1.2k in-tokens each) + 3–4 asks +
+  9 consolidation calls (discovery, handoff, 5 page edits, ledger, prep; arc
+  skipped for solo). Consolidation is ~half the calls — the mechanical
+  overhead, not her thinking. Per-decision usage is now logged for future
+  compact-context experiments (not yet run; behaviour first).
