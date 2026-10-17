@@ -94,6 +94,7 @@ Currently open situations (with stable keys):
 
 From the findings, return ONLY a JSON object: {"new": [...], "update": [...], "close": [...]}.
 - new: {key (short stable slug, e.g. thursday-presentation), title, kind (open vocabulary: commitment/event/thread/situation/reminder/aspiration/invitation/...), confidence (observed/reported/inferred), detail (circumstance, terms, what's known AND unknown), timing_text (provisional timing in own words, "someday" allowed), expected_date (YYYY-MM-DD only if an exact date was stated, else null), waiting_on (who/what is awaited, else ""), question_text (unresolved question or missing info, else ""), linked_keys (keys of related open situations), evidence (short quotes or session refs it rests on)}
+- Temporary changes to routines or circumstances count as situations: record what changed, how long it lasts, AND the exact condition that ends it (e.g. "afternoon walks for two weeks, back to mornings when school resumes"). The end condition is part of the fact — never carry the change forward without it.
 - update: {key (must match an open key), plus only the fields that changed, plus new evidence appended}
 - close: {key, status (done/cancelled/answered), evidence (the quote or fact proving it — required)}
 
