@@ -58,7 +58,7 @@ def require(companion_id: str, surface: str, need: str) -> None:
         raise WorkError("bad_surface", f"surface must be one of {SURFACES}")
     have = level(companion_id, surface)
     if LEVELS.index(have) < LEVELS.index(need):
-        raise WorkError("policy_denied", f"working space is '{have}' for {companion_id} on {surface}; '{need}' is not permitted")
+        raise WorkError("policy_denied", f"your notebook is '{have}' for {companion_id} on {surface}; '{need}' is not permitted")
 
 
 Scope = Tuple[str, str, str]   # (workspace_id, owner, companion_id)
@@ -75,13 +75,13 @@ def _evidence_list(evidence: Any) -> List[Any]:
 async def _find(db: AsyncSession, scope: Scope, ref: str) -> CompanionWork:
     ref = (ref or "").strip().lower()
     if not ref:
-        raise WorkError("missing_id", "which item? give its id from your list")
+        raise WorkError("missing_id", "which page? give its id from your list")
     rows = (await db.execute(select(CompanionWork).where(
         CompanionWork.honcho_workspace_id == scope[0], CompanionWork.owner_peer_id == scope[1],
         CompanionWork.companion_id == scope[2]))).scalars().all()
     hits = [r for r in rows if str(r.id).lower() == ref or str(r.id).lower().startswith(ref)]
     if not hits:
-        raise WorkError("not_found", f"no item of yours with id '{ref}'")
+        raise WorkError("not_found", f"no page of yours with id '{ref}'")
     if len(hits) > 1:
         raise WorkError("ambiguous", f"'{ref}' matches more than one item; give more of the id")
     return hits[0]
@@ -215,7 +215,7 @@ async def run_tool(db: AsyncSession, scope: Scope, *, surface: str, tool: str, a
                 return {"ok": True, "text": full_text(got["item"], got["events"]), "item_id": str(got["item"].id)}
             items = await list_items(db, scope, status="open", limit=30)
             now = utc_now()
-            return {"ok": True, "text": "\n".join(line(i, now, 220) for i in items) or "Nothing open in your working space."}
+            return {"ok": True, "text": "\n".join(line(i, now, 220) for i in items) or "Nothing open in your notebook."}
         if tool == "work_write":
             op = str(args.get("do") or args.get("op") or args.get("action") or "").strip().lower()
             res = await act(db, scope, surface=surface, action=op, item_id=str(args.get("id") or ""),
@@ -223,7 +223,8 @@ async def run_tool(db: AsyncSession, scope: Scope, *, surface: str, tool: str, a
                             note=str(args.get("note") or ""), evidence=evidence if evidence is not None else args.get("evidence"),
                             sitting_id=sitting_id, conversation_id=conversation_id)
             item = res["item"]
-            return {"ok": True, "text": f"Kept ({op}) as [{short(item)}], version {item.version}, {item.status}.",
+            said = {"create": "Saved as", "continue": "Added to", "revise": "Rewrote", "complete": "Marked finished:", "abandon": "Let go of"}[res["event"].action]
+            return {"ok": True, "text": f"{said} [{short(item)}] \"{item.title}\".",
                     "item_id": str(item.id), "version": item.version, "status": item.status, "event_id": str(res["event"].id)}
         return {"ok": False, "code": "unknown_tool", "text": "That is not available now."}
     except WorkError as exc:
