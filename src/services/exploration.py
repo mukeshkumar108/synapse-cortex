@@ -247,14 +247,18 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
     pages = await memory_pipeline.live_pages(db, workspace_id, owner)
     arc = await memory_pipeline.get_arc(db, workspace_id, owner)
     ledger = await memory_pipeline.open_ledger(db, workspace_id, owner, limit=10)
-    work_ctx = await companion_work.context_block(db, scope, "independent") if work_level != "off" else ""
-    context = ""
-    if work_ctx:
-        context += ("--- your working space: things you wrote for yourself earlier (yours alone; possibilities, never obligations — "
-                    "pick one up, revise it, finish it, let it go, or ignore them all) ---\n" + work_ctx + "\n\n")
-    context += (f"--- what you have been exploring ---\n{pages['exploring'].text}\n\n"
-                f"--- where conversations stand ---\n{arc.text}\n\n"
-                f"--- open matters ---\n" + ("\n".join(f"- [{i.kind}] {i.title}" for i in ledger) or "(nothing open)"))
+    tail_context = (f"--- what you have been exploring ---\n{pages['exploring'].text}\n\n"
+                    f"--- where conversations stand ---\n{arc.text}\n\n"
+                    f"--- open matters ---\n" + ("\n".join(f"- [{i.kind}] {i.title}" for i in ledger) or "(nothing open)"))
+
+    async def build_context() -> str:
+        """Her open items are re-read every iteration: what she wrote a moment ago must be in front of her when she decides what to do next."""
+        wctx = await companion_work.context_block(db, scope, "independent", limit=12, excerpt=900) if work_level != "off" else ""
+        head = ("--- your working space: things you wrote for yourself (yours alone; possibilities, never obligations — "
+                "pick one up, revise it, finish it, let it go, or ignore them all) ---\n" + wctx + "\n\n") if wctx else ""
+        return head + tail_context
+    context = await build_context()
+    work_ctx = context.split("--- what you have been exploring ---", 1)[0]
     sit.work_context = work_ctx
     system = (constitution or SOPHIE_SELF).strip()
     if constitution:
@@ -267,6 +271,8 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
             sit.log.append({"seq": len(sit.log), "kind": "budget_stop",
                             "detail": f"it={it} tools={sit.tool_calls} models={sit.model_calls} ms={elapsed_ms}"})
             break
+        if it > 1 and sit.work_writes:
+            context = await build_context()
         history = "\n".join(f"{('[' + m['ref'] + '] ') if m.get('ref') else ''}{m.get('label', '?')}: {str(m.get('text', ''))[:600]}" for m in sit.transcript[-8:])
         prompt = (f"{DECISION_INSTRUCTION}\n\n--- your context ---\n{context}\n\n"
                   f"--- this sitting so far ---\n{history or '(nothing yet)'}\n\n"

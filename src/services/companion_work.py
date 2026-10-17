@@ -122,9 +122,11 @@ async def act(db: AsyncSession, scope: Scope, *, surface: str, action: str, item
             item.text = (item.text.rstrip() + "\n\n" + text.strip())[:MAX_TEXT * 4]
             written = text
         else:
+            if action == "complete" and text.strip():
+                item.text = (item.text.rstrip() + "\n\n" + text.strip())[:MAX_TEXT * 4]      # a closing addition is kept, not dropped
             item.status = "completed" if action == "complete" else "abandoned"
             item.closed_at = now
-            written = ""
+            written = text
         item.version += 1
         item.updated_at = now
     ev = CompanionWorkEvent(
@@ -179,7 +181,7 @@ def line(item: CompanionWork, now: datetime, excerpt: int = EXCERPT) -> str:
             f"{'' if item.version == 1 else f', revised x{item.version - 1}'})" + (f": {body}" if body else ""))
 
 
-async def context_block(db: AsyncSession, scope: Scope, surface: str, limit: int = 12) -> str:
+async def context_block(db: AsyncSession, scope: Scope, surface: str, limit: int = 12, excerpt: int = EXCERPT) -> str:
     """What the companion sees of its own open work at the start of a sitting. A pure read."""
     if level(scope[2], surface) == "off":
         return ""
@@ -187,7 +189,7 @@ async def context_block(db: AsyncSession, scope: Scope, surface: str, limit: int
     if not items:
         return ""
     now = utc_now()
-    return "\n".join(line(i, now) for i in items)
+    return "\n".join(line(i, now, excerpt) for i in items)
 
 
 def full_text(item: CompanionWork, events: List[CompanionWorkEvent]) -> str:

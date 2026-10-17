@@ -195,3 +195,25 @@ async def test_an_action_without_a_type_is_told_to_her_not_treated_as_stopping()
         exploration.set_chat_fn(None)
     assert out["work_writes"] == 1 and out["status"] == "worked"
     assert "had no \"type\"" in state["prompts"][1]
+
+
+@pytest.mark.asyncio
+async def test_what_she_just_wrote_is_in_front_of_her_on_the_next_iteration():
+    from src.services import exploration
+    from src.services.exploration import SoloBudget, run_independent_sitting
+    async with async_session_maker() as db:
+        r = await work.run_tool(db, ("wsr", "ur", "sophie"), surface="foreground", tool="work_write", args={"op": "create", "title": "Seed", "text": "first line"})
+    iid = r["item_id"][:8]
+    chat, state = _scripted([{"thought": "add", "action": {"type": "work_write", "op": "continue", "id": iid, "text": "SECOND-LINE-MARKER"}},
+                             {"thought": "close", "action": {"type": "work_write", "op": "complete", "id": iid, "text": "closing words"}},
+                             {"thought": "done", "action": {"type": "done", "reason": "r"}}])
+    exploration.set_chat_fn(chat)
+    try:
+        async with async_session_maker() as db:
+            await run_independent_sitting(db, workspace_id="wsr", owner="ur", sitting_id="r1", budget=SoloBudget(max_iterations=5, max_tool_calls=3, max_model_calls=8))
+    finally:
+        exploration.set_chat_fn(None)
+    assert "SECOND-LINE-MARKER" not in state["prompts"][0] and "SECOND-LINE-MARKER" in state["prompts"][1]
+    async with async_session_maker() as db:
+        got = await work.get_with_events(db, ("wsr", "ur", "sophie"), iid)
+    assert got["item"].status == "completed" and got["item"].text.endswith("closing words") and got["events"][-1].text == "closing words"
