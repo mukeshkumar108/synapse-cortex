@@ -28,7 +28,7 @@ ACTIONS = ("create", "revise", "continue", "complete", "abandon")
 WORDS = {"new": "create", "add": "continue", "rewrite": "revise", "finish": "complete", "discard": "abandon"}
 DEFAULT_POLICY = {"sophie": {"foreground": "write", "independent": "write"}}
 MAX_TEXT = 8000
-EXCERPT = 360
+EXCERPT = 600
 
 
 class WorkError(Exception):
@@ -178,7 +178,8 @@ def _where(item: CompanionWork) -> str:
 
 def line(item: CompanionWork, now: datetime, excerpt: int = EXCERPT) -> str:
     body = " ".join((item.text or "").split())
-    body = (body[:excerpt] + "…") if len(body) > excerpt else body
+    if len(body) > excerpt:      # both ends: pages grow by being added to, so the latest words are at the end
+        body = body[:excerpt // 2].rstrip() + " […] " + body[-(excerpt // 2):].lstrip()
     return f"- [{short(item)}] {item.title} (written {_where(item)}; updated {_ago(item.updated_at, now)})" + (f": {body}" if body else "")
 
 
