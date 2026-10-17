@@ -15,6 +15,8 @@ from src.config import settings
 from src.routers import health_router, events_router, debug_router, cortex_router, world_router, world_delta_router, memory_router
 from src.routers.v1_executive import router as executive_router
 from src.routers.v1_ops import router as ops_router
+from src.routers.v1_work import router as work_router
+import src.models.companion_work  # noqa: F401  (registers tables for create_all)
 from src.services.turn_extractor import extractor_config_status
 
 
@@ -88,3 +90,4 @@ app.include_router(world_delta_router)
 app.include_router(memory_router)
 app.include_router(executive_router)
 app.include_router(ops_router)
+app.include_router(work_router)

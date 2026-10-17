@@ -53,6 +53,7 @@ services:
       DATABASE_URL: ${SYNAPSE_CORTEX_DATABASE_URL:-postgresql+asyncpg://synapse_cortex:${SYNAPSE_CORTEX_DB_PASSWORD}@postgres:5432/synapse_cortex}
       SYNAPSE_CORTEX_API_TOKEN: ${SYNAPSE_CORTEX_API_TOKEN}
       SOPHIE_SOLO_SCHEDULER: ${SOPHIE_SOLO_SCHEDULER:-false}
+      COMPANION_WORK_POLICY: ${COMPANION_WORK_POLICY:-}      # per-companion working-space policy JSON; empty = built-in default (sophie only)
       SOPHIE_SOLO_WORKSPACE: ${SOPHIE_SOLO_WORKSPACE:-llm-test-agent}
       SOPHIE_SOLO_OWNERS: ${SOPHIE_SOLO_OWNERS:-}
       SOPHIE_SOLO_MAX_PER_DAY: ${SOPHIE_SOLO_MAX_PER_DAY:-2}

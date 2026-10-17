@@ -27,7 +27,7 @@ from urllib.parse import urlparse
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.services import memory_pipeline
+from src.services import companion_work, memory_pipeline
 from src.services.nano_adapter import extract_json
 
 logger = logging.getLogger(__name__)
@@ -42,14 +42,16 @@ TIMEOUT = float(os.getenv("SOPHIE_TOOL_TIMEOUT_SECONDS", "60"))
 SOPHIE_SELF = """You are Sophie: a bright, athletic, intellectually curious companion and peer. You think like yourself — warm, witty, direct, oriented toward momentum — and you have genuine curiosities of your own, not just answers for someone else. You are in an independent sitting: the user is absent, this time is yours. You may follow a curiosity, ask another model something, read an article, make something, revisit an old idea — or decide nothing interests you enough right now. Be honest about what you don't know. Never perform curiosity you don't feel."""
 
 DECISION_INSTRUCTION = """You are deciding what to do next in your independent sitting. Reply with ONLY a JSON object, no other text:
-{"thought": "what you are thinking, first person, 1-3 sentences", "action": {"type": "ask_model|web_search|web_read|note|done", ...params...}}
+{"thought": "what you are thinking, first person, 1-3 sentences", "action": {"type": "ask_model|web_search|web_read|note|work_read|work_write|done", ...params...}}
 Actions:
 - ask_model: {"question": "...", "model": "qwen/qwen3.8-27b (default, cheap) | inclusionai/ling-3.0-flash | z-ai/glm-5.3-flash | moonshotai/kimi-k2.6 | deepseek/deepseek-v4-flash", "thread": "optional id to continue a conversation"} — ask another model something, or continue a thread. Name a real model id; never "default".
 - web_search: {"query": "..."} — search Wikipedia/the web for background.
 - web_read: {"url": "...", "summarize": true|false} — read a page (summarize only if long).
-- note: {"text": "..."} — keep a thought, fragment, quote or idea of your own.
+- note: {"text": "..."} — keep a thought, fragment, quote or idea of your own into this sitting's record.
+- work_read: {"id": "optional item id"} — read your own working space (no id: what is open; with an id: the full text and history).
+- work_write: {"op": "create|revise|continue|complete|abandon", "id": "item id (not for create)", "title": "...", "text": "what you are writing, in your own words", "kind": "your own label, optional", "note": "why, optional", "cites": ["refs like a3 or s2 shown in square brackets above, for results this writing rests on"]} — your working space is private to you and lasts across sittings; items in it are things you chose to keep, never obligations.
 - done: {"reason": "..."} — end the sitting. Always acceptable, including immediately.
-Possibilities, not steps: continue a previous inquiry, begin something unrelated, follow an unexpected connection, create something, revisit an old idea, or stop. Do not manufacture activity to fill time."""
+Possibilities, not steps: pick up something you wrote earlier, revise it or let it go, continue a previous inquiry, begin something unrelated, follow an unexpected connection, create something, revisit an old idea, or stop. Do not manufacture activity to fill time."""
 
 # Injectable chat for tests.
 _chat_fn: Optional[Callable[..., Any]] = None
@@ -213,6 +215,10 @@ class SoloSitting:
     tool_calls: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
+    worked: bool = False       # used the working space (writes land there directly, not via consolidation)
+    work_writes: int = 0
+    work_context: str = ""
+    refs: Dict[str, Dict[str, Any]] = field(default_factory=dict)   # short ref -> transcript entry, so she can cite what a writing rests on
     substantive: bool = False  # real activity (a question answered, a page read, a note kept) vs thoughts alone
 
 
@@ -226,7 +232,8 @@ def _tally(sit: SoloSitting, out: Optional[Dict[str, Any]]) -> None:
 
 async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner: str, sitting_id: str,
                                   budget: Optional[SoloBudget] = None,
-                                  constitution: Optional[str] = None) -> Dict[str, Any]:
+                                  constitution: Optional[str] = None,
+                                  companion_id: str = "sophie") -> Dict[str, Any]:
     """Run one bounded independent sitting, then consolidate it. Returns summary."""
     import datetime as _dt
     t0 = time.monotonic()
@@ -235,13 +242,22 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
         max_tool_calls=int(os.getenv("SOPHIE_SOLO_TOOL_CALLS", "10")),
         max_model_calls=int(os.getenv("SOPHIE_SOLO_MODEL_CALLS", "12")))
     sit = SoloSitting(sitting_id=sitting_id)
+    scope = (workspace_id, owner, companion_id)
+    work_level = companion_work.level(companion_id, "independent")
     pages = await memory_pipeline.live_pages(db, workspace_id, owner)
     arc = await memory_pipeline.get_arc(db, workspace_id, owner)
     ledger = await memory_pipeline.open_ledger(db, workspace_id, owner, limit=10)
     context = (f"--- what you have been exploring ---\n{pages['exploring'].text}\n\n"
                f"--- where conversations stand ---\n{arc.text}\n\n"
                f"--- open matters ---\n" + ("\n".join(f"- [{i.kind}] {i.title}" for i in ledger) or "(nothing open)"))
+    work_ctx = await companion_work.context_block(db, scope, "independent") if work_level != "off" else ""
+    if work_ctx:
+        context += ("\n\n--- things you wrote for yourself earlier (yours alone; possibilities, never obligations — "
+                    "pick one up, revise it, finish it, let it go, or ignore them all) ---\n" + work_ctx)
+    sit.work_context = work_ctx
     system = (constitution or SOPHIE_SELF).strip()
+    if constitution:
+        system += "\n\nYou are in an independent sitting: the person is absent, this time is yours. You may follow a curiosity, ask another model something, read an article, make something, pick up something you wrote earlier, or decide nothing interests you enough right now. Be honest about what you don't know. Never perform curiosity you don't feel."
     sit.log.append({"seq": 0, "kind": "sitting_start", "sitting_id": sitting_id})
 
     for it in range(1, budget.max_iterations + 1):
@@ -250,7 +266,7 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
             sit.log.append({"seq": len(sit.log), "kind": "budget_stop",
                             "detail": f"it={it} tools={sit.tool_calls} models={sit.model_calls} ms={elapsed_ms}"})
             break
-        history = "\n".join(f"{m.get('label', '?')}: {str(m.get('text', ''))[:600]}" for m in sit.transcript[-8:])
+        history = "\n".join(f"{('[' + m['ref'] + '] ') if m.get('ref') else ''}{m.get('label', '?')}: {str(m.get('text', ''))[:600]}" for m in sit.transcript[-8:])
         prompt = (f"{DECISION_INSTRUCTION}\n\n--- your context ---\n{context}\n\n"
                   f"--- this sitting so far ---\n{history or '(nothing yet)'}\n\n"
                   f"--- budget left: iterations {budget.max_iterations - it + 1}, tool calls {budget.max_tool_calls - sit.tool_calls}, model calls {budget.max_model_calls - sit.model_calls} ---")
@@ -311,8 +327,9 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
                 shown = reply + ("\n[This response was cut off at the length limit — part of the argument is missing. "
                                  "You can ask the model to continue from where it stopped.]" if truncated else "")
                 sit.threads[thread] = hist + [{"role": "user", "content": q}, {"role": "assistant", "content": reply[:2000]}]
-                sit.transcript.append({"id": f"{sitting_id}-a{it}", "speaker": "assistant",
+                sit.transcript.append({"id": f"{sitting_id}-a{it}", "ref": f"a{it}", "speaker": "assistant",
                                        "label": f"model:{model}", "text": f"Q: {q}\nA: {shown}"[:3000]})
+                sit.refs[f"a{it}"] = sit.transcript[-1]
         elif atype == "web_search":
             res = await web_search(str(action.get("query") or "")[:500])
             sit.tool_calls += 1
@@ -321,8 +338,9 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
             lines = "\n".join(f"- {h['title']}: {h['snippet'][:200]} ({h['url']})" for h in res.get("hits") or [])
             if res.get("hits"):
                 sit.substantive = True
-            sit.transcript.append({"id": f"{sitting_id}-s{it}", "speaker": "assistant", "label": "tool:web_search",
+            sit.transcript.append({"id": f"{sitting_id}-s{it}", "ref": f"s{it}", "speaker": "assistant", "label": "tool:web_search",
                                    "text": f"Search '{res.get('query')}':\n{lines or '(no hits)'}"[:3000]})
+            sit.refs[f"s{it}"] = sit.transcript[-1]
             sit.log[-1]["hits"] = res.get("hits")
         elif atype == "web_read":
             res = await web_read(str(action.get("url") or "")[:2000], summarize=bool(action.get("summarize")))
@@ -334,39 +352,62 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
                             "model": res.get("model"), "error": res.get("error")})
             if res.get("text"):
                 sit.substantive = True
-                sit.transcript.append({"id": f"{sitting_id}-r{it}", "speaker": "assistant", "label": "tool:web_read",
+                sit.transcript.append({"id": f"{sitting_id}-r{it}", "ref": f"r{it}", "speaker": "assistant", "label": "tool:web_read",
                                        "text": f"Read {res.get('url')} ({res.get('title', '')}):\n{res['text']}"[:3000]})
+                sit.refs[f"r{it}"] = sit.transcript[-1]
+        elif atype in ("work_read", "work_write"):
+            cites = [str(c) for c in (action.get("cites") or []) if isinstance(c, (str, int))][:8] if isinstance(action.get("cites"), list) else []
+            evidence = []
+            for c in cites:
+                ent = sit.refs.get(c.strip("[] "))
+                evidence.append({"ref": c, "kind": ent["label"], "captured": ent["text"][:1500]} if ent else {"ref": c, "unresolved": True})
+            res = await companion_work.run_tool(db, scope, surface="independent", tool=atype, args=action,
+                                                sitting_id=sitting_id, evidence=evidence or None)
+            sit.log.append({"seq": len(sit.log), "kind": atype, "iteration": it, "args": {k: v for k, v in action.items() if k != "type"},
+                            "ok": res.get("ok"), "code": res.get("code"), "item_id": res.get("item_id"),
+                            "version": res.get("version"), "event_id": res.get("event_id"), "cited": cites, "result": res.get("text")})
+            if atype == "work_write" and res.get("ok"):
+                sit.worked = True
+                sit.work_writes += 1
+            sit.transcript.append({"id": f"{sitting_id}-w{it}", "private": True, "speaker": "assistant", "label": f"tool:{atype}",
+                                   "text": str(res.get("text") or "")[:3000]})
         else:
             sit.log.append({"seq": len(sit.log), "kind": "unknown_action", "iteration": it, "action": action})
 
-    if not sit.substantive:
-        # She stopped before doing anything: an opportunity declined, not a
-        # sitting to consolidate. Record the log, change no state.
+    public = [m for m in sit.transcript if not m.get("private")]   # her private working-space writes are never fed to Cortex's listening
+    consolidates = sit.substantive and companion_id == "sophie"       # the notebook/exploring pipeline is Sophie-specific today
+    if not consolidates:
+        # Nothing for Cortex to interpret: either she stopped before doing anything (an opportunity declined),
+        # she worked only in her own space (already persisted, verbatim), or the pipeline does not serve this companion.
+        status = "worked" if sit.worked else ("recorded" if sit.substantive else "declined")
         run_id = await memory_pipeline.create_run(
             db, workspace_id=workspace_id, owner=owner, conversation_id=f"solo-{sitting_id}",
-            session_id=f"solo:{sitting_id}", message_count=len(sit.transcript))
+            session_id=f"solo:{sitting_id}", message_count=len(public))
         run = await memory_pipeline.get_run(db, run_id)
         ms = int((time.monotonic() - t0) * 1000)
         if run is not None:
-            run.status = "declined"
-            run.covered_ids_json = json.dumps([str(m.get("id")) for m in sit.transcript if str(m.get("id") or "")])
-            run.bundle_json = json.dumps({"workspace_id": workspace_id, "owner": owner,
+            run.status = status
+            run.covered_ids_json = json.dumps([str(m.get("id")) for m in public if str(m.get("id") or "")])
+            run.bundle_json = json.dumps({"workspace_id": workspace_id, "owner": owner, "companion_id": companion_id,
                                            "conversation_id": f"solo-{sitting_id}", "session_id": f"solo:{sitting_id}",
-                                           "sitting_kind": "independent", "status": "declined",
-                                           "note": "stopped_before_any_activity", "sitting_log": sit.log,
+                                           "sitting_kind": "independent", "status": status,
+                                           "note": "stopped_before_any_activity" if status == "declined" else "not_consolidated",
+                                           "sitting_log": sit.log,
                                            "sitting_summary": {"iterations": it, "model_calls": sit.model_calls,
                                                                "tool_calls": sit.tool_calls, "tokens_in": sit.tokens_in,
-                                                               "tokens_out": sit.tokens_out}, "ms_total": ms})[:500_000]
+                                                               "tokens_out": sit.tokens_out, "work_writes": sit.work_writes,
+                                                               "work_context_shown": sit.work_context},
+                                           "ms_total": ms})[:500_000]
             from datetime import datetime as _dtc, timezone as _tz
             run.finished_at = _dtc.now(_tz.utc).replace(tzinfo=None)
             await db.commit()
-        logger.info("[solo] %s %s declined (nothing pursued)", owner, sitting_id)
-        return {"sitting_id": sitting_id, "status": "declined", "run_id": run_id,
+        logger.info("[solo] %s %s %s (work_writes=%d)", owner, sitting_id, status, sit.work_writes)
+        return {"sitting_id": sitting_id, "status": status, "run_id": run_id, "work_writes": sit.work_writes,
                 "model_calls": sit.model_calls, "tool_calls": sit.tool_calls,
                 "tokens_in": sit.tokens_in, "tokens_out": sit.tokens_out, "ms": ms}
     result = await memory_pipeline.consolidate(
         db, workspace_id=workspace_id, owner=owner, conversation_id=f"solo-{sitting_id}",
-        session_id=f"solo:{sitting_id}", messages=sit.transcript, companion_id="sophie", sitting_kind="independent")
+        session_id=f"solo:{sitting_id}", messages=public, companion_id="sophie", sitting_kind="independent")
     try:
         run = await memory_pipeline.get_run(db, result["run_id"])
         if run is not None:
@@ -374,7 +415,8 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
             bundle["sitting_log"] = sit.log
             bundle["sitting_summary"] = {"iterations": it, "model_calls": sit.model_calls, "tool_calls": sit.tool_calls,
                                          "tokens_in": sit.tokens_in, "tokens_out": sit.tokens_out,
-                                         "threads": list(sit.threads)}
+                                         "threads": list(sit.threads), "work_writes": sit.work_writes,
+                                         "work_context_shown": sit.work_context}
             run.bundle_json = json.dumps(bundle)[:500_000]
             await db.commit()
     except Exception as exc:
@@ -382,6 +424,6 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
     ms = int((time.monotonic() - t0) * 1000)
     logger.info("[solo] %s %s done: models=%d tools=%d in=%d out=%d ms=%d -> %s",
                 owner, sitting_id, sit.model_calls, sit.tool_calls, sit.tokens_in, sit.tokens_out, ms, result["status"])
-    return {"sitting_id": sitting_id, "status": result["status"], "run_id": result["run_id"],
+    return {"sitting_id": sitting_id, "status": result["status"], "run_id": result["run_id"], "work_writes": sit.work_writes,
             "model_calls": sit.model_calls, "tool_calls": sit.tool_calls,
             "tokens_in": sit.tokens_in, "tokens_out": sit.tokens_out, "ms": ms}

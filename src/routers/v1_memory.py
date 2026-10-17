@@ -156,9 +156,12 @@ class IndependentSittingRequest(BaseModel):
     max_iterations: int = 8
     max_tool_calls: int = 10
     max_model_calls: int = 12
+    companion_id: str = "sophie"
+    identity: Optional[str] = None      # the companion's own constitution text, supplied by the product/Runtime registry
 
 
-async def _run_solo(workspace_id: str, owner: str, sitting_id: str, budget: Dict[str, int]) -> None:
+async def _run_solo(workspace_id: str, owner: str, sitting_id: str, budget: Dict[str, int],
+                    companion_id: str = "sophie", identity: Optional[str] = None) -> None:
     try:
         async with async_session_maker() as db:
             try:
@@ -168,7 +171,8 @@ async def _run_solo(workspace_id: str, owner: str, sitting_id: str, budget: Dict
                     db, workspace_id=workspace_id, owner=owner, sitting_id=sitting_id,
                     budget=SoloBudget(max_iterations=min(budget["max_iterations"], 12),
                                       max_tool_calls=min(budget["max_tool_calls"], 15),
-                                      max_model_calls=min(budget["max_model_calls"], 20)))
+                                      max_model_calls=min(budget["max_model_calls"], 20)),
+                    companion_id=companion_id, constitution=identity)
             except Exception:
                 logger.exception("independent sitting failed for %s %s", owner, sitting_id)
                 try:
@@ -184,10 +188,13 @@ async def independent_sitting(req: IndependentSittingRequest, db: AsyncSession =
     """Start one of Sophie's independent sittings (bounded, background). Her
     time is hers: she may explore, ask, read, make — or stop immediately."""
     import uuid as _uuid
+    from src.services import companion_work
+    if companion_work.level(req.companion_id, "independent") == "off":
+        raise HTTPException(status_code=403, detail=f"independent_sittings_off_for_{req.companion_id}")
     sitting_id = (req.sitting_id or f"solo-{_uuid.uuid4().hex[:8]}").strip() or f"solo-{_uuid.uuid4().hex[:8]}"
     asyncio.create_task(_run_solo(req.workspace_id, req.owner, sitting_id,
                                   {"max_iterations": req.max_iterations, "max_tool_calls": req.max_tool_calls,
-                                   "max_model_calls": req.max_model_calls}))
+                                   "max_model_calls": req.max_model_calls}, req.companion_id, req.identity))
     return {"status": "accepted", "sitting_id": sitting_id,
             "conversation_id": f"solo-{sitting_id}"}
 
