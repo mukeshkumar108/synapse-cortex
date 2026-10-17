@@ -247,13 +247,14 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
     pages = await memory_pipeline.live_pages(db, workspace_id, owner)
     arc = await memory_pipeline.get_arc(db, workspace_id, owner)
     ledger = await memory_pipeline.open_ledger(db, workspace_id, owner, limit=10)
-    context = (f"--- what you have been exploring ---\n{pages['exploring'].text}\n\n"
-               f"--- where conversations stand ---\n{arc.text}\n\n"
-               f"--- open matters ---\n" + ("\n".join(f"- [{i.kind}] {i.title}" for i in ledger) or "(nothing open)"))
     work_ctx = await companion_work.context_block(db, scope, "independent") if work_level != "off" else ""
+    context = ""
     if work_ctx:
-        context += ("\n\n--- things you wrote for yourself earlier (yours alone; possibilities, never obligations — "
-                    "pick one up, revise it, finish it, let it go, or ignore them all) ---\n" + work_ctx)
+        context += ("--- your working space: things you wrote for yourself earlier (yours alone; possibilities, never obligations — "
+                    "pick one up, revise it, finish it, let it go, or ignore them all) ---\n" + work_ctx + "\n\n")
+    context += (f"--- what you have been exploring ---\n{pages['exploring'].text}\n\n"
+                f"--- where conversations stand ---\n{arc.text}\n\n"
+                f"--- open matters ---\n" + ("\n".join(f"- [{i.kind}] {i.title}" for i in ledger) or "(nothing open)"))
     sit.work_context = work_ctx
     system = (constitution or SOPHIE_SELF).strip()
     if constitution:
