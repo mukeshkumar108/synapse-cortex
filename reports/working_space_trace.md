@@ -74,3 +74,31 @@ DeepSeek/NanoGPT, Bloom constitution unchanged, policy `bloom: foreground write,
 * No unattended scheduled sitting observed. No live cited-evidence revision (`cites` only unit-tested). Foreground sitting id is empty when the product does not carry session state (conversation id is always recorded).
 * Whether DeepSeek V4 Flash ever *spontaneously* chooses `work_write`: 0 of ~18 turns so far; only prompted calls (Sophie 1/1 and 1/1 discard; Bloom 1 of 6) succeeded. Haiku used it spontaneously in 4 of 7 chats.
 * Non-Sophie independent sittings are not consolidated into notebooks (pipeline is Sophie-specific).
+
+---
+
+# Follow-up (same day, 10:50 UTC): the affordance question, and the first unattended sittings
+
+## A. What Sophie is actually given (verbatim, current deploy)
+Context block, every foreground turn where the notebook is granted and enabled:
+```
+[YOUR NOTEBOOK — a place of your own for thoughts, questions, ideas and intentions: you can write in it, come back to it, rewrite it or throw things away. The person only sees what you choose to tell them. Nothing in it is owed to anyone. What you don't say or write here isn't there the next time you talk.]
+- [0f74f50e] ladder doubt (written while talking with them; updated 5m ago): <excerpt: first and last ~300 chars of the page>
+```
+(or `(empty)`). Tools: `work_read` — *"Look at your own notebook: what is open, or the whole of one page if you give its id. Only you can see it."*; `work_write` — *"Write in your own notebook: a place of your own for thoughts, questions, ideas and things you mean to do. The person only sees what you choose to tell them. new: start a page. add: add to a page. rewrite: replace a page's text. finish: you're done with it. discard: let it go."* (params `do`, `id`, `title`, `text`).
+One change this round, minimal and factual: the last sentence of the block ("What you don't say or write here isn't there the next time you talk") — before it, nothing told her that an unspoken thought does not persist, so "I'll sit on it" and "write it down" looked like the same act. Page excerpts now keep both ends (pages grow by being added to; the block previously cut the latest words off). No change to her constitution; no instruction to write.
+
+## B. Does she understand it, or is it merely exposed?
+Honest answer: exposed and described in plain words, understanding unproven. Evidence for "understands the tool": prompted calls produce well-formed pages in her own voice (k6) and she knows what "throw away" maps to (`do:discard`). Evidence against "spontaneously treats it as her place": none of the 15 DeepSeek chats made a call. Competing signal: the existing `note` tool's description ("something … left open") fits a deferral better than the notebook does, and in k2 she used `note` on a deferral (twice, natively, on NanoGPT). I did not touch `note`.
+
+## C. Were there genuine opportunities in the zero-write turns?
+Reviewed turn by turn. Chats a, b, k1, k4, n2, n4, n5 (and n1's first turn) were ordinary: she answered fully in the turn; there was nothing unspoken to keep. Chats c, d, e, k2, k3, k5, n3 and (Bloom) m1 contained a user handing her a thought to hold ("sit on it", "turn it over in your own head", "take your time", "you can think about it too"): arguably genuine, and in each she answered *"I'll sit on it / roll it around / I'll be here"* without writing. In n3 she had also just voiced a full view, so there was nothing left unspoken. In n1 she said "I'd love to keep poking at that" and kept nothing. Total DeepSeek/NanoGPT spontaneous `work_write`: **0 of 15 chats (~34 turns)**; spontaneous `note`: 1 chat. Not optimised for; not a failure; and not evidence either way about naturalness once the "isn't there next time" sentence was added (that sentence was only live for chats n1–n5, 0 writes).
+
+## D. Cross-sitting continuity, both directions (what is shown)
+* foreground → independent: k6 page written in a chat (prompted) was shown first in the next independent sitting's context; two sittings acted on it (5 searches; four `add` revisions).
+* independent → foreground: the revised page (with the sitting's additions) was in the next foreground block, and Sophie answered from it in character (k6 chat 42b9c). The excerpt then cut the end of the page; fixed (both ends).
+* **Unattended, her own initiative (the real owner, scheduler, NanoGPT/Qwen):** `solo-68e57369` at 07:06 UTC — she searched, asked `moonshotai/kimi-k2.6` about a shock-wave analogy, then on her own created the page *Shock Wave vs. Logic Boundary* (`do:new`). `solo-8b98309d` at 07:23 UTC — the page led her context (*"written on your own; updated 17m ago"*); she tried `ask_model` with the model string `qwen/qwen3.8-27b (default, cheap)` (copied from my instruction text) → **400 shown to her** (`ask_model_error`), she retried with `inclusionai/ling-3.0-flash`, and revised the page citing `a3`; Cortex stored the **verbatim captured reply** as evidence on that event (`companion_work_events.evidence_json`, event 818b0034). 5+7 model calls, 6,263+9,984 tokens in, $0 metered. Both consolidated normally; daily cap (2) then reached. These are the first unattended runs; "work_context_shown" was empty for the first, the created page for the second. The model-name label that caused the 400 is fixed in the instruction text.
+* The real owner now has exactly one open page; the next real foreground turn will receive it in the notebook block (not yet observed).
+
+## E. Routing and per-turn cost
+Per turn, with the notebook on: Jev (unchanged, OpenRouter Decisions) + one foreground call, nothing more. Chats n1–n5 (10 turns): foreground 10 calls (NanoGPT deepseek-v4-flash, 20,740 in / 913 out, $0), Jev 10 calls ($0.000633). The added work is one Cortex SQL read per turn (no model), and a tool round only when the model chooses to call. Jev is untouched: it classifies and routes a model (never grants or removes tools); model-selected tools stay the foreground's choice; background/proactive tool launching by Jev is not present in this repo and I added none. Bloom's policy is reverted to the default (off) in production.
