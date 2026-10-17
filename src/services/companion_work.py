@@ -200,17 +200,6 @@ def full_text(item: CompanionWork, events: List[CompanionWorkEvent]) -> str:
     return "\n".join(out)
 
 
-TOOL_SCHEMAS = {
-    "work_read": {"description": "Read your own working space: thoughts, questions, drafts and unfinished work you wrote for yourself. With no id it lists what is open; with an id it returns the full text and history of that item. Only you can see this space.",
-                  "properties": {"id": {"type": "string", "description": "item id from the list (optional)"}}, "required": []},
-    "work_write": {"description": "Write to your own working space. It is yours and private: nothing here is shown to the person unless you choose to say it. Use it only when you actually want to keep, continue, revise, finish or let go of something of your own (a thought, a question, a draft, something to look into later). Most turns need no call. create: a new item. revise: replace the text of an item. continue: add to an item. complete: finished with it. abandon: let it go.",
-                   "properties": {"op": {"type": "string", "enum": list(ACTIONS)}, "id": {"type": "string", "description": "item id (not for create)"},
-                                  "title": {"type": "string"}, "text": {"type": "string", "description": "what you are writing, in your own words"},
-                                  "kind": {"type": "string", "description": "your own label, optional"}, "note": {"type": "string", "description": "why, if you want to say"}},
-                   "required": ["op"]},
-}
-
-
 async def run_tool(db: AsyncSession, scope: Scope, *, surface: str, tool: str, args: Dict[str, Any],
                    sitting_id: str = "", conversation_id: str = "", evidence: Any = None) -> Dict[str, Any]:
     """Execute a work_read / work_write call and return {ok, text, ...} where text is exactly what the model is shown."""
