@@ -72,9 +72,10 @@ def turn(uid, chat, history, n, text, companion, model=os.environ.get("DEMO_MODE
 
 def cmd_fg(label, companion, texts):
     st = load(label)
-    chat = f"smoke-ws-{label}-{companion}-{uuid.uuid4().hex[:5]}"
-    st["chats"][chat] = {"companion": companion, "history": []}
-    for i, text in enumerate(texts, 1):
+    chat = os.environ.get("CHAT") or f"smoke-ws-{label}-{companion}-{uuid.uuid4().hex[:5]}"      # CHAT=<id> continues a chat of this label
+    st["chats"].setdefault(chat, {"companion": companion, "history": []})
+    first = len(st["chats"][chat]["history"]) // 2 + 1
+    for i, text in enumerate(texts, first):
         h = st["chats"][chat]["history"]
         tid, reply, p = turn(st["uid"], chat, h, i, text, companion)
         h += [["user", text], ["assistant", reply]]

@@ -177,3 +177,21 @@ async def test_work_only_sitting_is_not_consolidated_and_second_companion_uses_s
             assert await work.list_items(db, ("wsy", "uy", "sophie")) == []
     finally:
         exploration.set_chat_fn(None)
+
+
+@pytest.mark.asyncio
+async def test_an_action_without_a_type_is_told_to_her_not_treated_as_stopping():
+    from src.services import exploration
+    from src.services.exploration import SoloBudget, run_independent_sitting
+    chat, state = _scripted([{"thought": "revise", "action": {"op": "revise", "id": "zzzz", "text": "x"}},
+                             {"thought": "ok", "action": {"type": "work_write", "op": "create", "title": "second try", "text": "kept"}},
+                             {"thought": "done", "action": {"type": "done", "reason": "r"}}])
+    exploration.set_chat_fn(chat)
+    try:
+        async with async_session_maker() as db:
+            out = await run_independent_sitting(db, workspace_id="wsm", owner="um", sitting_id="m1",
+                                                budget=SoloBudget(max_iterations=5, max_tool_calls=3, max_model_calls=8))
+    finally:
+        exploration.set_chat_fn(None)
+    assert out["work_writes"] == 1 and out["status"] == "worked"
+    assert "had no \"type\"" in state["prompts"][1]

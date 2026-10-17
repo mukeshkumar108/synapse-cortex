@@ -287,6 +287,13 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
                         "usage": dec.get("usage"), "ms": dec.get("ms")})
         if thought:
             sit.transcript.append({"id": f"{sitting_id}-t{it}", "speaker": "sophie", "label": "Sophie (solo)", "text": thought})
+        if not atype and isinstance(action, dict) and action:
+            # A real attempt that the runner could not read: say so to her (as failed calls are), rather than treating it as a decision to stop.
+            sit.log.append({"seq": len(sit.log), "kind": "malformed_action", "iteration": it, "action": action})
+            sit.transcript.append({"id": f"{sitting_id}-m{it}", "private": True, "speaker": "assistant", "label": "tool:error",
+                                   "text": "Your last action had no \"type\", so nothing was done. Resend it with a type "
+                                           "(ask_model, web_search, web_read, note, work_read, work_write or done)."})
+            continue
         if atype == "done" or not atype:
             sit.log.append({"seq": len(sit.log), "kind": "sitting_end", "reason": str(action.get("reason") or atype or "no action")})
             break
@@ -367,8 +374,9 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
             sit.log.append({"seq": len(sit.log), "kind": atype, "iteration": it, "args": {k: v for k, v in action.items() if k != "type"},
                             "ok": res.get("ok"), "code": res.get("code"), "item_id": res.get("item_id"),
                             "version": res.get("version"), "event_id": res.get("event_id"), "cited": cites, "result": res.get("text")})
-            if atype == "work_write" and res.get("ok"):
+            if res.get("ok"):
                 sit.worked = True
+            if atype == "work_write" and res.get("ok"):
                 sit.work_writes += 1
             sit.transcript.append({"id": f"{sitting_id}-w{it}", "private": True, "speaker": "assistant", "label": f"tool:{atype}",
                                    "text": str(res.get("text") or "")[:3000]})
