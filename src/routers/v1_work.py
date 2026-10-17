@@ -44,7 +44,7 @@ async def context(workspace_id: str, owner: str, companion_id: str, surface: str
                   db: AsyncSession = Depends(get_async_session)):
     lv = work.level(companion_id, surface)
     text = await work.context_block(db, (workspace_id, owner, companion_id), surface) if lv != "off" else ""
-    return {"level": lv, "text": text}
+    return {"level": lv, "independent": work.level(companion_id, "independent"), "text": text}
 
 
 def _item(i) -> Dict[str, Any]:
