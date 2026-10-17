@@ -24,6 +24,8 @@ from src.models.world import utc_now
 SURFACES = ("foreground", "independent")
 LEVELS = ("off", "read", "write")
 ACTIONS = ("create", "revise", "continue", "complete", "abandon")
+# What the companion is shown are ordinary words; the stored vocabulary stays internal.
+WORDS = {"new": "create", "add": "continue", "rewrite": "revise", "finish": "complete", "discard": "abandon"}
 DEFAULT_POLICY = {"sophie": {"foreground": "write", "independent": "write"}}
 MAX_TEXT = 8000
 EXCERPT = 360
@@ -90,6 +92,7 @@ async def act(db: AsyncSession, scope: Scope, *, surface: str, action: str, item
               sitting_id: str = "", conversation_id: str = "") -> Dict[str, Any]:
     """One explicit companion act. Returns {item, event}."""
     require(scope[2], surface, "write")
+    action = WORDS.get(action, action)
     if action not in ACTIONS:
         raise WorkError("bad_action", f"action must be one of {ACTIONS}")
     text, note, title, kind = (text or "")[:MAX_TEXT], (note or "")[:1000], (title or "").strip()[:200], (kind or "").strip()[:60]
@@ -170,15 +173,13 @@ def _ago(then: datetime, now: datetime) -> str:
 
 
 def _where(item: CompanionWork) -> str:
-    return {"foreground": "while talking with them", "independent": "in a sitting of your own"}.get(item.origin_surface, "earlier")
+    return {"foreground": "while talking with them", "independent": "on your own"}.get(item.origin_surface, "earlier")
 
 
 def line(item: CompanionWork, now: datetime, excerpt: int = EXCERPT) -> str:
     body = " ".join((item.text or "").split())
     body = (body[:excerpt] + "…") if len(body) > excerpt else body
-    label = f"{item.kind}, " if item.kind else ""
-    return (f"- [{short(item)}] {item.title} ({label}written {_where(item)}, last touched {_ago(item.updated_at, now)}"
-            f"{'' if item.version == 1 else f', revised x{item.version - 1}'})" + (f": {body}" if body else ""))
+    return f"- [{short(item)}] {item.title} (written {_where(item)}; updated {_ago(item.updated_at, now)})" + (f": {body}" if body else "")
 
 
 async def context_block(db: AsyncSession, scope: Scope, surface: str, limit: int = 12, excerpt: int = EXCERPT) -> str:
@@ -193,11 +194,11 @@ async def context_block(db: AsyncSession, scope: Scope, surface: str, limit: int
 
 
 def full_text(item: CompanionWork, events: List[CompanionWorkEvent]) -> str:
-    out = [f"[{short(item)}] {item.title}" + (f" ({item.kind})" if item.kind else "") + f" — {item.status}, version {item.version}",
-           "", item.text or "(no text yet)", "", "History (yours, oldest first):"]
+    out = [f"[{short(item)}] {item.title} — {'still open' if item.status == 'open' else item.status}",
+           "", item.text or "(no text yet)", "", "What you did with it, oldest first:"]
     for e in events:
         ev = _evidence_list(json.loads(e.evidence_json or "[]"))
-        out.append(f"- v{e.version} {e.action} ({e.surface or '?'}, {e.created_at:%Y-%m-%d %H:%M}Z)"
+        out.append(f"- {e.created_at:%Y-%m-%d %H:%M}Z {e.action} ({'in conversation' if e.surface == 'foreground' else 'on your own'})"
                    + (f" note: {e.note}" if e.note else "") + (f" [rests on {len(ev)} cited source(s)]" if ev else ""))
     return "\n".join(out)
 
@@ -216,7 +217,7 @@ async def run_tool(db: AsyncSession, scope: Scope, *, surface: str, tool: str, a
             now = utc_now()
             return {"ok": True, "text": "\n".join(line(i, now, 220) for i in items) or "Nothing open in your working space."}
         if tool == "work_write":
-            op = str(args.get("op") or args.get("action") or "").strip()
+            op = str(args.get("do") or args.get("op") or args.get("action") or "").strip().lower()
             res = await act(db, scope, surface=surface, action=op, item_id=str(args.get("id") or ""),
                             title=str(args.get("title") or ""), text=str(args.get("text") or ""), kind=str(args.get("kind") or ""),
                             note=str(args.get("note") or ""), evidence=evidence if evidence is not None else args.get("evidence"),

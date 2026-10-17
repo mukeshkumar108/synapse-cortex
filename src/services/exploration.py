@@ -48,8 +48,8 @@ Actions:
 - web_search: {"query": "..."} — search Wikipedia/the web for background.
 - web_read: {"url": "...", "summarize": true|false} — read a page (summarize only if long).
 - note: {"text": "..."} — keep a thought, fragment, quote or idea of your own into this sitting's record.
-- work_read: {"id": "optional item id"} — read your own working space (no id: what is open; with an id: the full text and history).
-- work_write: {"op": "create|revise|continue|complete|abandon", "id": "item id (not for create)", "title": "...", "text": "what you are writing, in your own words", "kind": "your own label, optional", "note": "why, optional", "cites": ["refs like a3 or s2 shown in square brackets above, for results this writing rests on"]} — your working space is private to you and lasts across sittings; items in it are things you chose to keep, never obligations.
+- work_read: {"id": "optional page id"} — look at your own notebook (no id: what is open; with an id: the whole page).
+- work_write: {"do": "new|add|rewrite|finish|discard", "id": "page id (not for new)", "title": "...", "text": "what you are writing, in your own words", "cites": ["optional refs like a3 or s2 shown in square brackets above, for results this writing rests on"]} — your notebook is private to you and lasts across sittings; what is in it is what you chose to keep, never an obligation.
 - done: {"reason": "..."} — end the sitting. Always acceptable, including immediately.
 Possibilities, not steps: pick up something you wrote earlier, revise it or let it go, continue a previous inquiry, begin something unrelated, follow an unexpected connection, create something, revisit an old idea, or stop. Do not manufacture activity to fill time."""
 
@@ -254,8 +254,8 @@ async def run_independent_sitting(db: AsyncSession, *, workspace_id: str, owner:
     async def build_context() -> str:
         """Her open items are re-read every iteration: what she wrote a moment ago must be in front of her when she decides what to do next."""
         wctx = await companion_work.context_block(db, scope, "independent", limit=12, excerpt=900) if work_level != "off" else ""
-        head = ("--- your working space: things you wrote for yourself (yours alone; possibilities, never obligations — "
-                "pick one up, revise it, finish it, let it go, or ignore them all) ---\n" + wctx + "\n\n") if wctx else ""
+        head = ("--- your notebook: things you wrote for yourself (yours alone; possibilities, never obligations — "
+                "pick one up, rewrite it, finish it, let it go, or ignore them all) ---\n" + wctx + "\n\n") if wctx else ""
         return head + tail_context
     context = await build_context()
     work_ctx = context.split("--- what you have been exploring ---", 1)[0]
