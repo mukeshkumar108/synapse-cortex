@@ -146,3 +146,17 @@ Review added nothing on top (consolidation had handled every update — reported
 honestly, not as a win). Preparation answered "what's on the plate" directly
 from the ledger. Cost: 140 calls, 93k/28k tokens, ~56 s/session wall, $0
 metered (≈ low single cents at cheap paid rates — estimate, not a quote).
+
+## Fidelity fix + foreground proof (2026-10-17, deployed)
+
+- Temporary changes now record their end condition as part of the fact
+  ("afternoon walks for two weeks, back to mornings when school resumes").
+  Proven: pool-maintenance row carries "resumes next Monday" in timing and
+  detail, and preparation holds both ends ("The pool reopens, and he needs
+  to bring his swim bag… hinge for getting his routine back to normal").
+- A real Sophie foreground turn (evaluation mode, no side effects) asked
+  "what is on my mind tonight" against the demo ledger and answered from it:
+  Meridian invoice nine days overdue with tomorrow's call, the presentation
+  relief, the background marathon thread — `sophie_prepared_perspective: True`
+  in turn metadata. Situational understanding now serves live conversation,
+  not just inspection.
