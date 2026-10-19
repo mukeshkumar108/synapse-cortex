@@ -255,6 +255,52 @@ def _slug(text: str) -> str:
     return slug or "item"
 
 
+MATCH_PROMPT = """Two lists follow: NEW observations from this session, and OPEN situations already tracked (stable keys in brackets).
+
+For each NEW item, judge: is it the same circumstance as an open one (different words, an update, a new detail, a changed date, a suppression lifted or imposed), or genuinely new?
+
+Reply with one line per NEW item, in order:
+SAME: <new title> = <existing key>     (same circumstance — updates merge into it)
+NEW: <new title>                        (genuinely new — nothing open matches)
+
+Rules: same people + same matter = same, even when the words differ. A changed due date is the SAME situation updated, never a new one. A suppression ("ignore X") matching an open item refers to it — do not duplicate. When unsure, prefer SAME with the closest key over creating a near-duplicate; the merge only adds evidence and details, it never overwrites judgement. If there are no open situations, reply with nothing.
+
+NEW:
+{new_items}
+
+OPEN:
+{open_items}"""
+
+
+async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerItem]) -> Dict[str, str]:
+    """Model judgment: map each new title to an existing situation key or leave
+    unmatched. Returns {new_title: existing_key}. Malformed lines abstain
+    (item stays new) — a missed merge duplicates once, a wrong merge corrupts."""
+    mapping: Dict[str, str] = {}
+    if not new_items or not known:
+        return mapping
+    keys = {str(i.situation_key) for i in known if i.situation_key}
+    new_lines = "\n".join(f"- {str(e.get('title') or '')[:200]} | {str(e.get('detail') or '')[:300]}" for e in new_items)
+    open_lines = "\n".join(
+        f"- [{i.situation_key or '(no key)'}] {i.title[:200]} | {(i.detail or '')[:300]}" for i in known)
+    out = await _generate("match", MATCH_PROMPT.replace("{new_items}", new_lines).replace("{open_items}", open_lines),
+                          600, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
+    text = str((out or {}).get("text") or "")
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        m = re.match(r"^SAME\s*:\s*(.+?)\s*=\s*([A-Za-z0-9][A-Za-z0-9\-_]*)\s*$", line, re.IGNORECASE)
+        if m and m.group(2) in keys:
+            mapping[m.group(1).strip()[:200]] = m.group(2)
+    # fall back to prefix matching on titles (model may shorten them)
+    resolved: Dict[str, str] = {}
+    titles = {str(e.get("title") or ""): e for e in new_items}
+    for k, key in mapping.items():
+        hit = next((t for t in titles if t == k or t.startswith(k[:40]) or k[:40] in t), None)
+        if hit is not None:
+            resolved[hit] = key
+    return resolved
+
+
 def resolve_date(text: str, today_utc: str) -> Optional[datetime]:
     """Deterministic relative-date resolution against an injected today. Only
     unambiguous cases resolve; everything else stays None (timing_text keeps
@@ -287,10 +333,11 @@ def resolve_date(text: str, today_utc: str) -> Optional[datetime]:
     return None
 
 
-def shape_situations(items: List[Dict[str, Any]], today_utc: str,
+async def shape_situations(items: List[Dict[str, Any]], today_utc: str,
                      known: List[LedgerItem]) -> Dict[str, List[Dict[str, Any]]]:
-    """Deterministic structuring: stable keys, date resolution, dedupe against
-    known rows by key or normalized title. Returns {new, update, close}."""
+    """Deterministic structuring + model-judged matching: stable keys, date
+    resolution, dedupe against known rows by key, title, or judged sameness.
+    Returns {new, update, close}."""
     def norm(t: str) -> str:
         return re.sub(r"[^a-z0-9]", "", str(t or "").lower())
 
@@ -354,6 +401,22 @@ def shape_situations(items: List[Dict[str, Any]], today_utc: str,
         for e in statements[group]:
             d = resolve_date(e.get("timing_text"), today_utc)
             e["expected_date"] = d.strftime("%Y-%m-%d") if d else None
+    # judged matching: same circumstance in different words merges, never duplicates
+    matched = await match_situations(
+        [{"title": e["title"], "detail": e.get("detail", "")} for e in statements["new"]], known)
+    if matched:
+        still_new = []
+        for e in statements["new"]:
+            if e["title"] in matched:
+                statements["update"].append({
+                    "key": matched[e["title"]], "detail": e.get("detail", ""),
+                    "timing_text": e.get("timing_text", ""), "waiting_on": e.get("waiting_on", ""),
+                    "question_text": e.get("question_text", ""), "confidence": e.get("confidence", "reported"),
+                    "evidence": e.get("evidence", []),
+                    **({"reminder_authorised": True} if e.get("reminder_authorised") else {})})
+            else:
+                still_new.append(e)
+        statements["new"] = still_new
     return statements
 
 
@@ -675,7 +738,7 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
     witness, unparsed = parse_tagged_lines(raw_extract)
     bundle["ledger_witness_items"] = witness
     bundle["ledger_unparsed"] = unparsed
-    statements = shape_situations(witness, today_utc, ledger)
+    statements = await shape_situations(witness, today_utc, ledger)
     # legacy JSON fallback: if the model emitted structured output instead
     if not statements["new"] and not statements["update"] and not statements["close"]:
         statements = _parse_situations(raw_extract)

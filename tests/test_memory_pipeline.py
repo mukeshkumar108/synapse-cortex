@@ -209,7 +209,8 @@ async def test_review_endpoint(async_client):
     assert r.json()["open_count"] == 0
 
 
-def test_tagged_lines_parse_and_shape():
+@pytest.mark.asyncio
+async def test_tagged_lines_parse_and_shape():
     raw = ("ITEM: Send the proposal to Sarah\nKIND: commitment\nDETAIL: 20 pages, needs Ana numbers\n"
            "TIMING: by Thursday\nPERSON: Ana (holds the numbers)\nWAITING-ON: Ana's numbers\n"
            "EVIDENCE: \"send the proposal by Thursday\"\nCONFIDENCE: observed\n"
@@ -221,7 +222,7 @@ def test_tagged_lines_parse_and_shape():
     # untagged lines are preserved visibly as continuations, never dropped
     assert unparsed == [] and "stray line" in items[2].get("detail", "")
     assert items[0]["waiting_on"] == "Ana's numbers"
-    st = memory_pipeline.shape_situations(items, "2026-10-19", [])
+    st = await memory_pipeline.shape_situations(items, "2026-10-19", [])
     assert len(st["new"]) == 3
     assert st["new"][0]["expected_date"] == "2026-10-22"  # Thursday from Mon Oct 19, deterministic
     assert st["new"][1]["kind"] == "aspiration" and st["new"][1]["expected_date"] is None
@@ -260,3 +261,37 @@ async def test_reminder_authorised_flagged():
         rows = (await db.execute(select(memory_pipeline.LedgerItem))).scalars().all()
         import json as _json
         assert _json.loads(rows[0].authorised_json) == {"reminder": True, "at": "s1"}
+
+
+@pytest.mark.asyncio
+async def test_match_merges_same_circumstance_different_words():
+    from src.db import async_session_maker
+
+    async def memfn(kind, prompt, max_tokens, models):
+        if kind == "match":
+            return {"text": "SAME: Vinesh contract review = review-contract-amendments-for-vinesh\nNEW: Dentist appointment",
+                    "model": "f", "provider": "f", "usage": {}, "ms": 1}
+        raise AssertionError(kind)
+
+    memory_pipeline.set_model_fn(memfn)
+    try:
+        async with async_session_maker() as db:
+            await memory_pipeline.apply_situations(
+                db, workspace_id="ws1", owner="u1", run_id=None, session_id="s1",
+                statements={"new": [{"key": "review-contract-amendments-for-vinesh",
+                                     "title": "Review contract amendments for Vinesh",
+                                     "kind": "commitment", "evidence": ["v1"]}], "update": [], "close": []})
+            await db.commit()
+            known = await memory_pipeline.open_ledger(db, "ws1", "u1")
+            items, _ = memory_pipeline.parse_tagged_lines(
+                "ITEM: Vinesh contract review\nDETAIL: Ana sent the numbers, folding them in tonight\n"
+                "EVIDENCE: \"ana sent it\"\nITEM: Dentist appointment\nTIMING: Thursday 2pm\n")
+            st = await memory_pipeline.shape_situations(items, "2026-10-19", known)
+            assert [e["key"] for e in st["update"]] == ["review-contract-amendments-for-vinesh"]
+            assert [e["title"] for e in st["new"]] == ["Dentist appointment"]
+            counts = await memory_pipeline.apply_situations(
+                db, workspace_id="ws1", owner="u1", run_id=None, session_id="s2",
+                statements=st, known=known)
+            assert counts == {"added": 1, "updated": 1, "closed": 0}
+    finally:
+        memory_pipeline.set_model_fn(None)
