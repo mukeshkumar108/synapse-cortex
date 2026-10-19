@@ -336,9 +336,17 @@ def resolve_date(text: str, today_utc: str) -> Optional[datetime]:
         return _dt.combine(today, _dt.min.time())
     days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     for i, name in enumerate(days):
-        if re.match(rf"^((on|by|before|until|til|till)\s+)?{name}\b", s):
+        if re.match(rf"^((on|by|before|until|till|until|on|at|around|about|from|after|due|deadline)\s+)?{name}\b", s):
             delta = (i - today.weekday()) % 7
             return _dt.combine(today + _td(days=delta), _dt.min.time())
+    months = {"january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
+              "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12}
+    m = re.match(r"^([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\b", s)
+    if m and m.group(1) in months:
+        try:
+            return _dt(today.year, months[m.group(1)], int(m.group(2)))
+        except ValueError:
+            return None
     return None
 
 

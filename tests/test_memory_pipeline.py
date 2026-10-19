@@ -377,3 +377,10 @@ def test_preparation_prompt_bans_coaching_and_divides_labor():
     assert "I will keep this thread warm" in mp.PREPARATION_PROMPT
     assert "Dated obligations" in mp.PREPARATION_PROMPT
     assert "Observations and curiosity only" in mp.PREPARATION_PROMPT
+
+
+def test_resolve_month_names():
+    r = memory_pipeline.resolve_date
+    assert r("Due by October 24th", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-24"
+    assert r("october 24", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-24"
+    assert r("not a date at all", "2026-10-19") is None
