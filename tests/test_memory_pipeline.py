@@ -269,7 +269,7 @@ async def test_match_merges_same_circumstance_different_words():
 
     async def memfn(kind, prompt, max_tokens, models):
         if kind == "match":
-            return {"text": "SAME: Vinesh contract review = review-contract-amendments-for-vinesh\nNEW: Dentist appointment",
+            return {"text": "SAME: Vinesh contract review = [review-contract-amendments-for-vinesh]\nNEW: Dentist appointment",
                     "model": "f", "provider": "f", "usage": {}, "ms": 1}
         raise AssertionError(kind)
 

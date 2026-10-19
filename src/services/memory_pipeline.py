@@ -261,7 +261,7 @@ MATCH_PROMPT = """Two lists follow: NEW observations from this session, and OPEN
 For each NEW item, judge: is it the same circumstance as an open one (different words, an update, a new detail, a changed date, a suppression lifted or imposed), or genuinely new?
 
 Reply with one line per NEW item, in order:
-SAME: <new title> = <existing key>     (same circumstance — updates merge into it)
+SAME: <new title> = <existing key>     (same circumstance — updates merge into it; write the key exactly as shown, no brackets or quotes)
 NEW: <new title>                        (genuinely new — nothing open matches)
 
 Rules: same people + same matter = same, even when the words differ. A changed due date is the SAME situation updated, never a new one. A suppression ("ignore X") matching an open item refers to it — do not duplicate. When unsure, prefer SAME with the closest key over creating a near-duplicate; the merge only adds evidence and details, it never overwrites judgement. If there are no open situations, reply with nothing.
@@ -291,9 +291,9 @@ async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerIt
     mapping: Dict[str, str] = {}
     for raw_line in text.splitlines():
         line = raw_line.strip()
-        m = re.match(r"^SAME\s*:\s*(.+?)\s*=\s*([A-Za-z0-9][A-Za-z0-9\-_]*)\s*$", line, re.IGNORECASE)
+        m = re.match(r"^SAME\s*:\s*(.+?)\s*=\s*[\[\"'“]*([A-Za-z0-9][A-Za-z0-9\-_]*)[\]\"'”]*\s*$", line, re.IGNORECASE)
         if m and m.group(2) in keys:
-            mapping[m.group(1).strip()[:200]] = m.group(2)
+            mapping[m.group(1).strip().strip("\"'“”").strip()[:200]] = m.group(2)
     # fall back to prefix matching on titles (model may shorten them)
     resolved: Dict[str, str] = {}
     titles = {str(e.get("title") or ""): e for e in new_items}
