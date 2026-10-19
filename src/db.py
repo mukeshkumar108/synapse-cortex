@@ -84,6 +84,7 @@ _ADDITIVE_COLUMNS = (
     ("ledger_items", "waiting_on", "TEXT DEFAULT ''"),
     ("ledger_items", "question_text", "TEXT DEFAULT ''"),
     ("ledger_items", "linked_keys_json", "TEXT DEFAULT '[]'"),
+    ("ledger_items", "authorised_json", "TEXT DEFAULT '{}'"),
 )
 
 

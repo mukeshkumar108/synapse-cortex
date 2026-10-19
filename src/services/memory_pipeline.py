@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 from uuid import UUID
@@ -87,27 +88,44 @@ Resolution: preserve what remains relevant. When an ordinary disagreement has be
 
 Return ONLY the revised account as short plain prose, no commentary. If there was no previous account, write one from the handoff alone."""
 
-SITUATIONS_PROMPT = """Maintain an understanding of this person's unfolding circumstances from the findings below. You are updating situations, not filing tasks.
+SITUATIONS_PROMPT = """Read this conversation transcript and note what is unfolding in this person's life. You are a witness, not a clerk: notice things, don't file them. A separate deterministic step structures what you notice, so NEVER worry about JSON, formatting, keys or exactness — plain tagged lines only, one observation per line.
 
-Currently open situations (with stable keys):
+Today is {today_utc} (UTC). Use it to understand relative dates ("tomorrow", "Friday"), but always quote the person's own words for timing too.
+
+Currently open situations (stable keys in brackets, for reference only):
 {open_items}
 
-From the findings, return ONLY a JSON object: {"new": [...], "update": [...], "close": [...]}.
-- new: {key (short stable slug, e.g. thursday-presentation), title, kind (open vocabulary: commitment/event/thread/situation/reminder/aspiration/invitation/...), confidence (observed/reported/inferred), detail (circumstance, terms, what's known AND unknown), timing_text (provisional timing in own words, "someday" allowed), expected_date (YYYY-MM-DD only if an exact date was stated, else null), waiting_on (who/what is awaited, else ""), question_text (unresolved question or missing info, else ""), linked_keys (keys of related open situations), evidence (short quotes or session refs it rests on)}
-- Temporary changes to routines or circumstances count as situations: record what changed, how long it lasts, AND the exact condition that ends it (e.g. "afternoon walks for two weeks, back to mornings when school resumes"). The end condition is part of the fact — never carry the change forward without it.
-- update: {key (must match an open key), plus only the fields that changed, plus new evidence appended}
-- close: {key, status (done/cancelled/answered), evidence (the quote or fact proving it — required)}
+--- transcript ---
+{transcript}
+
+--- earlier findings (a guide, not the authority — the transcript above rules; catch what it missed) ---
+{findings}
+
+Write tagged lines, one per line. Tags (use only these):
+- ITEM: short human title of a circumstance worth tracking (commitment, plan, wait, invitation, aspiration, concern, routine change, question, anything with a life cycle)
+- KIND: one of commitment/event/thread/situation/reminder/aspiration/invitation/concern/routine (best fit, never forced)
+- DETAIL: circumstance, terms, what is known AND unknown
+- TIMING: timing in the person's own words ("Thursday", "for two weeks", "someday")
+- PERSON: someone connected (who + how: owes, waits on, invited by, promised to)
+- BLOCKED-BY: what stands in the way, if anything
+- WAITING-ON: who/what is awaited, if anything
+- QUESTION: unresolved question or missing info, if any
+- MATTERS-BECAUSE: why this deserves attention, in one line
+- EVIDENCE: short quote from the transcript
+- CONFIDENCE: observed (they said it happened) / reported (they relayed it) / inferred (your read — mark honestly)
+- RESOLVED: what ended, and the quote proving it (only if the transcript shows it ended)
+- STATUS-HINT: waiting / watching / suppressed (explicit stand-down like "ignore X tonight") — only if stated or obvious; else leave out
 
 Rules, no exceptions:
-- An aspiration is not a task and never closes by silence; record it (kind aspiration) or leave it alone.
+- An aspiration is not a task and never closes by silence.
 - An invitation is not an accepted commitment; a provisional invitation stays provisional.
-- Inferred is not observed: mark confidence honestly. A hypothesis is not a fact.
-- An unresolved question isn't a task; put it in question_text, don't invent an obligation.
-- Never invent dates, owners, or obligations. expected_date only for exact stated dates.
-- Close only on evidence in these findings. Time passing proves nothing.
-- A reminder the person asked for is an attention mechanism: keep the underlying situation, note the reminder in detail.
-- Match to open keys wherever the finding concerns an already-known situation instead of creating a duplicate.
-- Return {} lists empty when there is nothing: {"new": [], "update": [], "close": []}."""
+- Inferred is not observed. A hypothesis is not a fact.
+- An unresolved question isn't a task.
+- Close only on evidence: tag RESOLVED only when the transcript shows the matter ended, with the proving quote.
+- A temporary change to routines counts: record what changed, how long it lasts, AND the exact condition that ends it.
+- "Remind me …" is an explicit authorised request: tag it REMINDER-AUTHORISED plus the ITEM, so a later scheduler can act on it. Inference never authorises.
+- Never invent dates, owners, or obligations. Time passing proves nothing.
+- A short "nothing new" reply is fine: if the transcript adds nothing circumstantial, say NONE."""
 
 PREPARATION_PROMPT = """You are forming a brief private perspective for Sophie, a companion who genuinely cares about this person, ahead of their next conversation. Inputs: the living notebook, the operational ledger, the continuing arc of recent conversations, and the current date/time.
 
@@ -154,6 +172,9 @@ def _fingerprint(*parts: str) -> str:
 
 
 def _parse_situations(raw: str) -> Dict[str, List[Dict[str, Any]]]:
+    """Legacy JSON fallback: parse {new, update, close} when the model emits
+    structured output (kept for compatibility; the tagged-lines path below is
+    primary)."""
     out = {"new": [], "update": [], "close": []}
     try:
         if "[" not in raw and "{" not in raw:
@@ -169,6 +190,160 @@ def _parse_situations(raw: str) -> Dict[str, List[Dict[str, Any]]]:
     except Exception as exc:
         logger.warning("[memory] situations parse failed open: %s", exc)
     return out
+
+
+_SIT_TAGS = ("ITEM", "KIND", "DETAIL", "TIMING", "PERSON", "BLOCKED-BY", "WAITING-ON",
+             "QUESTION", "MATTERS-BECAUSE", "EVIDENCE", "CONFIDENCE", "RESOLVED",
+             "STATUS-HINT", "REMINDER-AUTHORISED")
+
+
+def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """Parse witness observations into item dicts. Malformed lines are returned
+    visibly as unparsed — never silently dropped, never trusted structurally."""
+    items: List[Dict[str, Any]] = []
+    unparsed: List[str] = []
+    current: Optional[Dict[str, Any]] = None
+
+    def flush() -> None:
+        if current and str(current.get("title") or "").strip():
+            items.append(current)
+
+    for raw_line in (raw or "").splitlines():
+        line = raw_line.strip()
+        if not line or line.upper() == "NONE":
+            continue
+        m = re.match(r"^([A-Za-z-]+)\s*:\s*(.*)$", line)
+        if not m or m.group(1).upper() not in _SIT_TAGS:
+            if current is not None and line and not line.startswith(("#", "##")):
+                current["detail"] = ((current.get("detail") or "") + " " + line).strip()  # continuation
+            else:
+                unparsed.append(line)
+            continue
+        tag, value = m.group(1).upper(), m.group(2).strip()
+        if tag == "ITEM":
+            flush()
+            current = {"title": value, "people": [], "evidence": []}
+        elif current is None:
+            unparsed.append(line)
+        elif tag in ("PERSON", "EVIDENCE"):
+            current.setdefault("people" if tag == "PERSON" else "evidence", []).append(value)
+        elif tag == "REMINDER-AUTHORISED":
+            current["reminder_authorised"] = True
+            if value:
+                current["detail"] = ((current.get("detail") or "") + " " + value).strip()
+        elif tag == "RESOLVED":
+            current["resolved"] = value
+        else:
+            key = {"KIND": "kind", "DETAIL": "detail", "TIMING": "timing", "BLOCKED-BY": "blocked_by",
+                   "WAITING-ON": "waiting_on", "QUESTION": "question", "MATTERS-BECAUSE": "matters",
+                   "CONFIDENCE": "confidence", "STATUS-HINT": "status_hint"}[tag]
+            current[key] = value
+    flush()
+    return items, unparsed
+
+
+def _slug(text: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", str(text or "").lower()).strip("-")[:80]
+    return slug or "item"
+
+
+def resolve_date(text: str, today_utc: str) -> Optional[datetime]:
+    """Deterministic relative-date resolution against an injected today. Only
+    unambiguous cases resolve; everything else stays None (timing_text keeps
+    the person's own words regardless)."""
+    from datetime import datetime as _dt, timedelta as _td
+    try:
+        today = _dt.strptime(str(today_utc or "")[:10], "%Y-%m-%d").date()
+    except Exception:
+        return None
+    s = str(text or "").strip().lower()
+    if not s:
+        return None
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s[:10])
+    if m:
+        try:
+            return _dt(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return None
+    if s.startswith("tomorrow"):
+        return _dt.combine(today + _td(days=1), _dt.min.time())
+    if s.startswith("tonight") or s.startswith("today"):
+        return _dt.combine(today, _dt.min.time())
+    days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    for i, name in enumerate(days):
+        if re.match(rf"^((on|by|before|until|til|till)\s+)?{name}\b", s):
+            delta = (i - today.weekday()) % 7
+            return _dt.combine(today + _td(days=delta), _dt.min.time())
+    return None
+
+
+def shape_situations(items: List[Dict[str, Any]], today_utc: str,
+                     known: List[LedgerItem]) -> Dict[str, List[Dict[str, Any]]]:
+    """Deterministic structuring: stable keys, date resolution, dedupe against
+    known rows by key or normalized title. Returns {new, update, close}."""
+    def norm(t: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", str(t or "").lower())
+
+    by_key = {str(i.situation_key): i for i in known if i.situation_key}
+    by_title = {norm(i.title): i for i in known}
+    statements: Dict[str, List[Dict[str, Any]]] = {"new": [], "update": [], "close": []}
+    seen: set = set()
+    for it in items:
+        title = str(it.get("title") or "").strip()
+        if not title or norm(title) in seen:
+            continue
+        seen.add(norm(title))
+        key = _slug(title)
+        target = by_key.get(key) or by_title.get(norm(title))
+        detail = str(it.get("detail") or "").strip()
+        people = [str(p) for p in (it.get("people") or []) if str(p).strip()]
+        if people:
+            detail = (detail + " People: " + "; ".join(people[:5])).strip()
+        if it.get("matters"):
+            detail = (detail + " Why it matters: " + str(it["matters"]).strip()).strip()
+        if it.get("blocked_by"):
+            detail = (detail + " Blocked by: " + str(it["blocked_by"]).strip()).strip()
+        ev = [str(e) for e in (it.get("evidence") or []) if str(e).strip()]
+        kind = str(it.get("kind") or "situation").strip().lower()[:40] or "situation"
+        conf = str(it.get("confidence") or "reported").strip().lower()
+        if conf not in ("observed", "reported", "inferred"):
+            conf = "reported"
+        timing = str(it.get("timing") or "").strip()
+        entry: Dict[str, Any] = {
+            "key": key if target is None else str(target.situation_key or key),
+            "title": title, "kind": kind, "confidence": conf, "detail": detail,
+            "timing_text": timing, "expected_date": None,
+            "waiting_on": str(it.get("waiting_on") or "").strip(),
+            "question_text": str(it.get("question") or "").strip(),
+            "linked_keys": [], "evidence": ev,
+            "reminder_authorised": bool(it.get("reminder_authorised")),
+        }
+        resolved = str(it.get("resolved") or "").strip()
+        hint = str(it.get("status_hint") or "").strip().lower()
+        if target is None:
+            if resolved:
+                entry["status"] = "done"
+            statements["new"].append(entry)
+        else:
+            if resolved:
+                statements["close"].append({"key": entry["key"], "status": "done", "evidence": resolved})
+            else:
+                upd = {"key": entry["key"], "detail": detail or target.detail,
+                       "timing_text": timing or target.timing_text,
+                       "waiting_on": entry["waiting_on"] or target.waiting_on,
+                       "question_text": entry["question_text"] or target.question_text,
+                       "confidence": conf, "evidence": ev}
+                if hint in ("open", "waiting", "watching", "suppressed"):
+                    upd["status"] = hint
+                if it.get("reminder_authorised"):
+                    upd["reminder_authorised"] = True
+                statements["update"].append(upd)
+    # resolve expected dates deterministically (never from model prose)
+    for group in ("new",):
+        for e in statements[group]:
+            d = resolve_date(e.get("timing_text"), today_utc)
+            e["expected_date"] = d.strftime("%Y-%m-%d") if d else None
+    return statements
 
 
 def _parse_date(value: Any) -> Optional[datetime]:
@@ -208,6 +383,7 @@ async def apply_situations(db: AsyncSession, *, workspace_id: str, owner: str, r
             timing_text=str(e.get("timing_text") or "")[:300], expected_date=_parse_date(e.get("expected_date")),
             waiting_on=str(e.get("waiting_on") or "")[:300], question_text=str(e.get("question_text") or "")[:500],
             linked_keys_json=json.dumps([k for k in (e.get("linked_keys") or []) if isinstance(k, str)])[:1000],
+            authorised_json=json.dumps({"reminder": True, "at": session_id} if e.get("reminder_authorised") else {}),
             run_id=run_id))
         counts["added"] += 1
         if key:
@@ -231,8 +407,11 @@ async def apply_situations(db: AsyncSession, *, workspace_id: str, owner: str, r
         if e.get("confidence") in ("observed", "reported", "inferred"):
             item.confidence = str(e["confidence"])
             changed = True
-        if e.get("status") in ("open", "waiting", "watching"):
+        if e.get("status") in ("open", "waiting", "watching", "suppressed"):
             item.status = str(e["status"])
+            changed = True
+        if e.get("reminder_authorised"):
+            item.authorised_json = json.dumps({"reminder": True, "at": session_id})
             changed = True
         for lk in (e.get("linked_keys") or []):
             if not isinstance(lk, str):
@@ -474,11 +653,21 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
         f"{(' | waiting on: ' + i.waiting_on) if i.waiting_on else ''}"
         f"{(' | open question: ' + i.question_text) if i.question_text else ''}"
         for i in ledger) or "(none open)"
-    extract = await _generate("ledger", SITUATIONS_PROMPT.replace("{open_items}", open_lines) +
-                              f"\n\n--- findings ---\n{findings or handoff_text}",
-                              1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
+    today_utc = (str(now_iso or "")[:10] if re.match(r"^\d{4}-\d{2}-\d{2}", str(now_iso or ""))
+                 else datetime.now(timezone.utc).date().isoformat())
+    extract = await _generate("ledger", SITUATIONS_PROMPT.replace("{open_items}", open_lines).replace(
+        "{today_utc}", today_utc).replace("{transcript}", transcript).replace(
+        "{findings}", findings or handoff_text),
+        1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
     bundle["ledger_extract"] = extract or {"skipped": True}
-    statements = _parse_situations(str((extract or {}).get("text") or ""))
+    raw_extract = str((extract or {}).get("text") or "")
+    witness, unparsed = parse_tagged_lines(raw_extract)
+    bundle["ledger_witness_items"] = witness
+    bundle["ledger_unparsed"] = unparsed
+    statements = shape_situations(witness, today_utc, ledger)
+    # legacy JSON fallback: if the model emitted structured output instead
+    if not statements["new"] and not statements["update"] and not statements["close"]:
+        statements = _parse_situations(raw_extract)
     counts = await apply_situations(db, workspace_id=workspace_id, owner=owner, run_id=run.id,
                                     session_id=session_id, statements=statements, known=ledger)
     bundle["ledger_added"] = counts["added"]

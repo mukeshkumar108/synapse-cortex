@@ -5,6 +5,8 @@ import json
 
 import pytest
 
+from sqlmodel import select
+
 from src.services import memory_pipeline
 from src.services.memory_pipeline import LISTENING_PROMPT, HANDOFF_PROMPT
 
@@ -205,3 +207,47 @@ async def test_review_endpoint(async_client):
     r = await async_client.post("/v1/memory/review", json={"workspace_id": "ws1", "owner": "nobody"})
     assert r.status_code == 200, r.text
     assert r.json()["open_count"] == 0
+
+
+def test_tagged_lines_parse_and_shape():
+    raw = ("ITEM: Send the proposal to Sarah\nKIND: commitment\nDETAIL: 20 pages, needs Ana numbers\n"
+           "TIMING: by Thursday\nPERSON: Ana (holds the numbers)\nWAITING-ON: Ana's numbers\n"
+           "EVIDENCE: \"send the proposal by Thursday\"\nCONFIDENCE: observed\n"
+           "ITEM: Morning run\nKIND: aspiration\nTIMING: someday\n"
+           "ITEM: Ignore Pete tonight\nSTATUS-HINT: suppressed\nEVIDENCE: \"ignore it for now\"\n"
+           "some stray line without a tag\n")
+    items, unparsed = memory_pipeline.parse_tagged_lines(raw)
+    assert len(items) == 3
+    # untagged lines are preserved visibly as continuations, never dropped
+    assert unparsed == [] and "stray line" in items[2].get("detail", "")
+    assert items[0]["waiting_on"] == "Ana's numbers"
+    st = memory_pipeline.shape_situations(items, "2026-10-19", [])
+    assert len(st["new"]) == 3
+    assert st["new"][0]["expected_date"] == "2026-10-22"  # Thursday from Mon Oct 19, deterministic
+    assert st["new"][1]["kind"] == "aspiration" and st["new"][1]["expected_date"] is None
+
+
+def test_resolve_date_conservative():
+    r = memory_pipeline.resolve_date
+    assert r("tomorrow", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-20"
+    assert r("Friday", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-23"
+    assert r("2026-10-24", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-24"
+    assert r("someday", "2026-10-19") is None
+    assert r("next week", "2026-10-19") is None
+    assert r("", "2026-10-19") is None
+
+
+@pytest.mark.asyncio
+async def test_reminder_authorised_flagged():
+    from src.db import async_session_maker
+    async with async_session_maker() as db:
+        c = await memory_pipeline.apply_situations(
+            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s1",
+            statements={"new": [{"key": "call-mum", "title": "Call mum", "kind": "reminder",
+                                 "reminder_authorised": True, "evidence": ["remind me"]}],
+                        "update": [], "close": []})
+        assert c["added"] == 1
+        await db.commit()
+        rows = (await db.execute(select(memory_pipeline.LedgerItem))).scalars().all()
+        import json as _json
+        assert _json.loads(rows[0].authorised_json) == {"reminder": True, "at": "s1"}

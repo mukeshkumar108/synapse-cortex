@@ -251,7 +251,7 @@ class LedgerItem(SQLModel, table=True):
     kind: str = Field(index=True, nullable=False)                  # commitment | event | thread | situation | reminder | aspiration | invitation ... (open vocabulary, never compulsory)
     title: str = Field(nullable=False)                             # plain human line
     detail: str = Field(default="")                                # circumstance, terms, what's known/unknown
-    status: str = Field(index=True, nullable=False, default="open")  # open | waiting | watching | done | cancelled | answered
+    status: str = Field(index=True, nullable=False, default="open")  # open | waiting | watching | suppressed | done | cancelled | answered
     window_start: Optional[datetime] = Field(default=None)
     window_end: Optional[datetime] = Field(default=None)
     evidence_refs_json: str = Field(default="[]")
@@ -268,6 +268,7 @@ class LedgerItem(SQLModel, table=True):
     waiting_on: str = Field(default="")                            # who/what is awaited, if anything
     question_text: str = Field(default="")                         # unresolved question / missing info / clarification candidate
     linked_keys_json: str = Field(default="[]")                    # situation_keys this connects to
+    authorised_json: str = Field(default="{}")                     # explicit user authorisations, e.g. {"reminder": true, "at": ...}; inference never writes here
 
 
 class SittingPreparation(SQLModel, table=True):
