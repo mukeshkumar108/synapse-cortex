@@ -805,12 +805,24 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
                              f"{str(it.get('detail') or '')[:400]}"
                              f"{' | timing: ' + it['timing'] if it.get('timing') else ''}"
                              f"{' | RESOLVED: ' + it['resolved'][:300] if it.get('resolved') else ''}")
+        before = {(str(i.situation_key), i.status, str(i.updated_at))
+                  for i in await open_ledger(db, workspace_id, owner, limit=200)}
         agent_out = await maintenance_agent.run_maintenance(
             db, workspace_id=workspace_id, owner=owner, session_id=session_id,
             observations="\n".join(obs_lines), today_utc=today_utc,
             transcript=transcript)
+        after = {(str(i.situation_key), i.status, str(i.updated_at))
+                 for i in await open_ledger(db, workspace_id, owner, limit=200)}
+        agent_out["ledger_moved"] = before != after
     bundle["ledger_agent"] = {k: v for k, v in agent_out.items() if k != "calls"}
     bundle["ledger_agent_calls"] = agent_out.get("calls", [])
+    if agent_out.get("status") == "verified":
+        agent_changes = agent_out.get("changes") or {}
+        if (witness and not any(agent_changes.get(k, 0) for k in ("created", "updated", "closed"))
+                and not agent_out.get("ledger_moved")):
+            # Claimed success with no observable effect: do not trust it.
+            agent_out["status"] = "unverified_claims"
+            bundle["ledger_agent"]["status"] = "unverified_claims"
     if agent_out.get("status") == "verified":
         agent_changes = agent_out.get("changes") or {}
         counts = {"added": int(agent_changes.get("created", 0)),
