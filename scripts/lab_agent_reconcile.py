@@ -127,9 +127,15 @@ async def run_tools(db, name, args):
 
 
 def chat(messages):
-    body = {"model": MODEL, "messages": messages, "tools": TOOLS, "tool_choice": "auto", "max_tokens": 1200}
-    req = urllib.request.Request("https://nano-gpt.com/api/v1/chat/completions", data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json", "Authorization": "Bearer " + NANO_KEY})
+    model = MODEL
+    if model.startswith("openrouter:"):
+        base, key, mid = "https://openrouter.ai/api/v1", os.environ.get("OR_KEY", ""), model.split(":", 1)[1]
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer " + key, "X-Title": "cortex-lab-agent"}
+    else:
+        base, key, mid = "https://nano-gpt.com/api/v1", NANO_KEY, model
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer " + key}
+    body = {"model": mid, "messages": messages, "tools": TOOLS, "tool_choice": "auto", "max_tokens": 1200}
+    req = urllib.request.Request(base + "/chat/completions", data=json.dumps(body).encode(), headers=headers)
     out = json.loads(urllib.request.urlopen(req, timeout=120).read().decode())
     msg = out["choices"][0]["message"]
     return msg, out.get("usage") or {}
@@ -140,12 +146,13 @@ async def main():
     today = datetime.now(timezone.utc).date().isoformat()
     messages = [{"role": "system", "content": CONTRACT + f"\n\nToday is {today} (UTC). Use it to resolve weekday references into expected_date values."},
                 {"role": "user", "content": "New session evidence. Maintain the agenda.\n\n" + evidence}]
-    total_in = total_out = 0
+    total_in = total_out = total_reason = 0
     async with async_session_maker() as db:
         for i in range(12):
             msg, usage = chat(messages)
             total_in += int(usage.get("prompt_tokens") or 0)
             total_out += int(usage.get("completion_tokens") or 0)
+            total_reason += int(usage.get("reasoning_tokens") or 0)
             TRACE.write(json.dumps({"iter": i, "content": (msg.get("content") or "")[:1000],
                                     "tool_calls": msg.get("tool_calls")}) + "\n")
             TRACE.flush()
@@ -175,7 +182,7 @@ async def main():
                                  "content": json.dumps(res)[:3000]})
             if finished:
                 break
-    print(f"TOKENS in={total_in} out={total_out}", flush=True)
+    print(f"TOKENS in={total_in} out={total_out} reasoning={total_reason} model={MODEL}", flush=True)
 
 
 asyncio.run(main())
