@@ -147,6 +147,19 @@ honestly, not as a win). Preparation answered "what's on the plate" directly
 from the ledger. Cost: 140 calls, 93k/28k tokens, ~56 s/session wall, $0
 metered (≈ low single cents at cheap paid rates — estimate, not a quote).
 
+## Witness extraction v2 (2026-10-19, deployed)
+
+Model drops from clerk to witness: loose tagged lines (ITEM/KIND/TIMING/PERSON/
+BLOCKED-BY/WAITING-ON/QUESTION/MATTERS/EVIDENCE/CONFIDENCE/RESOLVED/STATUS-HINT/
+REMINDER-AUTHORISED) over the full transcript + findings + injected today-date.
+Deterministic code shapes rows: slugs, conservative date resolution, dedupe,
+lifecycle, `authorised_json` (explicit reminders only; inference never writes
+it), `suppressed` status. Malformed lines preserved visibly, never dropped.
+Stress-transcript rerun: 8 items, dates resolved (Vinesh 10-20, Ashley 10-20,
+Maria 10-23), no N/A literals, unparsed []. Caveats: rest recorded as routine
+(model's open vocabulary — borderline, kept visible); suppressed path
+unit-tested, not yet observed live.
+
 ## Fidelity fix + foreground proof (2026-10-17, deployed)
 
 - Temporary changes now record their end condition as part of the fact
