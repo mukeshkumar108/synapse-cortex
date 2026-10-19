@@ -234,6 +234,12 @@ def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         if tag == "ITEM":
             flush()
             current = {"title": value, "people": [], "evidence": []}
+        elif tag == "RESOLVED" and current is None:
+            # Standalone resolution (the rules ask for exactly this): seed an
+            # entry naming the matter so it reaches matching/closing.
+            parts = [p.strip() for p in re.split(r"\s*\|\s*", value, maxsplit=1)]
+            current = {"title": parts[0], "people": [], "evidence": [],
+                       "resolved": parts[1] if len(parts) > 1 else parts[0]}
         elif current is None:
             unparsed.append(line)
         elif tag in ("PERSON", "EVIDENCE"):
@@ -806,8 +812,11 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
     bundle["ledger_agent"] = {k: v for k, v in agent_out.items() if k != "calls"}
     bundle["ledger_agent_calls"] = agent_out.get("calls", [])
     if agent_out.get("status") == "verified":
-        counts = {"added": 0, "updated": 0, "closed": 0, "agent_owned": True}
-        bundle["ledger_added"] = 0
+        agent_changes = agent_out.get("changes") or {}
+        counts = {"added": int(agent_changes.get("created", 0)),
+                  "updated": int(agent_changes.get("updated", 0)),
+                  "closed": int(agent_changes.get("closed", 0)), "agent_owned": True}
+        bundle["ledger_added"] = counts["added"]
         bundle["ledger_counts"] = counts
     else:
         # Agent did not verify: fall back to direct deterministic apply so

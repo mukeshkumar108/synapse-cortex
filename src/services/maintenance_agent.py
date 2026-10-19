@@ -246,6 +246,7 @@ async def _run_maintenance_inner(db: AsyncSession, *, workspace_id: str, owner: 
     calls: List[Dict[str, Any]] = []
     inspected = False
     finished_summary: Optional[str] = None
+    changes = {"created": 0, "updated": 0, "closed": 0}
     models_tried = [PRIMARY_MODEL]
     if FALLBACK_MODEL and FALLBACK_MODEL != PRIMARY_MODEL:
         models_tried.append(FALLBACK_MODEL)
@@ -290,6 +291,14 @@ async def _run_maintenance_inner(db: AsyncSession, *, workspace_id: str, owner: 
                 res = await _tools(db, workspace_id, owner, str(fn.get("name")), args)
             except Exception as exc:
                 res = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+            if isinstance(res, dict) and res.get("ok") is True:
+                if fn.get("name") == "create_item":
+                    changes["created"] += 1
+                elif fn.get("name") == "update_item":
+                    if str(args.get("status") or "") in ("done", "cancelled", "answered"):
+                        changes["closed"] += 1
+                    else:
+                        changes["updated"] += 1
             messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
                              "name": str(fn.get("name")), "content": json.dumps(res)[:3000]})
         if done:
@@ -303,4 +312,4 @@ async def _run_maintenance_inner(db: AsyncSession, *, workspace_id: str, owner: 
         status = "never_inspected" if not inspected else "unfinished"
     logger.info("[maintenance] %s %s -> %s (%d calls)", owner, session_id, status, len(calls))
     return {"status": status, "summary": finished_summary, "calls": calls,
-            "inspected": inspected, "model": model_used, "ms": ms}
+            "inspected": inspected, "model": model_used, "ms": ms, "changes": changes}

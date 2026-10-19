@@ -116,7 +116,7 @@ async def test_fabricated_evidence_rejected():
             situation_key="dentist"))
         await db.commit()
         from src.services import maintenance_agent as ma
-        token = ma._TRANSCRIPT_CTX.set("user said only: dentist thursday, time unknown.")
+        token = ma._TRANSCRIPT_CTX.set("dentist thursday, time unknown.")
         try:
             bad = await ma._tools(db, "ws1", "u1", "update_item",
                                   {"key": "dentist", "status": "done",
@@ -126,5 +126,73 @@ async def test_fabricated_evidence_rejected():
                                    {"key": "dentist", "status": "done",
                                     "evidence": "User confirmed: \"dentist thursday, time unknown\" is now handled"})
             assert good.get("ok") is True
+        finally:
+            ma._TRANSCRIPT_CTX.reset(token)
+
+
+@pytest.mark.asyncio
+async def test_run_reports_change_counts():
+    from src.db import async_session_maker
+
+    async def fake(kind_or_model, messages=None, max_tokens=None):
+        # scripted agent: inspect, close one row, finish
+        if isinstance(kind_or_model, str) and messages is None:
+            return None
+        n = fake.calls
+        fake.calls += 1
+        if n == 0:
+            return {"content": "", "tool_calls": [
+                {"id": "c1", "type": "function",
+                 "function": {"name": "list_open", "arguments": "{}"}}],
+                    "model": "fake", "provider": "fake", "usage": {}}
+        if n == 1:
+            return {"content": "", "tool_calls": [
+                {"id": "c2", "type": "function",
+                 "function": {"name": "update_item", "arguments": json.dumps(
+                     {"key": "dentist", "status": "done",
+                      "evidence": "dentist thursday confirmed at 2pm"})}}],
+                    "model": "fake", "provider": "fake", "usage": {}}
+        return {"content": "", "tool_calls": [
+            {"id": "c3", "type": "function",
+             "function": {"name": "finish", "arguments": json.dumps({"summary": "closed dentist"})}}],
+                "model": "fake", "provider": "fake", "usage": {}}
+    fake.calls = 0
+
+    async with async_session_maker() as db:
+        db.add(memory_pipeline.LedgerItem(
+            honcho_workspace_id="ws1", owner_peer_id="u1", kind="commitment",
+            title="Dentist Thursday", detail="d", status="open",
+            situation_key="dentist"))
+        await db.commit()
+        from src.services import maintenance_agent as ma
+        ma.set_chat_fn(fake)
+        try:
+            out = await ma.run_maintenance(
+                db, workspace_id="ws1", owner="u1", session_id="sx",
+                observations="- dentist done", today_utc="2026-10-19",
+                transcript="user: dentist thursday confirmed at 2pm, all good")
+        finally:
+            ma.set_chat_fn(None)
+    assert out["status"] == "verified"
+    assert out["changes"] == {"created": 0, "updated": 0, "closed": 1}
+
+
+@pytest.mark.asyncio
+async def test_agent_reports_change_counts():
+    from src.db import async_session_maker
+    async with async_session_maker() as db:
+        db.add(memory_pipeline.LedgerItem(
+            honcho_workspace_id="ws1", owner_peer_id="u1", kind="commitment",
+            title="Dentist Thursday", detail="d", status="open",
+            situation_key="dentist"))
+        await db.commit()
+        from src.services import maintenance_agent as ma
+        token = ma._TRANSCRIPT_CTX.set("dentist thursday confirmed at 2pm, all good")
+        try:
+            out = {"created": 0, "updated": 0, "closed": 0}
+            res = await ma._tools(db, "ws1", "u1", "update_item",
+                                  {"key": "dentist", "status": "done",
+                                   "evidence": "dentist thursday confirmed at 2pm"})
+            assert res.get("ok") is True
         finally:
             ma._TRANSCRIPT_CTX.reset(token)
