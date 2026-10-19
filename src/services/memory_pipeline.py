@@ -125,6 +125,7 @@ Rules, no exceptions:
 - If a tracked matter ended, do NOT create a new ITEM about its ending — emit RESOLVED naming it, with the quote. New ITEMs are for new or changed circumstances only.
 - A temporary change to routines counts: record what changed, how long it lasts, AND the exact condition that ends it.
 - "Remind me …" is an explicit authorised request: tag it REMINDER-AUTHORISED plus the ITEM, so a later scheduler can act on it. Inference never authorises.
+- A temporary stand-down ("ignore X tonight", "leave it for now", "don't bring it up") is STATUS-HINT: suppressed on the matching open item — never a new row, never deletion.
 - Never invent dates, owners, or obligations. Time passing proves nothing.
 - A short "nothing new" reply is fine: if the transcript adds nothing circumstantial, say NONE."""
 
@@ -216,7 +217,8 @@ def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     current: Optional[Dict[str, Any]] = None
 
     def flush() -> None:
-        if current and str(current.get("title") or "").strip():
+        t = str((current or {}).get("title") or "").strip()
+        if current and t and t.lower() not in ("none", "n/a", "no change", "no changes", "nothing", "nothing new"):
             items.append(current)
 
     for raw_line in (raw or "").splitlines():
@@ -277,7 +279,7 @@ SAME: <new title> = <existing key>     (same circumstance — updates merge into
 CLOSE: <existing key> = <short proof quote from the observations>   (the open matter is resolved/settled/answered; quote the evidence)
 NEW: <new title>                        (genuinely new — nothing open matches)
 
-Rules: same people + same matter = same, even when the words differ. A changed due date is the SAME situation updated, never a new one. A suppression ("ignore X") matching an open item refers to it — do not duplicate. When unsure, prefer SAME with the closest key over creating a near-duplicate; the merge only adds evidence and details, it never overwrites judgement. If there are no open situations, reply with nothing.
+Rules: same people + same matter = same, even when the words differ. A changed due date is the SAME situation updated, never a new one. If a new row carries the same commitment forward under a new date while an older row holds the old date, the old row is SUPERSEDED: SUPERSEDE: <old key> by <new title>. A suppression ("ignore X") matching an open item refers to it — do not duplicate. When unsure, prefer SAME with the closest key over creating a near-duplicate; the merge only adds evidence and details, it never overwrites judgement. If there are no open situations, reply with nothing.
 
 NEW:
 {new_items}
@@ -312,6 +314,10 @@ async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerIt
         c = re.match(r"^CLOSE\s*:\s*[\[\"'“]*([A-Za-z0-9][A-Za-z0-9\-_]*)[\]\"'”]*\s*=\s*(.+?)\s*$", line, re.IGNORECASE)
         if c and c.group(1) in keys and c.group(2).strip():
             closes[c.group(1)] = c.group(2).strip()[:500]
+            continue
+        s = re.match(r"^SUPERSEDE\s*:\s*[\[\"'“]*([A-Za-z0-9][A-Za-z0-9\-_]*)[\]\"'”]*\s+by\s+(.+?)\s*$", line, re.IGNORECASE)
+        if s and s.group(1) in keys and s.group(2).strip():
+            closes[s.group(1)] = f"superseded: {s.group(2).strip()[:400]}"
     # fall back to prefix matching on titles (model may shorten them)
     resolved: Dict[str, str] = {}
     titles = {str(e.get("title") or ""): e for e in new_items}
@@ -435,7 +441,10 @@ async def shape_situations(items: List[Dict[str, Any]], today_utc: str,
     match_report: Dict[str, Any] = {"matched": matched, "closed": list(closed_by_match),
                                     "call": match_call or {"skipped": True if not statements["new"] or not known else "failed"}}
     for key, proof in closed_by_match.items():
-        statements["close"].append({"key": key, "status": "done", "evidence": proof})
+        is_supersede = str(proof).startswith("superseded:")
+        statements["close"].append({"key": key,
+                                    "status": "cancelled" if is_supersede else "done",
+                                    "evidence": proof})
     if matched:
         still_new = []
         for e in statements["new"]:
@@ -493,7 +502,7 @@ async def apply_situations(db: AsyncSession, *, workspace_id: str, owner: str, r
     statements["new"] = merged_new
     for e in statements.get("new", []):
         title = str(e.get("title") or "").strip()
-        if not title:
+        if not title or title.lower() in ("none", "n/a", "no change", "no changes", "nothing", "nothing new"):
             continue
         key = str(e.get("key") or "").strip().lower().replace(" ", "-")[:80]
         if key and key in by_key:
@@ -698,11 +707,18 @@ async def recover_orphaned_runs(db: AsyncSession, *, older_than_minutes: int = 1
     return out
 
 
-async def read_state(db: AsyncSession, *, workspace_id: str, owner: str) -> Dict[str, Any]:
+async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
+                   include_closed: bool = False) -> Dict[str, Any]:
     """Notebook + ledger + arc + attention for inspection. Pure reads, no model."""
     from src.services import attention_cycle as _attn
     pages = await live_pages(db, workspace_id, owner)
-    ledger = await open_ledger(db, workspace_id, owner, limit=50)
+    if include_closed:
+        rows = (await db.execute(select(LedgerItem).where(
+            LedgerItem.honcho_workspace_id == workspace_id,
+            LedgerItem.owner_peer_id == owner).order_by(LedgerItem.created_at).limit(200))).scalars().all()
+        ledger = list(rows)
+    else:
+        ledger = await open_ledger(db, workspace_id, owner, limit=50)
     arc = await get_arc(db, workspace_id, owner)
     prep = await get_preparation(db, workspace_id=workspace_id, owner=owner)
     return {

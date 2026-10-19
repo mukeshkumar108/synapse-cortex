@@ -440,3 +440,37 @@ async def test_recover_orphans_and_replay_is_idempotent():
         out = await memory_pipeline.recover_orphaned_runs(db)
         assert len(out) == 1 and out[0]["session_id"] == "s1"
         assert await memory_pipeline.recover_orphaned_runs(db) == []
+
+
+@pytest.mark.asyncio
+async def test_supersede_closes_old_date_row():
+    from src.db import async_session_maker
+
+    async def memfn(kind, prompt, max_tokens, models):
+        if kind == "match":
+            return {"text": "SUPERSEDE: send-proposal by Send proposal Friday",
+                    "model": "f", "provider": "f", "usage": {}, "ms": 1}
+        raise AssertionError(kind)
+
+    memory_pipeline.set_model_fn(memfn)
+    try:
+        async with async_session_maker() as db:
+            await memory_pipeline.apply_situations(
+                db, workspace_id="ws1", owner="u1", run_id=None, session_id="s1",
+                statements={"new": [{"key": "send-proposal", "title": "Send proposal Thursday",
+                                     "kind": "commitment", "evidence": ["thursday"]}],
+                            "update": [], "close": []})
+            await db.commit()
+            known = await memory_pipeline.open_ledger(db, "ws1", "u1")
+            items, _ = memory_pipeline.parse_tagged_lines(
+                "ITEM: Send proposal Friday\nTIMING: Friday\n")
+            st, _ = await memory_pipeline.shape_situations(items, "2026-10-19", known)
+            assert [e["key"] for e in st["close"]] == ["send-proposal"]
+            counts = await memory_pipeline.apply_situations(
+                db, workspace_id="ws1", owner="u1", run_id=None, session_id="s2",
+                statements=st, known=known)
+            assert counts["closed"] == 1
+            remaining = await memory_pipeline.open_ledger(db, "ws1", "u1")
+            assert all(r.situation_key != "send-proposal" for r in remaining)
+    finally:
+        memory_pipeline.set_model_fn(None)

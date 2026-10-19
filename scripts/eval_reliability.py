@@ -41,7 +41,7 @@ def run_fixture(name, fix, rep):
                 break
         runs.append({"sid": sid, "status": st["status"],
                      "summary": st.get("summary", {})})
-    state = api(f"/v1/memory/state?workspace_id={WS}&owner={owner}", method="GET")
+    state = api(f"/v1/memory/state?workspace_id={WS}&owner={owner}&include_closed=true", method="GET")
     rows = state.get("ledger", [])
     try:
         all_rows = api("/v1/memory/state?workspace_id=__all__&owner=__all__", method="GET")

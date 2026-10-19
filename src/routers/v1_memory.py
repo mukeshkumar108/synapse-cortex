@@ -122,8 +122,10 @@ async def prepare_now(req: PrepareRequest, db: AsyncSession = Depends(get_async_
 
 
 @router.get("/state")
-async def state(workspace_id: str, owner: str, db: AsyncSession = Depends(get_async_session)):
-    return await memory_pipeline.read_state(db, workspace_id=workspace_id, owner=owner)
+async def state(workspace_id: str, owner: str, include_closed: bool = False,
+                db: AsyncSession = Depends(get_async_session)):
+    return await memory_pipeline.read_state(db, workspace_id=workspace_id, owner=owner,
+                                            include_closed=include_closed)
 
 
 class SoloTickRequest(BaseModel):
