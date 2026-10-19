@@ -655,7 +655,10 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str) -> Dict
         "notebook": {k: {"title": PAGE_TITLES[k], "version": p.version, "text": p.text} for k, p in pages.items()},
         "ledger": [{"id": str(i.id), "key": i.situation_key, "kind": i.kind, "title": i.title,
                     "status": i.status, "confidence": i.confidence, "detail": i.detail,
-                    "timing": i.timing_text, "waiting_on": i.waiting_on, "question": i.question_text,
+                    "timing": i.timing_text,
+                    "expected_date": i.expected_date.strftime("%Y-%m-%d") if i.expected_date else None,
+                    "updated_at": i.updated_at.isoformat() if i.updated_at else None,
+                    "waiting_on": i.waiting_on, "question": i.question_text,
                     "linked": (json.loads(i.linked_keys_json) if (i.linked_keys_json or "").startswith("[") else [])}
                    for i in ledger],
         "arc": {"version": arc.version, "text": arc.text},
@@ -912,10 +915,29 @@ Return ONLY a JSON object: {"updates": [{key (must match an open key), plus chan
 Rules: repetition is not a personality judgement. Time passing proves nothing — never mark something resolved, abandoned or completed without evidence. An aspiration stays an aspiration. Keep every update grounded in the findings above; if nothing changed, return empty lists."""
 
 
+async def backfill_expected_dates(db: AsyncSession, *, workspace_id: str, owner: str) -> int:
+    """Deterministic one-time-per-row fill: rows whose timing_text names an
+    exact date get expected_date without any model call. Never overwrites."""
+    from datetime import datetime as _dt
+    today = _dt.now(timezone.utc).date().isoformat()
+    items = await open_ledger(db, workspace_id, owner, limit=200)
+    n = 0
+    for i in items:
+        if i.expected_date is None and i.timing_text:
+            d = resolve_date(i.timing_text, today)
+            if d is not None:
+                i.expected_date, i.updated_at = d, utc_now()
+                n += 1
+    if n:
+        await db.commit()
+    return n
+
+
 async def review(db: AsyncSession, *, workspace_id: str, owner: str, lookback_runs: int = 6) -> Dict[str, Any]:
     """Longitudinal noticing across recent sessions: one model call over open
     situations + recent findings. Applies updates, never closes."""
     from datetime import datetime as _dt
+    await backfill_expected_dates(db, workspace_id=workspace_id, owner=owner)
     items = await open_ledger(db, workspace_id, owner, limit=100)
     runs = (await db.execute(select(MemoryRun).where(
         MemoryRun.honcho_workspace_id == workspace_id,

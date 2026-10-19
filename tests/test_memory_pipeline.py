@@ -350,3 +350,22 @@ def test_weekday_slip_fixture_documents_known_failure():
     text = pathlib.Path(__file__).parent.joinpath("fixtures/prep_weekday_slip_regression.txt").read_text()
     # produced Oct 19 (a Monday) yet opens with Sunday: the bug class this guards
     assert text.lstrip().startswith("It’s Sunday afternoon")
+
+
+@pytest.mark.asyncio
+async def test_backfill_expected_dates_fills_only_missing():
+    from src.db import async_session_maker
+    async with async_session_maker() as db:
+        await memory_pipeline.apply_situations(
+            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s1",
+            statements={"new": [{"key": "d1", "title": "Dated", "timing_text": "Friday",
+                                 "evidence": ["friday"]},
+                                {"key": "v1", "title": "Vague", "timing_text": "someday",
+                                 "evidence": ["someday"]}], "update": [], "close": []})
+        await db.commit()
+        n = await memory_pipeline.backfill_expected_dates(db, workspace_id="ws1", owner="u1")
+        assert n == 1
+        rows = {r.situation_key: r for r in await memory_pipeline.open_ledger(db, "ws1", "u1", limit=10)}
+        assert rows["d1"].expected_date is not None
+        assert rows["v1"].expected_date is None
+        assert await memory_pipeline.backfill_expected_dates(db, workspace_id="ws1", owner="u1") == 0
