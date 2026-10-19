@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import urllib.request
+from datetime import datetime, timezone
 
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,13 +27,15 @@ CONTRACT = """You maintain one person's operational agenda in a database you can
 
 Maintain an accurate operational agenda from the new evidence. Inspect existing records before making changes. Reuse records when they refer to the same matter. Preserve relevant changes and source evidence. Do not invent commitments, dates or completions. Never treat silence as resolution.
 
-Rules: closing anything (done/cancelled/answered) requires quoting the evidence that proves it. A changed date updates the record, never duplicates it. Aspirations stay open. If a tool call fails, read the error and adapt. When the agenda accurately reflects the evidence, call finish. Verify before finishing: re-list the records and check each change against the evidence."""
+Rules: closing anything (done/cancelled/answered) requires quoting the evidence that proves it. A changed date updates the record, never duplicates it. Set expected_date (YYYY-MM-DD) whenever evidence states or implies a concrete date — a timing change with no date update is an incomplete job. Subtasks of a tracked matter fold into its detail; before create_item, search and confirm no open row covers it. Aspirations stay open. If a tool call fails, read the error and adapt.
+
+VERIFY (consequential, not ceremonial): before finish, re-list all records and check field-by-field: every intended status change present? every intended date set in its expected_date FIELD (prose alone does not count — if evidence moved a deadline, the date field must show it)? any two open rows covering the same matter (near-duplicate titles)? If anything is off, correct it first — a failed check blocks finish. Today is known from evidence dates; when in doubt about the calendar, set timing_text prose and leave expected_date empty rather than guessing."""
 
 TOOLS = [
     {"type": "function", "function": {"name": "list_open", "description": "List all open situations with keys, titles, status, detail, timing", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "search", "description": "Substring search over titles+details. Use when unsure which record matches.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
     {"type": "function", "function": {"name": "history", "description": "Show a record's evidence history and past states.", "parameters": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}}},
-    {"type": "function", "function": {"name": "update_item", "description": "Change fields of one record by key. detail/timing_text/waiting_on/question_text merge; status must be open/waiting/watching/suppressed/done/cancelled/answered; done/cancelled/answered REQUIRE evidence quoting proof.", "parameters": {"type": "object", "properties": {"key": {"type": "string"}, "detail": {"type": "string"}, "timing_text": {"type": "string"}, "waiting_on": {"type": "string"}, "question_text": {"type": "string"}, "status": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["key"]}}},
+    {"type": "function", "function": {"name": "update_item", "description": "Change fields of one record by key. detail/timing_text/waiting_on/question_text merge; expected_date sets the concrete date (YYYY-MM-DD only, rejected otherwise — use when evidence moves a deadline); status must be open/waiting/watching/suppressed/done/cancelled/answered; done/cancelled/answered REQUIRE evidence quoting proof.", "parameters": {"type": "object", "properties": {"key": {"type": "string"}, "detail": {"type": "string"}, "timing_text": {"type": "string"}, "expected_date": {"type": "string"}, "waiting_on": {"type": "string"}, "question_text": {"type": "string"}, "status": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["key"]}}},
     {"type": "function", "function": {"name": "create_item", "description": "Create a genuinely new record (title, kind, detail, timing). Never duplicate an existing matter.", "parameters": {"type": "object", "properties": {"title": {"type": "string"}, "kind": {"type": "string"}, "detail": {"type": "string"}, "timing": {"type": "string"}}, "required": ["title"]}}},
     {"type": "function", "function": {"name": "finish", "description": "End the job. Only call after verifying the agenda against the evidence.", "parameters": {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"]}}},
 ]
@@ -80,13 +83,25 @@ async def run_tools(db, name, args):
                 setattr(r, f, v.strip()[:2000] if f == "detail" else v.strip()[:500])
         if st:
             r.status = st
+        import re as _re2
+        ed = str(args.get("expected_date") or "").strip()
+        if ed:
+            if not _re2.match(r"^\d{4}-\d{2}-\d{2}$", ed):
+                return {"error": "expected_date must be YYYY-MM-DD — relative dates go in timing_text"}
+            from datetime import datetime as _dtd
+            try:
+                r.expected_date = _dtd.strptime(ed[:10], "%Y-%m-%d")
+            except ValueError:
+                return {"error": "expected_date is not a real calendar date"}
         ev = str(args.get("evidence") or "").strip()
         if ev:
             try:
                 refs = json.loads(r.source_refs_json or "{}")
             except Exception:
                 refs = {}
-            prior = refs.get("evidence") if isinstance(refs, dict) else []
+            if not isinstance(refs, dict):
+                refs = {"prior": refs}
+            prior = refs.get("agent_evidence") or refs.get("evidence") or []
             refs["agent_evidence"] = ([prior] if isinstance(prior, str) else (prior or [])) + [ev[:500]]
             r.source_refs_json = json.dumps(refs)[:4000]
         r.updated_at = utc_now()
@@ -122,7 +137,8 @@ def chat(messages):
 
 async def main():
     evidence = open("/tmp/agent_evidence.txt").read()
-    messages = [{"role": "system", "content": CONTRACT},
+    today = datetime.now(timezone.utc).date().isoformat()
+    messages = [{"role": "system", "content": CONTRACT + f"\n\nToday is {today} (UTC). Use it to resolve weekday references into expected_date values."},
                 {"role": "user", "content": "New session evidence. Maintain the agenda.\n\n" + evidence}]
     total_in = total_out = 0
     async with async_session_maker() as db:
