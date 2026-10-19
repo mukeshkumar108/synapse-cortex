@@ -122,6 +122,7 @@ Rules, no exceptions:
 - Inferred is not observed. A hypothesis is not a fact.
 - An unresolved question isn't a task.
 - Close only on evidence: tag RESOLVED only when the transcript shows the matter ended, with the proving quote.
+- If a tracked matter ended, do NOT create a new ITEM about its ending — emit RESOLVED naming it, with the quote. New ITEMs are for new or changed circumstances only.
 - A temporary change to routines counts: record what changed, how long it lasts, AND the exact condition that ends it.
 - "Remind me …" is an explicit authorised request: tag it REMINDER-AUTHORISED plus the ITEM, so a later scheduler can act on it. Inference never authorises.
 - Never invent dates, owners, or obligations. Time passing proves nothing.
@@ -272,13 +273,14 @@ OPEN:
 {open_items}"""
 
 
-async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerItem]) -> Dict[str, str]:
+async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerItem]) -> Tuple[Dict[str, str], Optional[Dict[str, Any]]]:
     """Model judgment: map each new title to an existing situation key or leave
-    unmatched. Returns {new_title: existing_key}. Malformed lines abstain
-    (item stays new) — a missed merge duplicates once, a wrong merge corrupts."""
+    unmatched. Returns ({new_title: existing_key}, raw_call). Malformed lines
+    abstain (item stays new) — a missed merge duplicates once, a wrong merge
+    corrupts."""
     mapping: Dict[str, str] = {}
     if not new_items or not known:
-        return mapping
+        return mapping, None
     keys = {str(i.situation_key) for i in known if i.situation_key}
     new_lines = "\n".join(f"- {str(e.get('title') or '')[:200]} | {str(e.get('detail') or '')[:300]}" for e in new_items)
     open_lines = "\n".join(
@@ -286,6 +288,7 @@ async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerIt
     out = await _generate("match", MATCH_PROMPT.replace("{new_items}", new_lines).replace("{open_items}", open_lines),
                           600, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
     text = str((out or {}).get("text") or "")
+    mapping: Dict[str, str] = {}
     for raw_line in text.splitlines():
         line = raw_line.strip()
         m = re.match(r"^SAME\s*:\s*(.+?)\s*=\s*([A-Za-z0-9][A-Za-z0-9\-_]*)\s*$", line, re.IGNORECASE)
@@ -298,7 +301,7 @@ async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerIt
         hit = next((t for t in titles if t == k or t.startswith(k[:40]) or k[:40] in t), None)
         if hit is not None:
             resolved[hit] = key
-    return resolved
+    return resolved, out
 
 
 def resolve_date(text: str, today_utc: str) -> Optional[datetime]:
@@ -402,22 +405,29 @@ async def shape_situations(items: List[Dict[str, Any]], today_utc: str,
             d = resolve_date(e.get("timing_text"), today_utc)
             e["expected_date"] = d.strftime("%Y-%m-%d") if d else None
     # judged matching: same circumstance in different words merges, never duplicates
-    matched = await match_situations(
+    matched, match_call = await match_situations(
         [{"title": e["title"], "detail": e.get("detail", "")} for e in statements["new"]], known)
+    match_report: Dict[str, Any] = {"matched": matched,
+                                    "call": match_call or {"skipped": True if not statements["new"] or not known else "failed"}}
     if matched:
         still_new = []
         for e in statements["new"]:
             if e["title"] in matched:
-                statements["update"].append({
-                    "key": matched[e["title"]], "detail": e.get("detail", ""),
-                    "timing_text": e.get("timing_text", ""), "waiting_on": e.get("waiting_on", ""),
-                    "question_text": e.get("question_text", ""), "confidence": e.get("confidence", "reported"),
-                    "evidence": e.get("evidence", []),
-                    **({"reminder_authorised": True} if e.get("reminder_authorised") else {})})
+                if str(e.get("resolved") or "").strip():
+                    statements["close"].append({
+                        "key": matched[e["title"]], "status": "done",
+                        "evidence": str(e["resolved"])[:1000]})
+                else:
+                    statements["update"].append({
+                        "key": matched[e["title"]], "detail": e.get("detail", ""),
+                        "timing_text": e.get("timing_text", ""), "waiting_on": e.get("waiting_on", ""),
+                        "question_text": e.get("question_text", ""), "confidence": e.get("confidence", "reported"),
+                        "evidence": e.get("evidence", []),
+                        **({"reminder_authorised": True} if e.get("reminder_authorised") else {})})
             else:
                 still_new.append(e)
         statements["new"] = still_new
-    return statements
+    return statements, match_report
 
 
 def _parse_date(value: Any) -> Optional[datetime]:
@@ -738,7 +748,8 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
     witness, unparsed = parse_tagged_lines(raw_extract)
     bundle["ledger_witness_items"] = witness
     bundle["ledger_unparsed"] = unparsed
-    statements = await shape_situations(witness, today_utc, ledger)
+    statements, match_report = await shape_situations(witness, today_utc, ledger)
+    bundle["ledger_match"] = match_report
     # legacy JSON fallback: if the model emitted structured output instead
     if not statements["new"] and not statements["update"] and not statements["close"]:
         statements = _parse_situations(raw_extract)

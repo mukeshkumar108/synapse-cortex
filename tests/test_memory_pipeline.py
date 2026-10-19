@@ -222,7 +222,7 @@ async def test_tagged_lines_parse_and_shape():
     # untagged lines are preserved visibly as continuations, never dropped
     assert unparsed == [] and "stray line" in items[2].get("detail", "")
     assert items[0]["waiting_on"] == "Ana's numbers"
-    st = await memory_pipeline.shape_situations(items, "2026-10-19", [])
+    st, _ = await memory_pipeline.shape_situations(items, "2026-10-19", [])
     assert len(st["new"]) == 3
     assert st["new"][0]["expected_date"] == "2026-10-22"  # Thursday from Mon Oct 19, deterministic
     assert st["new"][1]["kind"] == "aspiration" and st["new"][1]["expected_date"] is None
@@ -286,7 +286,7 @@ async def test_match_merges_same_circumstance_different_words():
             items, _ = memory_pipeline.parse_tagged_lines(
                 "ITEM: Vinesh contract review\nDETAIL: Ana sent the numbers, folding them in tonight\n"
                 "EVIDENCE: \"ana sent it\"\nITEM: Dentist appointment\nTIMING: Thursday 2pm\n")
-            st = await memory_pipeline.shape_situations(items, "2026-10-19", known)
+            st, _ = await memory_pipeline.shape_situations(items, "2026-10-19", known)
             assert [e["key"] for e in st["update"]] == ["review-contract-amendments-for-vinesh"]
             assert [e["title"] for e in st["new"]] == ["Dentist appointment"]
             counts = await memory_pipeline.apply_situations(
