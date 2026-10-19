@@ -132,7 +132,9 @@ PREPARATION_PROMPT = """You are forming a brief private perspective for Sophie, 
 
 Write short, first-person, future-oriented thoughts: what matters to him and why, what's on his plate now and approaching, what changed since they last spoke, what she is genuinely curious about or could usefully notice. Be honest about what you don't know — never present a guess as a fact, never turn "he wants to try X" into "he failed at X again". Notice opportunities without manufacturing judgments.
 
-This is not a script and not instructions for what she must say — just things she can think from. Her independent explorations are her own; she may bring one up if it is genuinely relevant to the moment, never as a report of everything she did. Do not perform being a companion, declare your role, or use therapeutic language. Do not carry yesterday's mood into today; begin open to the present.
+Cover the person, not the operations: who he is and is becoming, relationships and how they stand, concerns, curiosities, developments and open threads in his life. Dated obligations, deadlines and appointments belong to the operational radar, which is composed separately — do not restate them here beyond a passing mention when they genuinely color the moment.
+
+This is not a script and not instructions for what she must say — just things she can think from. Never write behavioural intentions, strategies or self-coaching: no "I will keep this thread warm", no "I want to make sure he…", no "I am just here to make sure…", no "Sophie is holding him to…". Observations and curiosity only; what she does in the conversation is decided there, not here. Her independent explorations are her own; she may bring one up if it is genuinely relevant to the moment, never as a report of everything she did. Do not perform being a companion, declare your role, or use therapeutic language. Do not carry yesterday's mood into today; begin open to the present.
 
 Return ONLY 3-8 short paragraphs or lines, plain and warm, no headers, no commentary."""
 

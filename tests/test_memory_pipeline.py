@@ -369,3 +369,11 @@ async def test_backfill_expected_dates_fills_only_missing():
         assert rows["d1"].expected_date is not None
         assert rows["v1"].expected_date is None
         assert await memory_pipeline.backfill_expected_dates(db, workspace_id="ws1", owner="u1") == 0
+
+
+def test_preparation_prompt_bans_coaching_and_divides_labor():
+    from src.services import memory_pipeline as mp
+    assert "Never write behavioural intentions" in mp.PREPARATION_PROMPT
+    assert "I will keep this thread warm" in mp.PREPARATION_PROMPT
+    assert "Dated obligations" in mp.PREPARATION_PROMPT
+    assert "Observations and curiosity only" in mp.PREPARATION_PROMPT
