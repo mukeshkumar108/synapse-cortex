@@ -177,7 +177,11 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
             if not isinstance(refs, dict):
                 refs = {"prior": refs}
             prior = refs.get("agent_evidence") or refs.get("evidence") or []
-            refs["agent_evidence"] = ([prior] if isinstance(prior, str) else (prior or [])) + [ev[:500]]
+            verified, reported = _evidence_spans(ev, _TRANSCRIPT_CTX.get() or "")
+            refs["agent_evidence"] = ([prior] if isinstance(prior, str) else (prior or [])) + verified
+            if reported:
+                prior_rep = refs.get("reported") or []
+                refs["reported"] = ([prior_rep] if isinstance(prior_rep, str) else (prior_rep or [])) + [reported]
             r.source_refs_json = json.dumps(refs)[:4000]
         r.updated_at = utc_now()
         await db.commit()
@@ -208,20 +212,40 @@ def _norm_text(s: str) -> str:
     return _re.sub(r"\s+", " ", str(s or "").lower()).strip()
 
 
-def _evidence_in_transcript(evidence: str, transcript: str) -> bool:
-    """An evidence string counts only if a substantive quoted span of it
-    appears in this session's transcript. Guards against invented proof."""
+def _evidence_spans(evidence: str, transcript: str) -> tuple[list, str]:
+    """Split evidence into transcript-verified quotes vs reported paraphrase.
+    Only verified spans are stored as quotations; the rest is kept separately
+    as reported (never presented as quoted proof)."""
     import re as _re
     norm_t = _norm_text(transcript)
+    verified: list = []
+    reported: list = []
     if not norm_t:
-        return False
-    spans = [s.strip() for s in _re.split(r"[\"“”']", evidence) if s.strip()]
-    candidates = [c for c in spans if len(_norm_text(c)) >= 20]
-    if not candidates:
-        # No quotable span: fall back to longest sentence.
-        sents = [s.strip() for s in _re.split(r"[.!?]+", evidence) if len(_norm_text(s)) >= 20]
-        candidates = sents[:1]
-    return any(_norm_text(c) in norm_t for c in candidates)
+        return verified, evidence.strip()
+    for raw in _re.split(r"\n", evidence):
+        line = raw.strip()
+        if not line:
+            continue
+        spans = [s.strip() for s in _re.split(r"[\"“”']", line) if s.strip()]
+        cands = [c for c in spans if len(_norm_text(c)) >= 20]
+        if not cands:
+            cands = [s.strip() for s in _re.split(r"[.!?]+", line) if len(_norm_text(s)) >= 20][:1]
+        hit = [c for c in cands if _norm_text(c) in norm_t]
+        if hit:
+            verified.extend(hit)
+            rest = line
+            for h in hit:
+                rest = rest.replace(h, "", 1)
+            if _norm_text(rest).strip(" ,;:-"):
+                reported.append(rest.strip(" ,;:-"))
+        else:
+            reported.append(line)
+    return verified, " ".join(reported)[:1000]
+
+
+def _evidence_in_transcript(evidence: str, transcript: str) -> bool:
+    verified, _ = _evidence_spans(evidence, transcript)
+    return bool(verified)
 
 
 async def run_maintenance(db: AsyncSession, *, workspace_id: str, owner: str, session_id: str,

@@ -196,3 +196,13 @@ async def test_agent_reports_change_counts():
             assert res.get("ok") is True
         finally:
             ma._TRANSCRIPT_CTX.reset(token)
+
+
+def test_evidence_split_verified_vs_reported():
+    from src.services.maintenance_agent import _evidence_spans
+    v, r = _evidence_spans('"Dentist Thursday at 2pm, all good" plus some model flourish about relief',
+                           "user: dentist thursday at 2pm, all good. assistant: noted.")
+    assert v == ["Dentist Thursday at 2pm, all good"]
+    assert "flourish" in r
+    v2, r2 = _evidence_spans("Completely invented resolution narrative here", "user: nothing yet.")
+    assert v2 == [] and "invented" in r2
