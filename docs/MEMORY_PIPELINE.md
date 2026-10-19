@@ -160,6 +160,20 @@ Maria 10-23), no N/A literals, unparsed []. Caveats: rest recorded as routine
 (model's open vocabulary — borderline, kept visible); suppressed path
 unit-tested, not yet observed live.
 
+## Attention cycle (2026-10-19, deployed)
+
+Ledger knows the plate; attention decides what deserves action. `attention_actions`
+(intent/why/kind/due/state: pending/due/held/delivered/cancelled/expired/superseded)
++ `attention_events` (decided/scheduled/surfaced/attempted/delivered/responded/
+snoozed/suppressed/unsuppressed/rescheduled/cancelled/expired) — lifecycle and
+attention deliberately separate. Agent review (qwen3.7 primary, NanoGPT fallback)
+runs end-of-sitting when the ledger moved + on a 15-min tick when stale; due-scan
+is deterministic; held/suppressed never auto-fire. Prep carries a needs-attention
+section; `/state` exposes pending + suppressed. Live scratch proof: dentist
+reminder Thu 13:30 UTC + invoice follow-up Wed 09:00 UTC scheduled unasked,
+verified, persisted. Delivery adapters (push/messaging) are future; due-but-
+undelivered stays visible, never marked sent without proof.
+
 ## Fidelity fix + foreground proof (2026-10-17, deployed)
 
 - Temporary changes now record their end condition as part of the fact
