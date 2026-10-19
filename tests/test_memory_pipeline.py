@@ -231,10 +231,19 @@ def test_resolve_date_conservative():
     r = memory_pipeline.resolve_date
     assert r("tomorrow", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-20"
     assert r("Friday", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-23"
+    assert r('"before tomorrow afternoon"', "2026-10-19").strftime("%Y-%m-%d") == "2026-10-20"
+    assert r('"by Tuesday morning"', "2026-10-19").strftime("%Y-%m-%d") == "2026-10-20"
     assert r("2026-10-24", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-24"
     assert r("someday", "2026-10-19") is None
     assert r("next week", "2026-10-19") is None
     assert r("", "2026-10-19") is None
+    assert r("N/A", "2026-10-19") is None
+
+
+def test_clean_drops_null_words():
+    c = memory_pipeline._clean
+    assert c("N/A", 10) == "" and c("none", 10) == "" and c("null", 10) == ""
+    assert c('"Thursday"', 50) == "Thursday"
 
 
 @pytest.mark.asyncio

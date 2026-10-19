@@ -171,6 +171,14 @@ def _fingerprint(*parts: str) -> str:
     return h.hexdigest()[:16]
 
 
+def _clean(value: Any, limit: int) -> str:
+    """Strip whitespace, wrapping quotes and model null-words to a true empty."""
+    s = str(value or "").strip().strip("\"'“”‘’()[]").strip()
+    if s.lower() in ("n/a", "na", "none", "null", "nil", "-", "--", "unknown", "not specified", "not applicable"):
+        return ""
+    return s[:limit]
+
+
 def _parse_situations(raw: str) -> Dict[str, List[Dict[str, Any]]]:
     """Legacy JSON fallback: parse {new, update, close} when the model emits
     structured output (kept for compatibility; the tagged-lines path below is
@@ -256,9 +264,11 @@ def resolve_date(text: str, today_utc: str) -> Optional[datetime]:
         today = _dt.strptime(str(today_utc or "")[:10], "%Y-%m-%d").date()
     except Exception:
         return None
-    s = str(text or "").strip().lower()
+    s = _clean(text, 100).lower()
     if not s:
         return None
+    s = re.sub(r"^(by|before|until|till|until|on|at|around|about|from|after|due|deadline)\b\s*", "", s).strip()
+    s = re.sub(r"^(by|before|until|till|until|on|at|around|about|from|after|due|deadline)\b\s*", "", s).strip()
     m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s[:10])
     if m:
         try:
@@ -295,26 +305,27 @@ def shape_situations(items: List[Dict[str, Any]], today_utc: str,
         seen.add(norm(title))
         key = _slug(title)
         target = by_key.get(key) or by_title.get(norm(title))
-        detail = str(it.get("detail") or "").strip()
-        people = [str(p) for p in (it.get("people") or []) if str(p).strip()]
+        detail = _clean(it.get("detail"), 2000)
+        people = [str(p) for p in (it.get("people") or []) if _clean(p, 200)]
         if people:
             detail = (detail + " People: " + "; ".join(people[:5])).strip()
-        if it.get("matters"):
-            detail = (detail + " Why it matters: " + str(it["matters"]).strip()).strip()
-        if it.get("blocked_by"):
-            detail = (detail + " Blocked by: " + str(it["blocked_by"]).strip()).strip()
-        ev = [str(e) for e in (it.get("evidence") or []) if str(e).strip()]
-        kind = str(it.get("kind") or "situation").strip().lower()[:40] or "situation"
-        conf = str(it.get("confidence") or "reported").strip().lower()
+        if _clean(it.get("matters"), 500):
+            detail = (detail + " Why it matters: " + _clean(it.get("matters"), 500)).strip()
+        if _clean(it.get("blocked_by"), 300):
+            detail = (detail + " Blocked by: " + _clean(it.get("blocked_by"), 300)).strip()
+        ev = [_clean(e, 500) for e in (it.get("evidence") or [])]
+        ev = [e for e in ev if e]
+        kind = _clean(it.get("kind"), 40) or "situation"
+        conf = _clean(it.get("confidence"), 20) or "reported"
         if conf not in ("observed", "reported", "inferred"):
             conf = "reported"
-        timing = str(it.get("timing") or "").strip()
+        timing = _clean(it.get("timing"), 300)
         entry: Dict[str, Any] = {
             "key": key if target is None else str(target.situation_key or key),
             "title": title, "kind": kind, "confidence": conf, "detail": detail,
             "timing_text": timing, "expected_date": None,
-            "waiting_on": str(it.get("waiting_on") or "").strip(),
-            "question_text": str(it.get("question") or "").strip(),
+            "waiting_on": _clean(it.get("waiting_on"), 300),
+            "question_text": _clean(it.get("question"), 500),
             "linked_keys": [], "evidence": ev,
             "reminder_authorised": bool(it.get("reminder_authorised")),
         }
