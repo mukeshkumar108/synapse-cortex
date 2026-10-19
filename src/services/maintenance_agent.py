@@ -1,0 +1,263 @@
+"""Agentic operational maintenance (bakeoff winner: qwen3.7-flash).
+
+Replaces the single-shot match judge: the agent receives witness observations,
+existing ledger access, the session clock and a maintenance contract, then
+investigates (list/search/history), acts (update/create with validation) and
+verifies (re-list + field checks). Deterministic code owns keys, dates,
+evidence gates, tenant scope and audit — the agent owns judgment.
+
+Primary: qwen3.7-flash via OpenRouter. Fallback: qwen3.8-27b via NanoGPT
+(availability fallback only — same validation either way).
+Completion is grounded in observed state: finish requires inspection, and a run
+that never inspected anything is reported never_inspected, never success.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+import time
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, List, Optional
+
+import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.models.world import LedgerItem, utc_now
+
+logger = logging.getLogger(__name__)
+
+PRIMARY_MODEL = os.getenv("MAINTENANCE_MODEL", "qwen/qwen3.7-flash")
+FALLBACK_MODEL = os.getenv("MAINTENANCE_FALLBACK_MODEL", "qwen/qwen3.8-27b")
+MAX_ITERS = int(os.getenv("MAINTENANCE_MAX_ITERS", "10"))
+CALL_TIMEOUT_S = float(os.getenv("MAINTENANCE_TIMEOUT_S", "90"))
+
+CONTRACT = """You maintain one person's operational agenda. Goal and invariants:
+
+Maintain an accurate operational agenda from the new observations. Inspect existing records before making changes. Reuse records when they refer to the same matter. Preserve relevant changes and source evidence. Do not invent commitments, dates or completions. Never treat silence as resolution.
+
+Rules: closing anything (done/cancelled/answered) requires quoting the evidence that proves it. When evidence moves a deadline, set expected_date (YYYY-MM-DD) as well as prose — prose alone does not count. Subtasks of a tracked matter fold into its detail; search before creating. Aspirations stay open. If a tool call fails, read the error and adapt.
+
+VERIFY before finish: re-list all records and check field-by-field — every intended status change present, every intended date in its expected_date field, no two open rows on the same matter. A failed check blocks finish."""
+
+TOOLS = [
+    {"type": "function", "function": {"name": "list_open", "description": "List open situations: keys, titles, status, detail, timing, expected dates.", "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {"name": "search", "description": "Substring search over titles and details.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
+    {"type": "function", "function": {"name": "history", "description": "Evidence history of one record by key.", "parameters": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}}},
+    {"type": "function", "function": {"name": "update_item", "description": "Change one record by key. expected_date must be YYYY-MM-DD. done/cancelled/answered REQUIRE evidence quoting proof.", "parameters": {"type": "object", "properties": {"key": {"type": "string"}, "detail": {"type": "string"}, "timing_text": {"type": "string"}, "expected_date": {"type": "string"}, "waiting_on": {"type": "string"}, "question_text": {"type": "string"}, "status": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["key"]}}},
+    {"type": "function", "function": {"name": "create_item", "description": "Create a genuinely new record. Search first; never duplicate tracked matters.", "parameters": {"type": "object", "properties": {"title": {"type": "string"}, "kind": {"type": "string"}, "detail": {"type": "string"}, "timing": {"type": "string"}}, "required": ["title"]}}},
+    {"type": "function", "function": {"name": "finish", "description": "End only after verifying. Summarize what changed.", "parameters": {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"]}}},
+]
+
+# Injectable for tests.
+_chat_fn: Optional[Callable[..., Any]] = None
+
+
+def set_chat_fn(fn: Optional[Callable[..., Any]]) -> None:
+    global _chat_fn
+    _chat_fn = fn
+
+
+def _openrouter_key() -> str:
+    return os.getenv("OPENROUTER_API_KEY", "").strip()
+
+
+def _nano_key() -> str:
+    return os.getenv("NANO_API_KEY", "").strip()
+
+
+async def _chat(model: str, messages: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
+    """One tool-capable call. OpenRouter `openrouter:` models, else NanoGPT."""
+    if _chat_fn is not None:
+        out = _chat_fn(model, messages)
+        if hasattr(out, "__await__"):
+            out = await out
+        return out
+    via_or = model.startswith("openrouter:")
+    mid = model.split(":", 1)[1] if via_or else model
+    key = _openrouter_key() if via_or else _nano_key()
+    base = "https://openrouter.ai/api/v1" if via_or else os.getenv("NANO_BASE_URL", "https://nano-gpt.com/api/v1").rstrip("/")
+    if not key:
+        return None
+    t0 = time.monotonic()
+    try:
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        if via_or:
+            headers["X-Title"] = "cortex-maintenance"
+        body: Dict[str, Any] = {"model": mid, "messages": messages, "tools": TOOLS,
+                                "tool_choice": "auto", "max_tokens": 1200}
+        async with httpx.AsyncClient(timeout=CALL_TIMEOUT_S) as client:
+            resp = await client.post(base + "/chat/completions", headers=headers, json=body)
+            resp.raise_for_status()
+            data = resp.json()
+            msg = data["choices"][0]["message"]
+            used = data.get("usage") or {}
+            logger.info("llm_usage module=maintenance provider=%s model=%s in=%s out=%s reasoning=%s ms=%d",
+                        "openrouter" if via_or else "nanogpt", mid, used.get("prompt_tokens"),
+                        used.get("completion_tokens"), used.get("reasoning_tokens", 0),
+                        int((time.monotonic() - t0) * 1000))
+            return {"content": msg.get("content") or "", "tool_calls": msg.get("tool_calls") or [],
+                    "model": model, "provider": "openrouter" if via_or else "nanogpt", "usage": used}
+    except Exception as exc:
+        logger.warning("maintenance chat failed (%s): %s", model, type(exc).__name__)
+        return None
+
+
+def _row_view(r: LedgerItem) -> Dict[str, Any]:
+    return {"key": r.situation_key, "kind": r.kind, "status": r.status, "title": r.title,
+            "detail": (r.detail or "")[:500], "timing": r.timing_text,
+            "expected_date": r.expected_date.strftime("%Y-%m-%d") if r.expected_date else None,
+            "waiting_on": r.waiting_on, "confidence": r.confidence}
+
+
+async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    from sqlmodel import select
+    if name == "list_open":
+        rows = (await db.execute(select(LedgerItem).where(
+            LedgerItem.honcho_workspace_id == workspace_id, LedgerItem.owner_peer_id == owner,
+            LedgerItem.status.in_(["open", "waiting", "watching", "suppressed"])).order_by(LedgerItem.created_at))).scalars().all()
+        return {"records": [_row_view(r) for r in rows]}
+    if name == "search":
+        q = str(args.get("query") or "").lower()
+        rows = (await db.execute(select(LedgerItem).where(
+            LedgerItem.honcho_workspace_id == workspace_id, LedgerItem.owner_peer_id == owner))).scalars().all()
+        return {"matches": [_row_view(r) for r in rows
+                            if q and q in (str(r.title or "") + " " + str(r.detail or "")).lower()]}
+    if name == "history":
+        rows = (await db.execute(select(LedgerItem).where(
+            LedgerItem.honcho_workspace_id == workspace_id, LedgerItem.owner_peer_id == owner,
+            LedgerItem.situation_key == str(args.get("key") or "")))).scalars().all()
+        if not rows:
+            return {"error": "no such key — inspect first, never invent keys"}
+        return {"record": _row_view(rows[0]), "sources": (rows[0].source_refs_json or "")[:1500]}
+    if name == "update_item":
+        rows = (await db.execute(select(LedgerItem).where(
+            LedgerItem.honcho_workspace_id == workspace_id, LedgerItem.owner_peer_id == owner,
+            LedgerItem.situation_key == str(args.get("key") or "")))).scalars().all()
+        if not rows:
+            return {"error": "no such key — inspect first, never invent keys"}
+        r = rows[0]
+        st = str(args.get("status") or "").strip()
+        if st and st not in ("open", "waiting", "watching", "suppressed", "done", "cancelled", "answered"):
+            return {"error": f"illegal status {st}"}
+        if st in ("done", "cancelled", "answered") and not str(args.get("evidence") or "").strip():
+            return {"error": "closing requires evidence quoting proof"}
+        for f, lim in (("detail", 2000), ("timing_text", 300), ("waiting_on", 300), ("question_text", 500)):
+            v = args.get(f)
+            if isinstance(v, str) and v.strip():
+                setattr(r, f, v.strip()[:lim])
+        ed = str(args.get("expected_date") or "").strip()
+        if ed:
+            import re as _re
+            from datetime import datetime as _dt
+            if not _re.match(r"^\d{4}-\d{2}-\d{2}$", ed):
+                return {"error": "expected_date must be YYYY-MM-DD"}
+            try:
+                r.expected_date = _dt.strptime(ed[:10], "%Y-%m-%d")
+            except ValueError:
+                return {"error": "expected_date is not a real calendar date"}
+        if st:
+            r.status = st
+        ev = str(args.get("evidence") or "").strip()
+        if ev:
+            try:
+                refs = json.loads(r.source_refs_json or "{}")
+            except Exception:
+                refs = {}
+            if not isinstance(refs, dict):
+                refs = {"prior": refs}
+            prior = refs.get("agent_evidence") or refs.get("evidence") or []
+            refs["agent_evidence"] = ([prior] if isinstance(prior, str) else (prior or [])) + [ev[:500]]
+            r.source_refs_json = json.dumps(refs)[:4000]
+        r.updated_at = utc_now()
+        await db.commit()
+        return {"ok": True, "record": _row_view(r)}
+    if name == "create_item":
+        import re as _re
+        title = str(args.get("title") or "").strip()
+        if not title:
+            return {"error": "title required"}
+        key = _re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:80]
+        rows = (await db.execute(select(LedgerItem).where(
+            LedgerItem.honcho_workspace_id == workspace_id, LedgerItem.owner_peer_id == owner,
+            LedgerItem.situation_key == key))).scalars().all()
+        if rows:
+            return {"error": f"key {key} exists — update it instead of duplicating"}
+        timing = str(args.get("timing") or "").strip()
+        db.add(LedgerItem(honcho_workspace_id=workspace_id, owner_peer_id=owner,
+                          kind=str(args.get("kind") or "situation")[:40], title=title[:500],
+                          detail=str(args.get("detail") or "")[:2000], status="open",
+                          situation_key=key, timing_text=timing))
+        await db.commit()
+        return {"ok": True, "key": key}
+    return {"error": "unknown tool"}
+
+
+async def run_maintenance(db: AsyncSession, *, workspace_id: str, owner: str, session_id: str,
+                          observations: str, today_utc: str) -> Dict[str, Any]:
+    """Agentic maintenance loop over witness observations. Returns outcome with
+    inspection grounding: verified / no_change_verified / never_inspected."""
+    from datetime import datetime as _dt
+    started = _dt.now(timezone.utc)
+    calls: List[Dict[str, Any]] = []
+    inspected = False
+    finished_summary: Optional[str] = None
+    models_tried = [PRIMARY_MODEL]
+    if FALLBACK_MODEL and FALLBACK_MODEL != PRIMARY_MODEL:
+        models_tried.append(FALLBACK_MODEL)
+    messages: List[Dict[str, str]] = [
+        {"role": "system", "content": CONTRACT + f"\n\nToday is {today_utc} (UTC)."},
+        {"role": "user", "content": "New session observations. Maintain the agenda.\n\n" + observations[:6000]}]
+    model_used = models_tried[0]
+    for _ in range(MAX_ITERS):
+        out = await _chat(model_used, messages)
+        if out is None and len(models_tried) > 1 and model_used == models_tried[0]:
+            logger.warning("maintenance primary failed, trying fallback %s", models_tried[1])
+            model_used = models_tried[1]
+            out = await _chat(model_used, messages)
+        if out is None:
+            break
+        calls.append({"model": out.get("model"), "provider": out.get("provider"),
+                      "usage": out.get("usage"), "n_tools": len(out.get("tool_calls") or [])})
+        assistant: Dict[str, Any] = {"role": "assistant", "content": out.get("content") or ""}
+        if out.get("tool_calls"):
+            assistant["tool_calls"] = out["tool_calls"]
+        messages.append(assistant)
+        if not out.get("tool_calls"):
+            messages.append({"role": "user", "content": "You made no tool calls. Inspect the records (list_open minimum) before finishing — unverified claims of completion will be recorded as never_inspected."})
+            continue
+        done = False
+        for tc in out["tool_calls"]:
+            fn = tc.get("function") or {}
+            try:
+                args = json.loads(fn.get("arguments") or "{}")
+            except Exception:
+                args = {}
+            if not isinstance(args, dict):
+                args = {}
+            calls[-1].setdefault("ops", []).append(fn.get("name"))
+            if fn.get("name") in ("list_open", "search", "history"):
+                inspected = True
+            if fn.get("name") == "finish":
+                finished_summary = str(args.get("summary") or "")[:500]
+                done = True
+                break
+            try:
+                res = await _tools(db, workspace_id, owner, str(fn.get("name")), args)
+            except Exception as exc:
+                res = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+            messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
+                             "name": str(fn.get("name")), "content": json.dumps(res)[:3000]})
+        if done:
+            break
+    ms = int((_dt.now(timezone.utc) - started).total_seconds() * 1000)
+    if finished_summary is not None and inspected:
+        status = "verified"
+    elif finished_summary is not None:
+        status = "finished_without_inspection"
+    else:
+        status = "never_inspected" if not inspected else "unfinished"
+    logger.info("[maintenance] %s %s -> %s (%d calls)", owner, session_id, status, len(calls))
+    return {"status": status, "summary": finished_summary, "calls": calls,
+            "inspected": inspected, "model": model_used, "ms": ms}

@@ -1,0 +1,106 @@
+"""Agentic maintenance acceptance: scripted tool-call S1→S2 asserting final DB.
+No network: the model is a canned tool-call script; tools + validation are real."""
+import json
+
+import pytest
+
+from src.db import async_session_maker
+from src.services import maintenance_agent, memory_pipeline
+
+
+def _tc(i, name, args):
+    return {"id": f"call_{i}", "type": "function",
+            "function": {"name": name, "arguments": json.dumps(args)}}
+
+
+@pytest.mark.asyncio
+async def test_agent_maintains_s2_end_to_end():
+    script = [
+        {"tool_calls": [_tc(1, "list_open", {})]},
+        {"tool_calls": [_tc(2, "history", {"key": "vinesh-review"}),
+                        _tc(3, "update_item", {"key": "ashley-renders", "status": "done",
+                                               "evidence": "loved the renders, done"}),
+                        _tc(4, "update_item", {"key": "vinesh-review", "timing_text": "Friday morning",
+                                               "expected_date": "2026-10-23",
+                                               "evidence": "moved to Friday morning"})]},
+        {"tool_calls": [_tc(5, "list_open", {})]},
+        {"tool_calls": [_tc(6, "finish", {"summary": "closed Ashley, moved Vinesh date"})]},
+    ]
+    state = {"n": 0}
+
+    async def fake_chat(model, messages):
+        out = script[state["n"]]
+        state["n"] += 1
+        return {"content": "", "tool_calls": out["tool_calls"], "model": model,
+                "provider": "fake", "usage": {"prompt_tokens": 10, "completion_tokens": 5}}
+
+    async with async_session_maker() as db:
+        db.add(memory_pipeline.LedgerItem(
+            honcho_workspace_id="ws1", owner_peer_id="u1", kind="commitment",
+            title="Vinesh review Thursday", detail="d", status="open",
+            situation_key="vinesh-review", timing_text="Thursday"))
+        db.add(memory_pipeline.LedgerItem(
+            honcho_workspace_id="ws1", owner_peer_id="u1", kind="commitment",
+            title="Ashley renders", detail="d", status="open",
+            situation_key="ashley-renders", timing_text="Tuesday"))
+        await db.commit()
+        maintenance_agent.set_chat_fn(fake_chat)
+        try:
+            out = await maintenance_agent.run_maintenance(
+                db, workspace_id="ws1", owner="u1", session_id="s2",
+                observations="- Ashley loved the renders, done\n- Vinesh moved to Friday morning",
+                today_utc="2026-10-19")
+        finally:
+            maintenance_agent.set_chat_fn(None)
+    assert out["status"] == "verified" and out["inspected"] is True
+    assert len(out["calls"]) == 4
+    async with async_session_maker() as db:
+        rows = {r.situation_key: r for r in await memory_pipeline.open_ledger(db, "ws1", "u1", limit=50)}
+        # Ashley closed -> leaves the open list; Vinesh date moved deterministically
+        assert "ashley-renders" not in rows
+        assert rows["vinesh-review"].timing_text == "Friday morning"
+        from sqlmodel import select
+        all_rows = (await db.execute(select(memory_pipeline.LedgerItem).where(
+            memory_pipeline.LedgerItem.owner_peer_id == "u1"))).scalars().all()
+        by_key = {r.situation_key: r for r in all_rows}
+        assert by_key["ashley-renders"].status == "done"
+        assert (by_key["vinesh-review"].expected_date is not None
+                and by_key["vinesh-review"].expected_date.strftime("%Y-%m-%d") == "2026-10-23")
+
+
+@pytest.mark.asyncio
+async def test_agent_false_finish_is_not_verified():
+    async def fake_chat(model, messages):
+        return {"content": "all good", "tool_calls": [_tc(1, "finish", {"summary": "nothing to do"})],
+                "model": model, "provider": "fake", "usage": {}}
+
+    async with async_session_maker() as db:
+        maintenance_agent.set_chat_fn(fake_chat)
+        try:
+            out = await maintenance_agent.run_maintenance(
+                db, workspace_id="ws1", owner="u9", session_id="s9",
+                observations="- something happened", today_utc="2026-10-19")
+        finally:
+            maintenance_agent.set_chat_fn(None)
+    assert out["status"] == "finished_without_inspection"
+    assert out["inspected"] is False
+
+
+@pytest.mark.asyncio
+async def test_agent_skipped_when_nothing_observed():
+    # consolidate-level skip: exercised via shape with no witness — agent not invoked.
+    # Here: run_maintenance with empty observations still inspects honestly.
+    async def fake_chat(model, messages):
+        return {"content": "", "tool_calls": [_tc(1, "list_open", {}),
+                                              _tc(2, "finish", {"summary": "nothing open"})],
+                "model": model, "provider": "fake", "usage": {}}
+
+    async with async_session_maker() as db:
+        maintenance_agent.set_chat_fn(fake_chat)
+        try:
+            out = await maintenance_agent.run_maintenance(
+                db, workspace_id="ws1", owner="u8", session_id="s8",
+                observations="", today_utc="2026-10-19")
+        finally:
+            maintenance_agent.set_chat_fn(None)
+    assert out["status"] == "verified"

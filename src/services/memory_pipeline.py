@@ -753,10 +753,33 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
     # legacy JSON fallback: if the model emitted structured output instead
     if not statements["new"] and not statements["update"] and not statements["close"]:
         statements = _parse_situations(raw_extract)
-    counts = await apply_situations(db, workspace_id=workspace_id, owner=owner, run_id=run.id,
-                                    session_id=session_id, statements=statements, known=ledger)
-    bundle["ledger_added"] = counts["added"]
-    bundle["ledger_counts"] = counts
+    # Agentic maintenance owns ledger writes: observations + open ledger in,
+    # investigated updates out. Deterministic skip when nothing observed.
+    agent_out: Dict[str, Any] = {"status": "skipped", "reason": "no witness observations"}
+    if witness:
+        from src.services import maintenance_agent
+        obs_lines = []
+        for it in witness:
+            obs_lines.append(f"- {it.get('title', '')} [{it.get('kind', 'situation')}] :: "
+                             f"{str(it.get('detail') or '')[:400]}"
+                             f"{' | timing: ' + it['timing'] if it.get('timing') else ''}"
+                             f"{' | RESOLVED: ' + it['resolved'][:300] if it.get('resolved') else ''}")
+        agent_out = await maintenance_agent.run_maintenance(
+            db, workspace_id=workspace_id, owner=owner, session_id=session_id,
+            observations="\n".join(obs_lines), today_utc=today_utc)
+    bundle["ledger_agent"] = {k: v for k, v in agent_out.items() if k != "calls"}
+    bundle["ledger_agent_calls"] = agent_out.get("calls", [])
+    if agent_out.get("status") == "verified":
+        counts = {"added": 0, "updated": 0, "closed": 0, "agent_owned": True}
+        bundle["ledger_added"] = 0
+        bundle["ledger_counts"] = counts
+    else:
+        # Agent did not verify: fall back to direct deterministic apply so
+        # observations are still captured; the next session retries judgment.
+        counts = await apply_situations(db, workspace_id=workspace_id, owner=owner, run_id=run.id,
+                                        session_id=session_id, statements=statements, known=ledger)
+        bundle["ledger_added"] = counts["added"]
+        bundle["ledger_counts"] = counts
 
     if sitting_kind == "independent":
         # The shared continuing arc belongs to the user-facing relationship;
