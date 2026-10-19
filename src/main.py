@@ -48,6 +48,19 @@ async def lifespan(app: FastAPI):
     from src.services import attention_cycle
     attention_task = asyncio.create_task(attention_cycle.run_forever())
     try:
+        from src.db import async_session_maker
+        from src.services import memory_pipeline
+        async with async_session_maker() as _db:
+            try:
+                recovered = await memory_pipeline.recover_orphaned_runs(_db)
+                if recovered:
+                    logging.getLogger(__name__).warning(
+                        "memory recovery: marked %d orphaned runs failed", len(recovered))
+            except Exception as exc:
+                logging.getLogger(__name__).warning("memory recovery scan failed open: %s", exc)
+    except Exception as exc:
+        logging.getLogger(__name__).warning("memory recovery unavailable: %s", exc)
+    try:
         yield
     finally:
         task.cancel()

@@ -425,3 +425,18 @@ def test_situations_prompt_leads_with_resolution_check():
     from src.services import memory_pipeline as mp
     assert "Checking open items for resolution is primary" in mp.SITUATIONS_PROMPT or \
         "checking open items for resolution" in mp.SITUATIONS_PROMPT.lower()
+
+
+@pytest.mark.asyncio
+async def test_recover_orphans_and_replay_is_idempotent():
+    from datetime import datetime, timedelta, timezone
+    from src.db import async_session_maker
+    async with async_session_maker() as db:
+        from src.models.world import MemoryRun
+        db.add(MemoryRun(honcho_workspace_id="ws1", owner_peer_id="u1", conversation_id="c1",
+                         session_id="s1", status="running",
+                         created_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=2)))
+        await db.commit()
+        out = await memory_pipeline.recover_orphaned_runs(db)
+        assert len(out) == 1 and out[0]["session_id"] == "s1"
+        assert await memory_pipeline.recover_orphaned_runs(db) == []

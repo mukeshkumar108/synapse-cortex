@@ -670,6 +670,34 @@ async def get_run(db: AsyncSession, run_id: str) -> Optional[MemoryRun]:
     return (await db.execute(select(MemoryRun).where(MemoryRun.id == uid))).scalars().first()
 
 
+async def recover_orphaned_runs(db: AsyncSession, *, older_than_minutes: int = 10) -> List[Dict[str, Any]]:
+    """Execution recovery: runs stuck in `running` whose worker is gone (deploy
+    restart, crash) are marked failed with an audit note instead of lying.
+    Re-running the same session is idempotent (coverage + title-identity
+    dedupe), so recovery is: mark failed, report, let the caller replay."""
+    from datetime import timedelta as _td
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - _td(minutes=older_than_minutes)
+    rows = (await db.execute(select(MemoryRun).where(
+        MemoryRun.status == "running",
+        MemoryRun.created_at < cutoff))).scalars().all()
+    out = []
+    for r in rows:
+        r.status = "failed"
+        try:
+            bundle = json.loads(r.bundle_json or "{}")
+        except Exception:
+            bundle = {}
+        bundle["recovery"] = {"at": datetime.now(timezone.utc).isoformat(),
+                              "reason": "orphaned: worker gone (restart/crash); replay the session to recover"}
+        r.bundle_json = json.dumps(bundle)[:500_000]
+        r.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        out.append({"run_id": str(r.id), "session_id": r.session_id, "owner": r.owner_peer_id})
+    if out:
+        await db.commit()
+        logger.info("[memory] recovered %d orphaned runs", len(out))
+    return out
+
+
 async def read_state(db: AsyncSession, *, workspace_id: str, owner: str) -> Dict[str, Any]:
     """Notebook + ledger + arc + attention for inspection. Pure reads, no model."""
     from src.services import attention_cycle as _attn

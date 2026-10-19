@@ -246,3 +246,15 @@ async def attention_tick(req: AttentionTickRequest, db: AsyncSession = Depends(g
         return {"dry_run": True, "would_mark_due": [str(r.id) for r in rows],
                 "pending": len(pending), "last_review_at": last.isoformat() if last else None}
     return await attention_cycle.tick_once(workspace_id=req.workspace_id, owner=req.owner)
+
+
+@router.post("/recover")
+async def recover_runs(db: AsyncSession = Depends(get_async_session)):
+    """Operator recovery: mark orphaned running rows failed (audited). Replay
+    sessions normally afterwards — coverage + title-identity make it idempotent."""
+    from src.services import memory_pipeline
+    try:
+        return {"recovered": await memory_pipeline.recover_orphaned_runs(db)}
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"recover_failed:{type(exc).__name__}") from exc
