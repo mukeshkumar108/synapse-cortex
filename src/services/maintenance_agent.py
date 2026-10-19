@@ -116,7 +116,8 @@ def _row_view(r: LedgerItem) -> Dict[str, Any]:
             "waiting_on": r.waiting_on, "confidence": r.confidence}
 
 
-async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, args: Dict[str, Any],
+               session_id: str = "") -> Dict[str, Any]:
     from sqlmodel import select
     if name == "list_open":
         rows = (await db.execute(select(LedgerItem).where(
@@ -198,10 +199,13 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
         if rows:
             return {"error": f"key {key} exists — update it instead of duplicating"}
         timing = str(args.get("timing") or "").strip()
+        ev = str(args.get("evidence") or "").strip()
+        refs = {"session": session_id, "evidence": [ev[:500]] if ev else []}
         db.add(LedgerItem(honcho_workspace_id=workspace_id, owner_peer_id=owner,
                           kind=str(args.get("kind") or "situation")[:40], title=title[:500],
                           detail=str(args.get("detail") or "")[:2000], status="open",
-                          situation_key=key, timing_text=timing))
+                          situation_key=key, timing_text=timing,
+                          source_refs_json=json.dumps(refs)[:4000]))
         await db.commit()
         return {"ok": True, "key": key}
     return {"error": "unknown tool"}
@@ -312,7 +316,8 @@ async def _run_maintenance_inner(db: AsyncSession, *, workspace_id: str, owner: 
                 done = True
                 break
             try:
-                res = await _tools(db, workspace_id, owner, str(fn.get("name")), args)
+                res = await _tools(db, workspace_id, owner, str(fn.get("name")), args,
+                                   session_id=session_id)
             except Exception as exc:
                 res = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
             if isinstance(res, dict) and res.get("ok") is True:
