@@ -100,7 +100,9 @@ async def _chat(model: str, messages: List[Dict[str, str]]) -> Optional[Dict[str
             return {"content": msg.get("content") or "", "tool_calls": msg.get("tool_calls") or [],
                     "model": model, "provider": "openrouter" if via_or else "nanogpt", "usage": used}
     except Exception as exc:
-        logger.warning("maintenance chat failed (%s): %s", model, type(exc).__name__)
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        logger.warning("maintenance chat failed (%s): %s%s", model, type(exc).__name__,
+                       f" HTTP {status}" if status else "")
         return None
 
 

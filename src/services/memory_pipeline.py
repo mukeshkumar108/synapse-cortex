@@ -256,6 +256,10 @@ def _slug(text: str) -> str:
     return slug or "item"
 
 
+def _norm_title(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(text or "").lower())
+
+
 MATCH_PROMPT = """Two lists follow: NEW observations from this session, and OPEN situations already tracked (stable keys in brackets).
 
 For each NEW item, judge: is it the same circumstance as an open one (different words, an update, a new detail, a changed date, a suppression lifted or imposed), or genuinely new?
@@ -341,20 +345,17 @@ async def shape_situations(items: List[Dict[str, Any]], today_utc: str,
     """Deterministic structuring + model-judged matching: stable keys, date
     resolution, dedupe against known rows by key, title, or judged sameness.
     Returns {new, update, close}."""
-    def norm(t: str) -> str:
-        return re.sub(r"[^a-z0-9]", "", str(t or "").lower())
-
     by_key = {str(i.situation_key): i for i in known if i.situation_key}
-    by_title = {norm(i.title): i for i in known}
+    by_title = {_norm_title(i.title): i for i in known}
     statements: Dict[str, List[Dict[str, Any]]] = {"new": [], "update": [], "close": []}
     seen: set = set()
     for it in items:
         title = str(it.get("title") or "").strip()
-        if not title or norm(title) in seen:
+        if not title or _norm_title(title) in seen:
             continue
-        seen.add(norm(title))
+        seen.add(_norm_title(title))
         key = _slug(title)
-        target = by_key.get(key) or by_title.get(norm(title))
+        target = by_key.get(key) or by_title.get(_norm_title(title))
         detail = _clean(it.get("detail"), 2000)
         people = [str(p) for p in (it.get("people") or []) if _clean(p, 200)]
         if people:
@@ -450,13 +451,26 @@ async def apply_situations(db: AsyncSession, *, workspace_id: str, owner: str, r
     if known is None:
         known = await open_ledger(db, workspace_id, owner, limit=100)
     by_key: Dict[str, Any] = {str(i.situation_key): i for i in known if i.situation_key}
-    by_title = {(str(i.title).strip().lower(), str(i.kind)): i for i in known}
+    # Identity is the normalized title alone: a kind change across sessions
+    # (reminder vs commitment) is an update, never a second row.
+    by_title = {_norm_title(i.title): i for i in known}
+    # Fold title-matched new entries into updates before inserting anything.
+    merged_new: List[Dict[str, Any]] = []
+    for e in statements.get("new", []):
+        title = str(e.get("title") or "").strip()
+        key = str(e.get("key") or "").strip().lower().replace(" ", "-")[:80]
+        target = None if (key and key in by_key) else by_title.get(_norm_title(title))
+        if target is not None:
+            statements.setdefault("update", []).append({**e, "key": target.situation_key or key})
+        else:
+            merged_new.append(e)
+    statements["new"] = merged_new
     for e in statements.get("new", []):
         title = str(e.get("title") or "").strip()
         if not title:
             continue
         key = str(e.get("key") or "").strip().lower().replace(" ", "-")[:80]
-        if (key and key in by_key) or (title.lower(), str(e.get("kind") or "situation")) in by_title:
+        if key and key in by_key:
             continue  # already known: the update path owns it, never duplicate
         db.add(LedgerItem(
             honcho_workspace_id=workspace_id, owner_peer_id=owner,
@@ -490,6 +504,9 @@ async def apply_situations(db: AsyncSession, *, workspace_id: str, owner: str, r
                 changed = True
         if e.get("confidence") in ("observed", "reported", "inferred"):
             item.confidence = str(e["confidence"])
+            changed = True
+        if isinstance(e.get("kind"), str) and e["kind"].strip() and e["kind"].strip()[:40] != item.kind:
+            item.kind = e["kind"].strip()[:40]
             changed = True
         if e.get("status") in ("open", "waiting", "watching", "suppressed"):
             item.status = str(e["status"])

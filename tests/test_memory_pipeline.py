@@ -295,3 +295,26 @@ async def test_match_merges_same_circumstance_different_words():
             assert counts == {"added": 1, "updated": 1, "closed": 0}
     finally:
         memory_pipeline.set_model_fn(None)
+
+
+@pytest.mark.asyncio
+async def test_same_title_different_kind_updates_never_duplicates():
+    from src.db import async_session_maker
+    async with async_session_maker() as db:
+        await memory_pipeline.apply_situations(
+            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s1",
+            statements={"new": [{"key": "dentist", "title": "Dentist appointment",
+                                 "kind": "reminder", "evidence": ["dentist thursday"]}],
+                        "update": [], "close": []})
+        await db.commit()
+        c = await memory_pipeline.apply_situations(
+            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s2",
+            statements={"new": [{"key": "dentist-appointment", "title": "Dentist appointment",
+                                 "kind": "commitment", "timing_text": "Thursday 2pm",
+                                 "evidence": ["dentist thursday 2pm"]}], "update": [], "close": []})
+        # same normalized title + different kind: merged as update, kind revised
+        assert c["added"] == 0 and c["updated"] == 1
+        await db.commit()
+        rows = (await db.execute(select(memory_pipeline.LedgerItem).where(
+            memory_pipeline.LedgerItem.owner_peer_id == "u1"))).scalars().all()
+        assert len(rows) == 1 and rows[0].kind == "commitment"
