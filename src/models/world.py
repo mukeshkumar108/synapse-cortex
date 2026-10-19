@@ -323,3 +323,45 @@ class MemoryRun(SQLModel, table=True):
     started_at: Optional[datetime] = Field(default=None)
     finished_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class AttentionAction(SQLModel, table=True):
+    """Sophie's durable intention toward an operational matter: what she intends
+    to do, why, when, and what became of it. Survives restarts, sittings and
+    unavailable channels. A due-but-undelivered action stays visible — never
+    marked delivered unless delivery actually succeeded. Lifecycle (the matter)
+    and attention (this row) are deliberately separate."""
+    __tablename__ = "attention_actions"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    matter_key: Optional[str] = Field(default=None, index=True)   # situation_key, when tied to a matter
+    intent: str = Field(nullable=False)                            # what she intends, in her words
+    why: str = Field(default="")                                   # why now / why this matters
+    kind: str = Field(index=True, nullable=False, default="followup")  # reminder | followup | surface | opportunity
+    due_at: Optional[datetime] = Field(default=None, index=True)  # naive UTC; null = no fixed time
+    timezone: str = Field(default="UTC")
+    timing_note: str = Field(default="")                           # uncertainty about when ("morning", "when he surfaces")
+    state: str = Field(index=True, nullable=False, default="pending")  # pending | due | held | delivered | cancelled | expired | superseded
+    run_id: Optional[UUID] = Field(default=None, index=True)
+    superseded_by_id: Optional[UUID] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class AttentionEvent(SQLModel, table=True):
+    """Inspectable history of what Sophie decided and did about attention:
+    decided, scheduled, surfaced, attempted, delivered, responded, snoozed,
+    suppressed, rescheduled, cancelled, expired. The nagging antidote."""
+    __tablename__ = "attention_events"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: Optional[str] = Field(default=None, index=True)
+    action_id: Optional[UUID] = Field(default=None, index=True)
+    matter_key: Optional[str] = Field(default=None, index=True)
+    event: str = Field(index=True, nullable=False)
+    detail: str = Field(default="")
+    actor: str = Field(default="")                                 # model id or process name
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)

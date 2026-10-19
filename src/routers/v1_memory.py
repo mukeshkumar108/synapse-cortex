@@ -215,3 +215,34 @@ async def review_situations(req: ReviewRequest, db: AsyncSession = Depends(get_a
     except Exception as exc:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"review_failed:{type(exc).__name__}") from exc
+
+
+class AttentionTickRequest(BaseModel):
+    workspace_id: str = "llm-test-agent"
+    owner: str = ""
+    dry_run: bool = True
+
+
+@router.post("/attention-tick")
+async def attention_tick(req: AttentionTickRequest, db: AsyncSession = Depends(get_async_session)):
+    """Operator tick: due-scan + stale review for one owner (dry_run reports
+    what would run). The scheduler loop calls the same path unattended."""
+    from src.services import attention_cycle
+    if not req.owner:
+        owners = [o for o in attention_cycle.tick_config()["owners"]]
+        if not owners:
+            return {"tick": "no_allowlisted_owners"}
+        req = req.model_copy(update={"owner": owners[0]})
+    if req.dry_run:
+        from datetime import datetime as _dt, timezone as _tz
+        from sqlmodel import select as _select
+        from src.models.world import AttentionAction as _AA
+        rows = (await db.execute(_select(_AA).where(
+            _AA.honcho_workspace_id == req.workspace_id, _AA.owner_peer_id == req.owner,
+            _AA.state == "pending", _AA.due_at.is_not(None),
+            _AA.due_at <= _dt.now(_tz.utc).replace(tzinfo=None)))).scalars().all()
+        pending = await attention_cycle.pending_attention(db, workspace_id=req.workspace_id, owner=req.owner)
+        last = await attention_cycle.last_review_at(db, workspace_id=req.workspace_id, owner=req.owner)
+        return {"dry_run": True, "would_mark_due": [str(r.id) for r in rows],
+                "pending": len(pending), "last_review_at": last.isoformat() if last else None}
+    return await attention_cycle.tick_once(workspace_id=req.workspace_id, owner=req.owner)

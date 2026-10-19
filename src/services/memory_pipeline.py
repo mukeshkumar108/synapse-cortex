@@ -645,7 +645,8 @@ async def get_run(db: AsyncSession, run_id: str) -> Optional[MemoryRun]:
 
 
 async def read_state(db: AsyncSession, *, workspace_id: str, owner: str) -> Dict[str, Any]:
-    """Notebook + ledger + arc for inspection. Pure reads, no model."""
+    """Notebook + ledger + arc + attention for inspection. Pure reads, no model."""
+    from src.services import attention_cycle as _attn
     pages = await live_pages(db, workspace_id, owner)
     ledger = await open_ledger(db, workspace_id, owner, limit=50)
     arc = await get_arc(db, workspace_id, owner)
@@ -659,6 +660,10 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str) -> Dict
                    for i in ledger],
         "arc": {"version": arc.version, "text": arc.text},
         "preparation": prep,
+        "attention": {
+            "pending": await _attn.pending_attention(db, workspace_id=workspace_id, owner=owner),
+            "suppressed": await _attn.suppressed_matters(db, workspace_id=workspace_id, owner=owner),
+        },
     }
 
 
@@ -797,6 +802,24 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
                                         session_id=session_id, statements=statements, known=ledger)
         bundle["ledger_added"] = counts["added"]
         bundle["ledger_counts"] = counts
+    # End-of-sitting attention: due-scan always (deterministic, cheap); review
+    # only when something actually changed (new observations or ledger writes).
+    from src.services import attention_cycle
+    try:
+        bundle["attention_due"] = await attention_cycle.mark_due(
+            db, workspace_id=workspace_id, owner=owner)
+        ledger_touched = bool(witness) or any(
+            (counts or {}).get(k, 0) for k in ("added", "updated", "closed"))
+        if ledger_touched:
+            review = await attention_cycle.run_attention_review(
+                db, workspace_id=workspace_id, owner=owner, today_utc=today_utc,
+                reason="end-of-sitting")
+            bundle["attention_review"] = {k: v for k, v in review.items()}
+        else:
+            bundle["attention_review"] = {"status": "skipped", "reason": "nothing changed"}
+    except Exception as exc:
+        logger.warning("[memory] attention hook failed open: %s", exc)
+        bundle["attention_review"] = {"status": "failed", "error": type(exc).__name__}
 
     if sitting_kind == "independent":
         # The shared continuing arc belongs to the user-facing relationship;
@@ -835,11 +858,20 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
         f"{(' | waiting on: ' + i.waiting_on) if i.waiting_on else ''}"
         f"{(' | open question: ' + i.question_text) if i.question_text else ''}"
         for i in ledger) or "(nothing open)"
+    from src.services import attention_cycle as _attn
+    attention_items = await _attn.pending_attention(db, workspace_id=workspace_id, owner=owner)
+    attention_text = "\n".join(
+        f"- [{a['kind']}|{a['state']}] {a['intent']}"
+        f"{(' | matter: ' + a['matter']) if a.get('matter') else ''}"
+        f"{(' | due: ' + a['due_at']) if a.get('due_at') else ''}"
+        f"{(' | ' + a['timing_note']) if a.get('timing_note') else ''}"
+        f"{(' | why: ' + a['why']) if a.get('why') else ''}"
+        for a in attention_items) or "(nothing awaiting attention)"
     call = await _generate("preparation",
-                           f"{PREPARATION_PROMPT}\n\n--- now ---\n{now_iso}\n\n--- notebook ---\n{notebook_text}\n\n--- operational ledger (open) ---\n{ledger_text}\n\n--- where conversations stand ---\n{arc.text}",
+                           f"{PREPARATION_PROMPT}\n\n--- now ---\n{now_iso}\n\n--- notebook ---\n{notebook_text}\n\n--- operational ledger (open) ---\n{ledger_text}\n\n--- needs attention (due/pending intentions; already-excluded holds and suppressions are not listed; treat these as live candidates, not orders) ---\n{attention_text}\n\n--- where conversations stand ---\n{arc.text}",
                            600, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
     text = str((call or {}).get("text") or "").strip()
-    fingerprint = _fingerprint(notebook_text, ledger_text, arc.text, now_iso[:10])
+    fingerprint = _fingerprint(notebook_text, ledger_text, attention_text, arc.text, now_iso[:10])
     prep_id = None
     if text:
         old = (await db.execute(select(SittingPreparation).where(
