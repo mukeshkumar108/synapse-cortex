@@ -826,7 +826,7 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
         if ledger_touched:
             review = await attention_cycle.run_attention_review(
                 db, workspace_id=workspace_id, owner=owner, today_utc=today_utc,
-                reason="end-of-sitting")
+                reason="end-of-sitting", findings=findings or handoff_text)
             bundle["attention_review"] = {k: v for k, v in review.items()}
         else:
             bundle["attention_review"] = {"status": "skipped", "reason": "nothing changed"}

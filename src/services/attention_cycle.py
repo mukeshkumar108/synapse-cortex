@@ -118,6 +118,21 @@ async def describe_attention(db: AsyncSession, *, workspace_id: str, owner: str)
     items = {str(i.situation_key): i for i in await open_ledger(db, workspace_id, owner, limit=100)
              if i.situation_key}
     actions = await pending_attention(db, workspace_id=workspace_id, owner=owner)
+    # Latest surfaced/responded event per matter, so the packet states history
+    # as fact instead of re-asking blindly.
+    hist_rows = (await db.execute(select(AttentionEvent).where(
+        AttentionEvent.honcho_workspace_id == workspace_id,
+        AttentionEvent.owner_peer_id == owner,
+        AttentionEvent.event.in_(["surfaced", "attempted", "responded"]),
+        AttentionEvent.matter_key.is_not(None)).order_by(
+        AttentionEvent.created_at.desc()).limit(100))).scalars().all()
+    hist: Dict[str, str] = {}
+    for r in reversed(list(hist_rows)):
+        key = str(r.matter_key)
+        if r.event == "responded":
+            hist[key] = f"user responded: {(r.detail or '')[:160]}"
+        elif key not in hist:
+            hist[key] = f"already asked ({(r.detail or '')[:120]})" if r.detail else "already asked once"
     lines = []
     for a in actions:
         m = items.get(str(a.get("matter") or ""))
@@ -128,7 +143,29 @@ async def describe_attention(db: AsyncSession, *, workspace_id: str, owner: str)
             happened = f"scheduled for {a['due_at']}, not yet delivered"
         else:
             happened = "open, no fixed time yet"
-        lines.append(f"{matter}. Sophie intends: {a['intent']} — {happened}.")
+        line = f"{matter}. Sophie intends: {a['intent']} — {happened}."
+        if a.get("matter") in hist:
+            line += f" History: {hist[str(a['matter'])]}."
+        lines.append(line)
+    covered = {str(a.get("matter") or "") for a in actions}
+    for key, m in items.items():
+        if key in covered or m.status not in ("open", "waiting", "watching"):
+            continue
+        unknowns = []
+        if m.question_text:
+            unknowns.append(f"open question: {m.question_text[:200]}")
+        if m.timing_text and not m.expected_date and any(
+                w in m.timing_text.lower() for w in ("unknown", "tbd", "tbc", "sometime", "?")):
+            unknowns.append(f"timing unclear: {m.timing_text[:160]}")
+        if not unknowns and key not in hist:
+            continue
+        if unknowns:
+            line = f"{m.title} ({m.timing_text or 'no timing yet'}). Unresolved: {'; '.join(unknowns)}."
+        else:
+            line = f"{m.title} ({m.timing_text or 'no timing yet'})."
+        if key in hist:
+            line += f" History: {hist[key]}."
+        lines.append(line)
     return lines
 
 
@@ -261,10 +298,13 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
 
 async def run_attention_review(db: AsyncSession, *, workspace_id: str, owner: str,
                                today_utc: Optional[str] = None,
-                               reason: str = "scheduled") -> Dict[str, Any]:
+                               reason: str = "scheduled",
+                               findings: Optional[str] = None) -> Dict[str, Any]:
     """One attention review: agent examines matters + history + clock, decides,
     persists intentions. Returns grounded outcome (verified / no_change_verified
-    / never_inspected / unfinished)."""
+    / never_inspected / unfinished). When session findings are supplied, the
+    agent also closes the loop: questions Sophie asked become surfaced events,
+    user answers/declines become responded events on the tracked unknowns."""
     from datetime import datetime as _dt
     started = _dt.now(timezone.utc)
     today_utc = today_utc or started.date().isoformat()
@@ -274,7 +314,8 @@ async def run_attention_review(db: AsyncSession, *, workspace_id: str, owner: st
     models = [PRIMARY_MODEL] + ([FALLBACK_MODEL] if FALLBACK_MODEL != PRIMARY_MODEL else [])
     messages: List[Dict[str, str]] = [
         {"role": "system", "content": CONTRACT + f"\n\nToday is {today_utc} (UTC)."},
-        {"role": "user", "content": f"Review attention ({reason}). Open matters, history and clock are available through tools."}]
+        {"role": "user", "content": f"Review attention ({reason}). Open matters, history and clock are available through tools."
+         + (f"\n\nLatest session findings — if these show Sophie asked about a tracked unknown, record a surfaced event for it; if the user answered, declined, or asked to drop it, record a responded event with what they said:\n{findings[:3000]}" if (findings or "").strip() else "")}]
     model_used = models[0]
     for _ in range(MAX_ITERS):
         out = await _chat(model_used, messages)

@@ -152,3 +152,40 @@ async def test_describe_states_three_facts():
         assert len(lines) == 1
         assert "Remind Sophie" not in lines[0]
         assert "not yet delivered" in lines[0]
+
+
+@pytest.mark.asyncio
+async def test_review_records_surfaced_from_findings():
+    await _seed_ledger()
+    script = [
+        {"tool_calls": [{"id": "c1", "type": "function",
+                         "function": {"name": "list_matters", "arguments": "{}"}}]},
+        {"tool_calls": [{"id": "c2", "type": "function",
+                         "function": {"name": "record_event", "arguments":
+                                      '{"matter": "dentist", "event": "surfaced", "detail": "asked what time Thursday"}'}}]},
+        {"tool_calls": [{"id": "c3", "type": "function",
+                         "function": {"name": "finish", "arguments": '{"summary": "surfaced dentist question"}'}}]},
+    ]
+    state = {"n": 0}
+
+    async def fake(model, messages):
+        assert any("asked about a tracked unknown" in str(m.get("content") or "") for m in messages), \
+            "findings must reach the review prompt"
+        out = script[state["n"]]
+        state["n"] += 1
+        return {"content": "", "tool_calls": out["tool_calls"], "model": model,
+                "provider": "fake", "usage": {}}
+
+    async with async_session_maker() as db:
+        attention_cycle.set_chat_fn(fake)
+        try:
+            out = await attention_cycle.run_attention_review(
+                db, workspace_id="ws1", owner="u1", today_utc="2026-10-19",
+                reason="end-of-sitting",
+                findings="Sophie asked what time the dentist appointment is on Thursday.")
+        finally:
+            attention_cycle.set_chat_fn(None)
+    assert out["status"] == "verified"
+    async with async_session_maker() as db:
+        lines = await attention_cycle.describe_attention(db, workspace_id="ws1", owner="u1")
+        assert any("already asked" in l for l in lines), lines
