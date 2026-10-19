@@ -419,3 +419,9 @@ async def test_match_close_resolves_open_matter():
             assert all(r.situation_key != "dentist" for r in remaining)
     finally:
         memory_pipeline.set_model_fn(None)
+
+
+def test_situations_prompt_leads_with_resolution_check():
+    from src.services import memory_pipeline as mp
+    assert "Checking open items for resolution is primary" in mp.SITUATIONS_PROMPT or \
+        "checking open items for resolution" in mp.SITUATIONS_PROMPT.lower()

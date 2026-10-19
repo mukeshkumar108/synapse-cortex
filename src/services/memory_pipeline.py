@@ -101,8 +101,7 @@ Currently open situations (stable keys in brackets, for reference only):
 --- earlier findings (a guide, not the authority — the transcript above rules; catch what it missed) ---
 {findings}
 
-Write tagged lines, one per line. Tags (use only these):
-- ITEM: short human title of a circumstance worth tracking (commitment, plan, wait, invitation, aspiration, concern, routine change, question, anything with a life cycle)
+Write tagged lines, one per line. Tags (use only these):- ITEM: short human title of a circumstance worth tracking (commitment, plan, wait, invitation, aspiration, concern, routine change, question, anything with a life cycle)
 - KIND: one of commitment/event/thread/situation/reminder/aspiration/invitation/concern/routine (best fit, never forced)
 - DETAIL: circumstance, terms, what is known AND unknown
 - TIMING: timing in the person's own words ("Thursday", "for two weeks", "someday")
@@ -117,6 +116,7 @@ Write tagged lines, one per line. Tags (use only these):
 - STATUS-HINT: waiting / watching / suppressed (explicit stand-down like "ignore X tonight") — only if stated or obvious; else leave out
 
 Rules, no exceptions:
+- First job: compare this session against the open situations above. If the transcript answers, resolves, confirms or settles any of them, say so (RESOLVED with the proving quote) — even if the session contains nothing else new. Checking open items for resolution is primary, not an afterthought.
 - An aspiration is not a task and never closes by silence.
 - An invitation is not an accepted commitment; a provisional invitation stays provisional.
 - Inferred is not observed. A hypothesis is not a fact.
