@@ -270,10 +270,11 @@ def _norm_title(text: str) -> str:
 
 MATCH_PROMPT = """Two lists follow: NEW observations from this session, and OPEN situations already tracked (stable keys in brackets).
 
-For each NEW item, judge: is it the same circumstance as an open one (different words, an update, a new detail, a changed date, a suppression lifted or imposed), or genuinely new?
+For each NEW item, judge: is it the same circumstance as an open one (different words, an update, a new detail, a changed date, a suppression lifted or imposed), or genuinely new? If the observations show an open matter is now resolved, settled or answered, say so — a resolution is a CLOSE, not an update.
 
 Reply with one line per NEW item, in order:
 SAME: <new title> = <existing key>     (same circumstance — updates merge into it; write the key exactly as shown, no brackets or quotes)
+CLOSE: <existing key> = <short proof quote from the observations>   (the open matter is resolved/settled/answered; quote the evidence)
 NEW: <new title>                        (genuinely new — nothing open matches)
 
 Rules: same people + same matter = same, even when the words differ. A changed due date is the SAME situation updated, never a new one. A suppression ("ignore X") matching an open item refers to it — do not duplicate. When unsure, prefer SAME with the closest key over creating a near-duplicate; the merge only adds evidence and details, it never overwrites judgement. If there are no open situations, reply with nothing.
@@ -301,11 +302,16 @@ async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerIt
                           600, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
     text = str((out or {}).get("text") or "")
     mapping: Dict[str, str] = {}
+    closes: Dict[str, str] = {}
     for raw_line in text.splitlines():
         line = raw_line.strip()
         m = re.match(r"^SAME\s*:\s*(.+?)\s*=\s*[\[\"'“]*([A-Za-z0-9][A-Za-z0-9\-_]*)[\]\"'”]*\s*$", line, re.IGNORECASE)
         if m and m.group(2) in keys:
             mapping[m.group(1).strip().strip("\"'“”").strip()[:200]] = m.group(2)
+            continue
+        c = re.match(r"^CLOSE\s*:\s*[\[\"'“]*([A-Za-z0-9][A-Za-z0-9\-_]*)[\]\"'”]*\s*=\s*(.+?)\s*$", line, re.IGNORECASE)
+        if c and c.group(1) in keys and c.group(2).strip():
+            closes[c.group(1)] = c.group(2).strip()[:500]
     # fall back to prefix matching on titles (model may shorten them)
     resolved: Dict[str, str] = {}
     titles = {str(e.get("title") or ""): e for e in new_items}
@@ -313,7 +319,7 @@ async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerIt
         hit = next((t for t in titles if t == k or t.startswith(k[:40]) or k[:40] in t), None)
         if hit is not None:
             resolved[hit] = key
-    return resolved, out
+    return {"same": resolved, "close": closes}, out
 
 
 def resolve_date(text: str, today_utc: str) -> Optional[datetime]:
@@ -422,10 +428,14 @@ async def shape_situations(items: List[Dict[str, Any]], today_utc: str,
             d = resolve_date(e.get("timing_text"), today_utc)
             e["expected_date"] = d.strftime("%Y-%m-%d") if d else None
     # judged matching: same circumstance in different words merges, never duplicates
-    matched, match_call = await match_situations(
+    match_out, match_call = await match_situations(
         [{"title": e["title"], "detail": e.get("detail", "")} for e in statements["new"]], known)
-    match_report: Dict[str, Any] = {"matched": matched,
+    matched = match_out.get("same", {}) if isinstance(match_out, dict) else match_out
+    closed_by_match = match_out.get("close", {}) if isinstance(match_out, dict) else {}
+    match_report: Dict[str, Any] = {"matched": matched, "closed": list(closed_by_match),
                                     "call": match_call or {"skipped": True if not statements["new"] or not known else "failed"}}
+    for key, proof in closed_by_match.items():
+        statements["close"].append({"key": key, "status": "done", "evidence": proof})
     if matched:
         still_new = []
         for e in statements["new"]:

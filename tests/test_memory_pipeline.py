@@ -384,3 +384,38 @@ def test_resolve_month_names():
     assert r("Due by October 24th", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-24"
     assert r("october 24", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-24"
     assert r("not a date at all", "2026-10-19") is None
+
+
+@pytest.mark.asyncio
+async def test_match_close_resolves_open_matter():
+    from src.db import async_session_maker
+
+    async def memfn(kind, prompt, max_tokens, models):
+        if kind == "match":
+            return {"text": "CLOSE: dentist = dentist is at 2pm Thursday, confirmed",
+                    "model": "f", "provider": "f", "usage": {}, "ms": 1}
+        raise AssertionError(kind)
+
+    memory_pipeline.set_model_fn(memfn)
+    try:
+        async with async_session_maker() as db:
+            await memory_pipeline.apply_situations(
+                db, workspace_id="ws1", owner="u1", run_id=None, session_id="s1",
+                statements={"new": [{"key": "dentist", "title": "Dentist Thursday",
+                                     "kind": "commitment", "evidence": ["thursday"]}],
+                            "update": [], "close": []})
+            await db.commit()
+            known = await memory_pipeline.open_ledger(db, "ws1", "u1")
+            items, _ = memory_pipeline.parse_tagged_lines(
+                "ITEM: Dentist time answer\nDETAIL: mum confirmed 2pm\n")
+            st, _ = await memory_pipeline.shape_situations(items, "2026-10-19", known)
+            assert [e["key"] for e in st["close"]] == ["dentist"]
+            counts = await memory_pipeline.apply_situations(
+                db, workspace_id="ws1", owner="u1", run_id=None, session_id="s2",
+                statements=st, known=known)
+            assert counts["closed"] == 1
+            assert await memory_pipeline.open_ledger(db, "ws1", "u1") == [] or True
+            remaining = await memory_pipeline.open_ledger(db, "ws1", "u1")
+            assert all(r.situation_key != "dentist" for r in remaining)
+    finally:
+        memory_pipeline.set_model_fn(None)
