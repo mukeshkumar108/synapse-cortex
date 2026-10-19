@@ -801,7 +801,8 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
                              f"{' | RESOLVED: ' + it['resolved'][:300] if it.get('resolved') else ''}")
         agent_out = await maintenance_agent.run_maintenance(
             db, workspace_id=workspace_id, owner=owner, session_id=session_id,
-            observations="\n".join(obs_lines), today_utc=today_utc)
+            observations="\n".join(obs_lines), today_utc=today_utc,
+            transcript=transcript)
     bundle["ledger_agent"] = {k: v for k, v in agent_out.items() if k != "calls"}
     bundle["ledger_agent_calls"] = agent_out.get("calls", [])
     if agent_out.get("status") == "verified":

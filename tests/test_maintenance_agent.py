@@ -104,3 +104,27 @@ async def test_agent_skipped_when_nothing_observed():
         finally:
             maintenance_agent.set_chat_fn(None)
     assert out["status"] == "verified"
+
+
+@pytest.mark.asyncio
+async def test_fabricated_evidence_rejected():
+    from src.db import async_session_maker
+    async with async_session_maker() as db:
+        db.add(memory_pipeline.LedgerItem(
+            honcho_workspace_id="ws1", owner_peer_id="u1", kind="commitment",
+            title="Dentist Thursday", detail="d", status="open",
+            situation_key="dentist"))
+        await db.commit()
+        from src.services import maintenance_agent as ma
+        token = ma._TRANSCRIPT_CTX.set("user said only: dentist thursday, time unknown.")
+        try:
+            bad = await ma._tools(db, "ws1", "u1", "update_item",
+                                  {"key": "dentist", "status": "done",
+                                   "evidence": "Thursday 2pm, locked in."})
+            assert "error" in bad and "transcript" in bad["error"]
+            good = await ma._tools(db, "ws1", "u1", "update_item",
+                                   {"key": "dentist", "status": "done",
+                                    "evidence": "User confirmed: \"dentist thursday, time unknown\" is now handled"})
+            assert good.get("ok") is True
+        finally:
+            ma._TRANSCRIPT_CTX.reset(token)

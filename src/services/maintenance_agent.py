@@ -37,7 +37,7 @@ CONTRACT = """You maintain one person's operational agenda. Goal and invariants:
 
 Maintain an accurate operational agenda from the new observations. Inspect existing records before making changes. Reuse records when they refer to the same matter. Preserve relevant changes and source evidence. Do not invent commitments, dates or completions. Never treat silence as resolution.
 
-Rules: closing anything (done/cancelled/answered) requires quoting the evidence that proves it. When evidence moves a deadline, set expected_date (YYYY-MM-DD) as well as prose — prose alone does not count. Subtasks of a tracked matter fold into its detail; search before creating. Aspirations stay open. If a tool call fails, read the error and adapt.
+Rules: closing anything (done/cancelled/answered) requires quoting the evidence that proves it — the quote must come from this session's transcript; invented proof is rejected. When evidence moves a deadline, set expected_date (YYYY-MM-DD) as well as prose — prose alone does not count. Subtasks of a tracked matter fold into its detail; search before creating. Aspirations stay open. If a tool call fails, read the error and adapt.
 
 VERIFY before finish: re-list all records and check field-by-field — every intended status change present, every intended date in its expected_date field, no two open rows on the same matter. A failed check blocks finish."""
 
@@ -52,6 +52,9 @@ TOOLS = [
 
 # Injectable for tests.
 _chat_fn: Optional[Callable[..., Any]] = None
+
+import contextvars as _cv
+_TRANSCRIPT_CTX: _cv.ContextVar[str] = _cv.ContextVar("maintenance_transcript", default="")
 
 
 def set_chat_fn(fn: Optional[Callable[..., Any]]) -> None:
@@ -145,6 +148,10 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
             return {"error": f"illegal status {st}"}
         if st in ("done", "cancelled", "answered") and not str(args.get("evidence") or "").strip():
             return {"error": "closing requires evidence quoting proof"}
+        if st in ("done", "cancelled", "answered") and _TRANSCRIPT_CTX.get():
+            ev_check = str(args.get("evidence") or "")
+            if not _evidence_in_transcript(ev_check, _TRANSCRIPT_CTX.get() or ""):
+                return {"error": "evidence quote not found in this session's transcript — quote what was actually said"}
         for f, lim in (("detail", 2000), ("timing_text", 300), ("waiting_on", 300), ("question_text", 500)):
             v = args.get(f)
             if isinstance(v, str) and v.strip():
@@ -196,12 +203,46 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
     return {"error": "unknown tool"}
 
 
+def _norm_text(s: str) -> str:
+    import re as _re
+    return _re.sub(r"\s+", " ", str(s or "").lower()).strip()
+
+
+def _evidence_in_transcript(evidence: str, transcript: str) -> bool:
+    """An evidence string counts only if a substantive quoted span of it
+    appears in this session's transcript. Guards against invented proof."""
+    import re as _re
+    norm_t = _norm_text(transcript)
+    if not norm_t:
+        return False
+    spans = [s.strip() for s in _re.split(r"[\"“”']", evidence) if s.strip()]
+    candidates = [c for c in spans if len(_norm_text(c)) >= 20]
+    if not candidates:
+        # No quotable span: fall back to longest sentence.
+        sents = [s.strip() for s in _re.split(r"[.!?]+", evidence) if len(_norm_text(s)) >= 20]
+        candidates = sents[:1]
+    return any(_norm_text(c) in norm_t for c in candidates)
+
+
 async def run_maintenance(db: AsyncSession, *, workspace_id: str, owner: str, session_id: str,
-                          observations: str, today_utc: str) -> Dict[str, Any]:
+                          observations: str, today_utc: str,
+                          transcript: str = "") -> Dict[str, Any]:
     """Agentic maintenance loop over witness observations. Returns outcome with
     inspection grounding: verified / no_change_verified / never_inspected."""
     from datetime import datetime as _dt
     started = _dt.now(timezone.utc)
+    token = _TRANSCRIPT_CTX.set(transcript or "")
+    try:
+        return await _run_maintenance_inner(
+            db, workspace_id=workspace_id, owner=owner, session_id=session_id,
+            observations=observations, today_utc=today_utc, started=started)
+    finally:
+        _TRANSCRIPT_CTX.reset(token)
+
+
+async def _run_maintenance_inner(db: AsyncSession, *, workspace_id: str, owner: str, session_id: str,
+                                 observations: str, today_utc: str, started: Any) -> Dict[str, Any]:
+    from datetime import datetime as _dt
     calls: List[Dict[str, Any]] = []
     inspected = False
     finished_summary: Optional[str] = None
