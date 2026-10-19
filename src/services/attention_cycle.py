@@ -41,6 +41,8 @@ EVENT_KINDS = ("decided", "scheduled", "surfaced", "attempted", "delivered", "re
 
 CONTRACT = """You review what is on someone's plate and decide what deserves attention. You are an executive assistant with judgment, not a reminder rulebook. A dentist appointment and a vague walk idea must not receive identical treatment.
 
+Responsibility is always toward the user: reminders and follow-ups are FOR him, never for Sophie. Phrase every intent accordingly ("Remind him Thursday morning", never "Remind Sophie"). The stored matter already says whose appointment it is; your intent says what YOU will do about it.
+
 You have: open operational matters (with dates, people, dependencies), the history of what Sophie already did about each (asked, reminded, snoozed, suppressed, delivered, responses), and the clock.
 
 Decide per matter: schedule a reminder or follow-up (with a due time), flag it for the next conversation, defer it, suppress it (scoped: what exactly to stop, and until when), reschedule/cancel existing intentions whose matter changed, or do nothing. Doing nothing is often correct.
@@ -51,7 +53,7 @@ TOOLS = [
     {"type": "function", "function": {"name": "list_matters", "description": "Open operational matters with keys, dates, people, dependencies.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "attention_history", "description": "What Sophie already did: events newest-first, optional matter filter.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "limit": {"type": "integer"}}}}},
     {"type": "function", "function": {"name": "list_actions", "description": "Current intentions (pending/due/held), optional matter filter.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}}}}},
-    {"type": "function", "function": {"name": "schedule_action", "description": "Persist an intention: matter key (or null), what she intends + why, kind reminder/followup/surface/opportunity, due_at YYYY-MM-DDTHH:MM (UTC) or null, timing_note for uncertainty. Duplicates of open intentions are refused — update instead.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "intent": {"type": "string"}, "why": {"type": "string"}, "kind": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}}, "required": ["intent"]}}},
+    {"type": "function", "function": {"name": "schedule_action", "description": "Persist an intention Sophie holds toward the user (reminders are FOR him, never for Sophie: 'Remind him Thursday morning'). Matter key (or null), what she intends + why, kind reminder/followup/surface/opportunity, due_at YYYY-MM-DDTHH:MM (UTC) or null, timing_note for uncertainty. Duplicates of open intentions are refused — update instead.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "intent": {"type": "string"}, "why": {"type": "string"}, "kind": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}}, "required": ["intent"]}}},
     {"type": "function", "function": {"name": "update_action", "description": "Change an intention by id: state (pending/due/held/cancelled/expired/superseded — delivered only with evidence of actual delivery), due_at, timing_note. Reschedule by setting a new due_at (old value kept in history).", "parameters": {"type": "object", "properties": {"id": {"type": "string"}, "state": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["id"]}}},
     {"type": "function", "function": {"name": "record_event", "description": "Record what happened: responded/snoozed/suppressed/surfaced/attempted with detail (e.g. user said stop fussing — scope it).", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "action": {"type": "string"}, "event": {"type": "string"}, "detail": {"type": "string"}}, "required": ["event"]}}},
     {"type": "function", "function": {"name": "finish", "description": "End only after verifying intentions match decisions.", "parameters": {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"]}}},
@@ -107,6 +109,27 @@ def _action_view(a: AttentionAction) -> Dict[str, Any]:
     return {"id": str(a.id), "matter": a.matter_key, "intent": a.intent, "why": a.why,
             "kind": a.kind, "due_at": a.due_at.isoformat() if a.due_at else None,
             "timing_note": a.timing_note, "state": a.state}
+
+
+async def describe_attention(db: AsyncSession, *, workspace_id: str, owner: str) -> List[str]:
+    """Three-fact lines: what the user has on, what Sophie took responsibility
+    for, and what has actually happened. Complete standalone statements."""
+    from src.services.memory_pipeline import open_ledger
+    items = {str(i.situation_key): i for i in await open_ledger(db, workspace_id, owner, limit=100)
+             if i.situation_key}
+    actions = await pending_attention(db, workspace_id=workspace_id, owner=owner)
+    lines = []
+    for a in actions:
+        m = items.get(str(a.get("matter") or ""))
+        matter = f"{m.title} ({m.timing_text})" if m and m.timing_text else (m.title if m else "a tracked matter")
+        if a["state"] == "due":
+            happened = "due now, not yet delivered"
+        elif a.get("due_at"):
+            happened = f"scheduled for {a['due_at']}, not yet delivered"
+        else:
+            happened = "open, no fixed time yet"
+        lines.append(f"{matter}. Sophie intends: {a['intent']} — {happened}.")
+    return lines
 
 
 async def _event(db: AsyncSession, workspace_id: str, owner: str, event: str,

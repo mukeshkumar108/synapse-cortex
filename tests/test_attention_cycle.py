@@ -139,3 +139,16 @@ async def test_tick_marks_due_and_skips_fresh_review():
         assert len(due) == 1
         cfg = attention_cycle.tick_config()
         assert cfg["tick_seconds"] >= 60 and cfg["review_stale_hours"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_describe_states_three_facts():
+    await _seed_ledger()
+    async with async_session_maker() as db:
+        await attention_cycle._tools(db, "ws1", "u1", "schedule_action",
+                                     {"matter": "dentist", "intent": "Remind him Thursday morning",
+                                      "kind": "reminder", "due_at": "2026-10-22T08:00"})
+        lines = await attention_cycle.describe_attention(db, workspace_id="ws1", owner="u1")
+        assert len(lines) == 1
+        assert "Remind Sophie" not in lines[0]
+        assert "not yet delivered" in lines[0]

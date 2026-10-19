@@ -859,14 +859,8 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
         f"{(' | open question: ' + i.question_text) if i.question_text else ''}"
         for i in ledger) or "(nothing open)"
     from src.services import attention_cycle as _attn
-    attention_items = await _attn.pending_attention(db, workspace_id=workspace_id, owner=owner)
-    attention_text = "\n".join(
-        f"- [{a['kind']}|{a['state']}] {a['intent']}"
-        f"{(' | matter: ' + a['matter']) if a.get('matter') else ''}"
-        f"{(' | due: ' + a['due_at']) if a.get('due_at') else ''}"
-        f"{(' | ' + a['timing_note']) if a.get('timing_note') else ''}"
-        f"{(' | why: ' + a['why']) if a.get('why') else ''}"
-        for a in attention_items) or "(nothing awaiting attention)"
+    attention_text = "\n".join(await _attn.describe_attention(
+        db, workspace_id=workspace_id, owner=owner)) or "(nothing awaiting attention)"
     call = await _generate("preparation",
                            f"{PREPARATION_PROMPT}\n\n--- now ---\n{now_iso}\n\n--- notebook ---\n{notebook_text}\n\n--- operational ledger (open) ---\n{ledger_text}\n\n--- needs attention (due/pending intentions; already-excluded holds and suppressions are not listed; treat these as live candidates, not orders) ---\n{attention_text}\n\n--- where conversations stand ---\n{arc.text}",
                            600, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
