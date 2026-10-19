@@ -847,6 +847,23 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
     """Compose a small situated perspective and cache it (superseding the last)."""
     from datetime import datetime as _dt
     now_iso = now_iso or _dt.now(_tz_utc()).isoformat()
+    try:
+        _now = _dt.fromisoformat(str(now_iso))
+        if _now.tzinfo is None:
+            _now = _now.replace(tzinfo=timezone.utc)
+    except ValueError:
+        _now = _dt.now(timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo
+        _local = _now.astimezone(ZoneInfo("Europe/London"))
+    except Exception:
+        _local = _now
+    # The clock is authoritative. The model interprets what it means, never
+    # recomputes it: any mention of today must agree with this line.
+    clock_line = (f"Current time (authoritative — do not recompute the date, weekday or time; "
+                  f"any mention of today must agree with this): {_local.strftime('%A')} "
+                  f"{_local.date().isoformat()} {_local.strftime('%H:%M')} Europe/London "
+                  f"(UTC {_now.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M')}).")
     pages = await live_pages(db, workspace_id, owner)
     ledger = await open_ledger(db, workspace_id, owner)
     arc = await get_arc(db, workspace_id, owner)
@@ -862,7 +879,7 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
     attention_text = "\n".join(await _attn.describe_attention(
         db, workspace_id=workspace_id, owner=owner)) or "(nothing awaiting attention)"
     call = await _generate("preparation",
-                           f"{PREPARATION_PROMPT}\n\n--- now ---\n{now_iso}\n\n--- notebook ---\n{notebook_text}\n\n--- operational ledger (open) ---\n{ledger_text}\n\n--- needs attention (due/pending intentions; already-excluded holds and suppressions are not listed; treat these as live candidates, not orders) ---\n{attention_text}\n\n--- where conversations stand ---\n{arc.text}",
+                           f"{PREPARATION_PROMPT}\n\n--- now ---\n{now_iso}\n{clock_line}\n\n--- notebook ---\n{notebook_text}\n\n--- operational ledger (open) ---\n{ledger_text}\n\n--- needs attention (due/pending intentions; already-excluded holds and suppressions are not listed; treat these as live candidates, not orders) ---\n{attention_text}\n\n--- where conversations stand ---\n{arc.text}",
                            600, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
     text = str((call or {}).get("text") or "").strip()
     fingerprint = _fingerprint(notebook_text, ledger_text, attention_text, arc.text, now_iso[:10])

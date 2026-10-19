@@ -318,3 +318,35 @@ async def test_same_title_different_kind_updates_never_duplicates():
         rows = (await db.execute(select(memory_pipeline.LedgerItem).where(
             memory_pipeline.LedgerItem.owner_peer_id == "u1"))).scalars().all()
         assert len(rows) == 1 and rows[0].kind == "commitment"
+
+
+@pytest.mark.asyncio
+async def test_preparation_clock_authoritative_including_boundary():
+    seen = {}
+
+    async def fake(kind, prompt, max_tokens, models):
+        if kind == "preparation":
+            seen["prompt"] = prompt
+            return {"text": "ok", "model": "f", "provider": "f", "usage": {}, "ms": 1}
+        return {"text": "", "model": "f", "provider": "f", "usage": {}, "ms": 1}
+
+    from src.services import memory_pipeline as mp
+    mp.set_model_fn(fake)
+    try:
+        from src.db import async_session_maker
+        async with async_session_maker() as db:
+            # Sunday 23:55 UTC == Monday 00:55 London: the date must read Monday
+            await mp.prepare(db, workspace_id="ws1", owner="uclock",
+                             now_iso="2026-10-18T23:55:00+00:00")
+    finally:
+        mp.set_model_fn(None)
+    assert "Monday 2026-10-19" in seen["prompt"]
+    assert "00:55 Europe/London" in seen["prompt"]
+    assert "do not recompute the date" in seen["prompt"]
+
+
+def test_weekday_slip_fixture_documents_known_failure():
+    import pathlib
+    text = pathlib.Path(__file__).parent.joinpath("fixtures/prep_weekday_slip_regression.txt").read_text()
+    # produced Oct 19 (a Monday) yet opens with Sunday: the bug class this guards
+    assert text.lstrip().startswith("It’s Sunday afternoon")
