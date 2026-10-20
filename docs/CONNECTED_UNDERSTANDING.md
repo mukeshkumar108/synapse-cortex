@@ -96,7 +96,7 @@ attention review, separately. This keeps the five states distinct: *state* (ledg
 Real models on an isolated scratch Cortex (own Postgres, copied provider keys, torn down afterwards). Scenario: three sittings over four days — new job,
 partner, partner's relative ill (corrected: aunt, not mum; then home), manager leaves and becomes an adviser, a new manager appears, a decision is
 considered. Harness `scripts/eval_world.py`; raw outputs `reports/world_20261020_170140.md` (run 1, before fixes), `reports/world_run2.md` (run 2,
-after fixes), `reports/world_run3_bloom.md` (the same scenario as Bloom, second product); in-session continuity `reports/rolling_continuity_inspect.json`.
+after fixes), `reports/world_run3_bloom.md` (the same scenario as Bloom, second product); the assembled Sophie packet `reports/sophie_connected_packet_20261020.txt`; in-session continuity `reports/rolling_continuity_inspect.json`.
 
 **Run 1 worked on the hard parts and exposed real defects.** Worked: the relationship correction (mum→aunt) superseded the old link with the person's words as
 the reason; Morgan's change (manager→left→adviser) kept history; Ruth's hospital→home state change reached the overview; ledger-owned facts were read live

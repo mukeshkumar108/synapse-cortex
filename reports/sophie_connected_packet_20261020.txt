@@ -1,0 +1,55 @@
+# Sophie foreground packet sections, assembled with the real build_sections
+# Inputs: REAL Cortex outputs (scratch Cortex, 3 real-model sittings; reports/world_run2.md), REAL rolling-continuity account (40 messages,
+# reports/rolling_continuity_inspect.json), REAL operational awareness. NOT the full executor: identity, scene, tail, tools and contract are omitted.
+# NOTE: the CONTINUITY lines below were captured before the 'Since then (more recent…)' label existed, and the account comes from a separate synthetic conversation about the same
+# story, so its staleness (Ruth still 'in hospital') against the maintained world (Ruth home) is exactly the defect described in CONNECTED_UNDERSTANDING.md section 8.
+# Person's current message: "Morgan texted me again about the pilot, and I still haven't told Priya about the lead thing."
+
+[RUNTIME ANCHOR — authoritative clock and sitting.]
+- Now: Thursday, 22 October 2026, 19:00 (BST).
+- Current location: unknown — do not assume or stage any place.
+- this evening, a few minutes in
+
+[CONTINUITY — selected biographical, relational and emotional context for this sitting.]
+You started the conversation feeling stretched thin. You’re new at Northwind, on the Bloom pilot, and your partner Ashley is stressed because her mum Ruth is in hospital with pneumonia. You missed a standup and suspect your manager Morgan is annoyed, which adds pressure. You’ve been weighing whether to step back from leading Bloom because evenings are already overwhelmed, and you feel both relief at the idea and guilt because Morgan trusted you with it. You proposed asking Morgan if Priya from another team could co-lead instead, which feels like a possible way forward.
+Decide whether to ask Morgan about Priya co-leading Bloom.
+Check if Morgan is actually upset about the missed standup.
+Make a final decision on whether you’ll take the lead on Bloom.
+Keep an eye on Ruth’s hospital stay and recovery timeline.
+Support Ashley and monitor how long the household situation affects her.
+[L1] Morgan has left Northwind; Priya Nair is the new manager. Ruth is Ashley's aunt, not her mum, and is home from hospital recovering. The Bloom pilot is now being led informally with Morgan as an advisor, and Priya is the manager. You have decided not to take the lead on Bloom and will tell Priya this in the status update tomorrow.
+[H1] Decide what to include in the status update for Priya Nair on the Bloom pilot (progress so far, demo date Friday, and that you'd rather support than lead).
+
+[THEIR WORLD RIGHT NOW — maintained record, Thursday 22 October 2026. Each line reflects the latest recorded state.]
+People, projects and places:
+- Bloom pilot (project): A trial of a wellbeing app with church groups, run at Northwind; the person is leading it. 1 open matter.
+- Priya Nair (person): The person's new manager at Northwind, taking over after Morgan Ellis left. Wants a status update on the Bloom pilot. Relationship to the person: manager of the person. 1 open matter.
+- Ashley (person): The person's partner. Her aunt (Ruth) had pneumonia and was in hospital; Ruth is now home and recovering. Relationship to the person: partner of the person.
+- Morgan Ellis (person): Former manager at Northwind who put the person on the Bloom pilot; has since left Northwind but is still helping informally with the pilot as more of an advisor.
+- Northwind (organisation): The organisation the person works for; their current manager is Priya Nair, following Morgan Ellis's departure.
+- Ruth (person): Ashley's aunt, diagnosed with pneumonia from her persistent chest infection; she has been discharged from hospital and is now recovering at home.
+Developing situations:
+- Ruth's pneumonia (sensitive): Ruth's persistent chest infection was diagnosed as pneumonia; after a short hospital stay she is now home and recovering. Last update 2 days ago.
+
+[WHO OR WHAT THEY MEAN — maintained record]
+Morgan Ellis (person): Former manager at Northwind who put the person on the Bloom pilot; has since left Northwind but is still helping informally with the pilot as more of an advisor.
+Connected to:
+- Morgan Ellis: informal advisor on Bloom pilot
+
+Priya Nair (person): The person's new manager at Northwind, taking over after Morgan Ellis left. Wants a status update on the Bloom pilot.
+Connected to:
+- Priya Nair: manager of the person
+- Priya Nair: manager at Northwind (inferred, not confirmed)
+- Priya Nair: wants a status update on Bloom pilot
+Open matters:
+- Give Priya Nair a status update on the Bloom pilot: due tomorrow (Fri 23 Oct)
+
+[OPERATIONAL AWARENESS — Thursday 22 October 2026, 7:00pm (Europe/London). Maintained record; facts, not interpretation.]
+Things to check up on:
+- Dentist appointment: was scheduled for 9:00am (assumed; not confirmed) today; outcome not recorded; open question: 9am or 9pm? (morning reading assumed)
+This week:
+- Give Priya Nair a status update on the Bloom pilot: due tomorrow (Fri 23 Oct)
+- Lead Bloom wellbeing app pilot with church groups: tomorrow (Fri 23 Oct); time not recorded; open question: Morgan has left; what is Priya Nair's stance on the pilot?
+No date:
+- Ruth's pneumonia hospitalisation; waiting on Ruth's recovery; open question: How is Ruth's recovery going?
+Recently closed: Awaiting test results for Ruth's persistent chest infection.

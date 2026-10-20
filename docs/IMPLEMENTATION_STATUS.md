@@ -8,8 +8,14 @@ Where observed is weaker than implemented, that is the finding. Decisions: `DECI
 
 | | Commit | On the VPS | Rollback image (taken before this deploy) |
 |---|---|---|---|
-| Cortex | `{CORTEX_SHA}` (previous deploy `6995578`) | `deploy-api:latest`, built from `{CORTEX_SHA}` | `deploy-api:pre-connected-2026-10-20` |
-| Runtime | `{RUNTIME_SHA}` (previous deploy `7236b0b`) | `companion-runtime:local`, built from `{RUNTIME_SHA}` | `companion-runtime:pre-connected-2026-10-20` |
+| Cortex | `aded6c0` (previous deploy `6995578`) | `deploy-api:latest`, built from `aded6c0` | `deploy-api:pre-connected-2026-10-20` |
+| Runtime | `11adb0f` (previous deploy `7236b0b`) | `companion-runtime:local`, built from `11adb0f` | `companion-runtime:pre-connected-2026-10-20` |
+
+Deployed 2026-10-20 ~18:00 BST: Cortex healthy, `CONNECTED_WORLD_ENABLED=False` confirmed inside the container, new tables (`known_entities`, `known_entity_aliases`, `known_links`,
+`cue_exposure`) and columns (`attention_actions.source/source_ref/expires_at`, ledger time columns) present, `GET /v1/memory/world` answers `enabled:false` and `GET /v1/memory/ledger`
+answers for a smoke workspace (read-only; nothing written, nothing to purge); source md5 on the VPS matches the repo. Runtime healthy, world flag off. Post-deploy canary: first run
+**FAIL — provider outage** (NanoGPT 503 `all_fallbacks_failed` on the canary's character model, visible in the Runtime log, not a code path I changed), second run **PASS**.
+Scratch environment used for all model-backed runs was torn down (containers, network, env copy shredded, tunnels closed).
 
 Flags after this deploy: `CONNECTED_WORLD_ENABLED` **off** in Cortex and Runtime (connected understanding is dark). Bloom **off** (`MEMORY_PIPELINE_COMPANIONS=sophie`).
 `MEMORY_LEDGER_MODELS` not set (single-model witness, as before). New schema is additive (four tables, a few nullable columns); rolling the images back leaves
@@ -26,7 +32,7 @@ the extra tables/columns inert. To roll back: `docker tag deploy-api:pre-connect
 | Product isolation at the request boundary | no product reads another's data | yes, deployed `6995578`/`7236b0b` | mutation checks: removing each guard fails 1–6 tests; legacy shared credential and non-memory routes still bypass (known) |
 | Connected understanding: data, connect pass, deterministic views, endpoints | first working version, inspectable, flag-off | yes (this commit) | three real-model runs (`reports/world_*`): relationship corrections, state changes, first-name resolution, self-anchored relationships work; defects F1–F8 found and fixed; kinship-in-prose leak found in run 3 and only patched in the contract, **not re-verified** |
 | Entity-sourced attention intentions | an intention can belong to a situation, expire, be suppressed | yes, unit-tested | not run on a real attention model |
-| Runtime: world block, `know` tool, exposure report | foreground gets who/what the person just named, no search | yes, flag off | assembled only through `build_sections` + handler tests; **full executor not run end to end** against the new path |
+| Runtime: world block, `know` tool, exposure report | foreground gets who/what the person just named, no search | yes, flag off | the real `build_sections` was run on real Cortex output: `reports/sophie_connected_packet_20261020.txt` (the person named Morgan and Priya; both snapshots arrived, with the open status-update matter read live). The **full executor was not run end to end with the flag on** (the canary ran with it off); wiring is covered by unit tests |
 | In-session continuity assessment | find what rolling continuity loses or distorts | inspected with real packets (40 messages) | stale checkpoint narrative coexists with newer corrections → labelled "Since then…"; root cause (patches cannot retract narrative) **not fixed**; small-model inventions seen |
 | Documentation | decisions, status, architecture, evidence, continuation | these files | — |
 
