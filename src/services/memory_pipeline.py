@@ -63,7 +63,9 @@ INDEPENDENT_RULE = ("This was one of Sophie's independent sittings, without the 
 
 INDEPENDENT_LISTENING_PROMPT = """This was one of Sophie's independent sittings, without the user present. What did she actually do here — what did she choose to investigate, which sources and conversations did she actually access, what did she find interesting or unconvincing, and what remains open or unfinished? Only keep what genuinely matters. Write it as short, plain, standalone sentences. Never invent activities, results or experiences."""
 
-LISTENING_PROMPT = """Read this conversation and bring me up to speed: What did we actually learn here that is worth remembering, and what's still left hanging between them? Only keep what genuinely matters. Write it as short, plain, standalone sentences."""
+LISTENING_PROMPT = """Read this conversation and bring me up to speed: What did we actually learn here that is worth remembering, and what's still left hanging between them? Only keep what genuinely matters. Write it as short, plain, standalone sentences.
+
+Provenance matters. What the person said or did is evidence about them. What Sophie said is not evidence about their life or feelings (she can be wrong, or colourful). Record tension, rupture or distance between them only if the person expressed it or the exchange plainly shows it, and say which ("they said...", "my reading of the exchange..."); if it was raised and then resolved in the same conversation, record that it was resolved, not that it exists."""
 
 HANDOFF_PROMPT = """You are a transcript summary. Deliver no more than 2-3 sentences at most.
 
@@ -75,7 +77,7 @@ Update the page: keep everything still true, revise what the new evidence change
 
 Distinguish clearly: things actually done and established, things intended or aspired to, things proposed or uncertain. Never upgrade an aspiration into an established routine. Never downgrade or delete a fact the new findings do not address.
 
-Do not carry the mood of the last conversation forward as a current state. Remember events and what they mean; yesterday's feelings are not today's feelings.
+Do not carry the mood of the last conversation forward as a current state. Remember events and what they mean; yesterday's feelings are not today's feelings. Keep what the person said distinct from what Sophie said or inferred: an interpretation of their relationship that only Sophie voiced stays marked as her reading, never as an established fact about them.
 
 Resolution: preserve what remains relevant. When an ordinary disagreement has been explicitly repaired, do not promote the argument, its emotional framing or its supposed implications into enduring knowledge merely because it happened. The archived evidence keeps the full history; this page keeps only what still matters.
 
@@ -138,7 +140,7 @@ Rules, no exceptions:
 
 PREPARATION_PROMPT = """You are forming a brief private perspective for Sophie, a companion who genuinely cares about this person, ahead of their next conversation. Inputs: the living notebook, the operational ledger, the continuing arc of recent conversations, and the current date/time.
 
-Write short, first-person, future-oriented thoughts: what matters to him and why, what's on his plate now and approaching, what changed since they last spoke, what she is genuinely curious about or could usefully notice. Be honest about what you don't know — never present a guess as a fact, never turn "he wants to try X" into "he failed at X again". Notice opportunities without manufacturing judgments.
+Write short, first-person, future-oriented thoughts: what matters to him and why, what's on his plate now and approaching, what changed since they last spoke, what she is genuinely curious about or could usefully notice. Be honest about what you don't know — never present a guess as a fact, never turn "he wants to try X" into "he failed at X again". A tension or rupture between them counts as current only if the most recent conversation (the arc) shows it unresolved; if the arc says it was repaired, it is history at most, never an undercurrent to walk in on. Do not describe the feeling of the relationship ("a quiet shift in the air between us") unless the notebook records that they said so. Notice opportunities without manufacturing judgments.
 
 Cover the person, not the operations: who he is and is becoming, relationships and how they stand, concerns, curiosities, developments and open threads in his life. Dated obligations, deadlines and appointments belong to the operational radar, which is composed separately — do not restate them here beyond a passing mention when they genuinely color the moment.
 
