@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.world import ContinuingArc, LedgerItem, MemoryRun, NotebookPage, SittingPreparation, utc_now
 from src.services import nano_adapter
-from src.services import product_memory
+from src.services import product_memory, product_scope
 from src.services.product_memory import ProductMemory
 
 logger = logging.getLogger(__name__)
@@ -799,6 +799,7 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
     """Notebook + ledger + arc + attention for inspection. Pure reads, no model."""
     from src.services import attention_cycle as _attn
     cfg = product_memory.get(companion_id)
+    product_scope.assert_scoped(cfg.name, workspace_id)
     pages = await live_pages(db, workspace_id, owner, cfg)
     if include_closed:
         rows = (await db.execute(select(LedgerItem).where(
@@ -987,6 +988,7 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
     (with the person) or "independent" (the companion's own sitting, user absent
     — no ledger, no shared arc)."""
     cfg = product_memory.get(companion_id)
+    product_scope.assert_scoped(cfg.name, workspace_id)
     try:
         async with owner_lock(workspace_id, owner):
             return await _consolidate(db, workspace_id=workspace_id, owner=owner, conversation_id=conversation_id,
@@ -1238,6 +1240,7 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
     """Compose a small situated perspective and cache it (superseding the last)."""
     from datetime import datetime as _dt
     cfg = product_memory.get(companion_id)
+    product_scope.assert_scoped(cfg.name, workspace_id)
     now_iso = now_iso or _dt.now(_tz_utc()).isoformat()
     clock = resolve_clock(now_iso, time_zone or cfg.default_time_zone)
     _now, _local = clock["event_utc"], clock["local"]
@@ -1368,6 +1371,7 @@ async def get_preparation(db: AsyncSession, *, workspace_id: str, owner: str,
     """Latest cached preparation; None when missing or stale. Pure read, no model."""
     from datetime import datetime as _dt
     cfg = product_memory.get(companion_id)
+    product_scope.assert_scoped(cfg.name, workspace_id)
     row = (await db.execute(select(SittingPreparation).where(
         SittingPreparation.honcho_workspace_id == workspace_id,
         SittingPreparation.owner_peer_id == owner,

@@ -18,6 +18,7 @@ from src.routers.v1_ops import router as ops_router
 from src.routers.v1_work import router as work_router
 import src.models.companion_work  # noqa: F401  (registers tables for create_all)
 from src.services.turn_extractor import extractor_config_status
+from src.services import product_scope
 
 
 def validate_service_token_config() -> None:
@@ -90,11 +91,19 @@ async def bind_call_context(request: Request, call_next):
 @app.middleware("http")
 async def require_service_token(request: Request, call_next):
     token = settings.SYNAPSE_CORTEX_API_TOKEN
-    if token and request.url.path != "/health":
+    request.state.product = None
+    if request.url.path != "/health":
         supplied = request.headers.get("authorization", "")
-        expected = f"Bearer {token}"
-        if not hmac.compare_digest(supplied, expected):
-            return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+        product = product_scope.product_for_token(supplied) if supplied else None
+        if product:
+            # A product credential fixes the product and is default-denied everywhere but the product routes.
+            if not product_scope.route_allowed_for_product(request.method, request.url.path):
+                return JSONResponse({"detail": "forbidden_for_product_credential"}, status_code=403)
+            request.state.product = product
+        elif token:
+            expected = f"Bearer {token}"
+            if not hmac.compare_digest(supplied, expected):
+                return JSONResponse({"detail": "Unauthorized"}, status_code=401)
     return await call_next(request)
 
 app.include_router(health_router)

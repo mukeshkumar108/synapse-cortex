@@ -13,12 +13,12 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db import async_session_maker, get_async_session
-from src.services import memory_pipeline
+from src.services import memory_pipeline, product_scope
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/memory", tags=["memory"])
@@ -35,12 +35,9 @@ class ConsolidateRequest(BaseModel):
     time_zone: Optional[str] = None         # IANA zone the person was in
 
 
-def _product(companion_id: str) -> str:
-    from src.services import product_memory
-    try:
-        return product_memory.get(companion_id).name
-    except KeyError:
-        raise HTTPException(status_code=422, detail=f"unknown_memory_product:{companion_id}; known: {', '.join(product_memory.known())}")
+def _scope(request: Request, workspace_id: str, companion_id: Optional[str]) -> product_scope.Scope:
+    """The product boundary for this request: trusted product + namespaced workspace, computed once, here."""
+    return product_scope.resolve_scope(request, workspace_id, companion_id)
 
 
 async def _run_consolidation(workspace_id: str, owner: str, conversation_id: str, session_id: str,
@@ -64,32 +61,33 @@ async def _run_consolidation(workspace_id: str, owner: str, conversation_id: str
 
 
 @router.post("/consolidate", status_code=202)
-async def consolidate(req: ConsolidateRequest, db: AsyncSession = Depends(get_async_session)):
+async def consolidate(req: ConsolidateRequest, request: Request, db: AsyncSession = Depends(get_async_session)):
     if not req.messages:
         raise HTTPException(status_code=422, detail="messages must not be empty")
-    _product(req.companion_id)
+    scope = _scope(request, req.workspace_id, req.companion_id if "companion_id" in req.model_fields_set else None)
     for m in req.messages:
         if set(m) < {"id", "speaker", "text"}:
             raise HTTPException(status_code=422, detail="messages need id, speaker, text")
     try:
         run_id = await memory_pipeline.create_run(
-            db, workspace_id=req.workspace_id, owner=req.owner, conversation_id=req.conversation_id,
+            db, workspace_id=scope.workspace, owner=req.owner, conversation_id=req.conversation_id,
             session_id=req.session_id, message_count=len(req.messages))
         await db.commit()
     except Exception as exc:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"run_create_failed:{type(exc).__name__}") from exc
     asyncio.create_task(_run_consolidation(
-        req.workspace_id, req.owner, req.conversation_id, req.session_id,
-        [dict(m) for m in req.messages], req.companion_id, req.session_time, req.time_zone))
+        scope.workspace, req.owner, req.conversation_id, req.session_id,
+        [dict(m) for m in req.messages], scope.product, req.session_time, req.time_zone))
     return {"status": "accepted", "run_id": run_id}
 
 
 @router.get("/run/{run_id}")
-async def run_status(run_id: str, db: AsyncSession = Depends(get_async_session)):
+async def run_status(run_id: str, request: Request, db: AsyncSession = Depends(get_async_session)):
     row = await memory_pipeline.get_run(db, run_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="run_not_found")
+    authed = getattr(request.state, "product", None)
+    if row is None or (authed and product_scope.product_of_workspace(row.honcho_workspace_id) != authed):
+        raise HTTPException(status_code=404, detail="run_not_found")      # another product's run is indistinguishable from no run
     try:
         bundle = json.loads(row.bundle_json or "{}")
     except Exception:
@@ -111,10 +109,10 @@ async def run_status(run_id: str, db: AsyncSession = Depends(get_async_session))
 
 
 @router.get("/preparation")
-async def preparation(workspace_id: str, owner: str, companion_id: str = "sophie",
+async def preparation(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None,
                       db: AsyncSession = Depends(get_async_session)):
-    _product(companion_id)
-    prep = await memory_pipeline.get_preparation(db, workspace_id=workspace_id, owner=owner, companion_id=companion_id)
+    scope = _scope(request, workspace_id, companion_id)
+    prep = await memory_pipeline.get_preparation(db, workspace_id=scope.workspace, owner=owner, companion_id=scope.product)
     if prep is None:
         return {"found": False}
     return {"found": True, **prep}
@@ -123,17 +121,17 @@ async def preparation(workspace_id: str, owner: str, companion_id: str = "sophie
 class PrepareRequest(BaseModel):
     workspace_id: str
     owner: str
-    companion_id: str = "sophie"
+    companion_id: Optional[str] = None
     time_zone: Optional[str] = None
 
 @router.post("/prepare")
-async def prepare_now(req: PrepareRequest, db: AsyncSession = Depends(get_async_session)):
+async def prepare_now(req: PrepareRequest, request: Request, db: AsyncSession = Depends(get_async_session)):
     """Compose a fresh preparation now (time or state moved on). Supersedes the
     cached one. Background-worthy; awaited here for operator use."""
     try:
-        _product(req.companion_id)
-        prep = await memory_pipeline.prepare(db, workspace_id=req.workspace_id, owner=req.owner,
-                                             companion_id=req.companion_id, time_zone=req.time_zone)
+        scope = _scope(request, req.workspace_id, req.companion_id)
+        prep = await memory_pipeline.prepare(db, workspace_id=scope.workspace, owner=req.owner,
+                                             companion_id=scope.product, time_zone=req.time_zone)
         await db.commit()
     except Exception as exc:
         await db.rollback()
@@ -145,11 +143,11 @@ async def prepare_now(req: PrepareRequest, db: AsyncSession = Depends(get_async_
 
 
 @router.get("/state")
-async def state(workspace_id: str, owner: str, include_closed: bool = False, companion_id: str = "sophie",
+async def state(request: Request, workspace_id: str, owner: str, include_closed: bool = False, companion_id: Optional[str] = None,
                 db: AsyncSession = Depends(get_async_session)):
-    _product(companion_id)
-    return await memory_pipeline.read_state(db, workspace_id=workspace_id, owner=owner,
-                                            include_closed=include_closed, companion_id=companion_id)
+    scope = _scope(request, workspace_id, companion_id)
+    return await memory_pipeline.read_state(db, workspace_id=scope.workspace, owner=owner,
+                                            include_closed=include_closed, companion_id=scope.product)
 
 
 class SoloTickRequest(BaseModel):
@@ -168,6 +166,7 @@ async def solo_tick(req: SoloTickRequest, db: AsyncSession = Depends(get_async_s
         if not owners:
             return {"tick": "no_allowlisted_owners"}
         req = req.model_copy(update={"owner": owners[0]})
+    product_scope.clean_workspace(req.workspace_id)       # Sophie-only job: it can never be pointed at another product's namespace
     ok, reason, facts = await solo_scheduler.eligibility(db, workspace_id=req.workspace_id, owner=req.owner)
     out: Dict[str, Any] = {"eligible": ok, "reason": reason, "facts": facts}
     if ok and not req.dry_run:
@@ -215,6 +214,7 @@ async def independent_sitting(req: IndependentSittingRequest, db: AsyncSession =
     time is hers: she may explore, ask, read, make — or stop immediately."""
     import uuid as _uuid
     from src.services import companion_work
+    product_scope.clean_workspace(req.workspace_id)
     if companion_work.level(req.companion_id, "independent") == "off":
         raise HTTPException(status_code=403, detail=f"independent_sittings_off_for_{req.companion_id}")
     sitting_id = (req.sitting_id or f"solo-{_uuid.uuid4().hex[:8]}").strip() or f"solo-{_uuid.uuid4().hex[:8]}"
@@ -235,6 +235,7 @@ class ReviewRequest(BaseModel):
 async def review_situations(req: ReviewRequest, db: AsyncSession = Depends(get_async_session)):
     """Longitudinal noticing: one model call over open situations + recent
     session findings. Updates, never closes (closes need session evidence)."""
+    product_scope.clean_workspace(req.workspace_id)
     try:
         return await memory_pipeline.review(db, workspace_id=req.workspace_id, owner=req.owner,
                                             lookback_runs=max(1, min(req.lookback_runs, 12)))
@@ -254,6 +255,7 @@ async def attention_tick(req: AttentionTickRequest, db: AsyncSession = Depends(g
     """Operator tick: due-scan + stale review for one owner (dry_run reports
     what would run). The scheduler loop calls the same path unattended."""
     from src.services import attention_cycle
+    product_scope.clean_workspace(req.workspace_id)
     if not req.owner:
         owners = [o for o in attention_cycle.tick_config()["owners"]]
         if not owners:

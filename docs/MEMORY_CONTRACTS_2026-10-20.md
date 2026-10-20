@@ -49,13 +49,40 @@ clock: witness prompt, observation date reference, `expected_date` annotations, 
 wall-clock; code stores UTC). No zone supplied → the last one that person's sittings reported → the product default. Current labels (the Runtime anchor) remain deterministic.
 
 ## Ownership and scope
-- **The person is shared; a product's relationship, perspective and experience are product-specific.**
-- Product-owned (column `product`): notebook pages, continuing arc, prepared perspective. The operational ledger and its facts stay with the person.
+- **INVARIANT (supersedes the earlier "the person is shared" idea): Cortex is shared technology, not shared personal memory.** Sophie, Bloom, Edgar and any future product are
+  independent: their users, conversations, notebooks, arcs, operational records, attention actions and prepared context are isolated by default — even if two products use
+  the same user id or workspace name. A cross-product connection, if ever offered, is a separate, user-authorised feature; it is not the default and is not built.
+- Isolation is established **once, at the request's entry point**, and every downstream operation inherits it (see "Product isolation" below). The `product` column on
+  pages/arc/preparation remains as defence in depth.
 - `src/services/product_memory.py` is configuration only (pages, scopes, prompts, labels, `ledger_enabled`, `attention_enabled`, default zone). Sophie's text is
   unchanged; `bloom_memory.py` is an initial hypothesis (pages: life, reflections, concerns, growth; experiments live in the ledger as kind `experiment`).
   Unknown `companion_id` → HTTP 422, never silently Sophie.
 - A companion's **independent sitting never writes the ledger** and never edits the shared arc (the real user's three ledger rows were all solo-sitting output).
 - Runtime: `MEMORY_PIPELINE_COMPANIONS` (default `sophie`) decides which companions use the pipeline. `bloom` is code-ready but off until set.
+
+## Product isolation (enforced at the boundary, not by scattered filters)
+**Cortex** (`src/services/product_scope.py`, `tests/test_product_isolation.py`)
+- The product comes from the caller's **credential** (`SYNAPSE_PRODUCT_TOKENS="bloom=<tok>,sophie=<tok>"`), never from a client-supplied field. A product credential cannot claim another
+  product (403) and is **default-denied** on every route except `consolidate`, `run/{id}`, `preparation`, `prepare`, `state` under `/v1/memory` (route-inventory test over all ~95 routes).
+- The caller's workspace is rewritten once to `<product>::<workspace>` for every product except the original. **Sophie's workspace stays unprefixed, so no existing row is migrated or re-owned.**
+  Every table, job, lock and query already filters by workspace, so ledger, attention actions, runs, pages, arcs, preparations, locks and scheduled passes all inherit the boundary.
+- `::` is reserved: no caller can submit a workspace containing it, so a namespace cannot be forged or entered. A run id from another product is a 404. The pipeline itself refuses a workspace outside its product.
+- Verified with identical user id + identical workspace name in two products across every read path, the stored rows, background jobs (a due Bloom follow-up is untouched by Sophie's tick), replay and locks.
+
+**Runtime** (`companion_core/runtime/product_scope.py`, `tests/test_product_isolation.py`)
+- For an isolated product (`ISOLATED_PRODUCTS`, default `bloom`) the person's id is qualified **once** in `_prep_inputs` (`bloom-<id>`), so every cache, budget, sitting record, outbox row and Honcho peer
+  keyed by it is separate; Honcho uses workspace `<base>-bloom`; memory calls present the product credential (`SYNAPSE_CORTEX_PRODUCT_TOKENS`). Idle consolidation, mirror replay, episodes and proactive
+  each run inside the product that owns them and leave no context behind. Original products are unqualified: nothing existing changes.
+
+**Remaining routes/paths that bypass the boundary (report, do not assume):**
+1. The shared internal Cortex credential accepts a product claim and can call every route (operator + current Runtime). Mitigation: give each isolated product its own credential and keep the shared one for operators.
+2. All non-memory Cortex routes (`/v1/world`, `/v1/cortex`, `/v1/executive`, `/v1/work`, `/v1/events`, `/v1/debug`, `/v1/ops`; ~90) are keyed by workspace/owner but not product-scoped inside Cortex. Product credentials cannot reach them.
+   An isolated product's Runtime calls them with the shared credential, isolated only by the Runtime's qualified owner and product workspace.
+3. Honcho itself has one API key; Bloom's separation there is a distinct workspace + peer ids chosen by the Runtime.
+4. Cortex background loops (attention, solo, executive) run for configured Sophie workspaces only; they cannot see another namespace, but they are not product-aware if someone configures them with a product workspace.
+
+**Enabling a product (Bloom stays OFF until these are done and the suites above are green):**
+`SYNAPSE_PRODUCT_TOKENS=bloom=<random>` on Cortex; `SYNAPSE_CORTEX_PRODUCT_TOKENS=bloom=<same>` and `MEMORY_PIPELINE_COMPANIONS=sophie,bloom` on the Runtime. Generate tokens with `openssl rand -hex 32`; never print them.
 
 ## Execution
 Consolidations are serialised per `(workspace, owner)`: in-process lock + Postgres session advisory lock on a dedicated connection. A waiter then sees the first

@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     HONCHO_TIMEOUT_SECONDS: float = 3.0
     HONCHO_CONTEXT_BUDGET_SECONDS: float = 4.0
     SYNAPSE_CORTEX_API_TOKEN: str = ""
+    # Per-product credentials, e.g. "bloom=<token>,sophie=<token>". A product token fixes the caller's product,
+    # limits it to the product routes, and cannot be used to claim another product. Empty = legacy token only.
+    SYNAPSE_PRODUCT_TOKENS: str = ""
     
     model_config = SettingsConfigDict(
         env_file=".env",

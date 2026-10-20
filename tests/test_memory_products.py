@@ -12,7 +12,7 @@ from src.db import async_session_maker
 from src.models.world import ContinuingArc, LedgerItem, MemoryRun, NotebookPage, SittingPreparation
 from src.services import maintenance_agent as ma
 from src.services import memory_pipeline as mp
-from src.services import product_memory
+from src.services import product_memory, product_scope
 
 WS = "wsP"
 
@@ -91,7 +91,8 @@ def _reset():
 
 async def _consolidate(owner, conv="c1", sess="s1", msgs=None, companion="sophie", **kw):
     async with async_session_maker() as db:
-        return await mp.consolidate(db, workspace_id=WS, owner=owner, conversation_id=conv, session_id=sess,
+        return await mp.consolidate(db, workspace_id=product_scope.scoped_workspace(companion, WS), owner=owner,
+                                    conversation_id=conv, session_id=sess,
                                     messages=msgs or _msgs(conv), companion_id=companion, **kw)
 
 
@@ -119,7 +120,7 @@ async def test_bloom_and_sophie_memory_are_isolated_and_bloom_is_not_sophie():
     assert res["status"] == "consolidated"
     async with async_session_maker() as db:
         s_state = await mp.read_state(db, workspace_id=WS, owner=o, companion_id="sophie")
-        b_state = await mp.read_state(db, workspace_id=WS, owner=o, companion_id="bloom")
+        b_state = await mp.read_state(db, workspace_id=product_scope.scoped_workspace("bloom", WS), owner=o, companion_id="bloom")
     assert set(s_state["notebook"]) == {"routines", "projects", "people", "perspective", "exploring"}
     assert set(b_state["notebook"]) == {"life", "reflections", "concerns", "growth"}
     assert "Sophie" in s_state["arc"]["text"] or s_state["arc"]["version"] >= 1
