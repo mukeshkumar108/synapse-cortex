@@ -51,6 +51,8 @@ The person: the registry always contains an entity named "the person" (kind self
 
 Ledger links: link an operational record to the entity it is actually about (the appointment belongs to the person, not to the organisation they work for); if it is simply the person's own, link it from "the person".
 
+The companion: the registry also contains an entity for the companion herself (kind companion, e.g. "Sophie"). She is a party of her own. Her interests, wishes, curiosities, plans and conclusions are linked to HER (e.g. Sophie "interested in" a topic, Sophie "wants to see" something), never to "the person". What she said or felt about the relationship is her reading, not a fact about the person. The person's own interests, plans and feelings are linked to "the person". A happening or idea that belongs to both is linked to both. Never edit or duplicate either of them.
+
 Names: aliases are the names the person actually uses: a first name, a short form ("the Bloom pilot"). Add them. Read a relation as "<from> <relation> <to>" and give the link the direction that reads true.
 
 Relationships: describe them in plain words between two things ("adviser on", "potential pilot for", "worried about"). basis "stated" ONLY if the person said it, and you must give the quote — it is checked against the transcript and downgraded to "inferred" if it is not there. Inferred relations are welcome (they help) but stay labelled; never promote an inference to a fact. A different relation between the same two things can coexist (an adviser can also be a friend). When a relationship CHANGES or is corrected, add the new link and supersede_link the old with the reason, taking the link id from get_entity: only the link that actually changed. If you retire the wrong one, restore_link brings it back. A stated quote may come only from the person's own words (not the assistant's), copied exactly.
@@ -194,6 +196,8 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
             return {"error": "name and kind are required"}
         if kind.lower() == kw.SELF_KIND or kw.norm(nm) == kw.norm(kw.SELF_NAME):
             return {"error": "the person already has their own entity ('the person'); link to it instead of creating another"}
+        if kind.lower() == kw.COMPANION_KIND:
+            return {"error": "the companion already has her own entity; link to it instead of creating another"}
         if await kw.find(db, ws, owner, nm, statuses=("active", "dormant", "resolved"), exact=True):
             hit = (await kw.find(db, ws, owner, nm, exact=True))[0]
             return {"error": f"'{nm}' already exists as {hit.id} ({hit.name}) — update it, or add an alias, instead of duplicating"}
@@ -218,8 +222,8 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
         e = await kw.get(db, ws, owner, args.get("id"))
         if e is None:
             return {"error": "no such entity — list or search first, never invent ids"}
-        if kw.is_self(e):
-            return {"error": "'the person' stands for the person themself and is not edited; link other things to it"}
+        if kw.is_self(e) or kw.is_companion(e):
+            return {"error": "'the person' and the companion stand for the two parties and are not edited; link other things to them"}
         extras, err = _parse_extras(args)
         if err:
             return {"error": err}
@@ -335,9 +339,11 @@ def _trim(v: Any, n: int) -> str:
 
 
 async def run(db: AsyncSession, *, workspace_id: str, owner: str, session_id: str, run_id: Optional[UUID], transcript: str,
-              ledger_context: str, date_reference: str, time_zone: str, person_label: str = "") -> Dict[str, Any]:
+              ledger_context: str, date_reference: str, time_zone: str, person_label: str = "", companion_name: str = "") -> Dict[str, Any]:
     st = State(workspace_id, owner, session_id, run_id, transcript, person_label)
     await kw.ensure_self(db, workspace_id, owner)
+    if companion_name:
+        await kw.ensure_companion(db, workspace_id, owner, companion_name)
     await db.commit()
     models = [PRIMARY_MODEL] + ([FALLBACK_MODEL] if FALLBACK_MODEL and FALLBACK_MODEL != PRIMARY_MODEL else [])
     model_used = models[0]

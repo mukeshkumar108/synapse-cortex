@@ -296,3 +296,21 @@ async def test_sensitive_records_respect_the_products_minimal_setting_and_suppre
         assert "Detailed private text" in full["mentions"] and "Do not raise" not in full["mentions"]
         mini = await kw.packet(db, WS, o, "my health worries me", ctx(), "minimal")
         assert "Detailed private text" not in mini["mentions"] and "details available if they raise it" in mini["mentions"]
+
+
+@pytest.mark.asyncio
+async def test_the_companion_is_a_party_of_her_own_and_her_interests_are_not_presented_as_the_users_context():
+    o = owner()
+    async with async_session_maker() as db:
+        me = await kw.ensure_self(db, WS, o)
+        her = await kw.ensure_companion(db, WS, o, "Sophie")
+        assert (await kw.ensure_companion(db, WS, o, "Sophie")).id == her.id
+        mine = await kw.create(db, WS, o, name="Wants to see photos of the walks", kind="wish", form="disposition", summary="She would like to see his walk photos.", tags="walks, photos")
+        theirs = await kw.create(db, WS, o, name="Loves long walks", kind="preference", form="disposition", summary="They walk twice a day.", tags="walks")
+        await kw.link(db, WS, o, from_id=her.id, relation="wants", target_kind="entity", target_ref=str(mine.id), basis="stated", evidence="q")
+        await kw.link(db, WS, o, from_id=mine.id, relation="held by", target_kind="entity", target_ref=str(her.id), basis="stated", evidence="q")
+        await kw.link(db, WS, o, from_id=theirs.id, relation="held by", target_kind="entity", target_ref=str(me.id), basis="stated", evidence="q")
+        await db.commit()
+        out = await kw.packet(db, WS, o, "I went on a long walk today", ctx())
+        assert "Loves long walks" in out["mentions"] and "photos of the walks" not in out["mentions"]        # hers waits for an opening; his context is shown
+        assert "Sophie" not in out["overview"]                                                              # neither party is listed as a person in their world

@@ -39,6 +39,7 @@ SITUATION_KINDS = ("situation", "concern", "worry", "health", "decision", "curio
 FORMS = ("", "situation", "happening", "disposition", "pattern")
 PERTINENT_LIMIT = 4
 RECENT_DAYS = (3, 14, 60)
+COMPANION_KIND = "companion"        # the companion as a party of her own: her interests, wishes and thoughts attach here, never to the user
 SELF_KIND = "self"
 SELF_NAME = "the person"
 
@@ -88,6 +89,22 @@ def _tag_domains(tags: str) -> set:
 
 def is_self(e: KnownEntity) -> bool:
     return str(e.kind or "").lower() == SELF_KIND
+
+
+def is_companion(e: KnownEntity) -> bool:
+    return str(e.kind or "").lower() == COMPANION_KIND
+
+
+async def ensure_companion(db: AsyncSession, ws: str, owner: str, name: str) -> KnownEntity:
+    found = (await db.execute(select(KnownEntity).where(KnownEntity.honcho_workspace_id == ws, KnownEntity.owner_peer_id == owner,
+                                                        KnownEntity.kind == COMPANION_KIND))).scalars().first()
+    if found is not None:
+        return found
+    e = KnownEntity(honcho_workspace_id=ws, owner_peer_id=owner, kind=COMPANION_KIND, name=name or "the companion", name_key=norm(name or "the companion"), summary="",
+                    basis="stated", source_refs_json="[]")
+    db.add(e)
+    await db.flush()
+    return e
 
 
 def neutral_user(text: str) -> str:
@@ -187,7 +204,7 @@ async def mentions(db: AsyncSession, ws: str, owner: str, text: str, limit: int 
     t = f" {norm(text)} "
     if len(t.strip()) < 3:
         return [], []
-    ents = {e.id: e for e in await list_all(db, ws, owner, statuses=("active", "dormant", "resolved")) if not is_self(e) and not is_record(e)}
+    ents = {e.id: e for e in await list_all(db, ws, owner, statuses=("active", "dormant", "resolved")) if not is_self(e) and not is_companion(e) and not is_record(e)}
     al = (await db.execute(select(KnownEntityAlias).where(
         KnownEntityAlias.honcho_workspace_id == ws, KnownEntityAlias.owner_peer_id == owner))).scalars().all()
     by_key: Dict[str, List[UUID]] = {}
@@ -349,6 +366,11 @@ class Ctx:
         self.tz = zone.key
 
 
+async def _find_companion(db: AsyncSession, ws: str, owner: str) -> Optional[KnownEntity]:
+    return (await db.execute(select(KnownEntity).where(KnownEntity.honcho_workspace_id == ws, KnownEntity.owner_peer_id == owner,
+                                                       KnownEntity.kind == COMPANION_KIND))).scalars().first()
+
+
 async def _find_self(db: AsyncSession, ws: str, owner: str) -> Optional[KnownEntity]:
     return (await db.execute(select(KnownEntity).where(KnownEntity.honcho_workspace_id == ws, KnownEntity.owner_peer_id == owner,
                                                        KnownEntity.kind == SELF_KIND))).scalars().first()
@@ -505,7 +527,7 @@ async def _rank(db: AsyncSession, ws: str, owner: str, ents: List[KnownEntity], 
 
 async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx, sensitive: str = "full") -> Tuple[str, List[Tuple[str, str]]]:
     """A compact account of the person's current world, from maintained records only. Selective, not exhaustive."""
-    ents = [e for e in await list_all(db, ws, owner, statuses=("active",)) if not e.suppressed and not is_self(e) and not is_record(e)]
+    ents = [e for e in await list_all(db, ws, owner, statuses=("active",)) if not e.suppressed and not is_self(e) and not is_companion(e) and not is_record(e)]
     self_e = await _find_self(db, ws, owner)
     exp = {r.ref: r for r in (await db.execute(select(CueExposure).where(
         CueExposure.honcho_workspace_id == ws, CueExposure.owner_peer_id == owner, CueExposure.source == "entity"))).scalars().all()}
@@ -622,8 +644,12 @@ async def pertinent_text(db: AsyncSession, ws: str, owner: str, text: str, menti
     ctx_tags = {t for e in mentioned for t in e.tags.split(",") if t}
     ctx_domains = _tag_domains(",".join(ctx_tags)) if ctx_tags else set()
     words = {_stem(w) for w in norm(text).split() if len(w) >= 3}
+    comp = await _find_companion(db, ws, owner)
+    hers = adj.get(comp.id, set()) if comp is not None else set()
     scored: List[Tuple[float, KnownEntity]] = []
     for r in recs:
+        if r.id in hers and not (adj.get(r.id, set()) & {x.id for x in mentioned}):
+            continue                    # the companion's own interests and thoughts: hers to bring up when there is an opening, not user context
         s = 0.0
         if adj.get(r.id, set()) & ment:
             s += 4

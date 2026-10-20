@@ -259,7 +259,7 @@ async def test_the_connect_pass_runs_after_the_ledger_links_its_records_and_is_o
     assert b["world_agent"]["status"] in ("unfinished", "finished_unchecked", "verified") and b["world_agent"]["changes"]["created"] == 2
     ctx_msg = seen[0][1]["content"]
     assert "key=meeting-with-morgan" in ctx_msg and "touched this session" in ctx_msg and "session transcript (ground truth)" in ctx_msg   # it sees what the ledger just did
-    assert {e.name for e in await rows(o2, KnownEntity) if e.kind != "self"} == {"Morgan", "Bloom"}
+    assert {e.name for e in await rows(o2, KnownEntity) if e.kind not in ("self", "companion")} == {"Morgan", "Bloom"}
 
 
 @pytest.mark.asyncio
@@ -311,7 +311,7 @@ async def test_the_person_has_their_own_anchor_so_nothing_stands_in_for_them_and
              {"calls": [_tc(6, "list_entities", {})]}, FIN(7)]
     await run(o, steps, seen=seen)
     msgs = " ".join(m["content"] for ms in seen for m in ms if m.get("role") == "tool")
-    assert "already has their own entity" in msgs and "is not edited" in msgs
+    assert "already has their own entity" in msgs and "not edited" in msgs
     assert len([e for e in await rows(o, KnownEntity) if e.kind == "self"]) == 1 and (await rows(o, KnownEntity))
     async with async_session_maker() as db:
         ash = (await kw.find(db, WS, o, "Ashley"))[0]
