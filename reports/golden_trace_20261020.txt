@@ -1,0 +1,153 @@
+[past consolidated after 135s]
+
+=== turn 1 [opening] user: Hi. Long day, I'm wrecked.
+    prompt 5904 chars, 1 raw messages; blocks: [('[RUNTIME ANCHOR — authoritative clock and sitting.]', 208), ('[THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. E', 1748), ('[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/Londo', 698), ('[TEMPORAL FACTS]', 192), ('[CURRENT SCENE — unknown]', 256), ('[MY NOTEBOOK — I can write notes to myself with work_write. They are s', 461), ('[OUTPUT CONTRACT]', 385)]
+    reply: Babe, what wrecked you — work, or everything stacked on top?
+    --- [THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. Each line reflects the latest recorded state.]
+    People, projects and places:
+    - Ruth (person): Ashley's aunt, currently in hospital with pneumonia. The person is "torn" between supporting her and taking on the Bloom pilot. 1 open matter.
+    - Ashley (person): The person's partner. Thinks the person should lead the Bloom pilot even though it means evenings. Her aunt Ruth is in hospital with pneumonia. Relationship to the person: partner of the person.
+    - Bloom pilot (project): A wellbeing app trial with church groups at Northwind. The person is on it and weighing whether to lead it; leading would mean evenings. The exact scope of 
+    --- [OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/London). Maintained record; facts, not interpretation.]
+    Waiting on:
+    - Bloom pilot: decision on whether to lead it; waiting on Morgan Ellis (manager) — clarification on pilot scope, hours, decision rights, and timeline; open question: What are the specific time commitments, scope, and boundaries for leading the pilot?
+    This week:
+    - Dentist appointment: Thu 22 Oct, 9:00am (assumed; not confirmed); open question: Is it 9am or 9pm?
+    No date:
+    - Ruth's hospitalization (pneumonia)
+    - Kiss with Rebecca — unresolved aftermath; open question: What is the appropriate response to the kiss — untangle it, own it, or stop feeding it attention?
+
+=== turn 2 [opening] user: Not much. Just wanted to sit for a bit.
+    prompt 5909 chars, 3 raw messages; blocks: [('[RUNTIME ANCHOR — authoritative clock and sitting.]', 208), ('[THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. E', 1748), ('[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/Londo', 698), ('[TEMPORAL FACTS]', 197), ('[CURRENT SCENE — unknown]', 256), ('[MY NOTEBOOK — I can write notes to myself with work_write. They are s', 461), ('[OUTPUT CONTRACT]', 385)]
+    reply: That's legit. Rest your legs — I'll sit here with you. No agenda tonight, unless you want one.
+    --- [THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. Each line reflects the latest recorded state.]
+    People, projects and places:
+    - Ruth (person): Ashley's aunt, currently in hospital with pneumonia. The person is "torn" between supporting her and taking on the Bloom pilot. 1 open matter.
+    - Ashley (person): The person's partner. Thinks the person should lead the Bloom pilot even though it means evenings. Her aunt Ruth is in hospital with pneumonia. Relationship to the person: partner of the person.
+    - Bloom pilot (project): A wellbeing app trial with church groups at Northwind. The person is on it and weighing whether to lead it; leading would mean evenings. The exact scope of 
+    --- [OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/London). Maintained record; facts, not interpretation.]
+    Waiting on:
+    - Bloom pilot: decision on whether to lead it; waiting on Morgan Ellis (manager) — clarification on pilot scope, hours, decision rights, and timeline; open question: What are the specific time commitments, scope, and boundaries for leading the pilot?
+    This week:
+    - Dentist appointment: Thu 22 Oct, 9:00am (assumed; not confirmed); open question: Is it 9am or 9pm?
+    No date:
+    - Ruth's hospitalization (pneumonia)
+    - Kiss with Rebecca — unresolved aftermath; open question: What is the appropriate response to the kiss — untangle it, own it, or stop feeding it attention?
+
+=== turn 3 [bloom] user: Actually I've been thinking about the Bloom pilot again.
+    prompt 10191 chars, 5 raw messages; blocks: [('[RUNTIME ANCHOR — authoritative clock and sitting.]', 208), ('[THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. E', 1748), ('[WHO OR WHAT THEY MEAN — maintained record]', 361), ('[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/Londo', 698), ('[TEMPORAL FACTS]', 197), ('[CURRENT SCENE — unknown]', 256), ('[RETRIEVED EVIDENCE — use only for the question that triggered retriev', 3917), ('[MY NOTEBOOK — I can write notes to myself with work_write. They are s', 461), ('[OUTPUT CONTRACT]', 385)]
+    reply: What's been turning over — the shape of it, Ashley's push, Ruth, or... all of it?
+    --- [THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. Each line reflects the latest recorded state.]
+    People, projects and places:
+    - Ruth (person): Ashley's aunt, currently in hospital with pneumonia. The person is "torn" between supporting her and taking on the Bloom pilot. 1 open matter.
+    - Ashley (person): The person's partner. Thinks the person should lead the Bloom pilot even though it means evenings. Her aunt Ruth is in hospital with pneumonia. Relationship to the person: partner of the person.
+    - Bloom pilot (project): A wellbeing app trial with church groups at Northwind. The person is on it and weighing whether to lead it; leading would mean evenings. The exact scope of 
+    --- [WHO OR WHAT THEY MEAN — maintained record]
+    Bloom pilot (project): A wellbeing app trial with church groups at Northwind. The person is on it and weighing whether to lead it; leading would mean evenings. The exact scope of "lead" (hours, decision rights) is still unknown.
+    Connected to:
+    - Morgan Ellis: put the person on Bloom pilot
+    - the person: on Bloom pilot
+    --- [OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/London). Maintained record; facts, not interpretation.]
+    Waiting on:
+    - Bloom pilot: decision on whether to lead it; waiting on Morgan Ellis (manager) — clarification on pilot scope, hours, decision rights, and timeline; open question: What are the specific time commitments, scope, and boundaries for leading the pilot?
+    This week:
+    - Dentist appointment: Thu 22 Oct, 9:00am (assumed; not confirmed); open question: Is it 9am or 9pm?
+    No date:
+    - Ruth's hospitalization (pneumonia)
+    - Kiss with Rebecca — unresolved aftermath; open question: What is the appropriate response to the kiss — untangle it, own it, or stop feeding it attention?
+
+=== turn 4 [bloom-deep] user: What do you think I'm actually afraid of with it?
+    prompt 6606 chars, 7 raw messages; blocks: [('[RUNTIME ANCHOR — authoritative clock and sitting.]', 208), ('[THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. E', 1748), ('[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/Londo', 698), ('[TEMPORAL FACTS]', 197), ('[CURRENT SCENE — unknown]', 256), ('[RETRIEVED EVIDENCE — use only for the question that triggered retriev', 695), ('[MY NOTEBOOK — I can write notes to myself with work_write. They are s', 461), ('[OUTPUT CONTRACT]', 385)]
+    reply: I'm not gonna dodge it by saying "you tell me." So here's what I'd bet, straight from where I'm sitting with you: That leading it means signing up for evenings on top of a job you only started last month, and that "lead" is going to keep expanding until it's b
+    --- [THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. Each line reflects the latest recorded state.]
+    People, projects and places:
+    - Ruth (person): Ashley's aunt, currently in hospital with pneumonia. The person is "torn" between supporting her and taking on the Bloom pilot. 1 open matter.
+    - Ashley (person): The person's partner. Thinks the person should lead the Bloom pilot even though it means evenings. Her aunt Ruth is in hospital with pneumonia. Relationship to the person: partner of the person.
+    - Bloom pilot (project): A wellbeing app trial with church groups at Northwind. The person is on it and weighing whether to lead it; leading would mean evenings. The exact scope of 
+    --- [OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/London). Maintained record; facts, not interpretation.]
+    Waiting on:
+    - Bloom pilot: decision on whether to lead it; waiting on Morgan Ellis (manager) — clarification on pilot scope, hours, decision rights, and timeline; open question: What are the specific time commitments, scope, and boundaries for leading the pilot?
+    This week:
+    - Dentist appointment: Thu 22 Oct, 9:00am (assumed; not confirmed); open question: Is it 9am or 9pm?
+    No date:
+    - Ruth's hospitalization (pneumonia)
+    - Kiss with Rebecca — unresolved aftermath; open question: What is the appropriate response to the kiss — untangle it, own it, or stop feeding it attention?
+
+=== turn 5 [change] user: Anyway. What should I cook tonight? Something easy.
+    prompt 5909 chars, 7 raw messages; blocks: [('[RUNTIME ANCHOR — authoritative clock and sitting.]', 208), ('[THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. E', 1748), ('[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/Londo', 698), ('[TEMPORAL FACTS]', 197), ('[CURRENT SCENE — unknown]', 256), ('[MY NOTEBOOK — I can write notes to myself with work_write. They are s', 461), ('[OUTPUT CONTRACT]', 385)]
+    reply: Let's do a one-pan thing so there's almost no cleanup. You could toss chicken thighs (or salmon, if you've got it) on a sheet pan with whatever veg's around — broccoli, cherry tomatoes, olives, baby potatoes — hit it with olive oil, salt, pepper, garlic, maybe
+    --- [THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. Each line reflects the latest recorded state.]
+    People, projects and places:
+    - Ruth (person): Ashley's aunt, currently in hospital with pneumonia. The person is "torn" between supporting her and taking on the Bloom pilot. 1 open matter.
+    - Ashley (person): The person's partner. Thinks the person should lead the Bloom pilot even though it means evenings. Her aunt Ruth is in hospital with pneumonia. Relationship to the person: partner of the person.
+    - Bloom pilot (project): A wellbeing app trial with church groups at Northwind. The person is on it and weighing whether to lead it; leading would mean evenings. The exact scope of 
+    --- [OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/London). Maintained record; facts, not interpretation.]
+    Waiting on:
+    - Bloom pilot: decision on whether to lead it; waiting on Morgan Ellis (manager) — clarification on pilot scope, hours, decision rights, and timeline; open question: What are the specific time commitments, scope, and boundaries for leading the pilot?
+    This week:
+    - Dentist appointment: Thu 22 Oct, 9:00am (assumed; not confirmed); open question: Is it 9am or 9pm?
+    No date:
+    - Ruth's hospitalization (pneumonia)
+    - Kiss with Rebecca — unresolved aftermath; open question: What is the appropriate response to the kiss — untangle it, own it, or stop feeding it attention?
+
+=== turn 6 [change] user: Lemon chicken sounds good. Do I have anything on tomorrow?
+    prompt 6824 chars, 7 raw messages; blocks: [('[RUNTIME ANCHOR — authoritative clock and sitting.]', 208), ('[THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. E', 1748), ('[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/Londo', 698), ('[TEMPORAL FACTS]', 197), ('[CURRENT SCENE — unknown]', 256), ('[RETRIEVED EVIDENCE — use only for the question that triggered retriev', 913), ('[MY NOTEBOOK — I can write notes to myself with work_write. They are s', 461), ('[OUTPUT CONTRACT]', 385)]
+    reply: Let me check.Nothing on the books for tomorrow as far as I can see — no appointments, deadlines, nothing. So Wednesday is wide open unless something's sitting in your head that hasn't been logged.
+    --- [THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. Each line reflects the latest recorded state.]
+    People, projects and places:
+    - Ruth (person): Ashley's aunt, currently in hospital with pneumonia. The person is "torn" between supporting her and taking on the Bloom pilot. 1 open matter.
+    - Ashley (person): The person's partner. Thinks the person should lead the Bloom pilot even though it means evenings. Her aunt Ruth is in hospital with pneumonia. Relationship to the person: partner of the person.
+    - Bloom pilot (project): A wellbeing app trial with church groups at Northwind. The person is on it and weighing whether to lead it; leading would mean evenings. The exact scope of 
+    --- [OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/London). Maintained record; facts, not interpretation.]
+    Waiting on:
+    - Bloom pilot: decision on whether to lead it; waiting on Morgan Ellis (manager) — clarification on pilot scope, hours, decision rights, and timeline; open question: What are the specific time commitments, scope, and boundaries for leading the pilot?
+    This week:
+    - Dentist appointment: Thu 22 Oct, 9:00am (assumed; not confirmed); open question: Is it 9am or 9pm?
+    No date:
+    - Ruth's hospitalization (pneumonia)
+    - Kiss with Rebecca — unresolved aftermath; open question: What is the appropriate response to the kiss — untangle it, own it, or stop feeding it attention?
+
+=== turn 7 [ashley] user: Ashley and I are looking at flats together next week, I'm nervous.
+    prompt 8730 chars, 7 raw messages; blocks: [('[RUNTIME ANCHOR — authoritative clock and sitting.]', 208), ('[THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. E', 1748), ('[WHO OR WHAT THEY MEAN — maintained record]', 551), ('[REMEMBERED THAT BEARS ON THIS — maintained record, chosen because it ', 335), ('[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/Londo', 698), ('[TEMPORAL FACTS]', 197), ('[CURRENT SCENE — unknown]', 256), ('[RETRIEVED EVIDENCE — use only for the question that triggered retriev', 1929), ('[MY NOTEBOOK — I can write notes to myself with work_write. They are s', 461), ('[OUTPUT CONTRACT]', 385)]
+    reply: That's a proper nerve thing, and I'm not gonna wave it off. Flats are heavy — you're not just picking a place, you're picking a shape of life, and doing it with someone you love stacks the stakes. A few things that usually make it worse: going in hungry or tir
+    --- [THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. Each line reflects the latest recorded state.]
+    People, projects and places:
+    - Ruth (person): Ashley's aunt, currently in hospital with pneumonia. The person is "torn" between supporting her and taking on the Bloom pilot. 1 open matter.
+    - Ashley (person): The person's partner. Thinks the person should lead the Bloom pilot even though it means evenings. Her aunt Ruth is in hospital with pneumonia. Relationship to the person: partner of the person.
+    - Bloom pilot (project): A wellbeing app trial with church groups at Northwind. The person is on it and weighing whether to lead it; leading would mean evenings. The exact scope of 
+    --- [WHO OR WHAT THEY MEAN — maintained record]
+    Ashley (person): The person's partner. Thinks the person should lead the Bloom pilot even though it means evenings. Her aunt Ruth is in hospital with pneumonia.
+    Connected to:
+    - Ashley: partner of the person
+    - Ashley: in favour of Decision on leading the Bloom pilot
+    - Ashley: aunt of Ruth
+    Developing situations:
+    - Decision on leading the Bloom pilot: Whether to lead the Bloom pilot is open. Ashley supports it; the person is weighing it. The real scope and time cost are not yet defined. Last update today.
+    --- [REMEMBERED THAT BEARS ON THIS — maintained record, chosen because it connects to what they just said; not everything held is shown]
+    - Kiss with Rebecca (happened, 19 Oct (yesterday), sensitive): The person kissed Rebecca on Monday evening 2026-10-19 and said "no idea what I was thinking." What it means is undetermined by the person.
+    --- [OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/London). Maintained record; facts, not interpretation.]
+    Waiting on:
+    - Bloom pilot: decision on whether to lead it; waiting on Morgan Ellis (manager) — clarification on pilot scope, hours, decision rights, and timeline; open question: What are the specific time commitments, scope, and boundaries for leading the pilot?
+    This week:
+    - Dentist appointment: Thu 22 Oct, 9:00am (assumed; not confirmed); open question: Is it 9am or 9pm?
+    No date:
+    - Ruth's hospitalization (pneumonia)
+    - Kiss with Rebecca — unresolved aftermath; open question: What is the appropriate response to the kiss — untangle it, own it, or stop feeding it attention?
+
+=== turn 8 [ashley] user: I just don't want to mess this up.
+    prompt 5909 chars, 7 raw messages; blocks: [('[RUNTIME ANCHOR — authoritative clock and sitting.]', 208), ('[THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. E', 1748), ('[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/Londo', 698), ('[TEMPORAL FACTS]', 197), ('[CURRENT SCENE — unknown]', 256), ('[MY NOTEBOOK — I can write notes to myself with work_write. They are s', 461), ('[OUTPUT CONTRACT]', 385)]
+    reply: That's the fear, not a prediction. There's a difference. What usually gets people there isn't some catastrophic wrong move — it's overcorrecting, pretending to be sure when they're not, or swallowing a real concern because they don't want to seem difficult. Th
+    --- [THEIR WORLD RIGHT NOW — maintained record, Tuesday 20 October 2026. Each line reflects the latest recorded state.]
+    People, projects and places:
+    - Ruth (person): Ashley's aunt, currently in hospital with pneumonia. The person is "torn" between supporting her and taking on the Bloom pilot. 1 open matter.
+    - Ashley (person): The person's partner. Thinks the person should lead the Bloom pilot even though it means evenings. Her aunt Ruth is in hospital with pneumonia. Relationship to the person: partner of the person.
+    - Bloom pilot (project): A wellbeing app trial with church groups at Northwind. The person is on it and weighing whether to lead it; leading would mean evenings. The exact scope of 
+    --- [OPERATIONAL AWARENESS — Tuesday 20 October 2026, 9:51pm (Europe/London). Maintained record; facts, not interpretation.]
+    Waiting on:
+    - Bloom pilot: decision on whether to lead it; waiting on Morgan Ellis (manager) — clarification on pilot scope, hours, decision rights, and timeline; open question: What are the specific time commitments, scope, and boundaries for leading the pilot?
+    This week:
+    - Dentist appointment: Thu 22 Oct, 9:00am (assumed; not confirmed); open question: Is it 9am or 9pm?
+    No date:
+    - Ruth's hospitalization (pneumonia)
+    - Kiss with Rebecca — unresolved aftermath; open question: What is the appropriate response to the kiss — untangle it, own it, or stop feeding it attention?
+{"uid": "smoke-gt-23e529"}
