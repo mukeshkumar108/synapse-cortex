@@ -212,14 +212,14 @@ def cues(view: Dict[str, Any]) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------- render ----
 
 _SECTIONS = (
-    ("imminent", "Coming up in the next {h} hours"),
+    ("imminent", "Right now (next {h} hours)"),
     ("today", "Today"),
     ("overdue", "Overdue"),
-    ("check_up_on", "I want to ask how these went"),
-    ("waiting", "I'm waiting to hear on"),
+    ("check_up_on", "Things to check up on"),
+    ("waiting", "Waiting on"),
     ("week", "This week"),
     ("later", "Later"),
-    ("undated", "No date yet"),
+    ("undated", "No date"),
 )
 
 
@@ -242,12 +242,12 @@ def render(view: Dict[str, Any]) -> str:
         blocks.append(f"{title.format(h=IMMINENT_HOURS)}:\n" + "\n".join(body))
     older = view["bands"]["older"]
     if older:
-        blocks.append(f"Older things still open: {len(older)}.")
+        blocks.append(f"Older, still open and unresolved: {len(older)} item(s).")
     if view["closed"]:
-        blocks.append("Recently settled: " + ", ".join(it.title for it in view["closed"][:6]) + ".")
+        blocks.append("Recently closed: " + ", ".join(it.title for it in view["closed"][:6]) + ".")
     if not blocks:
         return ""
-    return f"[WHAT I'M HOLDING FOR THEM — {_clock_label(now)}. My own record of what is on their plate; facts as I have them.]\n" + "\n".join(blocks)
+    return f"[OPERATIONAL AWARENESS — {_clock_label(now)}. Maintained record; facts, not interpretation.]\n" + "\n".join(blocks)
 
 
 # ----------------------------------------------------------------- range ----

@@ -52,7 +52,7 @@ async def test_a_mention_resolves_to_a_self_contained_snapshot_with_connections_
     async with async_session_maker() as db:
         pk = await kw.packet(db, WS, o, "I spoke to Morgan again", ctx())
     t = pk["mentions"]
-    assert t.startswith("[WHO THEY MEAN") and "Morgan (person)" in t
+    assert t.startswith("[WHO OR WHAT THEY MEAN") and "Morgan (person)" in t
     assert "Morgan: adviser on Bloom" in t                                           # stated: plain
     assert "possibly a future co-founder of Bloom (inferred, not confirmed)" in t   # inferred: always labelled, never plain fact
     assert "Meeting with Morgan: Thu 22 Oct, 3:00pm" in t                            # the operational matter is READ from the ledger
@@ -103,7 +103,7 @@ async def test_overview_is_selective_current_and_respects_boundaries():
     mid, bid, pid, wid = await seed(o)
     async with async_session_maker() as db:
         text, shown = await kw.overview_text(db, WS, o, ctx())
-    assert text.startswith("[WHAT I KNOW OF THEIR WORLD RIGHT NOW") and "Morgan (person)" in text and "Bloom (project)" in text
+    assert text.startswith("[THEIR WORLD RIGHT NOW") and "Morgan (person)" in text and "Bloom (project)" in text
     assert "Niece's medical tests (sensitive): Niece had tests last Thursday; no result recorded. Last update today." in text
     assert "possibly" not in text or "(inferred, not confirmed)" in text                # an inferred entity is labelled
     # boundary: the person said not to raise the worry -> it leaves the overview, the memory stays and a mention still resolves
@@ -254,8 +254,8 @@ async def test_a_recent_incident_surfaces_by_domain_without_a_direct_link_and_un
         assert "Kissed Rebecca" in out["mentions"] and "involving Rebecca" in out["mentions"]        # no Ashley-to-incident link exists
         assert "Argued about the car" not in out["mentions"]                                         # same recency and significance, no relevance: absent
         out2 = await kw.packet(db, WS, o, "I'm so tired today", ctx())
-        assert "I REMEMBER THIS, AND IT BEARS" not in out2["mentions"]                                       # nothing appears on recency alone
-        assert "What has happened recently that matters" in out2["overview"] and "Kissed Rebecca" in out2["overview"]
+        assert "REMEMBERED THAT BEARS" not in out2["mentions"]                                       # nothing appears on recency alone
+        assert "Recent consequential happenings" in out2["overview"] and "Kissed Rebecca" in out2["overview"]
         snap = await kw.entity_view(db, WS, o, "Rebecca", ctx())
         assert "Remembered:" in snap["text"] and "Kissed Rebecca" in snap["text"]
 

@@ -40,7 +40,7 @@ async def test_awareness_range_and_needs_detail(async_client):
     await _seed("wsL", o, ROWS)
     q = {"workspace_id": "wsL", "owner": o, "time_zone": "Europe/London"}
     r = (await async_client.get("/v1/memory/ledger", params={**q, "now": "2026-10-20T13:30:00+00:00"}, headers=H("legacy"))).json()       # 14:30 BST
-    assert "Coming up in the next 3 hours:" in r["text"] and "Call with Vinesh" in r["text"] and "Overdue:" in r["text"] and "Pay invoice" in r["text"]
+    assert "Right now (next 3 hours):" in r["text"] and "Call with Vinesh" in r["text"] and "Overdue:" in r["text"] and "Pay invoice" in r["text"]
     assert {c["band"] for c in r["cues"]} >= {"imminent", "overdue", "week"} and r["time_zone"] == "Europe/London"
     wk = (await async_client.get("/v1/memory/ledger", params={**q, "view": "range", "period": "week", "now": "2026-10-20T08:00:00+01:00"}, headers=H("legacy"))).json()
     assert wk["from"] == "2026-10-20" and wk["to"] == "2026-10-26" and "Thursday 22 October:" in wk["text"] and "time not recorded" in wk["text"]
