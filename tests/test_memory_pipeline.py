@@ -475,3 +475,19 @@ async def test_supersede_closes_old_date_row():
             assert all(r.situation_key != "send-proposal" for r in remaining)
     finally:
         memory_pipeline.set_model_fn(None)
+
+
+@pytest.mark.asyncio
+async def test_the_same_stretch_arriving_by_another_route_with_other_ids_is_not_consolidated_again(async_client):
+    msgs = _msgs(6)
+    a = await async_client.post("/v1/memory/consolidate", json={**BASE, "session_id": "route-end", "messages": msgs})
+    first = await _wait_run(async_client, a.json()["run_id"])
+    assert first["status"] == "consolidated"
+    renamed = [{**m, "id": "other-" + str(m["id"])} for m in msgs]                      # the hand-off route names the same messages differently
+    b = await async_client.post("/v1/memory/consolidate", json={**BASE, "session_id": "route-handoff", "messages": renamed})
+    second = await _wait_run(async_client, b.json()["run_id"])
+    assert second["status"] == "replay_noop" and second["summary"]["new_message_count"] == 0 and second["summary"]["ms_total"] < 2000
+    grown = renamed + [{"id": "other-new", "speaker": "user", "text": "something genuinely new after that"}]
+    c = await async_client.post("/v1/memory/consolidate", json={**BASE, "session_id": "route-later", "messages": grown})
+    third = await _wait_run(async_client, c.json()["run_id"])
+    assert third["status"] == "consolidated" and third["covered_ids"] == ["other-new"]      # only what is new is counted

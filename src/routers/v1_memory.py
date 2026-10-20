@@ -94,7 +94,7 @@ async def run_status(run_id: str, request: Request, db: AsyncSession = Depends(g
         bundle = {}
     out = {"run_id": str(row.id), "status": row.status,
            "conversation_id": row.conversation_id, "session_id": row.session_id,
-           "covered_ids": json.loads(row.covered_ids_json or "[]"),
+           "covered_ids": [c for c in json.loads(row.covered_ids_json or "[]") if not str(c).startswith("mfp:")],
            "started_at": row.started_at.isoformat() if row.started_at else None,
            "finished_at": row.finished_at.isoformat() if row.finished_at else None}
     if row.status in ("consolidated", "replay_noop", "failed", "empty"):
@@ -182,7 +182,8 @@ async def ledger_view(request: Request, workspace_id: str, owner: str, companion
              "updated_at": i.updated_at.isoformat() if i.updated_at else None,
              "created_at": i.created_at.isoformat() if i.created_at else None} for i in rows]
     v = _lv.compute(data, clock_now, tz, cfg.default_time_zone)
-    base = {"product": scope.product, "now": v["now"].isoformat(), "time_zone": v["zone"].key}
+    base = {"product": scope.product, "now": v["now"].isoformat(), "time_zone": v["zone"].key,
+            "pending_consolidations": await memory_pipeline.pending_runs(db, scope.workspace, owner)}
     if view == "awareness":
         return {**base, "text": _lv.render(v), "cues": _lv.cues(v)}
     if view == "needs_detail":
@@ -230,9 +231,10 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
     cfg = _pm.get(scope.product)
     if not cfg.world_enabled:
         return {"enabled": False, "product": scope.product, "overview": "", "mentions": "", "text": "", "shown": []}
+    pending = await memory_pipeline.pending_runs(db, scope.workspace, owner)
     tz = time_zone or await _ac.owner_time_zone(db, workspace_id=scope.workspace, owner=owner, default=None) or cfg.default_time_zone
     ctx = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone)
-    base = {"enabled": True, "product": scope.product, "now": ctx.now.isoformat(), "time_zone": ctx.tz}
+    base = {"enabled": True, "product": scope.product, "now": ctx.now.isoformat(), "time_zone": ctx.tz, "pending_consolidations": pending}
     if view == "packet":
         return {**base, **(await _kw.packet(db, scope.workspace, owner, q or "", ctx, cfg.world_sensitive))}
     if view == "overview":
@@ -252,6 +254,7 @@ async def export_owner(request: Request, workspace_id: str, owner: str, companio
     """Everything this product holds about this person (memory pipeline + connected understanding), as JSON. See owner_data.NOT_COVERED."""
     from src.services import owner_data
     scope = _scope(request, workspace_id, companion_id)
+    owner_data.check_owner_for_product(scope.product, owner)
     return await owner_data.export_owner(db, scope.workspace, owner)
 
 
@@ -269,6 +272,7 @@ async def delete_owner(req: DeleteRequest, request: Request, db: AsyncSession = 
     if req.confirm != req.owner:
         raise HTTPException(status_code=422, detail="confirm must equal owner; deletion is permanent")
     scope = _scope(request, req.workspace_id, req.companion_id)
+    owner_data.check_owner_for_product(scope.product, req.owner)
     from src.services.memory_pipeline import ConsolidationBusy, owner_lock
     try:
         # Wait out any consolidation in flight for this person, or it would write its results back after the delete.
@@ -277,7 +281,9 @@ async def delete_owner(req: DeleteRequest, request: Request, db: AsyncSession = 
             await db.commit()
     except ConsolidationBusy:
         raise HTTPException(status_code=409, detail="a consolidation for this person is still running; try again shortly")
-    return {"deleted": counts, "not_covered": owner_data.NOT_COVERED,
+    async with async_session_maker() as vdb:
+        left = await owner_data.residue(vdb, scope.workspace, req.owner)
+    return {"deleted": counts, "remaining": left, "not_covered": owner_data.NOT_COVERED,
             "note": "Conversations queued for consolidation before this call can still write new records when they run; the Runtime's own stores and Honcho evidence are separate."}
 
 

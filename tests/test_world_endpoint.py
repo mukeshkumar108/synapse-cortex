@@ -100,7 +100,8 @@ async def test_export_and_delete_are_confirmed_product_scoped_and_complete_for_t
     from src.main import app
     o1, o2 = f"u-{uuid.uuid4().hex[:6]}", f"u-{uuid.uuid4().hex[:6]}"
     await seed("sophie-ws", o1, "Morgan")
-    await seed("bloom::bloom-ws", o1, "Quentin")          # the same owner id in another product
+    ob = "bloom-" + o1
+    await seed("bloom::bloom-ws", ob, "Quentin")          # the same person-id in another product (Runtime qualifies owners per product)
     await seed("sophie-ws", o2, "Nadia")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
         ex = (await c.get(f"/v1/memory/export?workspace_id=sophie-ws&owner={o1}&companion_id=sophie", headers=H("ts"))).json()
@@ -108,12 +109,30 @@ async def test_export_and_delete_are_confirmed_product_scoped_and_complete_for_t
         no = await c.post("/v1/memory/delete", headers=H("ts"), json={"workspace_id": "sophie-ws", "owner": o1, "companion_id": "sophie", "confirm": "yes"})
         assert no.status_code == 422                                              # permanent: must be confirmed with the owner id
         ok = await c.post("/v1/memory/delete", headers=H("ts"), json={"workspace_id": "sophie-ws", "owner": o1, "companion_id": "sophie", "confirm": o1})
-        assert ok.json()["deleted"]["known_entities"] == 3 and ok.json()["deleted"]["ledger_items"] == 1
+        assert ok.json()["deleted"]["known_entities"] == 3 and ok.json()["deleted"]["ledger_items"] == 1 and ok.json()["remaining"] == {}
         after = (await c.get(f"/v1/memory/export?workspace_id=sophie-ws&owner={o1}&companion_id=sophie", headers=H("ts"))).json()
         assert not any(after["tables"].values())
-        other_product = (await c.get(f"/v1/memory/export?workspace_id=bloom-ws&owner={o1}&companion_id=bloom", headers=H("tb"))).json()
+        other_product = (await c.get(f"/v1/memory/export?workspace_id=bloom-ws&owner={ob}&companion_id=bloom", headers=H("tb"))).json()
         assert {e["name"] for e in other_product["tables"]["known_entities"]} == {"Quentin", "Quentin's project", "Quentin's worry"}   # untouched
+        wrong_owner = await c.get(f"/v1/memory/export?workspace_id=sophie-ws&owner=bloom-someone&companion_id=sophie", headers=H("ts"))
+        assert wrong_owner.status_code == 403                                      # a Sophie credential cannot name a Bloom owner (tables keyed by owner alone)
         same_ws_other_owner = (await c.get(f"/v1/memory/export?workspace_id=sophie-ws&owner={o2}&companion_id=sophie", headers=H("ts"))).json()
         assert same_ws_other_owner["tables"]["known_entities"]
-        cross = await c.post("/v1/memory/delete", headers=H("ts"), json={"workspace_id": "bloom-ws", "owner": o1, "companion_id": "bloom", "confirm": o1})
+        cross = await c.post("/v1/memory/delete", headers=H("ts"), json={"workspace_id": "bloom-ws", "owner": ob, "companion_id": "bloom", "confirm": ob})
         assert cross.status_code in (403, 404, 422) or cross.json()["deleted"]["known_entities"] == 0      # Sophie's credential cannot delete Bloom's data
+
+
+@pytest.mark.asyncio
+async def test_callers_are_told_when_a_consolidation_for_this_person_is_still_running(async_client):
+    from datetime import datetime as _dt, timedelta as _td
+    from src.models.world import MemoryRun
+    o = f"u-{uuid.uuid4().hex[:6]}"
+    await seed("wsP2", o, "Morgan")
+    params = {"workspace_id": "wsP2", "owner": o, **Q}
+    assert (await async_client.get("/v1/memory/world", params=params, headers=H("legacy"))).json()["pending_consolidations"] == 0
+    async with async_session_maker() as db:
+        db.add(MemoryRun(honcho_workspace_id="wsP2", owner_peer_id=o, conversation_id="c", session_id="s", status="running", started_at=_dt.utcnow() - _td(minutes=2)))
+        db.add(MemoryRun(honcho_workspace_id="wsP2", owner_peer_id=o, conversation_id="c", session_id="old", status="running", started_at=_dt.utcnow() - _td(hours=3)))   # an orphan is not "pending"
+        await db.commit()
+    assert (await async_client.get("/v1/memory/world", params=params, headers=H("legacy"))).json()["pending_consolidations"] == 1
+    assert (await async_client.get("/v1/memory/ledger", params=params, headers=H("legacy"))).json()["pending_consolidations"] == 1

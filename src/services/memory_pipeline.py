@@ -726,6 +726,19 @@ async def live_pages(db: AsyncSession, workspace_id: str, owner: str,
     return out
 
 
+def message_fps(messages: List[Dict[str, Any]]) -> List[str]:
+    """A fingerprint per message that does not depend on the id the caller gave it: speaker + normalised text + which occurrence of that text this is
+    in the conversation. The same stretch reaches Cortex by several routes (the end-of-conversation signal, the next sitting's hand-off, an idle pass), and
+    the routes do not always agree on message ids; without this the same sitting was consolidated two or three times (observed Oct 2026)."""
+    seen: Dict[str, int] = {}
+    out: List[str] = []
+    for m in messages:
+        base = hashlib.sha1((str(m.get("speaker") or "") + "|" + re.sub(r"\s+", " ", str(m.get("text") or "")).strip().lower()).encode()).hexdigest()[:16]
+        seen[base] = seen.get(base, 0) + 1
+        out.append(f"mfp:{base}#{seen[base]}")
+    return out
+
+
 async def covered_ids(db: AsyncSession, workspace_id: str, owner: str, conversation_id: str) -> List[str]:
     rows = (await db.execute(select(MemoryRun).where(
         MemoryRun.honcho_workspace_id == workspace_id,
@@ -741,6 +754,16 @@ async def covered_ids(db: AsyncSession, workspace_id: str, owner: str, conversat
         except Exception:
             continue
     return seen
+
+
+async def pending_runs(db: AsyncSession, workspace_id: str, owner: str, within_minutes: int = 20) -> int:
+    """How many consolidations for this person are running now (started recently). A caller that sees > 0 knows the last conversation is still being
+    processed, so what Cortex holds is about to change and the newest stretch is not yet reflected."""
+    from datetime import timedelta
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=within_minutes)
+    rows = (await db.execute(select(MemoryRun.id).where(MemoryRun.honcho_workspace_id == workspace_id, MemoryRun.owner_peer_id == owner,
+                                                        MemoryRun.status == "running", MemoryRun.started_at >= cutoff))).all()
+    return len(rows)
 
 
 async def open_ledger(db: AsyncSession, workspace_id: str, owner: str, limit: int = 20) -> List[LedgerItem]:
@@ -1077,8 +1100,11 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
 
     trimmed = [m for m in messages if str(m.get("text") or "").strip()]
     ids = [str(m.get("id") or "") for m in trimmed if str(m.get("id") or "")]
-    already = set(await covered_ids(db, workspace_id, owner, conversation_id)) if ids else set()
-    fresh = [m for m in trimmed if str(m.get("id") or "") not in already] if ids else trimmed
+    fps = message_fps(trimmed)
+    already = set(await covered_ids(db, workspace_id, owner, conversation_id))
+    fresh_idx = [i for i, m in enumerate(trimmed) if not ((str(m.get("id") or "") in already) or fps[i] in already)]
+    fresh = [trimmed[i] for i in fresh_idx]
+    fresh_fps = [fps[i] for i in fresh_idx]
     transcript = format_transcript(trimmed[:MAX_TRANSCRIPT_MESSAGES], cfg)
     bundle.update(message_count=len(trimmed), new_message_count=len(fresh),
                   truncated=len(trimmed) > MAX_TRANSCRIPT_MESSAGES)
@@ -1092,11 +1118,15 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         run.bundle_json = json.dumps(bundle)[:500_000]
         run.finished_at = _dt.now(_tz_utc()).replace(tzinfo=None)
         await db.commit()
-        logger.info("[memory] %s %s -> %s (%d new)", owner, session_id, status, len(covered))
-        return {"status": status, "session_id": session_id, "new_messages": len(covered), "run_id": str(run.id)}
+        n_new = len([c for c in covered if not str(c).startswith("mfp:")])
+        logger.info("[memory] %s %s -> %s (%d new)", owner, session_id, status, n_new)
+        return {"status": status, "session_id": session_id, "new_messages": n_new, "run_id": str(run.id)}
 
     if not transcript.strip():
         return await finish("empty", [])
+    if not fresh:
+        # Every message was already consolidated (possibly arriving by another route with other ids): nothing to learn, no model calls.
+        return await finish("replay_noop", [], {"note": "replay_no_new_messages"})
 
     pages = await live_pages(db, workspace_id, owner, cfg)
     arc = await get_arc(db, workspace_id, owner, cfg)
@@ -1106,10 +1136,9 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
 
     independent = sitting_kind == "independent" and cfg.independent_listening_prompt is not None
     listen = cfg.independent_listening_prompt if independent else cfg.listening_prompt
-    discovery = await _generate("discovery", f"{listen}\n\n--- conversation ---\n{transcript}",
-                                2000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
-    handoff = await _generate("handoff", f"{cfg.handoff_prompt}\n\n--- transcript ---\n{transcript}",
-                              300, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
+    discovery, handoff = await asyncio.gather(
+        _generate("discovery", f"{listen}\n\n--- conversation ---\n{transcript}", 2000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b")),
+        _generate("handoff", f"{cfg.handoff_prompt}\n\n--- transcript ---\n{transcript}", 300, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash")))
     mark("discovery_handoff")
     findings = str((discovery or {}).get("text") or "")
     handoff_text = str((handoff or {}).get("text") or "")
@@ -1122,22 +1151,18 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                             {"note": "replay_no_new_messages" if not fresh else "no_findings"})
 
     sitting_rule = f"\n\n{cfg.independent_rule}" if independent and cfg.independent_rule else ""
-    for key in cfg.pages:
+    # The notebook edits are model calls that touch nothing else, so they run beside the ledger / connected-world / attention chain (at most two at a
+    # time, so the provider is not overloaded) and are applied below, before the preparation reads the pages.
+    edit_gate = asyncio.Semaphore(int(os.getenv("MEMORY_EDIT_CONCURRENCY", "2")))
+
+    async def _edit_call(key: str) -> Optional[Dict[str, Any]]:
         subject = f"\n\n{cfg.page_subjects[key]}" if key in cfg.page_subjects else ""
-        edit = await _generate(f"edit:{key}",
-                               f"{cfg.editor_prompt}\n\n{cfg.page_scopes[key]}{subject}{sitting_rule}\n\n--- page: {cfg.page_titles[key]} ---\n{pages[key].text}\n\n--- new findings ---\n{findings or handoff_text}",
-                               1500, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
-        bundle[f"edit_{key}"] = edit or {"skipped": True}
-        new_text = str((edit or {}).get("text") or "").strip()
-        if new_text and new_text != pages[key].text.strip():
-            pages[key].superseded_by_id = pages[key].id
-            nxt = NotebookPage(honcho_workspace_id=workspace_id, owner_peer_id=owner, page_key=key,
-                               product=cfg.name, text=new_text, version=pages[key].version + 1, run_id=run.id)
-            db.add(nxt)
-            await db.flush()
-            pages[key] = nxt
-    bundle["notebook_after"] = {k: p.text for k, p in pages.items()}
-    mark("notebook_pages")
+        async with edit_gate:
+            return await _generate(f"edit:{key}",
+                                   f"{cfg.editor_prompt}\n\n{cfg.page_scopes[key]}{subject}{sitting_rule}\n\n--- page: {cfg.page_titles[key]} ---\n{pages[key].text}\n\n--- new findings ---\n{findings or handoff_text}",
+                                   1500, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
+
+    edit_tasks = {key: asyncio.create_task(_edit_call(key)) for key in cfg.pages}
 
     # ------------------------------------------------ operational ledger ----
     # The ledger holds the person's actionable matters. A companion's own
@@ -1283,6 +1308,19 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         bundle["attention_review"] = {"status": "failed", "error": type(exc).__name__}
 
     mark("attention")
+    for key, task in edit_tasks.items():
+        edit = await task
+        bundle[f"edit_{key}"] = edit or {"skipped": True}
+        new_text = str((edit or {}).get("text") or "").strip()
+        if new_text and new_text != pages[key].text.strip():
+            pages[key].superseded_by_id = pages[key].id
+            nxt = NotebookPage(honcho_workspace_id=workspace_id, owner_peer_id=owner, page_key=key,
+                               product=cfg.name, text=new_text, version=pages[key].version + 1, run_id=run.id)
+            db.add(nxt)
+            await db.flush()
+            pages[key] = nxt
+    bundle["notebook_after"] = {k: p.text for k, p in pages.items()}
+    mark("notebook_pages_wait")
     if sitting_kind == "independent":
         # The shared continuing arc belongs to the user-facing relationship;
         # an independent sitting leaves it alone (continuity lives on exploring).
@@ -1304,7 +1342,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
     mark("preparation")
     bundle["preparation"] = {k: v for k, v in prep.items() if k != "text"}
     bundle["preparation_text"] = prep.get("text", "")
-    return await finish("consolidated", [str(m.get("id")) for m in fresh if str(m.get("id") or "")] or [f"fp:{_fingerprint(transcript)}"])
+    return await finish("consolidated", ([str(m.get("id")) for m in fresh if str(m.get("id") or "")] or [f"fp:{_fingerprint(transcript)}"]) + fresh_fps)
 
 
 async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,

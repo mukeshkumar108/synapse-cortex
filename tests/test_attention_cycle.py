@@ -291,3 +291,27 @@ async def test_follow_ups_can_originate_from_a_situation_with_boundaries_expiry_
         finally:
             attention_cycle._TZ_CTX.reset(tz_t)
             attention_cycle._NOW_CTX.reset(now_t)
+
+
+@pytest.mark.asyncio
+async def test_a_consequential_recent_happening_or_a_pattern_can_carry_a_follow_up_but_trivia_and_old_news_cannot():
+    import uuid as _u
+    from datetime import datetime
+    from src.services import known_world as kw
+    ws, o = "wsH", f"u-{_u.uuid4().hex[:6]}"
+    async with async_session_maker() as db:
+        big = await kw.create(db, ws, o, name="Kissed Rebecca", kind="incident", form="happening", occurred_on=datetime(2026, 10, 19), significance=3)
+        await kw.create(db, ws, o, name="Spilled coffee", kind="incident", form="happening", occurred_on=datetime(2026, 10, 19), significance=1)
+        await kw.create(db, ws, o, name="Old argument", kind="incident", form="happening", occurred_on=datetime(2026, 8, 1), significance=3)
+        await kw.create(db, ws, o, name="Mum's overnights", kind="pattern", form="pattern")
+        await db.commit()
+        tz_t, now_t = attention_cycle._TZ_CTX.set("Europe/London"), attention_cycle._NOW_CTX.set(datetime(2026, 10, 20, 9, 0))
+        try:
+            listed = await attention_cycle._tools(db, ws, o, "list_situations", {})
+            assert {s["name"] for s in listed["situations"]} == {"Kissed Rebecca", "Mum's overnights"}
+            assert {s["form"] for s in listed["situations"]} == {"happening", "pattern"}
+            ok = await attention_cycle._tools(db, ws, o, "schedule_action", {"intent": "Gently ask how they are about it", "source": "entity", "source_ref": str(big.id)})
+            assert ok["ok"] and ok["action"]["source_ref"] == str(big.id)
+        finally:
+            attention_cycle._TZ_CTX.reset(tz_t)
+            attention_cycle._NOW_CTX.reset(now_t)

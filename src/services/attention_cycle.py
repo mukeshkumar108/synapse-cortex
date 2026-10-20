@@ -30,8 +30,10 @@ from src.models.world import AttentionAction, AttentionEvent, utc_now
 
 logger = logging.getLogger(__name__)
 
-PRIMARY_MODEL = os.getenv("ATTENTION_MODEL", "openrouter:qwen/qwen3.7-flash")
-FALLBACK_MODEL = os.getenv("ATTENTION_FALLBACK_MODEL", "qwen/qwen3.8-27b")
+# Measured 2026-10-20: the OpenRouter qwen3.7-flash primary produced runs of repeated 2500-token no-tool-call replies (32 s each; 270 s and an unfinished review in 2 of 3 sittings),
+# while qwen3.8-27b on the flat-rate provider drives the other agents (ledger, connect pass) in 2-4 s per call. Same model family, no per-call cost, cross-provider fallback kept.
+PRIMARY_MODEL = os.getenv("ATTENTION_MODEL", "qwen/qwen3.8-27b")
+FALLBACK_MODEL = os.getenv("ATTENTION_FALLBACK_MODEL", "openrouter:qwen/qwen3.7-flash")
 MAX_ITERS = int(os.getenv("ATTENTION_MAX_ITERS", "10"))
 CALL_TIMEOUT_S = float(os.getenv("ATTENTION_TIMEOUT_S", "90"))
 
@@ -87,13 +89,13 @@ def local_to_utc_naive(raw: str, tz_name: Optional[str] = None) -> Optional[date
 
 CONTRACT = """You review what is on someone's plate and decide what deserves attention. You are an executive assistant with judgment, not a reminder rulebook. A dentist appointment and a vague walk idea must not receive identical treatment.
 
-Responsibility is always toward the user: reminders and follow-ups are FOR him, never for Sophie. Phrase every intent accordingly ("Remind him Thursday morning", never "Remind Sophie"). The stored matter already says whose appointment it is; your intent says what YOU will do about it.
+Responsibility is always toward the user: reminders and follow-ups are FOR them, never for Sophie. Phrase every intent accordingly ("Remind them Thursday morning", never "Remind Sophie"). The stored matter already says whose appointment it is; your intent says what YOU will do about it.
 
 You have: open operational matters (with dates, people, dependencies), the history of what Sophie already did about each (asked, reminded, snoozed, suppressed, delivered, responses), and the clock.
 
 Decide per matter: schedule a reminder or follow-up (with a due time), flag it for the next conversation, defer it, suppress it (scoped: what exactly to stop, and until when), reschedule/cancel existing intentions whose matter changed, or do nothing. Doing nothing is often correct.
 
-Never assume the person's gender: write intents about "them"/"the person", not he/she/his/her, unless their own words show it. Reason freely, act on what is known. A matter time marked "assumed" (the model's reading, e.g. "at 6" taken as 18:00) is context, not a confirmed instruction: do not build a time-triggered reminder on it — leave due_at null and say what is unclear in timing_note, or schedule for the next conversation. Only a time marked "stated" may trigger a timed follow-up. Situations: besides operational matters you can see SITUATIONS (list_situations) — developing matters that are not tasks: a family member's illness, a worry, a health observation, an unresolved decision, a curiosity. Hold a follow-up for one only when you have judged it worth returning to: schedule_action with source "entity" and source_ref set to the situation's id (it keeps its own facts; never copy them). due_at is when it becomes relevant (a check-in AFTER the tests, not before); expires_at is when to stop. A situation marked suppressed is the person's boundary: schedule nothing for it. Be gentle with sensitive ones: one well-timed check-in is enough, and an answer or a deflection settles that follow-up (the situation itself stays remembered). Record `surfaced` when it was raised and `responded` when the person answered, so the same worry is not raised again and again.
+Never assume the person's gender: write intents about "them"/"the person", not he/she/his/her, unless their own words show it. Reason freely, act on what is known. A matter time marked "assumed" (the model's reading, e.g. "at 6" taken as 18:00) is context, not a confirmed instruction: do not build a time-triggered reminder on it — leave due_at null and say what is unclear in timing_note, or schedule for the next conversation. Only a time marked "stated" may trigger a timed follow-up. Situations: besides operational matters you can see SITUATIONS (list_situations) — developing matters that are not tasks: a family member's illness, a worry, a health observation, an unresolved decision, a curiosity. A consequential recent happening or a pattern is listed too (form "happening"/"pattern"): a follow-up about what happened, or about something that keeps recurring, belongs to THAT record, not to a free-standing intention. Hold a follow-up for one only when you have judged it worth returning to: schedule_action with source "entity" and source_ref set to its id; every follow-up about a person, situation, happening or pattern from the list must carry it, so it can be found, expired and respected if the person sets a boundary (it keeps its own facts; never copy them). due_at is when it becomes relevant (a check-in AFTER the tests, not before); expires_at is when to stop. A situation marked suppressed is the person's boundary: schedule nothing for it. Be gentle with sensitive ones: one well-timed check-in is enough, and an answer or a deflection settles that follow-up (the situation itself stays remembered). Record `surfaced` when it was raised and `responded` when the person answered, so the same worry is not raised again and again.
 
 Rules: never duplicate an open intention for the same matter — update it. A held or suppressed action stays held until its condition lapses or evidence changes it; say what would unhold it. If the user said to stop fussing, record the scope of that response and adjust — it rarely cancels the matter itself. Delivery is a separate channel: schedule freely, but only the delivery path marks delivered. Verify before finish: re-list intentions and confirm each matches your decisions."""
 
@@ -102,7 +104,7 @@ TOOLS = [
     {"type": "function", "function": {"name": "list_situations", "description": "Developing situations (not tasks): id, name, kind, short summary, sensitive, suppressed, days since last update.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "attention_history", "description": "What Sophie already did: events newest-first, optional matter filter.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "limit": {"type": "integer"}}}}},
     {"type": "function", "function": {"name": "list_actions", "description": "Current intentions (pending/due/held), optional matter filter.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}}}}},
-    {"type": "function", "function": {"name": "schedule_action", "description": "Persist an intention Sophie holds toward the user (reminders are FOR him, never for Sophie: 'Remind him Thursday morning'). Matter key (or null), what she intends + why, kind reminder/followup/surface/opportunity, due_at YYYY-MM-DDTHH:MM in the PERSON'S LOCAL time (code converts it) or null, timing_note for uncertainty. Duplicates of open intentions are refused — update instead.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "intent": {"type": "string"}, "why": {"type": "string"}, "kind": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}, "source": {"type": "string"}, "source_ref": {"type": "string"}, "expires_at": {"type": "string"}}, "required": ["intent"]}}},
+    {"type": "function", "function": {"name": "schedule_action", "description": "Persist an intention Sophie holds toward the user (reminders are FOR them, never for Sophie: 'Remind them Thursday morning'). Matter key (or null), what she intends + why, kind reminder/followup/surface/opportunity, due_at YYYY-MM-DDTHH:MM in the PERSON'S LOCAL time (code converts it) or null, timing_note for uncertainty. Duplicates of open intentions are refused — update instead.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "intent": {"type": "string"}, "why": {"type": "string"}, "kind": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}, "source": {"type": "string"}, "source_ref": {"type": "string"}, "expires_at": {"type": "string"}}, "required": ["intent"]}}},
     {"type": "function", "function": {"name": "update_action", "description": "Change an intention by id: state (pending/due/held/cancelled/expired/superseded — delivered only with evidence of actual delivery), due_at, timing_note. Reschedule by setting a new due_at (old value kept in history).", "parameters": {"type": "object", "properties": {"id": {"type": "string"}, "state": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["id"]}}},
     {"type": "function", "function": {"name": "record_event", "description": "Record what happened: responded/snoozed/suppressed/surfaced/attempted with detail (e.g. user said stop fussing — scope it).", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "action": {"type": "string"}, "event": {"type": "string"}, "detail": {"type": "string"}}, "required": ["event"]}}},
     {"type": "function", "function": {"name": "finish", "description": "End only after verifying intentions match decisions.", "parameters": {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"]}}},
@@ -236,9 +238,17 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
              "confidence": i.confidence} for i in items]}
     if name == "list_situations":
         from src.services import known_world as _kw
-        ents = [e for e in await _kw.list_all(db, workspace_id, owner, statuses=("active", "dormant")) if _kw.is_situation(e)]
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        return {"situations": [{"id": str(e.id), "name": e.name, "kind": e.kind, "summary": e.summary[:200], "sensitive": e.sensitive,
+
+        def _eligible(e) -> bool:
+            if _kw.is_situation(e):
+                return True
+            # a consequential recent happening, or a pattern, can carry a follow-up too (a check-in about what happened, or about something that keeps recurring)
+            if e.form == "happening":
+                return (e.significance or 2) >= 2 and (now - (e.occurred_on or e.last_touched_at).replace(tzinfo=None)).days <= 21
+            return e.form == "pattern"
+        ents = [e for e in await _kw.list_all(db, workspace_id, owner, statuses=("active", "dormant")) if _eligible(e)]
+        return {"situations": [{"id": str(e.id), "name": e.name, "kind": e.kind, "form": e.form or "situation", "summary": e.summary[:200], "sensitive": e.sensitive,
                                 "suppressed": e.suppressed, "status": e.status, "days_since_update": max(0, (now - e.last_touched_at.replace(tzinfo=None)).days)}
                                for e in ents]}
     if name == "attention_history":
