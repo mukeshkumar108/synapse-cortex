@@ -222,7 +222,7 @@ def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
             items.append(current)
 
     for raw_line in (raw or "").splitlines():
-        line = raw_line.strip()
+        line = re.sub(r"^(\s*([-*•]|\d+[.)])\s+)+", "", raw_line.strip())
         if not line or line.upper() == "NONE":
             continue
         m = re.match(r"^([A-Za-z-]+)\s*:\s*(.*)$", line)
@@ -841,6 +841,20 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
     bundle["ledger_extract"] = extract or {"skipped": True}
     raw_extract = str((extract or {}).get("text") or "")
     witness, unparsed = parse_tagged_lines(raw_extract)
+    if not witness and len(findings or "") > 80:
+        # Witness blindness guard: the model replied NONE (or emitted nothing
+        # parseable) yet the session notes describe real developments. One
+        # retry with an explicit nudge before letting the session go unwritten.
+        retry = await _generate("ledger", SITUATIONS_PROMPT.replace("{open_items}", open_lines).replace(
+            "{today_utc}", today_utc).replace("{transcript}", transcript).replace(
+            "{findings}", findings or handoff_text) + "\n\nYou replied NONE, but the session notes above describe "
+            "concrete developments. Look again and report every ITEM with its tags — never reply NONE when "
+            "commitments, deadlines, schedule changes, approvals or completions appear.",
+            1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
+        if retry and str(retry.get("text") or "").strip():
+            bundle["ledger_extract_retry"] = {"model": retry.get("model"), "ms": retry.get("ms")}
+            raw_extract = str(retry.get("text") or "")
+            witness, unparsed = parse_tagged_lines(raw_extract)
     bundle["ledger_witness_items"] = witness
     bundle["ledger_unparsed"] = unparsed
     statements, match_report = await shape_situations(witness, today_utc, ledger)
