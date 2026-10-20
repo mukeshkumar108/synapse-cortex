@@ -894,7 +894,16 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
     agent_out: Dict[str, Any] = {"status": "skipped", "reason": "no witness observations"}
     if witness:
         from src.services import maintenance_agent
-        obs_lines = []
+        from datetime import timedelta as _td, datetime as _dt2
+        try:
+            _today = _dt2.strptime(today_utc[:10], "%Y-%m-%d").date()
+        except Exception:
+            _today = datetime.now(timezone.utc).date()
+        _day_ref = ", ".join(
+            f"{(_today + _td(days=i)).strftime('%A')} {(_today + _td(days=i)).isoformat()}"
+            for i in range(8))
+        obs_lines = [f"Date reference (UTC): today {_today.strftime('%A')} {_today.isoformat()}; "
+                     f"this week: {_day_ref}. Use these exact ISO dates for expected_date."]
         for it in witness:
             obs_lines.append(f"- {it.get('title', '')} [{it.get('kind', 'situation')}] :: "
                              f"{str(it.get('detail') or '')[:400]}"
