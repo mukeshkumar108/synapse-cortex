@@ -41,6 +41,7 @@ services:
       NANO_API_KEY: ${NANO_API_KEY:-}                 # flat-rate background reasoning (character self-direction, story pressure)
       AGENCY_MODELS: ${AGENCY_MODELS:-z-ai/glm-5.3-flash,meta/muse-spark-1.3-contributor,deepseek/deepseek-v4-flash}
       WORLD_INTERPRETER_MODEL: ${WORLD_INTERPRETER_MODEL:-openai/gpt-5.6-luna}
+      CONNECTED_WORLD_ENABLED: ${CONNECTED_WORLD_ENABLED:-false}      # connected understanding (entities, relationships, situations)
       HONCHO_BASE_URL: ${HONCHO_BASE_URL:-http://honcho-api:8000}
       HONCHO_API_KEY: ${HONCHO_API_KEY:-}
       HONCHO_CONTEXT_ENABLED: ${HONCHO_CONTEXT_ENABLED:-true}
