@@ -902,12 +902,28 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
         _day_ref = ", ".join(
             f"{(_today + _td(days=i)).strftime('%A')} {(_today + _td(days=i)).isoformat()}"
             for i in range(8))
+
+        def _resolve_timing(timing: str) -> str:
+            """Deterministically annotate weekday/tomorrow mentions with ISO dates
+            so the agent copies exact dates instead of doing weekday arithmetic."""
+            out = str(timing or "")
+            if not out:
+                return out
+            for i in range(8):
+                _d = _today + _td(days=i)
+                _name = _d.strftime("%A")
+                if re.search(rf"\b{_name}\b", out, re.IGNORECASE):
+                    out = re.sub(rf"\b{_name}\b", f"{_name} ({_d.isoformat()})", out, flags=re.IGNORECASE)
+            _tom = _today + _td(days=1)
+            out = re.sub(r"\btomorrow\b", f"tomorrow ({_tom.isoformat()})", out, flags=re.IGNORECASE)
+            return out
+
         obs_lines = [f"Date reference (UTC): today {_today.strftime('%A')} {_today.isoformat()}; "
                      f"this week: {_day_ref}. Use these exact ISO dates for expected_date."]
         for it in witness:
             obs_lines.append(f"- {it.get('title', '')} [{it.get('kind', 'situation')}] :: "
                              f"{str(it.get('detail') or '')[:400]}"
-                             f"{' | timing: ' + it['timing'] if it.get('timing') else ''}"
+                             f"{' | timing: ' + _resolve_timing(it['timing']) if it.get('timing') else ''}"
                              f"{' | STATUS-HINT: ' + it['status_hint'] if it.get('status_hint') else ''}"
                              f"{' | RESOLVED: ' + it['resolved'][:300] if it.get('resolved') else ''}")
         before = {(str(i.situation_key), i.status, str(i.updated_at))
