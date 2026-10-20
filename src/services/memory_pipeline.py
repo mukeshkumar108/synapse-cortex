@@ -1064,6 +1064,17 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                               "clock": {"time_zone": clock["tz"], "session_time_utc": clock["event_utc"].isoformat(),
                                         "local_date": today, "weekday": clock["weekday"]}}
 
+    import time as _time
+    _t = {"last": _time.monotonic()}
+    stage_ms: Dict[str, int] = {}
+
+    def mark(name: str) -> None:
+        """Where the time goes (ms per stage, in order). Stored in the run bundle so latency is read, not guessed."""
+        now_ = _time.monotonic()
+        stage_ms[name] = stage_ms.get(name, 0) + int((now_ - _t["last"]) * 1000)
+        _t["last"] = now_
+    bundle["stage_ms"] = stage_ms
+
     trimmed = [m for m in messages if str(m.get("text") or "").strip()]
     ids = [str(m.get("id") or "") for m in trimmed if str(m.get("id") or "")]
     already = set(await covered_ids(db, workspace_id, owner, conversation_id)) if ids else set()
@@ -1099,6 +1110,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                                 2000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
     handoff = await _generate("handoff", f"{cfg.handoff_prompt}\n\n--- transcript ---\n{transcript}",
                               300, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
+    mark("discovery_handoff")
     findings = str((discovery or {}).get("text") or "")
     handoff_text = str((handoff or {}).get("text") or "")
     bundle["discovery"] = discovery or {"skipped": True}
@@ -1125,6 +1137,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
             await db.flush()
             pages[key] = nxt
     bundle["notebook_after"] = {k: p.text for k, p in pages.items()}
+    mark("notebook_pages")
 
     # ------------------------------------------------ operational ledger ----
     # The ledger holds the person's actionable matters. A companion's own
@@ -1166,6 +1179,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                 witness, unparsed = parse_tagged_lines(raw_extract)
         bundle["ledger_witness_items"] = witness
         bundle["ledger_unparsed"] = unparsed
+        mark("ledger_witness")
 
     # Agentic maintenance owns ledger writes: numbered observations + open
     # ledger in, investigated updates out. Deterministic skip when nothing observed.
@@ -1184,6 +1198,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                  for i in await open_ledger(db, workspace_id, owner, limit=200)}
         agent_out["ledger_moved"] = before != after
         bundle["ledger_observations"] = obs_text
+    mark("ledger_agent")
     bundle["ledger_agent"] = {k: v for k, v in agent_out.items() if k != "calls"}
     bundle["ledger_agent_calls"] = agent_out.get("calls", [])
     agent_changes = agent_out.get("changes") or {}
@@ -1245,6 +1260,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         bundle["world_agent"] = {"status": "skipped", "reason": "disabled for this deployment/product/sitting" if not _settings.CONNECTED_WORLD_ENABLED
                                  or not cfg.world_enabled or sitting_kind == "independent" else "transcript too short"}
 
+    mark("connect_pass")
     # End-of-sitting attention: due-scan always (deterministic, cheap); review
     # only when the product uses it and something actually changed.
     from src.services import attention_cycle
@@ -1266,6 +1282,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         logger.warning("[memory] attention hook failed open: %s", exc)
         bundle["attention_review"] = {"status": "failed", "error": type(exc).__name__}
 
+    mark("attention")
     if sitting_kind == "independent":
         # The shared continuing arc belongs to the user-facing relationship;
         # an independent sitting leaves it alone (continuity lives on exploring).
@@ -1280,9 +1297,11 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
             arc.text, arc.version, arc.run_id = new_arc, arc.version + 1, run.id
             arc.updated_at = utc_now()
     bundle["arc_after"] = arc.text
+    mark("arc")
 
     prep = await prepare(db, workspace_id=workspace_id, owner=owner, now_iso=now_iso, run_id=run.id,
                          companion_id=companion_id, time_zone=clock["tz"])
+    mark("preparation")
     bundle["preparation"] = {k: v for k, v in prep.items() if k != "text"}
     bundle["preparation_text"] = prep.get("text", "")
     return await finish("consolidated", [str(m.get("id")) for m in fresh if str(m.get("id") or "")] or [f"fp:{_fingerprint(transcript)}"])

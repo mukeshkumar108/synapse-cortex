@@ -101,7 +101,7 @@ async def run_status(run_id: str, request: Request, db: AsyncSession = Depends(g
         out["summary"] = {k: bundle.get(k) for k in (
             "message_count", "new_message_count", "findings", "arc_after",
             "ledger_added", "ledger_counts", "preparation_text", "ms_total", "product", "clock",
-            "ledger_witness_items", "ledger_observations", "ledger_agent", "ledger_needs_review", "ledger_fallback", "world_agent") if k in bundle}
+            "ledger_witness_items", "ledger_observations", "ledger_agent", "ledger_needs_review", "ledger_fallback", "world_agent", "stage_ms") if k in bundle}
         if "ledger_agent_calls" in bundle:
             out["summary"]["ledger_agent_trace"] = [
                 {"finish_reason": c.get("finish_reason"), "trace": c.get("trace")} for c in bundle["ledger_agent_calls"]]
