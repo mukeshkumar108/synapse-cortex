@@ -101,10 +101,13 @@ async def run_status(run_id: str, request: Request, db: AsyncSession = Depends(g
         out["summary"] = {k: bundle.get(k) for k in (
             "message_count", "new_message_count", "findings", "arc_after",
             "ledger_added", "ledger_counts", "preparation_text", "ms_total", "product", "clock",
-            "ledger_witness_items", "ledger_observations", "ledger_agent", "ledger_needs_review", "ledger_fallback") if k in bundle}
+            "ledger_witness_items", "ledger_observations", "ledger_agent", "ledger_needs_review", "ledger_fallback", "world_agent") if k in bundle}
         if "ledger_agent_calls" in bundle:
             out["summary"]["ledger_agent_trace"] = [
                 {"finish_reason": c.get("finish_reason"), "trace": c.get("trace")} for c in bundle["ledger_agent_calls"]]
+        if "world_agent_calls" in bundle:
+            out["summary"]["world_agent_trace"] = [
+                {"finish_reason": c.get("finish_reason"), "trace": c.get("trace")} for c in bundle["world_agent_calls"]]
     return out
 
 
@@ -148,6 +151,122 @@ async def state(request: Request, workspace_id: str, owner: str, include_closed:
     scope = _scope(request, workspace_id, companion_id)
     return await memory_pipeline.read_state(db, workspace_id=scope.workspace, owner=owner,
                                             include_closed=include_closed, companion_id=scope.product)
+
+
+@router.get("/ledger")
+async def ledger_view(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None,
+                      view: str = "awareness", period: Optional[str] = None, date_from: Optional[str] = None,
+                      date_to: Optional[str] = None, now: Optional[str] = None, time_zone: Optional[str] = None,
+                      include_closed: bool = False, db: AsyncSession = Depends(get_async_session)):
+    """Deterministic, time-aware views over the maintained ledger. No model, no transcript: interpretation
+    happened when the records were written. `view`: awareness (the foreground picture), range (a schedule for a
+    period or date span), needs_detail (open matters with an unanswered question). `now` and `time_zone` are the
+    caller's authoritative clock; absent, the last zone this person's sittings reported is used."""
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from sqlmodel import select as _select
+    from src.models.world import LedgerItem as _L
+    from src.services import attention_cycle as _ac, ledger_views as _lv, product_memory as _pm
+    scope = _scope(request, workspace_id, companion_id)
+    cfg = _pm.get(scope.product)
+    tz = time_zone or await _ac.owner_time_zone(db, workspace_id=scope.workspace, owner=owner, default=None) or cfg.default_time_zone
+    try:
+        clock_now = _dt.fromisoformat(now.replace("Z", "+00:00")) if now else _dt.now(_tz.utc)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="now must be an ISO timestamp")
+    rows = (await db.execute(_select(_L).where(_L.honcho_workspace_id == scope.workspace, _L.owner_peer_id == owner)
+                             .order_by(_L.created_at.desc()).limit(500))).scalars().all()
+    data = [{"key": i.situation_key, "kind": i.kind, "title": i.title, "status": i.status,
+             "expected_date": i.expected_date.strftime("%Y-%m-%d") if i.expected_date else None,
+             "expected_time": i.expected_time, "time_basis": i.time_basis, "time_zone": i.time_zone, "time_role": i.time_role, "importance": i.importance,
+             "waiting_on": i.waiting_on, "question": i.question_text, "detail": i.detail,
+             "updated_at": i.updated_at.isoformat() if i.updated_at else None,
+             "created_at": i.created_at.isoformat() if i.created_at else None} for i in rows]
+    v = _lv.compute(data, clock_now, tz, cfg.default_time_zone)
+    base = {"product": scope.product, "now": v["now"].isoformat(), "time_zone": v["zone"].key}
+    if view == "awareness":
+        return {**base, "text": _lv.render(v), "cues": _lv.cues(v)}
+    if view == "needs_detail":
+        flagged = [c for c in _lv.cues(v) if c["band"] not in ("older",)]
+        by_key = {d["key"]: d for d in data}
+        out = [c for c in flagged if by_key.get(c["key"], {}).get("question")
+               or (by_key.get(c["key"], {}).get("time_role") == "happens" and by_key[c["key"]].get("expected_date") and not by_key[c["key"]].get("expected_time"))]
+        return {**base, "cues": out, "text": "\n".join(f"- {c['line']}" for c in out)}
+    if view == "range":
+        try:
+            if date_from or date_to:
+                start = _dt.strptime((date_from or date_to)[:10], "%Y-%m-%d").date()
+                end = _dt.strptime((date_to or date_from)[:10], "%Y-%m-%d").date()
+            else:
+                start, end = _lv.resolve_range(period or "week", v["today"])
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        if end < start or (end - start).days > 366:
+            raise HTTPException(status_code=422, detail="range must be ordered and at most a year")
+        out = _lv.render_range(data, start, end, clock_now, tz, include_closed=include_closed, default_zone=cfg.default_time_zone)
+        return {**base, "from": start.isoformat(), "to": end.isoformat(), **out}
+    raise HTTPException(status_code=422, detail="view must be awareness, range or needs_detail")
+
+
+def _world_ctx_args(now: Optional[str]):
+    from datetime import datetime as _dt, timezone as _tz
+    try:
+        return _dt.fromisoformat(now.replace("Z", "+00:00")) if now else _dt.now(_tz.utc)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="now must be an ISO timestamp")
+
+
+@router.get("/world")
+async def world_view(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, view: str = "packet",
+                     q: Optional[str] = None, depth: str = "connected", now: Optional[str] = None, time_zone: Optional[str] = None,
+                     db: AsyncSession = Depends(get_async_session)):
+    """The connected world, read deterministically from maintained records (no model). view: packet (the foreground's overview +
+    snapshots of whoever/whatever `q` mentions), overview, entity (q = a name; depth snapshot|connected|deep), inspect (everything,
+    with provenance). Disabled deployments answer enabled=false with empty text, so callers can simply inject nothing."""
+    from src.config import settings as _s
+    from src.services import attention_cycle as _ac, known_world as _kw, product_memory as _pm
+    scope = _scope(request, workspace_id, companion_id)
+    if not _s.CONNECTED_WORLD_ENABLED:
+        return {"enabled": False, "product": scope.product, "overview": "", "mentions": "", "text": "", "shown": []}
+    cfg = _pm.get(scope.product)
+    if not cfg.world_enabled:
+        return {"enabled": False, "product": scope.product, "overview": "", "mentions": "", "text": "", "shown": []}
+    tz = time_zone or await _ac.owner_time_zone(db, workspace_id=scope.workspace, owner=owner, default=None) or cfg.default_time_zone
+    ctx = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone)
+    base = {"enabled": True, "product": scope.product, "now": ctx.now.isoformat(), "time_zone": ctx.tz}
+    if view == "packet":
+        return {**base, **(await _kw.packet(db, scope.workspace, owner, q or "", ctx, cfg.world_sensitive))}
+    if view == "overview":
+        text, shown = await _kw.overview_text(db, scope.workspace, owner, ctx, cfg.world_sensitive)
+        return {**base, "text": text, "shown": [{"source": a, "ref": b} for a, b in shown]}
+    if view == "entity":
+        if depth not in ("snapshot", "connected", "deep"):
+            raise HTTPException(status_code=422, detail="depth must be snapshot, connected or deep")
+        return {**base, **(await _kw.entity_view(db, scope.workspace, owner, q or "", ctx, depth))}
+    if view == "inspect":
+        return {**base, **(await _kw.inspect(db, scope.workspace, owner))}
+    raise HTTPException(status_code=422, detail="view must be packet, overview, entity or inspect")
+
+
+class ExposureRequest(BaseModel):
+    workspace_id: str
+    owner: str
+    companion_id: Optional[str] = None
+    refs: List[Dict[str, str]]
+    now: Optional[str] = None
+
+
+@router.post("/world/exposure")
+async def world_exposure(req: ExposureRequest, request: Request, db: AsyncSession = Depends(get_async_session)):
+    """The Runtime reports what it actually composed into a packet (exposure, counted once per sitting). Engagement is recorded
+    separately by the attention review when the companion raised something or the person answered."""
+    from src.config import settings as _s
+    from src.services import known_world as _kw
+    scope = _scope(request, req.workspace_id, req.companion_id)
+    if not _s.CONNECTED_WORLD_ENABLED:
+        return {"enabled": False, "recorded": 0}
+    n = await _kw.record_exposure(db, scope.workspace, req.owner, req.refs[:50], now=_world_ctx_args(req.now).replace(tzinfo=None))
+    await db.commit()
+    return {"enabled": True, "recorded": n}
 
 
 class SoloTickRequest(BaseModel):

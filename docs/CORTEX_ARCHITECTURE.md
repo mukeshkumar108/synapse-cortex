@@ -7,6 +7,9 @@ Date: 2026-10-01
 > mapping, schema, sequence, results). It sits under `COMPANION_CANON.md`
 > (principles 1, 11, 14, 15, 16 are load-bearing here) and does not redefine it.
 
+> Later additions (Oct 2026): operational memory contracts `MEMORY_CONTRACTS_2026-10-20.md`; connected understanding (entities, relationships,
+> situations, `know`) `CONNECTED_UNDERSTANDING.md`; decision log `DECISIONS.md`; what is built vs partial vs deferred `IMPLEMENTATION_STATUS.md`.
+
 ## 1. Purpose
 
 Cortex already holds the hard primitives (expectations, recurring intentions,

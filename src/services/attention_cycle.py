@@ -93,13 +93,16 @@ You have: open operational matters (with dates, people, dependencies), the histo
 
 Decide per matter: schedule a reminder or follow-up (with a due time), flag it for the next conversation, defer it, suppress it (scoped: what exactly to stop, and until when), reschedule/cancel existing intentions whose matter changed, or do nothing. Doing nothing is often correct.
 
-Never invent precision: if the time of day is ambiguous (e.g. "at 6" with no am/pm) do not guess a clock time — leave due_at null and say what is unclear in timing_note, or schedule only for a time that is correct under every reading. Rules: never duplicate an open intention for the same matter — update it. A held or suppressed action stays held until its condition lapses or evidence changes it; say what would unhold it. If the user said to stop fussing, record the scope of that response and adjust — it rarely cancels the matter itself. Delivery is a separate channel: schedule freely, but only the delivery path marks delivered. Verify before finish: re-list intentions and confirm each matches your decisions."""
+Reason freely, act on what is known. A matter time marked "assumed" (the model's reading, e.g. "at 6" taken as 18:00) is context, not a confirmed instruction: do not build a time-triggered reminder on it — leave due_at null and say what is unclear in timing_note, or schedule for the next conversation. Only a time marked "stated" may trigger a timed follow-up. Situations: besides operational matters you can see SITUATIONS (list_situations) — developing matters that are not tasks: a family member's illness, a worry, a health observation, an unresolved decision, a curiosity. Hold a follow-up for one only when you have judged it worth returning to: schedule_action with source "entity" and source_ref set to the situation's id (it keeps its own facts; never copy them). due_at is when it becomes relevant (a check-in AFTER the tests, not before); expires_at is when to stop. A situation marked suppressed is the person's boundary: schedule nothing for it. Be gentle with sensitive ones: one well-timed check-in is enough, and an answer or a deflection settles that follow-up (the situation itself stays remembered). Record `surfaced` when it was raised and `responded` when the person answered, so the same worry is not raised again and again.
+
+Rules: never duplicate an open intention for the same matter — update it. A held or suppressed action stays held until its condition lapses or evidence changes it; say what would unhold it. If the user said to stop fussing, record the scope of that response and adjust — it rarely cancels the matter itself. Delivery is a separate channel: schedule freely, but only the delivery path marks delivered. Verify before finish: re-list intentions and confirm each matches your decisions."""
 
 TOOLS = [
     {"type": "function", "function": {"name": "list_matters", "description": "Open operational matters with keys, dates, people, dependencies.", "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {"name": "list_situations", "description": "Developing situations (not tasks): id, name, kind, short summary, sensitive, suppressed, days since last update.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "attention_history", "description": "What Sophie already did: events newest-first, optional matter filter.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "limit": {"type": "integer"}}}}},
     {"type": "function", "function": {"name": "list_actions", "description": "Current intentions (pending/due/held), optional matter filter.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}}}}},
-    {"type": "function", "function": {"name": "schedule_action", "description": "Persist an intention Sophie holds toward the user (reminders are FOR him, never for Sophie: 'Remind him Thursday morning'). Matter key (or null), what she intends + why, kind reminder/followup/surface/opportunity, due_at YYYY-MM-DDTHH:MM in the PERSON'S LOCAL time (code converts it) or null, timing_note for uncertainty. Duplicates of open intentions are refused — update instead.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "intent": {"type": "string"}, "why": {"type": "string"}, "kind": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}}, "required": ["intent"]}}},
+    {"type": "function", "function": {"name": "schedule_action", "description": "Persist an intention Sophie holds toward the user (reminders are FOR him, never for Sophie: 'Remind him Thursday morning'). Matter key (or null), what she intends + why, kind reminder/followup/surface/opportunity, due_at YYYY-MM-DDTHH:MM in the PERSON'S LOCAL time (code converts it) or null, timing_note for uncertainty. Duplicates of open intentions are refused — update instead.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "intent": {"type": "string"}, "why": {"type": "string"}, "kind": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}, "source": {"type": "string"}, "source_ref": {"type": "string"}, "expires_at": {"type": "string"}}, "required": ["intent"]}}},
     {"type": "function", "function": {"name": "update_action", "description": "Change an intention by id: state (pending/due/held/cancelled/expired/superseded — delivered only with evidence of actual delivery), due_at, timing_note. Reschedule by setting a new due_at (old value kept in history).", "parameters": {"type": "object", "properties": {"id": {"type": "string"}, "state": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["id"]}}},
     {"type": "function", "function": {"name": "record_event", "description": "Record what happened: responded/snoozed/suppressed/surfaced/attempted with detail (e.g. user said stop fussing — scope it).", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "action": {"type": "string"}, "event": {"type": "string"}, "detail": {"type": "string"}}, "required": ["event"]}}},
     {"type": "function", "function": {"name": "finish", "description": "End only after verifying intentions match decisions.", "parameters": {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"]}}},
@@ -156,7 +159,8 @@ def _action_view(a: AttentionAction) -> Dict[str, Any]:
             "kind": a.kind,
             # stored as naive UTC; emitted with its offset so every reader can convert to the person's clock
             "due_at": a.due_at.replace(tzinfo=timezone.utc).isoformat() if a.due_at else None,
-            "timing_note": a.timing_note, "state": a.state}
+            "timing_note": a.timing_note, "state": a.state, "source": a.source, "source_ref": a.source_ref,
+            "expires_at": (a.expires_at.replace(tzinfo=timezone.utc).isoformat() if a.expires_at else None)}
 
 
 async def describe_attention(db: AsyncSession, *, workspace_id: str, owner: str) -> List[str]:
@@ -184,11 +188,11 @@ async def describe_attention(db: AsyncSession, *, workspace_id: str, owner: str)
     lines = []
     for a in actions:
         m = items.get(str(a.get("matter") or ""))
-        matter = f"{m.title} ({m.timing_text})" if m and m.timing_text else (m.title if m else "a tracked matter")
+        matter = m.title if m else "a tracked matter"       # no dates/timing here: the deterministic operational view owns those
         if a["state"] == "due":
             happened = "due now, not yet delivered"
         elif a.get("due_at"):
-            happened = f"scheduled for {a['due_at']}, not yet delivered"
+            happened = "scheduled, not yet delivered"
         else:
             happened = "open, no fixed time yet"
         line = f"{matter}. Sophie intends: {a['intent']} — {happened}."
@@ -197,23 +201,11 @@ async def describe_attention(db: AsyncSession, *, workspace_id: str, owner: str)
         lines.append(line)
     covered = {str(a.get("matter") or "") for a in actions}
     for key, m in items.items():
-        if key in covered or m.status not in ("open", "waiting", "watching"):
+        # What attention uniquely knows is what has already been asked or answered. Missing details (an unanswered
+        # question, an unknown time) are computed from the record by the deterministic view, never restated here.
+        if key in covered or m.status not in ("open", "waiting", "watching") or key not in hist:
             continue
-        unknowns = []
-        if m.question_text:
-            unknowns.append(f"open question: {m.question_text[:200]}")
-        if m.timing_text and not m.expected_date and any(
-                w in m.timing_text.lower() for w in ("unknown", "tbd", "tbc", "sometime", "?")):
-            unknowns.append(f"timing unclear: {m.timing_text[:160]}")
-        if not unknowns and key not in hist:
-            continue
-        if unknowns:
-            line = f"{m.title} ({m.timing_text or 'no timing yet'}). Unresolved: {'; '.join(unknowns)}."
-        else:
-            line = f"{m.title} ({m.timing_text or 'no timing yet'})."
-        if key in hist:
-            line += f" History: {hist[key]}."
-        lines.append(line)
+        lines.append(f"{m.title}. History: {hist[key]}.")
     return lines
 
 
@@ -225,7 +217,14 @@ async def _event(db: AsyncSession, workspace_id: str, owner: str, event: str,
                           detail=detail[:1000], actor=actor[:120]))
 
 
+def _allowed_args() -> Dict[str, set]:
+    return {t["function"]["name"]: set((t["function"]["parameters"].get("properties") or {}).keys()) for t in TOOLS}
+
+
 async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    allowed = _allowed_args().get(name)
+    if allowed is not None and set(args) - allowed:
+        return {"error": f"unsupported argument(s) for {name}: {', '.join(sorted(set(args) - allowed))}. Allowed: {', '.join(sorted(allowed)) or '(none)'}. Nothing was changed."}
     if name == "list_matters":
         from src.services.memory_pipeline import open_ledger
         items = await open_ledger(db, workspace_id, owner, limit=100)
@@ -235,6 +234,13 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
              "expected": i.expected_date.strftime("%Y-%m-%d") if i.expected_date else None,
              "waiting_on": i.waiting_on, "question": (i.question_text or "")[:300],
              "confidence": i.confidence} for i in items]}
+    if name == "list_situations":
+        from src.services import known_world as _kw
+        ents = [e for e in await _kw.list_all(db, workspace_id, owner, statuses=("active", "dormant")) if _kw.is_situation(e)]
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        return {"situations": [{"id": str(e.id), "name": e.name, "kind": e.kind, "summary": e.summary[:200], "sensitive": e.sensitive,
+                                "suppressed": e.suppressed, "status": e.status, "days_since_update": max(0, (now - e.last_touched_at.replace(tzinfo=None)).days)}
+                               for e in ents]}
     if name == "attention_history":
         q = select(AttentionEvent).where(
             AttentionEvent.honcho_workspace_id == workspace_id,
@@ -263,6 +269,17 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
         if kind not in ("reminder", "followup", "surface", "opportunity"):
             return {"error": f"illegal kind {kind}"}
         matter = str(args.get("matter") or "").strip() or None
+        source, source_ref = str(args.get("source") or "").strip().lower(), str(args.get("source_ref") or "").strip()
+        if source and source != "entity":
+            return {"error": "source must be 'entity' (a situation) or omitted (an operational matter)"}
+        if source == "entity":
+            from src.services import known_world as _kw
+            ent = await _kw.get(db, workspace_id, owner, source_ref)
+            if ent is None or ent.status not in ("active", "dormant"):
+                return {"error": "source_ref must be the id of a live entity or situation (see list_situations)"}
+            if ent.suppressed:
+                return {"error": f"'{ent.name}' is marked not to be raised unprompted (the person's boundary): schedule nothing for it"}
+            matter, source_ref = None, str(ent.id)
         if matter:
             from src.models.world import LedgerItem
             led = (await db.execute(select(LedgerItem).where(
@@ -284,12 +301,20 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
             problem = _due_problem(due_at)
             if problem:
                 return {"error": problem}
+        expires_at = None
+        raw_exp = str(args.get("expires_at") or "").strip()
+        if raw_exp:
+            expires_at = local_to_utc_naive(raw_exp)
+            if expires_at is None:
+                return {"error": "expires_at must be YYYY-MM-DDTHH:MM (the person's local time)"}
         dup_q = select(AttentionAction).where(
             AttentionAction.honcho_workspace_id == workspace_id,
             AttentionAction.owner_peer_id == owner,
             AttentionAction.state.in_(["pending", "due", "held"]))
         if matter:
             dup_q = dup_q.where(AttentionAction.matter_key == matter)
+        elif source == "entity":
+            dup_q = dup_q.where(AttentionAction.source == "entity", AttentionAction.source_ref == source_ref)
         else:
             dup_q = dup_q.where(AttentionAction.intent == intent[:500])
         dup = (await db.execute(dup_q.limit(1))).scalars().first()
@@ -298,7 +323,8 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
                     "existing_id": str(dup.id)}
         row = AttentionAction(honcho_workspace_id=workspace_id, owner_peer_id=owner,
                               matter_key=matter, intent=intent[:500], why=str(args.get("why") or "")[:500],
-                              kind=kind, due_at=due_at, timing_note=str(args.get("timing_note") or "")[:300])
+                              kind=kind, due_at=due_at, timing_note=str(args.get("timing_note") or "")[:300],
+                              source=source, source_ref=source_ref if source else "", expires_at=expires_at)
         db.add(row)
         await db.flush()
         await _event(db, workspace_id, owner, "scheduled", intent[:200], "attention-agent",
@@ -356,6 +382,19 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
         await _event(db, workspace_id, owner, ev, str(args.get("detail") or "")[:500],
                      "attention-agent", action_id=aid,
                      matter_key=str(args.get("matter") or "").strip() or None)
+        if ev in ("surfaced", "responded", "snoozed", "suppressed"):
+            # ENGAGEMENT (the companion raised it / the person answered), recorded apart from EXPOSURE (it was merely in the packet)
+            from src.services import known_world as _kw
+            ref_kind, ref = None, None
+            if aid is not None:
+                act = (await db.execute(select(AttentionAction).where(AttentionAction.id == aid, AttentionAction.honcho_workspace_id == workspace_id,
+                                                                      AttentionAction.owner_peer_id == owner))).scalars().first()
+                if act is not None and act.source == "entity":
+                    ref_kind, ref = "entity", act.source_ref
+            if ref is None and args.get("matter"):
+                ref_kind, ref = "ledger", str(args["matter"]).strip()
+            if ref:
+                await _kw.record_engagement(db, workspace_id, owner, ref_kind, ref)
         await db.commit()
         return {"ok": True}
     return {"error": "unknown tool"}
@@ -463,6 +502,12 @@ async def mark_due(db: AsyncSession, *, workspace_id: str, owner: str,
     """Deterministic due scan: pending actions past due become due (+event).
     Held actions stay held. Never marks delivered."""
     now = now or datetime.now(timezone.utc).replace(tzinfo=None)
+    stale = (await db.execute(select(AttentionAction).where(
+        AttentionAction.honcho_workspace_id == workspace_id, AttentionAction.owner_peer_id == owner,
+        AttentionAction.state.in_(["pending", "due"]), AttentionAction.expires_at.is_not(None), AttentionAction.expires_at <= now))).scalars().all()
+    for r in stale:                                   # past its stop-surfacing time: it simply stops appearing (history kept)
+        r.state, r.updated_at = "expired", utc_now()
+        await _event(db, workspace_id, owner, "expired", f"stopped surfacing: {r.intent[:120]}", "due-scan", action_id=r.id, matter_key=r.matter_key)
     rows = (await db.execute(select(AttentionAction).where(
         AttentionAction.honcho_workspace_id == workspace_id,
         AttentionAction.owner_peer_id == owner,
@@ -476,7 +521,7 @@ async def mark_due(db: AsyncSession, *, workspace_id: str, owner: str,
         await _event(db, workspace_id, owner, "scheduled", f"became due: {r.intent[:120]}",
                      "due-scan", action_id=r.id, matter_key=r.matter_key)
         out.append(_action_view(r))
-    if out:
+    if out or stale:
         await db.commit()
     return out
 
@@ -505,7 +550,20 @@ async def pending_attention(db: AsyncSession, *, workspace_id: str, owner: str) 
         AttentionAction.owner_peer_id == owner,
         AttentionAction.state.in_(["pending", "due"])).order_by(
         AttentionAction.due_at.is_(None), AttentionAction.due_at))).scalars().all()
-    return [_action_view(r) for r in rows if str(r.matter_key or "") not in suppressed]
+    boundary: set = set()
+    ent_refs = [r.source_ref for r in rows if r.source == "entity" and r.source_ref]
+    if ent_refs:
+        from src.models.known_world import KnownEntity
+        from uuid import UUID as _U
+        ids = []
+        for x in ent_refs:
+            try:
+                ids.append(_U(x))
+            except Exception:
+                pass
+        for e in (await db.execute(select(KnownEntity).where(KnownEntity.id.in_(ids), KnownEntity.suppressed == True))).scalars().all():   # noqa: E712
+            boundary.add(str(e.id))          # the person's boundary always wins, even over an already-scheduled intention
+    return [_action_view(r) for r in rows if str(r.matter_key or "") not in suppressed and str(r.source_ref or "") not in boundary]
 
 
 def _int(env: str, default: int) -> int:

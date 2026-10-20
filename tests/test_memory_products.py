@@ -78,7 +78,7 @@ GOOD_AGENT = [
     [_tc(1, "list_open", {}), _tc(2, "create_item", {"title": "Dentist appointment", "kind": "event", "timing": "tomorrow",
                                                       "expected_date": "2026-10-20", "status": "open"})],
     [_tc(3, "list_open", {})],
-    [_tc(4, "finish", {"summary": "created", "accounting": [{"obs": 1, "treatment": "applied", "key": "dentist-appointment"}]})],
+    [_tc(4, "finish", {"transcript_sweep": "nothing beyond the observations", "summary": "created", "accounting": [{"obs": 1, "treatment": "applied", "key": "dentist-appointment"}]})],
 ]
 
 

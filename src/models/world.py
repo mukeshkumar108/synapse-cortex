@@ -270,6 +270,12 @@ class LedgerItem(SQLModel, table=True):
     question_text: str = Field(default="")                         # unresolved question / missing info / clarification candidate
     linked_keys_json: str = Field(default="[]")                    # situation_keys this connects to
     authorised_json: str = Field(default="{}")                     # explicit user authorisations, e.g. {"reminder": true, "at": ...}; inference never writes here
+    # Structured time (parts, not a stored instant: the exact moment is derived on read, so it can never drift from its parts).
+    expected_time: str = Field(default="")                         # "HH:MM" 24h, the person's LOCAL time; only when stated unambiguously
+    time_zone: str = Field(default="")                             # IANA zone the date/time were stated in (stamped by code from the sitting)
+    time_basis: str = Field(default="")                            # epistemic status of expected_time: "stated" (the person gave it) | "assumed" (the model's likeliest reading, e.g. "at 6" -> 18:00) | "" no time
+    time_role: str = Field(default="")                             # "happens" (occurs at that time) | "deadline" (must be done by it) | "" unknown. Model-set; code never infers it.
+    importance: int = Field(default=2)                             # 1 casual, 2 normal, 3 real consequences if missed. Ordering within a time band only.
 
 
 class SittingPreparation(SQLModel, table=True):
@@ -346,6 +352,9 @@ class AttentionAction(SQLModel, table=True):
     due_at: Optional[datetime] = Field(default=None, index=True)  # naive UTC; null = no fixed time
     timezone: str = Field(default="UTC")
     timing_note: str = Field(default="")                           # uncertainty about when ("morning", "when he surfaces")
+    source: str = Field(default="", index=True)                    # where the matter lives: "" / ledger (operational) | entity (a situation, person or project) | exploration
+    source_ref: str = Field(default="")                            # the entity id (or other authoritative key); the action never copies the matter's facts. due_at = when it becomes relevant
+    expires_at: Optional[datetime] = Field(default=None)           # naive UTC: stop surfacing after this
     state: str = Field(index=True, nullable=False, default="pending")  # pending | due | held | delivered | cancelled | expired | superseded
     run_id: Optional[UUID] = Field(default=None, index=True)
     superseded_by_id: Optional[UUID] = Field(default=None)

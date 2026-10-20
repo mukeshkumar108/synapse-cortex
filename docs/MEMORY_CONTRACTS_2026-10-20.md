@@ -94,6 +94,13 @@ contract (STATUS-HINT, delivered-under-CHANGED, transcript grounding); sweeps 5-
 false-failure was fixed). `sophie_packet_20261020.txt` is the rendered foreground packet; `bloom_session_demo_20261020.json` a real two-sitting Bloom run.
 Postgres-only checks (advisory lock, cross-owner overlap) were run on a scratch Postgres.
 
+## Addendum (later the same day): structured time, deterministic views, epistemic times
+See `DECISIONS.md` D-O2..D-O4 and `IMPLEMENTATION_STATUS.md`. Superseded above: the rule "times without am/pm are flagged, never turned into a time" is replaced by
+**`time_basis`** (stated|assumed): the agent may take the likeliest reading, records the person's exact words and the open question, views label assumed
+times, and reminders require a stated one. The ledger carries `expected_time`, `time_zone` (code-stamped), `time_role`, `time_basis`, `importance`. Cortex serves
+deterministic views (`GET /v1/memory/ledger`: awareness | range | needs_detail); the Runtime shows the awareness text and exposes a `schedule` tool (range query).
+Connected understanding (entities, relationships, situations) is a separate, flag-off layer: `CONNECTED_UNDERSTANDING.md`.
+
 ## Known gaps (do not assume)
 - The witness (a 27B model, one shot) still mis-tags occasionally; the grounded agent catches most of it, not provably all. Watch `ledger_agent.accounting` skipped/obs-0 rates.
 - Cached preparation text is model prose in the companion's voice and can still contain flourishes or a stale "tomorrow".

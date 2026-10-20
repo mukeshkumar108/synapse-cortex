@@ -79,5 +79,6 @@ _register_direction_stamping()
 from src.models.world import ContinuationBrief, ProducerRun, RelationshipDimension, RowProvenance, TrajectoryNote, WorldEvent, WorldLink, WorldObjective
 from src.models.world import AttentionAction, AttentionEvent  # noqa: F401
 from src.models.world import ContinuingArc, LedgerItem, MemoryRun, NotebookPage, SittingPreparation  # noqa: F401
+from src.models.known_world import KnownEntity, KnownEntityAlias, KnownLink, CueExposure  # noqa: F401
 
 from src.services.standing_requests import StandingRequest  # noqa: F401  (registered so the table is created)

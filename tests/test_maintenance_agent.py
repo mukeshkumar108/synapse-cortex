@@ -21,10 +21,10 @@ async def test_agent_maintains_s2_end_to_end():
                         _tc(3, "update_item", {"key": "ashley-renders", "status": "done",
                                                "evidence": "loved the renders, done"}),
                         _tc(4, "update_item", {"key": "vinesh-review", "timing_text": "Friday morning",
-                                               "expected_date": "2026-10-23",
+                                               "expected_date": "2026-10-23", "time_role": "happens",
                                                "evidence": "moved to Friday morning"})]},
         {"tool_calls": [_tc(5, "list_open", {})]},
-        {"tool_calls": [_tc(6, "finish", {"summary": "closed Ashley, moved Vinesh date"})]},
+        {"tool_calls": [_tc(6, "finish", {"transcript_sweep": "nothing beyond the observations", "summary": "closed Ashley, moved Vinesh date"})]},
     ]
     state = {"n": 0}
 
@@ -71,7 +71,7 @@ async def test_agent_maintains_s2_end_to_end():
 @pytest.mark.asyncio
 async def test_agent_false_finish_is_not_verified():
     async def fake_chat(model, messages):
-        return {"content": "all good", "tool_calls": [_tc(1, "finish", {"summary": "nothing to do"})],
+        return {"content": "all good", "tool_calls": [_tc(1, "finish", {"transcript_sweep": "nothing beyond the observations", "summary": "nothing to do"})],
                 "model": model, "provider": "fake", "usage": {}}
 
     async with async_session_maker() as db:
@@ -92,7 +92,7 @@ async def test_agent_skipped_when_nothing_observed():
     # Here: run_maintenance with empty observations still inspects honestly.
     async def fake_chat(model, messages):
         return {"content": "", "tool_calls": [_tc(1, "list_open", {}),
-                                              _tc(2, "finish", {"summary": "nothing open"})],
+                                              _tc(2, "finish", {"transcript_sweep": "nothing beyond the observations", "summary": "nothing open"})],
                 "model": model, "provider": "fake", "usage": {}}
 
     async with async_session_maker() as db:
@@ -158,7 +158,7 @@ async def test_run_reports_change_counts():
                     "model": "fake", "provider": "fake", "usage": {}}
         return {"content": "", "tool_calls": [
             {"id": "c3", "type": "function",
-             "function": {"name": "finish", "arguments": json.dumps({"summary": "closed dentist"})}}],
+             "function": {"name": "finish", "arguments": json.dumps({"summary": "closed dentist", "transcript_sweep": "nothing beyond the observations"})}}],
                 "model": "fake", "provider": "fake", "usage": {}}
     fake.calls = 0
 

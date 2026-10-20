@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # Per-product credentials, e.g. "bloom=<token>,sophie=<token>". A product token fixes the caller's product,
     # limits it to the product routes, and cannot be used to claim another product. Empty = legacy token only.
     SYNAPSE_PRODUCT_TOKENS: str = ""
+    # Connected understanding (entities, situations, links, world views). OFF by default: it writes new kinds of personal
+    # data, so enabling it for real users is an explicit review decision (docs/IMPLEMENTATION_STATUS.md).
+    CONNECTED_WORLD_ENABLED: bool = False
     
     model_config = SettingsConfigDict(
         env_file=".env",

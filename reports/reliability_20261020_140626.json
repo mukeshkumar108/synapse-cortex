@@ -1,0 +1,4382 @@
+{
+ "at": "2026-10-20T14:06:26.818485+00:00",
+ "summary": "checks 57/69, clean reps 8/12",
+ "results": {
+  "dentist-lifecycle": [
+   {
+    "owner": "world:lab:rel-dentist-lifecycle-0-4458",
+    "runs": [
+     {
+      "sid": "dl1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Created the dentist appointment record: date fixed to 2026-10-22, waiting on Sophie to pin down the time, question_text open for the time, observed confidence, time_role happens."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created one record for the dentist appointment on Thu 2026-10-22, status waiting on Sophie to confirm the time, with the open question \"What time is the appointment?\"",
+      "touched": [
+       "dentist-appointment"
+      ],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "Thursday",
+        "changed": "The specific time for the appointment has not been decided yet, and Sophie is responsible for confirming the exact time.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "Sophie to confirm the time"
+       }
+      ],
+      "trace": [
+       [
+        "list_open"
+       ],
+       [
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 117162
+     },
+     {
+      "sid": "dl2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Updated detail/timing/waiting_on with today's confirmation that the time is still unknown; kept status waiting."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated the existing dentist-appointment record to reflect that the time is still unknown as of today (Sophie confirmed \"Not yet, no idea honestly\"). No new records created; no matter ended.",
+      "touched": [
+       "dentist-appointment"
+      ],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "Thursday",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "Sophie to find out the time"
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 60601
+     },
+     {
+      "sid": "dl3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Time fixed at 2pm Thu 2026-10-22; status waiting -> open; cleared question/waiting_on; expected_time 14:00 set."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated the dentist appointment record (dentist-appointment): time confirmed as 2pm on Thursday 2026-10-22 (expected_time 14:00, expected_date 2026-10-22). Status moved from waiting to open now that the awaited time has arrived; cleared the open question and waiting_on, and set confidence to reported (Mum texted, relayed by Him; Sophie confirmed \"locked in\").",
+      "touched": [
+       "dentist-appointment"
+      ],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "\"Thursday 2pm\"",
+        "changed": "The time of the dentist appointment was fixed at 2pm, resolving the previously unknown time.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "history"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 73968
+     }
+    ],
+    "snapshots": {
+     "dl1": [
+      {
+       "id": "e861d94f-c026-42b7-beed-a4b59287a4a5",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Dentist appointment on Thursday 2026-10-22. The specific time is not yet decided; Sophie is responsible for confirming it.",
+       "timing": "Thu 2026-10-22, time not yet decided",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:54:56.540176",
+       "waiting_on": "Sophie to confirm the time",
+       "question": "What time is the appointment?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T13:54:56.540128",
+       "linked": []
+      }
+     ],
+     "dl2": [
+      {
+       "id": "e861d94f-c026-42b7-beed-a4b59287a4a5",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Dentist appointment on Thursday 2026-10-22. Specific time still unknown \u2014 Sophie checked and confirmed she has no idea yet (\"Not yet, no idea honestly\").",
+       "timing": "Thu 2026-10-22, time still unconfirmed as of Mon 2026-10-19",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:56:50.616046",
+       "waiting_on": "Sophie to find out the time",
+       "question": "What time is the appointment?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T13:54:56.540128",
+       "linked": []
+      }
+     ],
+     "dl3": [
+      {
+       "id": "e861d94f-c026-42b7-beed-a4b59287a4a5",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "open",
+       "confidence": "reported",
+       "detail": "Dentist appointment on Thursday 2026-10-22. Time confirmed as 2pm by Mum's text (\"Mum just texted, dentist is at 2pm.\"); Sophie: \"Thursday 2pm, locked in.\"",
+       "timing": "Thu 2026-10-22, 14:00",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:57:51.254011",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "14:00",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T13:54:56.540128",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "e861d94f-c026-42b7-beed-a4b59287a4a5",
+      "key": "dentist-appointment",
+      "kind": "event",
+      "title": "Dentist appointment",
+      "status": "open",
+      "confidence": "reported",
+      "detail": "Dentist appointment on Thursday 2026-10-22. Time confirmed as 2pm by Mum's text (\"Mum just texted, dentist is at 2pm.\"); Sophie: \"Thursday 2pm, locked in.\"",
+      "timing": "Thu 2026-10-22, 14:00",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T13:57:51.254011",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "14:00",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T13:54:56.540128",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "dentist: one row, still open/waiting, Thursday date",
+      "at": "dl1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist: one row, not closed by a non-event",
+      "at": "dl2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist after dl3: one row, OPEN (time confirmed does not close it), Thursday, 2pm kept",
+      "at": "dl3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "dentist-lifecycle",
+    "rep": 0
+   },
+   {
+    "owner": "world:lab:rel-dentist-lifecycle-1-4458",
+    "runs": [
+     {
+      "sid": "dl1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Created waiting record; date fixed to 2026-10-22, time still open"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created a waiting record for the dentist appointment on Thursday 2026-10-22; time unconfirmed, Sophie to pin down the time.",
+      "touched": [
+       "dentist-appointment"
+      ],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "\"Thursday\"",
+        "changed": "The appointment's time remains unconfirmed; Sophie has agreed to \"pin down the time\".",
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "The dentist or Sophie to confirm the specific time"
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 61016
+     },
+     {
+      "sid": "dl2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "no_change",
+        "key": "dentist-appointment",
+        "note": "Record already matches: waiting on Sophie/dentist, expected_date 2026-10-22, question 'What time is the appointment?', time still unknown per transcript."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Re-checked the dentist-appointment record: time still unconfirmed (Sophie: \"Not yet, no idea honestly.\"). Record already reflects this exact state (waiting, 2026-10-22, time unknown), so no change was needed.",
+      "touched": [],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "Thursday",
+        "changed": "Nothing changed; the status remains exactly as it was (time still unknown)",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "Sophie / dentist"
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 64746
+     },
+     {
+      "sid": "dl3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Time confirmed at 2:00 PM Thursday 2026-10-22; status waiting -> open, expected_time set to 14:00, question/waiting_on cleared"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated dentist-appointment: time fixed at Thursday 2026-10-22 2:00 PM per Mum's text, confirmed by Sophie. Status moved waiting -> open; expected_time 14:00 set; open questions cleared.",
+      "touched": [
+       "dentist-appointment"
+      ],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "\"Thursday 2pm\"",
+        "changed": "The time of the appointment was fixed at 2:00 PM.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 75523
+     }
+    ],
+    "snapshots": {
+     "dl1": [
+      {
+       "id": "9b240b21-ff58-467d-a1ec-f5d35070a3ef",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Dental appointment on Thursday 2026-10-22; specific time not yet confirmed. Sophie has agreed to pin down the time.",
+       "timing": "Thursday 2026-10-22, time not yet confirmed",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:54:45.275406",
+       "waiting_on": "Sophie / dentist to confirm the specific time",
+       "question": "What time is the appointment?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T13:54:45.275383",
+       "linked": []
+      }
+     ],
+     "dl2": [
+      {
+       "id": "9b240b21-ff58-467d-a1ec-f5d35070a3ef",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Dental appointment on Thursday 2026-10-22; specific time not yet confirmed. Sophie has agreed to pin down the time.",
+       "timing": "Thursday 2026-10-22, time not yet confirmed",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:54:45.275406",
+       "waiting_on": "Sophie / dentist to confirm the specific time",
+       "question": "What time is the appointment?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T13:54:45.275383",
+       "linked": []
+      }
+     ],
+     "dl3": [
+      {
+       "id": "9b240b21-ff58-467d-a1ec-f5d35070a3ef",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Dental appointment on Thursday 2026-10-22 at 2:00 PM. Time confirmed by Mum's text; Sophie confirmed \"Thursday 2pm, locked in.\"",
+       "timing": "Thursday 2026-10-22, 2:00 PM (confirmed)",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:56:52.104010",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "14:00",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T13:54:45.275383",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "9b240b21-ff58-467d-a1ec-f5d35070a3ef",
+      "key": "dentist-appointment",
+      "kind": "event",
+      "title": "Dentist appointment",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Dental appointment on Thursday 2026-10-22 at 2:00 PM. Time confirmed by Mum's text; Sophie confirmed \"Thursday 2pm, locked in.\"",
+      "timing": "Thursday 2026-10-22, 2:00 PM (confirmed)",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T13:56:52.104010",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "14:00",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T13:54:45.275383",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "dentist: one row, still open/waiting, Thursday date",
+      "at": "dl1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist: one row, not closed by a non-event",
+      "at": "dl2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist after dl3: one row, OPEN (time confirmed does not close it), Thursday, 2pm kept",
+      "at": "dl3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "dentist-lifecycle",
+    "rep": 1
+   },
+   {
+    "owner": "world:lab:rel-dentist-lifecycle-2-4458",
+    "runs": [
+     {
+      "sid": "dl1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Created new record for the dentist appointment on Thu 2026-10-22, waiting on Sophie to confirm the time."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Added the dentist appointment (Thu 2026-10-22) as a new waiting record; time still unconfirmed, to be supplied by Sophie.",
+      "touched": [
+       "dentist-appointment"
+      ],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "\"Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "Sophie to pin down the time"
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 84060
+     },
+     {
+      "sid": "dl2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "no_change",
+        "key": "dentist-appointment",
+        "note": "Existing record already holds the exact state: Thu 22 Oct 2026, time unconfirmed, waiting on Sophie, question open. Transcript confirms still no time; nothing to update."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "One observation (O1: dentist appointment time unconfirmed, waiting on Sophie) maps to the existing record dentist-appointment, which already reflects this state exactly (Thu 22 Oct 2026, time not confirmed, waiting_on Sophie to confirm the time, question \"What time is the appointment?\", status waiting, expected_date 2026-10-22). The transcript (\"Not yet, no idea honestly.\") confirms the time is still unknown \u2014 no new change, so no record edit was required.",
+      "touched": [],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "Thu 22 Oct 2026",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "Sophie to confirm the time"
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 58681
+     },
+     {
+      "sid": "dl3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Time fixed at 2pm Thu 22 Oct; waiting/question cleared, status open, expected_time 14:00."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated the dentist appointment record: time confirmed at 2pm on Thursday 22 Oct 2026, as relayed by Mum. Status changed from waiting to open, and the open question was cleared.",
+      "touched": [
+       "dentist-appointment"
+      ],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "Thursday 2pm",
+        "changed": "The time of the appointment, which was previously unconfirmed, has been fixed at 2:00 PM on Thursday.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "none",
+        "waiting_on": "none"
+       }
+      ],
+      "trace": [
+       [
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 83858
+     }
+    ],
+    "snapshots": {
+     "dl1": [
+      {
+       "id": "6670bb43-256c-4498-9c65-aadaeb842d8e",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Dentist appointment on Thursday; Sophie will pin down the exact time.",
+       "timing": "Thu 22 Oct 2026, time not yet confirmed",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:54:48.145536",
+       "waiting_on": "Sophie to confirm the time",
+       "question": "What time is the appointment?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T13:54:48.145508",
+       "linked": []
+      }
+     ],
+     "dl2": [
+      {
+       "id": "6670bb43-256c-4498-9c65-aadaeb842d8e",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Dentist appointment on Thursday; Sophie will pin down the exact time.",
+       "timing": "Thu 22 Oct 2026, time not yet confirmed",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:54:48.145536",
+       "waiting_on": "Sophie to confirm the time",
+       "question": "What time is the appointment?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T13:54:48.145508",
+       "linked": []
+      }
+     ],
+     "dl3": [
+      {
+       "id": "6670bb43-256c-4498-9c65-aadaeb842d8e",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Dentist appointment on Thursday 22 Oct 2026, confirmed at 2:00 PM. Time provided by Mum via text.",
+       "timing": "Thu 22 Oct 2026, 2pm",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:57:19.499293",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "14:00",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T13:54:48.145508",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "6670bb43-256c-4498-9c65-aadaeb842d8e",
+      "key": "dentist-appointment",
+      "kind": "event",
+      "title": "Dentist appointment",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Dentist appointment on Thursday 22 Oct 2026, confirmed at 2:00 PM. Time provided by Mum via text.",
+      "timing": "Thu 22 Oct 2026, 2pm",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T13:57:19.499293",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "14:00",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T13:54:48.145508",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "dentist: one row, still open/waiting, Thursday date",
+      "at": "dl1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist: one row, not closed by a non-event",
+      "at": "dl2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist after dl3: one row, OPEN (time confirmed does not close it), Thursday, 2pm kept",
+      "at": "dl3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "dentist-lifecycle",
+    "rep": 2
+   }
+  ],
+  "vinesh-reschedule": [
+   {
+    "owner": "world:lab:rel-vinesh-reschedule-0-4458",
+    "runs": [
+     {
+      "sid": "vr1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Created open commitment with deadline 2026-10-22"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Recorded a new open commitment: send proposal to Vinesh by Thursday 2026-10-22 (deadline, importance 3, observed). No other operational matters in the transcript.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"by Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "none"
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 59254
+     },
+     {
+      "sid": "vr2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Updated: review moved to Friday morning 2026-10-23, status -> waiting, question set about whether Thursday deadline still stands, waiting_on Vinesh."
+       },
+       {
+        "obs": 0,
+        "treatment": "applied",
+        "key": "ana-sent-the-numbers",
+        "note": "Created to record that Ana sent the numbers (transcript item not covered by any observation)."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Two items handled from this session:\\n\\n1. [O1] \\\"Vinesh moved the review to Friday morning\\\" \u2014 Updated the existing record `send-proposal-to-vinesh`: status moved to waiting (blocked on Vinesh / the moved review), question_text and waiting_on set to capture the conflict between the Thursday 2026-10-22 send deadline and the new Friday 2026-10-23 morning review, timing_text updated to reflect both dates, confidence set to reported. The original Thursday deadline remains in expected_date since no ",
+      "touched": [
+       "ana-sent-the-numbers",
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "by Thursday 2026-10-22",
+        "changed": "The review time has been moved to Friday morning, which is later than the original Thursday deadline for sending the proposal.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "Vinesh's confirmation or the review itself."
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search",
+        "search"
+       ],
+       [
+        "history"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "history",
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "search"
+       ],
+       [
+        "finish"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 116997
+     },
+     {
+      "sid": "vr3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Closed as done with evidence 'Sent the Vinesh proposal this morning, all done.'"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Closed the \"Send proposal to Vinesh\" record: the person confirmed in this session that the proposal was sent this morning (Monday 2026-10-19), making the task done. The previously conflicting Thursday/Friday deadlines are now moot. No other operational matters in the transcript.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"this morning\"",
+        "changed": "The proposal has been sent, resolving the uncertainty about whether the Thursday deadline would be met or tied to the Friday review.",
+        "resolved": "\"Sent the Vinesh proposal this morning, all done.\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 90179
+     }
+    ],
+    "snapshots": {
+     "vr1": [
+      {
+       "id": "2fbb02f9-5ef8-4ebe-bdbe-3945a2ce85d1",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Promised to send a proposal to Vinesh; deadline Thursday 2026-10-22.",
+       "timing": "by Thursday 2026-10-22",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:54:47.268265",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T13:54:47.268243",
+       "linked": []
+      }
+     ],
+     "vr2": [
+      {
+       "id": "2fbb02f9-5ef8-4ebe-bdbe-3945a2ce85d1",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "waiting",
+       "confidence": "reported",
+       "detail": "Promised to send a proposal to Vinesh; original deadline Thursday 2026-10-22. Vinesh moved the review (where the proposal will presumably be presented) to Friday morning 2026-10-23, which is after the Thursday send deadline and creates a conflict.",
+       "timing": "deadline by Thursday 2026-10-22, but Vinesh moved the review to Friday morning 2026-10-23, which conflicts with the Thursday send deadline",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:55:52.167694",
+       "waiting_on": "Vinesh (review moved to Friday morning; unclear if Thursday send deadline still stands or is now tied to the Friday review)",
+       "question": "Does the proposal still need to be sent by Thursday 2026-10-22, or is the deadline now tied to the new Friday morning review?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T13:54:47.268243",
+       "linked": []
+      },
+      {
+       "id": "ce0003be-5f1f-4948-bace-e9dc2711b4d0",
+       "key": "ana-sent-the-numbers",
+       "kind": "commitment",
+       "title": "Ana sent the numbers",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Ana had been expected to send the numbers; she has now done so. No further action needed \u2014 numbers received.",
+       "timing": "",
+       "expected_date": null,
+       "updated_at": "2026-10-20T13:56:03.801271",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 1,
+       "created_at": "2026-10-20T13:56:03.801246",
+       "linked": []
+      }
+     ],
+     "vr3": [
+      {
+       "id": "2fbb02f9-5ef8-4ebe-bdbe-3945a2ce85d1",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "done",
+       "confidence": "reported",
+       "detail": "Proposal sent to Vinesh on Monday 2026-10-19 morning. The previously conflicting deadlines (Thursday send vs. Friday review) are moot \u2014 the task is complete.",
+       "timing": "Sent this morning, Monday 2026-10-19. Done.",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:57:50.759655",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T13:54:47.268243",
+       "linked": []
+      },
+      {
+       "id": "ce0003be-5f1f-4948-bace-e9dc2711b4d0",
+       "key": "ana-sent-the-numbers",
+       "kind": "commitment",
+       "title": "Ana sent the numbers",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Ana had been expected to send the numbers; she has now done so. No further action needed \u2014 numbers received.",
+       "timing": "",
+       "expected_date": null,
+       "updated_at": "2026-10-20T13:56:03.801271",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 1,
+       "created_at": "2026-10-20T13:56:03.801246",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "2fbb02f9-5ef8-4ebe-bdbe-3945a2ce85d1",
+      "key": "send-proposal-to-vinesh",
+      "kind": "commitment",
+      "title": "Send proposal to Vinesh",
+      "status": "done",
+      "confidence": "reported",
+      "detail": "Proposal sent to Vinesh on Monday 2026-10-19 morning. The previously conflicting deadlines (Thursday send vs. Friday review) are moot \u2014 the task is complete.",
+      "timing": "Sent this morning, Monday 2026-10-19. Done.",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T13:57:50.759655",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T13:54:47.268243",
+      "linked": []
+     },
+     {
+      "id": "ce0003be-5f1f-4948-bace-e9dc2711b4d0",
+      "key": "ana-sent-the-numbers",
+      "kind": "commitment",
+      "title": "Ana sent the numbers",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Ana had been expected to send the numbers; she has now done so. No further action needed \u2014 numbers received.",
+      "timing": "",
+      "expected_date": null,
+      "updated_at": "2026-10-20T13:56:03.801271",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 1,
+      "created_at": "2026-10-20T13:56:03.801246",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "proposal recorded with its Thursday deadline",
+      "at": "vr1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "a moved review does NOT close the proposal; Friday is recorded somewhere",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Friday recorded (date 2026-10-23 or the word Friday) on a vinesh/review row",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal done exactly once, date kept (Thursday or the moved Friday), never today",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "no stray open rows about the finished proposal",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "bounded size (no junk rows)",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "vinesh-reschedule",
+    "rep": 0
+   },
+   {
+    "owner": "world:lab:rel-vinesh-reschedule-1-4668",
+    "runs": [
+     {
+      "sid": "vr1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Created commitment record for sending the proposal to Vinesh by Thursday 2026-10-22."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created one record: a commitment to send a proposal to Vinesh, due Thursday 2026-10-22. The person promised this; Sophie noted it. No status on whether it's drafted yet, so the question is flagged open.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Proposal to Vinesh",
+        "timing": "Thursday",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "Vinesh (awaiting receipt of the proposal)"
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 57055
+     },
+     {
+      "sid": "vr2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Updated record: review moved to Friday 2026-10-23 morning, status -> waiting on Vinesh, expected_date 2026-10-23, timing and detail refreshed, answered question cleared."
+       },
+       {
+        "obs": 0,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Transcript's 'Ana finally sent the numbers' folded into the proposal record as the unblocking subtask; no standalone record."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated the existing \"Send proposal to Vinesh\" record: the review moved to Friday 2026-10-23 morning and Ana's numbers have been received, so the proposal is now awaited ahead of that review. Status set to waiting on Vinesh, expected_date moved from 2026-10-22 to 2026-10-23, and the answered draft-status question was cleared. No new standalone record was created \u2014 Ana's numbers are a subtask folded into the proposal record.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "Friday morning",
+        "changed": "The review time was moved to Friday morning.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "Vinesh"
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "search",
+        "list_open"
+       ],
+       [
+        "history"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 2,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 72311
+     },
+     {
+      "sid": "vr3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Proposal sent Mon 2026-10-19 morning; record updated to reflect the fulfilled send, now waiting on Vinesh for the review Friday 2026-10-23 morning (time still open, flagged in question_text)."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Vinesh proposal confirmed sent this morning (Mon 2026-10-19). The send commitment is fulfilled; the single record now tracks the remaining matter: the review with Vinesh on Friday 2026-10-23 morning, status waiting, with the review time raised as an open question.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"this morning\" (sent); \"Friday 2026-10-23 morning\" (review)",
+        "changed": "The proposal has been sent; the commitment to send it in advance of the review is fulfilled.",
+        "resolved": "\"Sent the Vinesh proposal this morning, all done.\"",
+        "ended": true,
+        "status_hint": "waiting",
+        "waiting_on": "Vinesh (for the Friday review)"
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "history"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 89110
+     }
+    ],
+    "snapshots": {
+     "vr1": [
+      {
+       "id": "df6b8d48-13c3-4cf4-bfc1-52d70d520dc3",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Promised to send a proposal to Vinesh. No details yet on content or whether it's drafted.",
+       "timing": "Due Thursday 2026-10-22",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:58:17.360102",
+       "waiting_on": "",
+       "question": "What is the current status of the proposal? Is it drafted?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T13:58:17.360056",
+       "linked": []
+      }
+     ],
+     "vr2": [
+      {
+       "id": "df6b8d48-13c3-4cf4-bfc1-52d70d520dc3",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Promised to send a proposal to Vinesh. Ana finally sent the numbers. Vinesh moved the review to Friday morning; proposal should be sent ahead of that review.",
+       "timing": "Review moved to Friday 2026-10-23 morning; proposal to be sent in advance of the review.",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T13:59:22.191243",
+       "waiting_on": "Vinesh (review Friday 2026-10-23 morning)",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T13:58:17.360056",
+       "linked": []
+      }
+     ],
+     "vr3": [
+      {
+       "id": "df6b8d48-13c3-4cf4-bfc1-52d70d520dc3",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Proposal sent to Vinesh on Monday 2026-10-19 morning (\"Sent the Vinesh proposal this morning, all done.\"). Ana had sent the numbers; the send-ahead-of-review commitment is fulfilled. Review with Vinesh remains scheduled for Friday 2026-10-23 morning.",
+       "timing": "Proposal sent Mon 2026-10-19 morning. Review Friday 2026-10-23 morning (time not yet fixed).",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T14:00:38.352245",
+       "waiting_on": "Vinesh (review Friday 2026-10-23 morning)",
+       "question": "What time on Friday morning 2026-10-23 is the review with Vinesh?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 3,
+       "created_at": "2026-10-20T13:58:17.360056",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "df6b8d48-13c3-4cf4-bfc1-52d70d520dc3",
+      "key": "send-proposal-to-vinesh",
+      "kind": "commitment",
+      "title": "Send proposal to Vinesh",
+      "status": "waiting",
+      "confidence": "observed",
+      "detail": "Proposal sent to Vinesh on Monday 2026-10-19 morning (\"Sent the Vinesh proposal this morning, all done.\"). Ana had sent the numbers; the send-ahead-of-review commitment is fulfilled. Review with Vinesh remains scheduled for Friday 2026-10-23 morning.",
+      "timing": "Proposal sent Mon 2026-10-19 morning. Review Friday 2026-10-23 morning (time not yet fixed).",
+      "expected_date": "2026-10-23",
+      "updated_at": "2026-10-20T14:00:38.352245",
+      "waiting_on": "Vinesh (review Friday 2026-10-23 morning)",
+      "question": "What time on Friday morning 2026-10-23 is the review with Vinesh?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 3,
+      "created_at": "2026-10-20T13:58:17.360056",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "proposal recorded with its Thursday deadline",
+      "at": "vr1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "a moved review does NOT close the proposal; Friday is recorded somewhere",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Friday recorded (date 2026-10-23 or the word Friday) on a vinesh/review row",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal done exactly once, date kept (Thursday or the moved Friday), never today",
+      "at": "vr3",
+      "pass": false,
+      "notes": [
+       "status not in ['done']: 'Send proposal to Vinesh' is waiting"
+      ]
+     },
+     {
+      "name": "no stray open rows about the finished proposal",
+      "at": "vr3",
+      "pass": false,
+      "notes": [
+       "unexpected status ['open', 'waiting', 'watching']: 'Send proposal to Vinesh' is waiting"
+      ]
+     },
+     {
+      "name": "bounded size (no junk rows)",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "vinesh-reschedule",
+    "rep": 1
+   },
+   {
+    "owner": "world:lab:rel-vinesh-reschedule-2-4698",
+    "runs": [
+     {
+      "sid": "vr1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Created record; deadline Thursday 2026-10-22, open, importance 3."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created one record: commitment to send the proposal to Vinesh by Thursday 2026-10-22 (open, deadline, importance 3, with open question on whether it has been sent).",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"by Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 73016
+     },
+     {
+      "sid": "vr2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Updated detail/timing: review moved to Friday morning 2026-10-23; proposal still due before then (by Thu 2026-10-22). Kept open with question 'sent yet?' \u2014 awaiting the person's send, so 'waiting on V"
+       },
+       {
+        "obs": 0,
+        "treatment": "applied",
+        "key": "ana-s-numbers-received",
+        "note": "From transcript: 'Ana finally sent the numbers.' Created record and closed as done with that quote as evidence."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated the Vinesh proposal record: review moved to Friday morning 2026-10-23, proposal now due before that (by Thursday 2026-10-22); still open, pending confirmation it's sent. Also handled 'Ana finally sent the numbers' from the transcript (no observation covered it): created and closed as done.",
+      "touched": [
+       "ana-s-numbers-received",
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "Friday morning (review time)",
+        "changed": "The review time was moved from its previous context to \"Friday morning.\"",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "Vinesh's review"
+       }
+      ],
+      "trace": [
+       [
+        "list_open"
+       ],
+       [
+        "search"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 1,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 113826
+     },
+     {
+      "sid": "vr3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Marked as done \u2014 proposal sent this morning, commitment fulfilled. Evidence: \"Sent the Vinesh proposal this morning, all done.\""
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "O1: The Vinesh proposal has been sent this morning. Updated the existing 'send-proposal-to-vinesh' record from open \u2192 done with evidence quoting proof from the session. Record remains on the agenda but in completed state; no further action needed on this matter. No other operational matters arose from the transcript.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"this morning\"",
+        "changed": null,
+        "resolved": "The proposal was sent and the commitment is fulfilled. \"Sent the Vinesh proposal this morning, all done.\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "update_item",
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 2,
+       "agent_owned": true
+      },
+      "ms": 58588
+     }
+    ],
+    "snapshots": {
+     "vr1": [
+      {
+       "id": "4c75da11-eabe-4f66-9570-bc42f290be6d",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Person promised Vinesh to send the proposal by Thursday 2026-10-22. Vinesh is awaiting it; no confirmation yet that it has been sent.",
+       "timing": "By Thursday 2026-10-22",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T13:58:43.291782",
+       "waiting_on": "",
+       "question": "Has the proposal been sent yet?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T13:58:43.291761",
+       "linked": []
+      }
+     ],
+     "vr2": [
+      {
+       "id": "4c75da11-eabe-4f66-9570-bc42f290be6d",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Proposal must be sent to Vinesh before his review. Vinesh moved the review to Friday morning 2026-10-23, so the proposal is now due by Thursday 2026-10-22 at the latest (ahead of the Friday-morning review). No confirmation yet that it has been sent.",
+       "timing": "Before Vinesh's review on Friday morning 2026-10-23; effectively due by Thursday 2026-10-22.",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T14:00:05.742346",
+       "waiting_on": "",
+       "question": "Has the proposal been sent yet?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T13:58:43.291761",
+       "linked": []
+      },
+      {
+       "id": "a5aa228a-c40e-4694-8751-cb71c3ac4a21",
+       "key": "ana-s-numbers-received",
+       "kind": "commitment",
+       "title": "Ana's numbers received",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Ana was expected to send the numbers; she finally sent them, confirmed this session (\"Ana finally sent the numbers\").",
+       "timing": "",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:00:11.408905",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "deadline",
+       "importance": 2,
+       "created_at": "2026-10-20T14:00:09.270708",
+       "linked": []
+      }
+     ],
+     "vr3": [
+      {
+       "id": "4c75da11-eabe-4f66-9570-bc42f290be6d",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Proposal must be sent to Vinesh before his review. Vinesh moved the review to Friday morning 2026-10-23, so the proposal is now due by Thursday 2026-10-22 at the latest (ahead of the Friday-morning review). No confirmation yet that it has been sent.",
+       "timing": "Before Vinesh's review on Friday morning 2026-10-23; effectively due by Thursday 2026-10-22.",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T14:01:59.230727",
+       "waiting_on": "",
+       "question": "Has the proposal been sent yet?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T13:58:43.291761",
+       "linked": []
+      },
+      {
+       "id": "a5aa228a-c40e-4694-8751-cb71c3ac4a21",
+       "key": "ana-s-numbers-received",
+       "kind": "commitment",
+       "title": "Ana's numbers received",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Ana was expected to send the numbers; she finally sent them, confirmed this session (\"Ana finally sent the numbers\").",
+       "timing": "",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:00:11.408905",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "deadline",
+       "importance": 2,
+       "created_at": "2026-10-20T14:00:09.270708",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "4c75da11-eabe-4f66-9570-bc42f290be6d",
+      "key": "send-proposal-to-vinesh",
+      "kind": "commitment",
+      "title": "Send proposal to Vinesh",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "Proposal must be sent to Vinesh before his review. Vinesh moved the review to Friday morning 2026-10-23, so the proposal is now due by Thursday 2026-10-22 at the latest (ahead of the Friday-morning review). No confirmation yet that it has been sent.",
+      "timing": "Before Vinesh's review on Friday morning 2026-10-23; effectively due by Thursday 2026-10-22.",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T14:01:59.230727",
+      "waiting_on": "",
+      "question": "Has the proposal been sent yet?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T13:58:43.291761",
+      "linked": []
+     },
+     {
+      "id": "a5aa228a-c40e-4694-8751-cb71c3ac4a21",
+      "key": "ana-s-numbers-received",
+      "kind": "commitment",
+      "title": "Ana's numbers received",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "Ana was expected to send the numbers; she finally sent them, confirmed this session (\"Ana finally sent the numbers\").",
+      "timing": "",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:00:11.408905",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "deadline",
+      "importance": 2,
+      "created_at": "2026-10-20T14:00:09.270708",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "proposal recorded with its Thursday deadline",
+      "at": "vr1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "a moved review does NOT close the proposal; Friday is recorded somewhere",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Friday recorded (date 2026-10-23 or the word Friday) on a vinesh/review row",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal done exactly once, date kept (Thursday or the moved Friday), never today",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "no stray open rows about the finished proposal",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "bounded size (no junk rows)",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "vinesh-reschedule",
+    "rep": 2
+   }
+  ],
+  "mixed-plate": [
+   {
+    "owner": "world:lab:rel-mixed-plate-0-4718",
+    "runs": [
+     {
+      "sid": "mp1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "james-invoice-approval",
+        "note": "Created situation, status waiting on James's approval, timing set to 'waiting'"
+       },
+       {
+        "obs": 2,
+        "treatment": "applied",
+        "key": "call-mum",
+        "note": "Created reminder for Tue 20 Oct 2026, am/pm flagged as ambiguous in question_text"
+       },
+       {
+        "obs": 3,
+        "treatment": "applied",
+        "key": "marathon",
+        "note": "Created aspiration, open status"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Three new records created from session: (1) James invoice approval \u2014 waiting on James's approval; (2) Call Mum \u2014 self-reminder set for Tue 20 Oct 2026 at 6 (am/pm ambiguous, raised as open question); (3) Marathon \u2014 open aspiration with no concrete date. No transcript-only matters found beyond these observations.",
+      "touched": [
+       "call-mum",
+       "james-invoice-approval",
+       "marathon"
+      ],
+      "witness": [
+       {
+        "title": "James invoice approval",
+        "timing": "waiting",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "watching",
+        "waiting_on": "James's approval"
+       },
+       {
+        "title": "Call Mum",
+        "timing": "\"tomorrow at 6\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Marathon",
+        "timing": "\"someday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search"
+       ],
+       [
+        "search",
+        "search"
+       ],
+       [
+        "create_item",
+        "create_item",
+        "create_item"
+       ],
+       [
+        "create_item",
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "finish"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 3,
+       "updated": 2,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 158541
+     },
+     {
+      "sid": "mp2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "james-invoice-approval",
+        "note": "Updated status from waiting to done; cleared waiting_on and question_text. Evidence: \"James approved the invoice this morning.\" (transcript)"
+       },
+       {
+        "obs": 2,
+        "treatment": "applied",
+        "key": "pete-ssh-request",
+        "note": "Created new record with status suppressed per STATUS-HINT supported by transcript."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "James invoice marked done; Pete SSH request created as suppressed (ignore tonight). Existing open agenda (call-mum, marathon) unchanged.",
+      "touched": [
+       "james-invoice-approval",
+       "pete-ssh-request"
+      ],
+      "witness": [
+       {
+        "title": "James invoice approval",
+        "timing": "this morning",
+        "changed": null,
+        "resolved": "James approved the invoice this morning.",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Pete SSH request",
+        "timing": "tonight",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "suppressed",
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "search"
+       ],
+       [
+        "update_item",
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 110111
+     }
+    ],
+    "snapshots": {
+     "mp1": [
+      {
+       "id": "9deba150-a0b6-49c6-ab8d-35406530ed65",
+       "key": "james-invoice-approval",
+       "kind": "situation",
+       "title": "James invoice approval",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Invoice from James is waiting on his approval. Blocks resolution of the financial/administrative matter.",
+       "timing": "waiting",
+       "expected_date": null,
+       "updated_at": "2026-10-20T13:59:38.852503",
+       "waiting_on": "James's approval",
+       "question": "When will James approve it?",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "deadline",
+       "importance": 2,
+       "created_at": "2026-10-20T13:59:18.286067",
+       "linked": []
+      },
+      {
+       "id": "4b14a950-0b48-436f-93bd-595d3d71f621",
+       "key": "call-mum",
+       "kind": "reminder",
+       "title": "Call Mum",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Explicit request to be reminded to call his mother.",
+       "timing": "Tue 20 Oct 2026, at 6",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T13:59:51.390231",
+       "waiting_on": "",
+       "question": "6, am/pm not stated",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 3,
+       "created_at": "2026-10-20T13:59:22.269376",
+       "linked": []
+      },
+      {
+       "id": "1923789c-3088-48f6-96e4-f468a9c6698b",
+       "key": "marathon",
+       "kind": "aspiration",
+       "title": "Marathon",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Vague future desire to run a marathon; no training plan or date specified.",
+       "timing": "someday",
+       "expected_date": null,
+       "updated_at": "2026-10-20T13:59:22.280062",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 1,
+       "created_at": "2026-10-20T13:59:22.280021",
+       "linked": []
+      }
+     ],
+     "mp2": [
+      {
+       "id": "9deba150-a0b6-49c6-ab8d-35406530ed65",
+       "key": "james-invoice-approval",
+       "kind": "situation",
+       "title": "James invoice approval",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Invoice from James is waiting on his approval. Blocks resolution of the financial/administrative matter.",
+       "timing": "waiting",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:01:45.734831",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "deadline",
+       "importance": 2,
+       "created_at": "2026-10-20T13:59:18.286067",
+       "linked": []
+      },
+      {
+       "id": "4b14a950-0b48-436f-93bd-595d3d71f621",
+       "key": "call-mum",
+       "kind": "reminder",
+       "title": "Call Mum",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Explicit request to be reminded to call his mother.",
+       "timing": "Tue 20 Oct 2026, at 6",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T13:59:51.390231",
+       "waiting_on": "",
+       "question": "6, am/pm not stated",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 3,
+       "created_at": "2026-10-20T13:59:22.269376",
+       "linked": []
+      },
+      {
+       "id": "1923789c-3088-48f6-96e4-f468a9c6698b",
+       "key": "marathon",
+       "kind": "aspiration",
+       "title": "Marathon",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Vague future desire to run a marathon; no training plan or date specified.",
+       "timing": "someday",
+       "expected_date": null,
+       "updated_at": "2026-10-20T13:59:22.280062",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 1,
+       "created_at": "2026-10-20T13:59:22.280021",
+       "linked": []
+      },
+      {
+       "id": "76e1a215-e04f-4776-a34e-9856a2bc4352",
+       "key": "pete-ssh-request",
+       "kind": "situation",
+       "title": "Pete SSH request",
+       "status": "suppressed",
+       "confidence": "observed",
+       "detail": "Pete keeps pinging about SSH access; the person is ignoring him for tonight.",
+       "timing": "tonight, Mon 19 Oct 2026",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:01:48.211152",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 1,
+       "created_at": "2026-10-20T14:01:48.211117",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "9deba150-a0b6-49c6-ab8d-35406530ed65",
+      "key": "james-invoice-approval",
+      "kind": "situation",
+      "title": "James invoice approval",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "Invoice from James is waiting on his approval. Blocks resolution of the financial/administrative matter.",
+      "timing": "waiting",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:01:45.734831",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "deadline",
+      "importance": 2,
+      "created_at": "2026-10-20T13:59:18.286067",
+      "linked": []
+     },
+     {
+      "id": "4b14a950-0b48-436f-93bd-595d3d71f621",
+      "key": "call-mum",
+      "kind": "reminder",
+      "title": "Call Mum",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Explicit request to be reminded to call his mother.",
+      "timing": "Tue 20 Oct 2026, at 6",
+      "expected_date": "2026-10-20",
+      "updated_at": "2026-10-20T13:59:51.390231",
+      "waiting_on": "",
+      "question": "6, am/pm not stated",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 3,
+      "created_at": "2026-10-20T13:59:22.269376",
+      "linked": []
+     },
+     {
+      "id": "1923789c-3088-48f6-96e4-f468a9c6698b",
+      "key": "marathon",
+      "kind": "aspiration",
+      "title": "Marathon",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Vague future desire to run a marathon; no training plan or date specified.",
+      "timing": "someday",
+      "expected_date": null,
+      "updated_at": "2026-10-20T13:59:22.280062",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 1,
+      "created_at": "2026-10-20T13:59:22.280021",
+      "linked": []
+     },
+     {
+      "id": "76e1a215-e04f-4776-a34e-9856a2bc4352",
+      "key": "pete-ssh-request",
+      "kind": "situation",
+      "title": "Pete SSH request",
+      "status": "suppressed",
+      "confidence": "observed",
+      "detail": "Pete keeps pinging about SSH access; the person is ignoring him for tonight.",
+      "timing": "tonight, Mon 19 Oct 2026",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:01:48.211152",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 1,
+      "created_at": "2026-10-20T14:01:48.211117",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "invoice tracked after mp1",
+      "at": "mp1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "marathon is an open aspiration, never a task",
+      "at": "mp1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "call Mum: open, tomorrow = 2026-10-20 (resolved against Monday), the 6 kept",
+      "at": "mp1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "invoice done after approval",
+      "at": "mp2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "marathon still an open aspiration",
+      "at": "mp2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "call Mum still open",
+      "at": "mp2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Pete is suppressed, not deleted, no duplicate",
+      "at": "mp2",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "mixed-plate",
+    "rep": 0
+   },
+   {
+    "owner": "world:lab:rel-mixed-plate-1-4736",
+    "runs": [
+     {
+      "sid": "mp1",
+      "status": "consolidated",
+      "agent_status": "skipped",
+      "accounting": null,
+      "gate_failures": null,
+      "agent_summary": null,
+      "touched": null,
+      "witness": [],
+      "trace": [],
+      "fallback": true,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 0
+      },
+      "ms": 60021
+     },
+     {
+      "sid": "mp2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "skipped",
+        "key": null,
+        "note": "No-op for O1: the James invoice approval is a closed transaction with no further action and no existing record to update; nothing actionable to open, so no record was created."
+       },
+       {
+        "obs": 2,
+        "treatment": "applied",
+        "key": "pete-ssh-access-request",
+        "note": "Persistent external SSH pings from Pete; person explicitly stood them down for the evening. Created as a suppressed matter (keeps its own name and agenda place), with the stand-down recorded as an eve"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Maintained two operational items from the session. O1 (James invoice approval) is a closed-loop transaction with no remaining action and nothing on the prior agenda to link to, so no open record is warranted. O2 (Pete SSH access request) is a persistent external ping that the person explicitly stood down for the evening, so it stays on the agenda as a suppressed matter with the stand-down captured as an evening-only condition rather than a hard date.",
+      "touched": [
+       "pete-ssh-access-request"
+      ],
+      "witness": [
+       {
+        "title": "James invoice approval",
+        "timing": "\"this morning\"",
+        "changed": null,
+        "resolved": "\"James approved the invoice this morning.\"",
+        "ended": true,
+        "status_hint": "none",
+        "waiting_on": null
+       },
+       {
+        "title": "Pete SSH access request",
+        "timing": "\"tonight\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "suppressed",
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search",
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 87749
+     }
+    ],
+    "snapshots": {
+     "mp1": [],
+     "mp2": [
+      {
+       "id": "4c9f22a8-9e35-46aa-bcaf-d71852e2822f",
+       "key": "pete-ssh-access-request",
+       "kind": "thread",
+       "title": "Pete SSH access request",
+       "status": "suppressed",
+       "confidence": "observed",
+       "detail": "Pete keeps pinging about SSH access; pings persist.",
+       "timing": "Stand-down: ignore Pete's SSH pings for the rest of tonight (Mon 19 Oct 2026 evening).",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:00:40.416544",
+       "waiting_on": "Pete (requester)",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 1,
+       "created_at": "2026-10-20T14:00:40.416495",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "4c9f22a8-9e35-46aa-bcaf-d71852e2822f",
+      "key": "pete-ssh-access-request",
+      "kind": "thread",
+      "title": "Pete SSH access request",
+      "status": "suppressed",
+      "confidence": "observed",
+      "detail": "Pete keeps pinging about SSH access; pings persist.",
+      "timing": "Stand-down: ignore Pete's SSH pings for the rest of tonight (Mon 19 Oct 2026 evening).",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:00:40.416544",
+      "waiting_on": "Pete (requester)",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 1,
+      "created_at": "2026-10-20T14:00:40.416495",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "invoice tracked after mp1",
+      "at": "mp1",
+      "pass": false,
+      "notes": [
+       "count 0 not in [1,1]: []"
+      ]
+     },
+     {
+      "name": "marathon is an open aspiration, never a task",
+      "at": "mp1",
+      "pass": false,
+      "notes": [
+       "count 0 not in [1,1]: []"
+      ]
+     },
+     {
+      "name": "call Mum: open, tomorrow = 2026-10-20 (resolved against Monday), the 6 kept",
+      "at": "mp1",
+      "pass": false,
+      "notes": [
+       "count 0 not in [1,1]: []"
+      ]
+     },
+     {
+      "name": "invoice done after approval",
+      "at": "mp2",
+      "pass": false,
+      "notes": [
+       "count 0 not in [1,1]: []"
+      ]
+     },
+     {
+      "name": "marathon still an open aspiration",
+      "at": "mp2",
+      "pass": false,
+      "notes": [
+       "count 0 not in [1,1]: []"
+      ]
+     },
+     {
+      "name": "call Mum still open",
+      "at": "mp2",
+      "pass": false,
+      "notes": [
+       "count 0 not in [1,1]: []"
+      ]
+     },
+     {
+      "name": "Pete is suppressed, not deleted, no duplicate",
+      "at": "mp2",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "mixed-plate",
+    "rep": 1
+   },
+   {
+    "owner": "world:lab:rel-mixed-plate-2-4891",
+    "runs": [
+     {
+      "sid": "mp1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "james-s-invoice-awaiting-approval",
+        "note": "Created as waiting on James's approval."
+       },
+       {
+        "obs": 2,
+        "treatment": "applied",
+        "key": "marathon-consideration",
+        "note": "Created as open aspiration, no date."
+       },
+       {
+        "obs": 3,
+        "treatment": "applied",
+        "key": "call-mum",
+        "note": "Created as open reminder, 2026-10-20, am/pm flagged."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created three records from this session: (1) James's invoice, status waiting on James's approval; (2) marathon consideration, an open aspiration with no date; (3) Call Mum reminder for Tue 2026-10-20 at 6 (am/pm unspecified, flagged as open question), reminder authorised. No other operational matters in the transcript.",
+      "touched": [
+       "call-mum",
+       "james-s-invoice-awaiting-approval",
+       "marathon-consideration"
+      ],
+      "witness": [
+       {
+        "title": "James's invoice",
+        "timing": "waiting",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "James's approval"
+       },
+       {
+        "title": "Marathon consideration",
+        "timing": "\"someday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Call to Mum",
+        "timing": "\"tomorrow at 6\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search"
+       ],
+       [
+        "search",
+        "search"
+       ],
+       [
+        "create_item",
+        "create_item",
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 3,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 158700
+     },
+     {
+      "sid": "mp2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "james-s-invoice-awaiting-approval",
+        "note": "Marked done with evidence 'James approved the invoice this morning.'; detail and timing updated to reflect approval on Mon 2026-10-19."
+       },
+       {
+        "obs": 2,
+        "treatment": "applied",
+        "key": "pete-s-ssh-access-requests",
+        "note": "Created as suppressed thread; evidence 'Pete keeps pinging about SSH; ignore him tonight.'"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "James's invoice closed as done (approved Mon 2026-10-19). Pete's SSH access requests created as a suppressed thread (ignore tonight).",
+      "touched": [
+       "james-s-invoice-awaiting-approval",
+       "pete-s-ssh-access-requests"
+      ],
+      "witness": [
+       {
+        "title": "James's invoice awaiting approval",
+        "timing": null,
+        "changed": null,
+        "resolved": "The matter is over as James approved the invoice this morning.",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Pete's SSH access requests",
+        "timing": "tonight",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "suppressed",
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "search"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "update_item",
+        "create_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 1,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 132731
+     }
+    ],
+    "snapshots": {
+     "mp1": [
+      {
+       "id": "7ca65eb2-9724-40a7-b38a-ca67aeaa2772",
+       "key": "james-s-invoice-awaiting-approval",
+       "kind": "situation",
+       "title": "James's invoice awaiting approval",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Invoice from James is waiting on his approval; Sophie is monitoring the status.",
+       "timing": "waiting on James's approval",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:02:16.099543",
+       "waiting_on": "James's approval",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 2,
+       "created_at": "2026-10-20T14:02:16.099513",
+       "linked": []
+      },
+      {
+       "id": "0fd0d44f-209e-428e-888f-4a8a60deb6bf",
+       "key": "marathon-consideration",
+       "kind": "aspiration",
+       "title": "Marathon consideration",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "He is considering running a marathon someday; Sophie expressed skepticism (\"Someday, sure.\"). No date or commitment.",
+       "timing": "someday",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:02:16.104055",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 1,
+       "created_at": "2026-10-20T14:02:16.104029",
+       "linked": []
+      },
+      {
+       "id": "d8d130da-ad44-40d1-985d-86706c5374da",
+       "key": "call-mum",
+       "kind": "reminder",
+       "title": "Call Mum",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "He asked Sophie to remind him to call his mother.",
+       "timing": "Tue 2026-10-20, at 6, am/pm not stated",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T14:02:16.110876",
+       "waiting_on": "",
+       "question": "At 6 am or 6 pm?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:02:16.110817",
+       "linked": []
+      }
+     ],
+     "mp2": [
+      {
+       "id": "7ca65eb2-9724-40a7-b38a-ca67aeaa2772",
+       "key": "james-s-invoice-awaiting-approval",
+       "kind": "situation",
+       "title": "James's invoice awaiting approval",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Invoice from James has been approved \u2014 closed loop.",
+       "timing": "approved Mon 2026-10-19, this morning",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:04:50.422544",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 2,
+       "created_at": "2026-10-20T14:02:16.099513",
+       "linked": []
+      },
+      {
+       "id": "0fd0d44f-209e-428e-888f-4a8a60deb6bf",
+       "key": "marathon-consideration",
+       "kind": "aspiration",
+       "title": "Marathon consideration",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "He is considering running a marathon someday; Sophie expressed skepticism (\"Someday, sure.\"). No date or commitment.",
+       "timing": "someday",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:02:16.104055",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 1,
+       "created_at": "2026-10-20T14:02:16.104029",
+       "linked": []
+      },
+      {
+       "id": "d8d130da-ad44-40d1-985d-86706c5374da",
+       "key": "call-mum",
+       "kind": "reminder",
+       "title": "Call Mum",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "He asked Sophie to remind him to call his mother.",
+       "timing": "Tue 2026-10-20, at 6, am/pm not stated",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T14:02:16.110876",
+       "waiting_on": "",
+       "question": "At 6 am or 6 pm?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:02:16.110817",
+       "linked": []
+      },
+      {
+       "id": "d2cc077f-2edb-494e-9c18-35fc6a9f9066",
+       "key": "pete-s-ssh-access-requests",
+       "kind": "thread",
+       "title": "Pete's SSH access requests",
+       "status": "suppressed",
+       "confidence": "observed",
+       "detail": "Pete is repeatedly asking for SSH access. He asked to be ignored for now.",
+       "timing": "ignore tonight, Mon 2026-10-19",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:04:48.507346",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 2,
+       "created_at": "2026-10-20T14:04:48.507312",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "7ca65eb2-9724-40a7-b38a-ca67aeaa2772",
+      "key": "james-s-invoice-awaiting-approval",
+      "kind": "situation",
+      "title": "James's invoice awaiting approval",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "Invoice from James has been approved \u2014 closed loop.",
+      "timing": "approved Mon 2026-10-19, this morning",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:04:50.422544",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 2,
+      "created_at": "2026-10-20T14:02:16.099513",
+      "linked": []
+     },
+     {
+      "id": "0fd0d44f-209e-428e-888f-4a8a60deb6bf",
+      "key": "marathon-consideration",
+      "kind": "aspiration",
+      "title": "Marathon consideration",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "He is considering running a marathon someday; Sophie expressed skepticism (\"Someday, sure.\"). No date or commitment.",
+      "timing": "someday",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:02:16.104055",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 1,
+      "created_at": "2026-10-20T14:02:16.104029",
+      "linked": []
+     },
+     {
+      "id": "d8d130da-ad44-40d1-985d-86706c5374da",
+      "key": "call-mum",
+      "kind": "reminder",
+      "title": "Call Mum",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "He asked Sophie to remind him to call his mother.",
+      "timing": "Tue 2026-10-20, at 6, am/pm not stated",
+      "expected_date": "2026-10-20",
+      "updated_at": "2026-10-20T14:02:16.110876",
+      "waiting_on": "",
+      "question": "At 6 am or 6 pm?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T14:02:16.110817",
+      "linked": []
+     },
+     {
+      "id": "d2cc077f-2edb-494e-9c18-35fc6a9f9066",
+      "key": "pete-s-ssh-access-requests",
+      "kind": "thread",
+      "title": "Pete's SSH access requests",
+      "status": "suppressed",
+      "confidence": "observed",
+      "detail": "Pete is repeatedly asking for SSH access. He asked to be ignored for now.",
+      "timing": "ignore tonight, Mon 2026-10-19",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:04:48.507346",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 2,
+      "created_at": "2026-10-20T14:04:48.507312",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "invoice tracked after mp1",
+      "at": "mp1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "marathon is an open aspiration, never a task",
+      "at": "mp1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "call Mum: open, tomorrow = 2026-10-20 (resolved against Monday), the 6 kept",
+      "at": "mp1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "invoice done after approval",
+      "at": "mp2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "marathon still an open aspiration",
+      "at": "mp2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "call Mum still open",
+      "at": "mp2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Pete is suppressed, not deleted, no duplicate",
+      "at": "mp2",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "mixed-plate",
+    "rep": 2
+   }
+  ],
+  "busy-day": [
+   {
+    "owner": "world:lab:rel-busy-day-0-4894",
+    "runs": [
+     {
+      "sid": "bd1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "call-with-vinesh",
+        "note": "Call with Vinesh today at 3pm recorded."
+       },
+       {
+        "obs": 2,
+        "treatment": "applied",
+        "key": "submit-proposal",
+        "note": "Proposal deadline today at 5, am/pm not stated."
+       },
+       {
+        "obs": 3,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Dentist Thu 22 Oct; time question kept open."
+       },
+       {
+        "obs": 4,
+        "treatment": "applied",
+        "key": "call-mum",
+        "note": "Reminder to call Mum tomorrow at 6, am/pm flagged."
+       },
+       {
+        "obs": 5,
+        "treatment": "applied",
+        "key": "figures-from-ana",
+        "note": "Waiting on Ana for figures."
+       },
+       {
+        "obs": 6,
+        "treatment": "applied",
+        "key": "pay-electricity-bill",
+        "note": "Overdue electricity bill, due date 18 Oct in the past."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created 6 records from the session: (1) Call with Vinesh today at 3pm; (2) Submit proposal deadline today at 5 (am/pm unflagged); (3) Dentist appointment Thursday 22 Oct, time still unknown; (4) Reminder to call Mum tomorrow at 6 (am/pm flagged); (5) Still waiting on Ana for the figures (waiting on Ana); (6) Overdue electricity bill that was due Sunday 18 Oct (importance 3, money).",
+      "touched": [
+       "call-mum",
+       "call-with-vinesh",
+       "dentist-appointment",
+       "figures-from-ana",
+       "pay-electricity-bill",
+       "submit-proposal"
+      ],
+      "witness": [
+       {
+        "title": "Vinesh call",
+        "timing": "\"at 3pm today\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Proposal submission",
+        "timing": "\"by 5pm\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Dentist appointment",
+        "timing": "\"Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Call Mum",
+        "timing": "\"tomorrow at 6\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Figures from Ana",
+        "timing": "\"Still waiting\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "Ana"
+       },
+       {
+        "title": "Electricity bill",
+        "timing": "\"due on Sunday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search"
+       ],
+       [
+        "search",
+        "search",
+        "search",
+        "search",
+        "search"
+       ],
+       [
+        "create_item",
+        "create_item"
+       ],
+       [
+        "create_item",
+        "create_item",
+        "create_item",
+        "create_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 6,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 183613
+     }
+    ],
+    "snapshots": {
+     "bd1": [
+      {
+       "id": "91c48edc-b833-40af-92b2-a98e91668172",
+       "key": "call-with-vinesh",
+       "kind": "event",
+       "title": "Call with Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Scheduled call with Vinesh.",
+       "timing": "Tue 20 Oct 2026, at 3pm",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T14:02:15.747644",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "15:00",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:02:15.747618",
+       "linked": []
+      },
+      {
+       "id": "199ec311-63c9-4004-9eac-62b6ab4f7be3",
+       "key": "submit-proposal",
+       "kind": "commitment",
+       "title": "Submit proposal",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Deadline to submit the proposal.",
+       "timing": "Due by 5pm on Tue 20 Oct 2026 (am/pm not stated)",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T14:02:15.754975",
+       "waiting_on": "",
+       "question": "What time of day is the 5pm deadline (am/pm not stated)?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 2,
+       "created_at": "2026-10-20T14:02:15.754933",
+       "linked": []
+      },
+      {
+       "id": "8107022c-c00d-4627-a264-44f272e94b7a",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Dentist appointment scheduled; the specific time has not yet been confirmed.",
+       "timing": "Thu 22 Oct 2026 (time not yet confirmed)",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T14:02:22.807554",
+       "waiting_on": "",
+       "question": "What time is the dentist appointment?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:02:22.807216",
+       "linked": []
+      },
+      {
+       "id": "419bc8a7-e0ca-4d37-aef5-cff7c7739000",
+       "key": "call-mum",
+       "kind": "reminder",
+       "title": "Call Mum",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Reminder to call his mother.",
+       "timing": "Wed 21 Oct 2026, at 6 (am/pm not stated)",
+       "expected_date": "2026-10-21",
+       "updated_at": "2026-10-20T14:02:22.818484",
+       "waiting_on": "",
+       "question": "At 6 am or 6 pm?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:02:22.818462",
+       "linked": []
+      },
+      {
+       "id": "c7680351-ab12-4f1c-b776-08aee71dfb4a",
+       "key": "figures-from-ana",
+       "kind": "thread",
+       "title": "Figures from Ana",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Waiting for data/figures to be sent by Ana.",
+       "timing": "Still waiting (no date given)",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:02:22.832431",
+       "waiting_on": "Ana",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 2,
+       "created_at": "2026-10-20T14:02:22.832402",
+       "linked": []
+      },
+      {
+       "id": "2f54fc21-88b0-4093-863a-d98e1fb91af6",
+       "key": "pay-electricity-bill",
+       "kind": "situation",
+       "title": "Pay electricity bill",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Electricity bill was due Sunday 18 Oct 2026 and was never paid; now overdue.",
+       "timing": "Was due Sun 18 Oct 2026 \u2014 unpaid / overdue",
+       "expected_date": "2026-10-18",
+       "updated_at": "2026-10-20T14:02:24.283444",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T14:02:22.841293",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "91c48edc-b833-40af-92b2-a98e91668172",
+      "key": "call-with-vinesh",
+      "kind": "event",
+      "title": "Call with Vinesh",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Scheduled call with Vinesh.",
+      "timing": "Tue 20 Oct 2026, at 3pm",
+      "expected_date": "2026-10-20",
+      "updated_at": "2026-10-20T14:02:15.747644",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "15:00",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T14:02:15.747618",
+      "linked": []
+     },
+     {
+      "id": "199ec311-63c9-4004-9eac-62b6ab4f7be3",
+      "key": "submit-proposal",
+      "kind": "commitment",
+      "title": "Submit proposal",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Deadline to submit the proposal.",
+      "timing": "Due by 5pm on Tue 20 Oct 2026 (am/pm not stated)",
+      "expected_date": "2026-10-20",
+      "updated_at": "2026-10-20T14:02:15.754975",
+      "waiting_on": "",
+      "question": "What time of day is the 5pm deadline (am/pm not stated)?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 2,
+      "created_at": "2026-10-20T14:02:15.754933",
+      "linked": []
+     },
+     {
+      "id": "8107022c-c00d-4627-a264-44f272e94b7a",
+      "key": "dentist-appointment",
+      "kind": "event",
+      "title": "Dentist appointment",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Dentist appointment scheduled; the specific time has not yet been confirmed.",
+      "timing": "Thu 22 Oct 2026 (time not yet confirmed)",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T14:02:22.807554",
+      "waiting_on": "",
+      "question": "What time is the dentist appointment?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T14:02:22.807216",
+      "linked": []
+     },
+     {
+      "id": "419bc8a7-e0ca-4d37-aef5-cff7c7739000",
+      "key": "call-mum",
+      "kind": "reminder",
+      "title": "Call Mum",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Reminder to call his mother.",
+      "timing": "Wed 21 Oct 2026, at 6 (am/pm not stated)",
+      "expected_date": "2026-10-21",
+      "updated_at": "2026-10-20T14:02:22.818484",
+      "waiting_on": "",
+      "question": "At 6 am or 6 pm?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T14:02:22.818462",
+      "linked": []
+     },
+     {
+      "id": "c7680351-ab12-4f1c-b776-08aee71dfb4a",
+      "key": "figures-from-ana",
+      "kind": "thread",
+      "title": "Figures from Ana",
+      "status": "waiting",
+      "confidence": "observed",
+      "detail": "Waiting for data/figures to be sent by Ana.",
+      "timing": "Still waiting (no date given)",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:02:22.832431",
+      "waiting_on": "Ana",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 2,
+      "created_at": "2026-10-20T14:02:22.832402",
+      "linked": []
+     },
+     {
+      "id": "2f54fc21-88b0-4093-863a-d98e1fb91af6",
+      "key": "pay-electricity-bill",
+      "kind": "situation",
+      "title": "Pay electricity bill",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Electricity bill was due Sunday 18 Oct 2026 and was never paid; now overdue.",
+      "timing": "Was due Sun 18 Oct 2026 \u2014 unpaid / overdue",
+      "expected_date": "2026-10-18",
+      "updated_at": "2026-10-20T14:02:24.283444",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T14:02:22.841293",
+      "linked": []
+     }
+    ],
+    "view_notes": [
+     "@14:30 'Right now' lacks 'proposal'",
+     "@15:30 'Right now' lacks 'proposal'",
+     "@17:30 'Overdue' lacks 'proposal'"
+    ],
+    "views_text": "[OPERATIONAL AWARENESS \u2014 Tuesday 20 October 2026, 2:30pm (Europe/London). Maintained record; facts, not interpretation.]\nRight now (next 3 hours):\n- Call with Vinesh: 3:00pm today\nToday:\n- Submit proposal: due today; open question: What time of day is the 5pm deadline (am/pm not stated)?\nOverdue:\n- Pay electricity bill: was due Sun 18 Oct; not marked done\nWaiting on:\n- Figures from Ana; waiting on Ana\nThis week:\n- Call Mum: tomorrow (Wed 21 Oct); time not recorded; open question: At 6 am or 6 pm?\n- Dentist appointment: Thu 22 Oct; time not recorded; open question: What time is the dentist appointment?",
+    "checks": [
+     {
+      "name": "call: Tuesday 15:00, happens",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal: Tuesday 17:00, deadline",
+      "at": "bd1",
+      "pass": false,
+      "notes": [
+       "expected_time not in ['17:00']: 'Submit proposal' expected_time=''"
+      ]
+     },
+     {
+      "name": "dentist: Thursday, time NOT invented, happens, the gap is recorded",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Mum: tomorrow, ambiguous 6 NOT turned into a clock time",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Ana's figures tracked as a wait",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "electricity bill: due Sunday, a deadline",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "deterministic views at six clock times + weekly schedule",
+      "at": "bd1",
+      "pass": false,
+      "notes": [
+       "@14:30 'Right now' lacks 'proposal'",
+       "@15:30 'Right now' lacks 'proposal'",
+       "@17:30 'Overdue' lacks 'proposal'"
+      ]
+     }
+    ],
+    "fixture": "busy-day",
+    "rep": 0
+   },
+   {
+    "owner": "world:lab:rel-busy-day-1-4953",
+    "runs": [
+     {
+      "sid": "bd1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "call-with-vinesh",
+        "note": null
+       },
+       {
+        "obs": 2,
+        "treatment": "applied",
+        "key": "submit-proposal",
+        "note": null
+       },
+       {
+        "obs": 3,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": null
+       },
+       {
+        "obs": 4,
+        "treatment": "applied",
+        "key": "call-mum",
+        "note": null
+       },
+       {
+        "obs": 5,
+        "treatment": "applied",
+        "key": "figures-from-ana",
+        "note": null
+       },
+       {
+        "obs": 6,
+        "treatment": "applied",
+        "key": "pay-electricity-bill",
+        "note": null
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "All six observations from the session were new matters not yet in the (empty) agenda, so each was created as its own record: today's call with Vinesh at 3pm and the 5pm proposal deadline, Thursday's dentist appointment (time open), a reminder to call Mum tomorrow at 6 (am/pm flagged open), the thread waiting on Ana's figures (status waiting), and the overdue electricity bill (due Sun 18 Oct, unpaid \u2014 actionable and kept open).",
+      "touched": [
+       "call-mum",
+       "call-with-vinesh",
+       "dentist-appointment",
+       "figures-from-ana",
+       "pay-electricity-bill",
+       "submit-proposal"
+      ],
+      "witness": [
+       {
+        "title": "Call with Vinesh",
+        "timing": "\"today\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Proposal submission",
+        "timing": "\"today\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Dentist appointment",
+        "timing": "\"Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Call Mum",
+        "timing": "\"tomorrow at 6\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Figures from Ana",
+        "timing": null,
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "Ana"
+       },
+       {
+        "title": "Electricity bill payment",
+        "timing": "\"due on Sunday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "list_open"
+       ],
+       [
+        "search"
+       ],
+       [
+        "create_item",
+        "create_item",
+        "create_item",
+        "create_item",
+        "create_item",
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 6,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 137047
+     }
+    ],
+    "snapshots": {
+     "bd1": [
+      {
+       "id": "9f043af6-ea4c-4319-a3cf-8ad5966a422b",
+       "key": "call-with-vinesh",
+       "kind": "event",
+       "title": "Call with Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Call with Vinesh scheduled today, Tuesday 2026-10-20, at 3pm.",
+       "timing": "Tuesday 20 Oct 2026, at 3pm",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T14:03:26.890372",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "15:00",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:03:26.890336",
+       "linked": []
+      },
+      {
+       "id": "c52e9903-9209-4ab5-b96b-9de5defe791e",
+       "key": "submit-proposal",
+       "kind": "commitment",
+       "title": "Submit proposal",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Proposal must be submitted by 5pm today, Tuesday 2026-10-20.",
+       "timing": "Tuesday 20 Oct 2026, by 5pm",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T14:03:26.902426",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "17:00",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T14:03:26.902395",
+       "linked": []
+      },
+      {
+       "id": "b5e3e9a0-96da-4631-a12d-79b6fa2acc36",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Dentist appointment on Thursday 22 Oct 2026; time not yet known.",
+       "timing": "Thursday 22 Oct 2026, time unknown",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T14:03:26.918032",
+       "waiting_on": "",
+       "question": "What time is the dentist appointment?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:03:26.917908",
+       "linked": []
+      },
+      {
+       "id": "f190314d-0d62-4b79-88c4-fa8b38116d16",
+       "key": "call-mum",
+       "kind": "commitment",
+       "title": "Call Mum",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Call Mum on Wednesday 21 Oct 2026 at 6; am/pm not stated.",
+       "timing": "Wednesday 21 Oct 2026, at 6 (am/pm not stated)",
+       "expected_date": "2026-10-21",
+       "updated_at": "2026-10-20T14:03:26.926618",
+       "waiting_on": "",
+       "question": "Is the call to Mum at 6am or 6pm?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:03:26.926595",
+       "linked": []
+      },
+      {
+       "id": "b1cf3df7-0b71-47a0-9196-56d8b95363be",
+       "key": "figures-from-ana",
+       "kind": "thread",
+       "title": "Figures from Ana",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Waiting for Ana to provide the figures; no timeline given.",
+       "timing": "",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:03:26.932987",
+       "waiting_on": "Ana",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 2,
+       "created_at": "2026-10-20T14:03:26.932962",
+       "linked": []
+      },
+      {
+       "id": "2d0d3491-078b-4cf9-95f0-cdcebb0e233a",
+       "key": "pay-electricity-bill",
+       "kind": "commitment",
+       "title": "Pay electricity bill",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Electricity bill was due on Sunday 18 Oct 2026 and has not been paid; payment now overdue.",
+       "timing": "was due Sunday 18 Oct 2026 (past); payment outstanding",
+       "expected_date": "2026-10-18",
+       "updated_at": "2026-10-20T14:03:26.939878",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T14:03:26.939839",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "9f043af6-ea4c-4319-a3cf-8ad5966a422b",
+      "key": "call-with-vinesh",
+      "kind": "event",
+      "title": "Call with Vinesh",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Call with Vinesh scheduled today, Tuesday 2026-10-20, at 3pm.",
+      "timing": "Tuesday 20 Oct 2026, at 3pm",
+      "expected_date": "2026-10-20",
+      "updated_at": "2026-10-20T14:03:26.890372",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "15:00",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T14:03:26.890336",
+      "linked": []
+     },
+     {
+      "id": "c52e9903-9209-4ab5-b96b-9de5defe791e",
+      "key": "submit-proposal",
+      "kind": "commitment",
+      "title": "Submit proposal",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Proposal must be submitted by 5pm today, Tuesday 2026-10-20.",
+      "timing": "Tuesday 20 Oct 2026, by 5pm",
+      "expected_date": "2026-10-20",
+      "updated_at": "2026-10-20T14:03:26.902426",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "17:00",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T14:03:26.902395",
+      "linked": []
+     },
+     {
+      "id": "b5e3e9a0-96da-4631-a12d-79b6fa2acc36",
+      "key": "dentist-appointment",
+      "kind": "event",
+      "title": "Dentist appointment",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Dentist appointment on Thursday 22 Oct 2026; time not yet known.",
+      "timing": "Thursday 22 Oct 2026, time unknown",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T14:03:26.918032",
+      "waiting_on": "",
+      "question": "What time is the dentist appointment?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T14:03:26.917908",
+      "linked": []
+     },
+     {
+      "id": "f190314d-0d62-4b79-88c4-fa8b38116d16",
+      "key": "call-mum",
+      "kind": "commitment",
+      "title": "Call Mum",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Call Mum on Wednesday 21 Oct 2026 at 6; am/pm not stated.",
+      "timing": "Wednesday 21 Oct 2026, at 6 (am/pm not stated)",
+      "expected_date": "2026-10-21",
+      "updated_at": "2026-10-20T14:03:26.926618",
+      "waiting_on": "",
+      "question": "Is the call to Mum at 6am or 6pm?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T14:03:26.926595",
+      "linked": []
+     },
+     {
+      "id": "b1cf3df7-0b71-47a0-9196-56d8b95363be",
+      "key": "figures-from-ana",
+      "kind": "thread",
+      "title": "Figures from Ana",
+      "status": "waiting",
+      "confidence": "observed",
+      "detail": "Waiting for Ana to provide the figures; no timeline given.",
+      "timing": "",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:03:26.932987",
+      "waiting_on": "Ana",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 2,
+      "created_at": "2026-10-20T14:03:26.932962",
+      "linked": []
+     },
+     {
+      "id": "2d0d3491-078b-4cf9-95f0-cdcebb0e233a",
+      "key": "pay-electricity-bill",
+      "kind": "commitment",
+      "title": "Pay electricity bill",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Electricity bill was due on Sunday 18 Oct 2026 and has not been paid; payment now overdue.",
+      "timing": "was due Sunday 18 Oct 2026 (past); payment outstanding",
+      "expected_date": "2026-10-18",
+      "updated_at": "2026-10-20T14:03:26.939878",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T14:03:26.939839",
+      "linked": []
+     }
+    ],
+    "view_notes": [],
+    "views_text": "[OPERATIONAL AWARENESS \u2014 Tuesday 20 October 2026, 2:30pm (Europe/London). Maintained record; facts, not interpretation.]\nRight now (next 3 hours):\n- Call with Vinesh: 3:00pm today\n- Submit proposal: due 5:00pm today\nOverdue:\n- Pay electricity bill: was due Sun 18 Oct; not marked done\nWaiting on:\n- Figures from Ana; waiting on Ana\nThis week:\n- Call Mum: tomorrow (Wed 21 Oct); time not recorded; open question: Is the call to Mum at 6am or 6pm?\n- Dentist appointment: Thu 22 Oct; time not recorded; open question: What time is the dentist appointment?",
+    "checks": [
+     {
+      "name": "call: Tuesday 15:00, happens",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal: Tuesday 17:00, deadline",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist: Thursday, time NOT invented, happens, the gap is recorded",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Mum: tomorrow, ambiguous 6 NOT turned into a clock time",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Ana's figures tracked as a wait",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "electricity bill: due Sunday, a deadline",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "deterministic views at six clock times + weekly schedule",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "busy-day",
+    "rep": 1
+   },
+   {
+    "owner": "world:lab:rel-busy-day-2-4994",
+    "runs": [
+     {
+      "sid": "bd1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "call-with-vinesh",
+        "note": "Call at 3pm today \u2192 15:00, 2026-10-20."
+       },
+       {
+        "obs": 2,
+        "treatment": "applied",
+        "key": "submit-proposal",
+        "note": "Deadline by 5pm today \u2192 17:00, 2026-10-20."
+       },
+       {
+        "obs": 3,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Thursday 22 Oct, time unknown left as open question."
+       },
+       {
+        "obs": 4,
+        "treatment": "applied",
+        "key": "call-mum",
+        "note": "Call Mum Wed 21 Oct at 6; am/pm not stated so flagged, reminder authorised."
+       },
+       {
+        "obs": 5,
+        "treatment": "applied",
+        "key": "figures-from-ana",
+        "note": "Waiting on Ana for the figures."
+       },
+       {
+        "obs": 6,
+        "treatment": "applied",
+        "key": "pay-electricity-bill-overdue",
+        "note": "Recorded as past due date Sun 18 Oct 2026 (past tense) rather than witness's future 25 Oct; bill overdue, open task."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created six records from the session: today's call with Vinesh (15:00), today's proposal submission deadline (17:00), Thursday dentist appointment (time unknown \u2014 flagged as question), reminder to call Mum tomorrow at 6 (am/pm unconfirmed, reminder authorised), a waiting thread for figures from Ana, and the overdue electricity bill (was due Sun 18 Oct, unpaid).",
+      "touched": [
+       "call-mum",
+       "call-with-vinesh",
+       "dentist-appointment",
+       "figures-from-ana",
+       "pay-electricity-bill-overdue",
+       "submit-proposal"
+      ],
+      "witness": [
+       {
+        "title": "Vinesh call",
+        "timing": "\"3pm today\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Proposal submission",
+        "timing": "\"by 5pm\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Dentist appointment",
+        "timing": "\"Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Call Mum",
+        "timing": "\"tomorrow at 6\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       },
+       {
+        "title": "Waiting on Ana for figures",
+        "timing": null,
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "Ana"
+       },
+       {
+        "title": "Electricity bill payment",
+        "timing": "\"due on Sunday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "list_open"
+       ],
+       [
+        "create_item",
+        "create_item",
+        "create_item",
+        "create_item",
+        "create_item",
+        "create_item"
+       ],
+       [
+        "create_item",
+        "create_item",
+        "create_item",
+        "create_item",
+        "create_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 6,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 151055
+     }
+    ],
+    "snapshots": {
+     "bd1": [
+      {
+       "id": "56f4ec5c-6753-412f-86d8-7fa1ed885db4",
+       "key": "figures-from-ana",
+       "kind": "thread",
+       "title": "Figures from Ana",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "",
+       "timing": "",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:04:00.399262",
+       "waiting_on": "Ana",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 2,
+       "created_at": "2026-10-20T14:04:00.399230",
+       "linked": []
+      },
+      {
+       "id": "f4841217-975f-4396-8313-7aada19d0d7f",
+       "key": "call-with-vinesh",
+       "kind": "event",
+       "title": "Call with Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "",
+       "timing": "Tue 20 Oct 2026, at 3pm",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T14:04:09.841087",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "15:00",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:04:09.841057",
+       "linked": []
+      },
+      {
+       "id": "2cf21596-01af-44f6-bf3d-f9fead46365b",
+       "key": "submit-proposal",
+       "kind": "commitment",
+       "title": "Submit proposal",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "",
+       "timing": "Due by 5pm on Tue 20 Oct 2026",
+       "expected_date": "2026-10-20",
+       "updated_at": "2026-10-20T14:04:09.854698",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "17:00",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T14:04:09.854666",
+       "linked": []
+      },
+      {
+       "id": "5bb2609a-8236-4578-82fc-0daf9501c3cc",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "",
+       "timing": "Thu 22 Oct 2026, time not yet known",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T14:04:09.866497",
+       "waiting_on": "",
+       "question": "What time is the dentist appointment?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 3,
+       "created_at": "2026-10-20T14:04:09.866464",
+       "linked": []
+      },
+      {
+       "id": "b4c8450e-fb43-442e-b634-55a1bd312693",
+       "key": "call-mum",
+       "kind": "commitment",
+       "title": "Call Mum",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "",
+       "timing": "Wed 21 Oct 2026, at 6, am/pm not stated",
+       "expected_date": "2026-10-21",
+       "updated_at": "2026-10-20T14:04:11.733177",
+       "waiting_on": "",
+       "question": "Is the 6 call morning or evening (am/pm)?",
+       "expected_time": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T14:04:09.877647",
+       "linked": []
+      },
+      {
+       "id": "dfc600aa-5dfc-4bf7-8c94-568a23a36407",
+       "key": "pay-electricity-bill-overdue",
+       "kind": "commitment",
+       "title": "Pay electricity bill (overdue)",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Bill was due Sun 18 Oct 2026 and has not been paid; now overdue.",
+       "timing": "Was due Sun 18 Oct 2026; payment still outstanding",
+       "expected_date": null,
+       "updated_at": "2026-10-20T14:04:09.890967",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_zone": "",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T14:04:09.890939",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "56f4ec5c-6753-412f-86d8-7fa1ed885db4",
+      "key": "figures-from-ana",
+      "kind": "thread",
+      "title": "Figures from Ana",
+      "status": "waiting",
+      "confidence": "observed",
+      "detail": "",
+      "timing": "",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:04:00.399262",
+      "waiting_on": "Ana",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 2,
+      "created_at": "2026-10-20T14:04:00.399230",
+      "linked": []
+     },
+     {
+      "id": "f4841217-975f-4396-8313-7aada19d0d7f",
+      "key": "call-with-vinesh",
+      "kind": "event",
+      "title": "Call with Vinesh",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "",
+      "timing": "Tue 20 Oct 2026, at 3pm",
+      "expected_date": "2026-10-20",
+      "updated_at": "2026-10-20T14:04:09.841087",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "15:00",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T14:04:09.841057",
+      "linked": []
+     },
+     {
+      "id": "2cf21596-01af-44f6-bf3d-f9fead46365b",
+      "key": "submit-proposal",
+      "kind": "commitment",
+      "title": "Submit proposal",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "",
+      "timing": "Due by 5pm on Tue 20 Oct 2026",
+      "expected_date": "2026-10-20",
+      "updated_at": "2026-10-20T14:04:09.854698",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "17:00",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T14:04:09.854666",
+      "linked": []
+     },
+     {
+      "id": "5bb2609a-8236-4578-82fc-0daf9501c3cc",
+      "key": "dentist-appointment",
+      "kind": "event",
+      "title": "Dentist appointment",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "",
+      "timing": "Thu 22 Oct 2026, time not yet known",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T14:04:09.866497",
+      "waiting_on": "",
+      "question": "What time is the dentist appointment?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 3,
+      "created_at": "2026-10-20T14:04:09.866464",
+      "linked": []
+     },
+     {
+      "id": "b4c8450e-fb43-442e-b634-55a1bd312693",
+      "key": "call-mum",
+      "kind": "commitment",
+      "title": "Call Mum",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "",
+      "timing": "Wed 21 Oct 2026, at 6, am/pm not stated",
+      "expected_date": "2026-10-21",
+      "updated_at": "2026-10-20T14:04:11.733177",
+      "waiting_on": "",
+      "question": "Is the 6 call morning or evening (am/pm)?",
+      "expected_time": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T14:04:09.877647",
+      "linked": []
+     },
+     {
+      "id": "dfc600aa-5dfc-4bf7-8c94-568a23a36407",
+      "key": "pay-electricity-bill-overdue",
+      "kind": "commitment",
+      "title": "Pay electricity bill (overdue)",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Bill was due Sun 18 Oct 2026 and has not been paid; now overdue.",
+      "timing": "Was due Sun 18 Oct 2026; payment still outstanding",
+      "expected_date": null,
+      "updated_at": "2026-10-20T14:04:09.890967",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_zone": "",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T14:04:09.890939",
+      "linked": []
+     }
+    ],
+    "view_notes": [
+     "@09:00 'Overdue' lacks 'electric'",
+     "@17:30 'Overdue' lacks 'electric'"
+    ],
+    "views_text": "[OPERATIONAL AWARENESS \u2014 Tuesday 20 October 2026, 2:30pm (Europe/London). Maintained record; facts, not interpretation.]\nRight now (next 3 hours):\n- Call with Vinesh: 3:00pm today\n- Submit proposal: due 5:00pm today\nWaiting on:\n- Figures from Ana; waiting on Ana\nThis week:\n- Call Mum: tomorrow (Wed 21 Oct); time not recorded; open question: Is the 6 call morning or evening (am/pm)?\n- Dentist appointment: Thu 22 Oct; time not recorded; open question: What time is the dentist appointment?\nNo date:\n- Pay electricity bill (overdue)",
+    "checks": [
+     {
+      "name": "call: Tuesday 15:00, happens",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal: Tuesday 17:00, deadline",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist: Thursday, time NOT invented, happens, the gap is recorded",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Mum: tomorrow, ambiguous 6 NOT turned into a clock time",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Ana's figures tracked as a wait",
+      "at": "bd1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "electricity bill: due Sunday, a deadline",
+      "at": "bd1",
+      "pass": false,
+      "notes": [
+       "expected_date not in ['2026-10-18']: 'Pay electricity bill (overdue)' date=None"
+      ]
+     },
+     {
+      "name": "deterministic views at six clock times + weekly schedule",
+      "at": "bd1",
+      "pass": false,
+      "notes": [
+       "@09:00 'Overdue' lacks 'electric'",
+       "@17:30 'Overdue' lacks 'electric'"
+      ]
+     }
+    ],
+    "fixture": "busy-day",
+    "rep": 2
+   }
+  ]
+ }
+}

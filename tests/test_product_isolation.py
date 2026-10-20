@@ -66,7 +66,7 @@ def _agent(label):
     steps = [[_tc(1, "list_open", {}), _tc(2, "create_item", {"title": f"{label} appointment", "kind": "event",
                                                                 "expected_date": "2026-10-22", "status": "open"})],
              [_tc(3, "list_open", {})],
-             [_tc(4, "finish", {"summary": "ok", "accounting": [{"obs": 1, "treatment": "applied", "key": key}]})]]
+             [_tc(4, "finish", {"transcript_sweep": "nothing beyond the observations", "summary": "ok", "accounting": [{"obs": 1, "treatment": "applied", "key": key}]})]]
     st = {"n": 0}
 
     async def chat(model, messages):
@@ -182,7 +182,8 @@ async def test_every_route_outside_the_product_list_is_denied_to_product_credent
     served = {p for p, _ in _all_routes()}
     assert len(denied) > 80 and set(app.openapi()["paths"]) <= served      # the inventory covers the whole documented surface
     assert sorted(allowed) == sorted([("POST", "/v1/memory/consolidate"), ("GET", "/v1/memory/run/{run_id}"),
-                                      ("GET", "/v1/memory/preparation"), ("POST", "/v1/memory/prepare"), ("GET", "/v1/memory/state")])
+                                      ("GET", "/v1/memory/preparation"), ("POST", "/v1/memory/prepare"), ("GET", "/v1/memory/state"),
+                                      ("GET", "/v1/memory/ledger"), ("GET", "/v1/memory/world"), ("POST", "/v1/memory/world/exposure")])
 
 
 # ------------------------------------------------- identical ids, two products ----

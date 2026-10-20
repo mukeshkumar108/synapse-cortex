@@ -40,6 +40,9 @@ PRODUCT_ROUTES = (
     ("GET", re.compile(r"^/v1/memory/preparation$")),
     ("POST", re.compile(r"^/v1/memory/prepare$")),
     ("GET", re.compile(r"^/v1/memory/state$")),
+    ("GET", re.compile(r"^/v1/memory/ledger$")),
+    ("GET", re.compile(r"^/v1/memory/world$")),
+    ("POST", re.compile(r"^/v1/memory/world/exposure$")),
 )
 
 

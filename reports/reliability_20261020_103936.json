@@ -1,0 +1,260 @@
+{
+ "at": "2026-10-20T10:39:36.752566+00:00",
+ "summary": "checks 3/3, clean reps 1/1",
+ "results": {
+  "dentist-lifecycle": [
+   {
+    "owner": "world:lab:rel-dentist-lifecycle-0-92589",
+    "runs": [
+     {
+      "sid": "dl1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Created waiting record; Sophie to confirm time."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created dentist-appointment record (Thursday 2026-10-22, waiting on Sophie for the time).",
+      "touched": [
+       "dentist-appointment"
+      ],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "Thursday",
+        "changed": "The responsibility for confirming the time was identified as Sophie's.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "Sophie (to confirm the specific time)"
+       }
+      ],
+      "trace": [
+       [
+        "list_open"
+       ],
+       [
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 52132
+     },
+     {
+      "sid": "dl2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "no_change",
+        "key": "dentist-appointment",
+        "note": "Record already reflects that the time is unknown (waiting on Sophie, expected_date 2026-10-22). O1 confirms the open question remains unresolved; nothing to update."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "No change: O1 (dentist time still unknown) is already accurately reflected in the existing waiting record dentist-appointment.",
+      "touched": [],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": null,
+        "changed": "No change. Sophie confirmed the time is still unknown; the open question remains unresolved.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 48484
+     },
+     {
+      "sid": "dl3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "dentist-appointment",
+        "note": "Time fixed to 2pm; status waiting -> open; question and waiting_on cleared."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated the dentist appointment record: time fixed to 2pm on Thursday 2026-10-22, status changed from waiting to open, question and waiting_on cleared.",
+      "touched": [
+       "dentist-appointment"
+      ],
+      "witness": [
+       {
+        "title": "Dentist appointment",
+        "timing": "Thursday 2026-10-22 at 2pm",
+        "changed": "The time was fixed to 2pm.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 83002
+     }
+    ],
+    "snapshots": {
+     "dl1": [
+      {
+       "id": "a848ecb3-150a-4e02-aca1-db44aa944a18",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Dentist appointment scheduled for Thursday; specific time not yet determined. Sophie is responsible for pinning down the time.",
+       "timing": "Thursday 2026-10-22, time TBC",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T10:36:51.612538",
+       "waiting_on": "Sophie (to confirm the specific time)",
+       "question": "What time is the dentist appointment?",
+       "linked": []
+      }
+     ],
+     "dl2": [
+      {
+       "id": "a848ecb3-150a-4e02-aca1-db44aa944a18",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "waiting",
+       "confidence": "observed",
+       "detail": "Dentist appointment scheduled for Thursday; specific time not yet determined. Sophie is responsible for pinning down the time.",
+       "timing": "Thursday 2026-10-22, time TBC",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T10:36:51.612538",
+       "waiting_on": "Sophie (to confirm the specific time)",
+       "question": "What time is the dentist appointment?",
+       "linked": []
+      }
+     ],
+     "dl3": [
+      {
+       "id": "a848ecb3-150a-4e02-aca1-db44aa944a18",
+       "key": "dentist-appointment",
+       "kind": "event",
+       "title": "Dentist appointment",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Dentist appointment scheduled for Thursday 2026-10-22 at 2pm. Time was confirmed by Sophie (Mum texted).",
+       "timing": "Thursday 2026-10-22 at 2pm",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T10:38:37.827361",
+       "waiting_on": "None",
+       "question": "",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "a848ecb3-150a-4e02-aca1-db44aa944a18",
+      "key": "dentist-appointment",
+      "kind": "event",
+      "title": "Dentist appointment",
+      "status": "open",
+      "confidence": "observed",
+      "detail": "Dentist appointment scheduled for Thursday 2026-10-22 at 2pm. Time was confirmed by Sophie (Mum texted).",
+      "timing": "Thursday 2026-10-22 at 2pm",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T10:38:37.827361",
+      "waiting_on": "None",
+      "question": "",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "dentist: one row, still open/waiting, Thursday date",
+      "at": "dl1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist: one row, not closed by a non-event",
+      "at": "dl2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "dentist after dl3: one row, OPEN (time confirmed does not close it), Thursday, 2pm kept",
+      "at": "dl3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "dentist-lifecycle",
+    "rep": 0
+   }
+  ]
+ }
+}

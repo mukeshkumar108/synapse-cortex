@@ -1,0 +1,2128 @@
+{
+ "at": "2026-10-20T15:43:40.348197+00:00",
+ "summary": "checks 35/36, clean reps 5/6",
+ "results": {
+  "vinesh-reschedule": [
+   {
+    "owner": "world:lab:rel-vinesh-reschedule-0-10516",
+    "runs": [
+     {
+      "sid": "vr1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "New commitment record created with Thursday 2026-10-22 deadline."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created one record: \"Send proposal to Vinesh\" \u2014 open commitment, deadline Thursday 22 Oct 2026, importance 3.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Proposal for Vinesh",
+        "timing": "\"by Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "Him finishing and sending the proposal"
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 91478
+     },
+     {
+      "sid": "vr2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "vinesh-review-of-proposal",
+        "note": "Created the review record for the moved Friday morning review; also closed the related send commitment (send-proposal-to-vinesh) as done since the proposal was delivered and now has a review."
+       },
+       {
+        "obs": 2,
+        "treatment": "skipped",
+        "key": null,
+        "note": "'Ana finally sent the numbers' is ENDED. No awaiting/dependent record existed in the system to close, and no open matter depends on the numbers, so there is no record to update or create. Delivery mer"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Handled both session matters. Ana's numbers: ENDED \u2014 no awaiting record existed to close and no open matter depends on it, so no record created. Vinesh proposal: the original 'Send proposal by Thursday 22 Oct' commitment (send-proposal-to-vinesh) is complete because the proposal was delivered and Vinesh is now reviewing it, so it is closed as done. Created a new open record (vinesh-review-of-proposal) for the moved review: waiting on Vinesh, expected Friday 2026-10-23 morning, with the open ques",
+      "touched": [
+       "send-proposal-to-vinesh",
+       "vinesh-review-of-proposal"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"Friday morning\"",
+        "changed": "Review moved from Thursday to Friday morning.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "none stated"
+       },
+       {
+        "title": "Ana sent the numbers",
+        "timing": "not specified by speaker",
+        "changed": null,
+        "resolved": "\"Ana finally sent the numbers.\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": "none"
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search",
+        "search"
+       ],
+       [
+        "history",
+        "search"
+       ],
+       [
+        "update_item",
+        "create_item"
+       ],
+       [
+        "update_item",
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 115805
+     },
+     {
+      "sid": "vr3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "vinesh-review-of-proposal",
+        "note": "Closed: proposal sent Monday morning, Sophie confirmed task closed"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Closed vinesh-review-of-proposal: the person sent the Vinesh proposal on Monday morning and Sophie confirmed it's closed.",
+      "touched": [
+       "vinesh-review-of-proposal"
+      ],
+      "witness": [
+       {
+        "title": "Vinesh review of proposal",
+        "timing": "\"this morning\" (Monday 2026-10-19)",
+        "changed": "The proposal has been sent; the sending step is completed.",
+        "resolved": "The sending of the proposal is ended. Quote: \"Sent the Vinesh proposal this morning, all done.\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": "Vinesh (reviewer) \u2013 presumably still to review, but the sending step is done"
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 63879
+     }
+    ],
+    "snapshots": {
+     "vr1": [
+      {
+       "id": "2aa675df-9af0-47d1-a6b7-cb1a2eee5534",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Promised Vinesh a proposal; not yet finished, content unknown.",
+       "timing": "By Thursday 22 Oct 2026 (deadline).",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:36:04.120476",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:36:04.120326",
+       "linked": []
+      }
+     ],
+     "vr2": [
+      {
+       "id": "2aa675df-9af0-47d1-a6b7-cb1a2eee5534",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Promised Vinesh a proposal by Thursday 22 Oct. The proposal has been delivered \u2014 Vinesh's review of it is now scheduled and its timing moved from Thursday to Friday morning, so the send-by-Thursday commitment is complete.",
+       "timing": "Original deadline was Thursday 2026-10-22; proposal delivered, review moved to Friday 2026-10-23 morning.",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:37:38.616716",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:36:04.120326",
+       "linked": []
+      },
+      {
+       "id": "ef9a8a10-00d3-434d-bcf5-3b45d8682492",
+       "key": "vinesh-review-of-proposal",
+       "kind": "commitment",
+       "title": "Vinesh review of proposal",
+       "status": "waiting",
+       "confidence": "reported",
+       "detail": "Vinesh (reviewer) moved the review of the delivered proposal to Friday morning; the review timing shifted from Thursday to Friday.",
+       "timing": "Friday 2026-10-23, morning.",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:37:38.635469",
+       "waiting_on": "Vinesh (reviewer) to complete the review",
+       "question": "Is the Thursday deadline still in effect, or does the Friday review replace it? What time in the morning is the review?",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T15:37:38.635431",
+       "linked": []
+      }
+     ],
+     "vr3": [
+      {
+       "id": "2aa675df-9af0-47d1-a6b7-cb1a2eee5534",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Promised Vinesh a proposal by Thursday 22 Oct. The proposal has been delivered \u2014 Vinesh's review of it is now scheduled and its timing moved from Thursday to Friday morning, so the send-by-Thursday commitment is complete.",
+       "timing": "Original deadline was Thursday 2026-10-22; proposal delivered, review moved to Friday 2026-10-23 morning.",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:37:38.616716",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:36:04.120326",
+       "linked": []
+      },
+      {
+       "id": "ef9a8a10-00d3-434d-bcf5-3b45d8682492",
+       "key": "vinesh-review-of-proposal",
+       "kind": "commitment",
+       "title": "Vinesh review of proposal",
+       "status": "done",
+       "confidence": "reported",
+       "detail": "Vinesh's review of the proposal is closed. The proposal was sent out Monday 2026-10-19 morning; Sophie confirmed the task is closed.",
+       "timing": "Proposal sent Monday 2026-10-19, morning. Task closed per Sophie.",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:39:22.055818",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T15:37:38.635431",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "2aa675df-9af0-47d1-a6b7-cb1a2eee5534",
+      "key": "send-proposal-to-vinesh",
+      "kind": "commitment",
+      "title": "Send proposal to Vinesh",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "Promised Vinesh a proposal by Thursday 22 Oct. The proposal has been delivered \u2014 Vinesh's review of it is now scheduled and its timing moved from Thursday to Friday morning, so the send-by-Thursday commitment is complete.",
+      "timing": "Original deadline was Thursday 2026-10-22; proposal delivered, review moved to Friday 2026-10-23 morning.",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T15:37:38.616716",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_basis": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T15:36:04.120326",
+      "linked": []
+     },
+     {
+      "id": "ef9a8a10-00d3-434d-bcf5-3b45d8682492",
+      "key": "vinesh-review-of-proposal",
+      "kind": "commitment",
+      "title": "Vinesh review of proposal",
+      "status": "done",
+      "confidence": "reported",
+      "detail": "Vinesh's review of the proposal is closed. The proposal was sent out Monday 2026-10-19 morning; Sophie confirmed the task is closed.",
+      "timing": "Proposal sent Monday 2026-10-19, morning. Task closed per Sophie.",
+      "expected_date": "2026-10-23",
+      "updated_at": "2026-10-20T15:39:22.055818",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_basis": "",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T15:37:38.635431",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "proposal recorded with its Thursday deadline",
+      "at": "vr1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "a moved review does NOT close the proposal; Friday is recorded somewhere",
+      "at": "vr2",
+      "pass": false,
+      "notes": [
+       "status not in ['open', 'waiting', 'watching']: 'Send proposal to Vinesh' is done"
+      ]
+     },
+     {
+      "name": "Friday recorded (date 2026-10-23 or the word Friday) on a vinesh/review row",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal done exactly once, date kept (Thursday or the moved Friday), never today",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "no stray open rows about the finished proposal",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "bounded size (no junk rows)",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "vinesh-reschedule",
+    "rep": 0
+   },
+   {
+    "owner": "world:lab:rel-vinesh-reschedule-1-10516",
+    "runs": [
+     {
+      "sid": "vr1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Created. Witness's waiting hint ignored: nothing is being awaited from anyone \u2014 this is the person's own deliverable, so open with deadline 2026-10-22."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created one record: \"Send proposal to Vinesh\" (send-proposal-to-vinesh), open, deadline Thursday 2026-10-22. A commitment to someone with a named deadline; the witness's waiting hint was set aside since the person is not awaiting anything from anyone.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Proposal for Vinesh",
+        "timing": "\"by Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "finish"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 61417
+     },
+     {
+      "sid": "vr2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Updated detail, timing_text and expected_date to Friday 2026-10-23 morning; status stays open since the proposal still must be sent."
+       },
+       {
+        "obs": 2,
+        "treatment": "applied",
+        "key": "await-numbers-from-ana",
+        "note": "No existing record tracked the wait; created a situation record and closed it done on Ana's delivery. Ana is a different person from Vinesh, so not merged into the proposal record."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Moved the Vinesh proposal deadline from Thursday to Friday 2026-10-23 morning to match the rescheduled review (record send-proposal-to-vinesh, still open). Recorded the closure of the wait for Ana's numbers as a done situation (await-numbers-from-ana), created since no existing wait record existed.",
+      "touched": [
+       "await-numbers-from-ana",
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"Friday morning\"",
+        "changed": "The review date moved from Thursday to Friday morning.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "The proposal must be sent to Vinesh before Friday morning."
+       },
+       {
+        "title": "Ana sent the numbers",
+        "timing": null,
+        "changed": null,
+        "resolved": "The wait for Ana's numbers is over \u2014 \"Ana finally sent the numbers.\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search",
+        "search",
+        "search"
+       ],
+       [
+        "history",
+        "search"
+       ],
+       [
+        "update_item",
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "search",
+        "search",
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 1,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 75169
+     },
+     {
+      "sid": "vr3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Updated existing commitment to done with the person's quote as evidence; original Friday 2026-10-23 deadline kept as its expected_date."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Closed \"Send proposal to Vinesh\" (send-proposal-to-vinesh) as done: the person confirmed \"Sent the Vinesh proposal this morning, all done.\" on Monday 2026-10-19. No open records remain.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"this morning\" (Monday 2026-10-19)",
+        "changed": null,
+        "resolved": "\"all done\"",
+        "ended": true,
+        "status_hint": "none",
+        "waiting_on": "none"
+       }
+      ],
+      "trace": [
+       [
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 58485
+     }
+    ],
+    "snapshots": {
+     "vr1": [
+      {
+       "id": "a648e46d-d5bb-4a3d-9019-37d9f20c6611",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "reported",
+       "detail": "Promised to send a proposal to Vinesh by Thursday. No details yet on content or delivery method.",
+       "timing": "By Thursday 2026-10-22",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:35:46.306486",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:35:46.306460",
+       "linked": []
+      }
+     ],
+     "vr2": [
+      {
+       "id": "a648e46d-d5bb-4a3d-9019-37d9f20c6611",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "reported",
+       "detail": "Promised to send a proposal to Vinesh, who will review it. Vinesh moved the review from Thursday to Friday morning, so the proposal must be sent before Friday morning.",
+       "timing": "By Friday 2026-10-23 morning (Vinesh moved the review to Friday morning).",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:36:45.794943",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:35:46.306460",
+       "linked": []
+      },
+      {
+       "id": "5b1972f0-7f90-42ad-b697-0e101c8d42fc",
+       "key": "await-numbers-from-ana",
+       "kind": "situation",
+       "title": "Await numbers from Ana",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Person was waiting on numbers from Ana; they were delivered and the wait is now over. Closed on Mon 2026-10-19.",
+       "timing": "",
+       "expected_date": null,
+       "updated_at": "2026-10-20T15:36:54.542184",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 2,
+       "created_at": "2026-10-20T15:36:52.825882",
+       "linked": []
+      }
+     ],
+     "vr3": [
+      {
+       "id": "a648e46d-d5bb-4a3d-9019-37d9f20c6611",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "done",
+       "confidence": "reported",
+       "detail": "Promised to send a proposal to Vinesh, who will review it. Vinesh had moved the review from Thursday to Friday morning; the proposal was sent Monday 2026-10-19 morning, so the commitment is fulfilled.",
+       "timing": "By Friday 2026-10-23 morning (Vinesh moved the review to Friday morning).",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:38:10.542722",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:35:46.306460",
+       "linked": []
+      },
+      {
+       "id": "5b1972f0-7f90-42ad-b697-0e101c8d42fc",
+       "key": "await-numbers-from-ana",
+       "kind": "situation",
+       "title": "Await numbers from Ana",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Person was waiting on numbers from Ana; they were delivered and the wait is now over. Closed on Mon 2026-10-19.",
+       "timing": "",
+       "expected_date": null,
+       "updated_at": "2026-10-20T15:36:54.542184",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "",
+       "time_role": "",
+       "importance": 2,
+       "created_at": "2026-10-20T15:36:52.825882",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "a648e46d-d5bb-4a3d-9019-37d9f20c6611",
+      "key": "send-proposal-to-vinesh",
+      "kind": "commitment",
+      "title": "Send proposal to Vinesh",
+      "status": "done",
+      "confidence": "reported",
+      "detail": "Promised to send a proposal to Vinesh, who will review it. Vinesh had moved the review from Thursday to Friday morning; the proposal was sent Monday 2026-10-19 morning, so the commitment is fulfilled.",
+      "timing": "By Friday 2026-10-23 morning (Vinesh moved the review to Friday morning).",
+      "expected_date": "2026-10-23",
+      "updated_at": "2026-10-20T15:38:10.542722",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_basis": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T15:35:46.306460",
+      "linked": []
+     },
+     {
+      "id": "5b1972f0-7f90-42ad-b697-0e101c8d42fc",
+      "key": "await-numbers-from-ana",
+      "kind": "situation",
+      "title": "Await numbers from Ana",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "Person was waiting on numbers from Ana; they were delivered and the wait is now over. Closed on Mon 2026-10-19.",
+      "timing": "",
+      "expected_date": null,
+      "updated_at": "2026-10-20T15:36:54.542184",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_basis": "",
+      "time_zone": "",
+      "time_role": "",
+      "importance": 2,
+      "created_at": "2026-10-20T15:36:52.825882",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "proposal recorded with its Thursday deadline",
+      "at": "vr1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "a moved review does NOT close the proposal; Friday is recorded somewhere",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Friday recorded (date 2026-10-23 or the word Friday) on a vinesh/review row",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal done exactly once, date kept (Thursday or the moved Friday), never today",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "no stray open rows about the finished proposal",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "bounded size (no junk rows)",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "vinesh-reschedule",
+    "rep": 1
+   },
+   {
+    "owner": "world:lab:rel-vinesh-reschedule-2-10516",
+    "runs": [
+     {
+      "sid": "vr1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Created open commitment to send proposal to Vinesh; deadline Thursday 2026-10-22."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created one open record: \"Send proposal to Vinesh\" (key send-proposal-to-vinesh) \u2014 a commitment with deadline Thursday 2026-10-22, importance 3, time_role deadline. No existing record covered this matter.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "He needs to complete and send the proposal."
+       }
+      ],
+      "trace": [
+       [
+        "list_open"
+       ],
+       [
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 75906
+     },
+     {
+      "sid": "vr2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Moved expected_date 2026-10-22 -> 2026-10-23, set time_role deadline, kept record open"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Vinesh moved the proposal review from Thursday to Friday morning (2026-10-23); updated the deadline record accordingly and noted that Ana sent the numbers.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"Friday morning\"",
+        "changed": "Vinesh moved the review from Thursday (2026-10-22) to Friday morning (2026-10-23)",
+        "resolved": null,
+        "ended": null,
+        "status_hint": null,
+        "waiting_on": "Person must send proposal before Friday morning review"
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "search",
+        "search",
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 72968
+     },
+     {
+      "sid": "vr3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Marked done; proposal sent Mon 2026-10-19 morning per 'Sent the Vinesh proposal this morning, all done.'"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Closed the \"Send proposal to Vinesh\" commitment: it was sent this morning (Mon 2026-10-19), ahead of the Friday review. No open records remain.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"this morning\" (Monday 2026-10-19)",
+        "changed": null,
+        "resolved": "\"Sent the Vinesh proposal this morning, all done.\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 41516
+     }
+    ],
+    "snapshots": {
+     "vr1": [
+      {
+       "id": "46902968-9e8a-453c-bdea-c7f3595ca658",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "He promised Vinesh he would send a proposal; deadline is Thursday of this week.",
+       "timing": "Thursday (2026-10-22)",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:36:00.587083",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:36:00.587042",
+       "linked": []
+      }
+     ],
+     "vr2": [
+      {
+       "id": "46902968-9e8a-453c-bdea-c7f3595ca658",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "He promised Vinesh he would send a proposal. Vinesh moved the review from Thursday to Friday morning (Fri 2026-10-23); the proposal must be sent before that review. Ana sent the numbers for it.",
+       "timing": "Send before the review on Friday morning, Fri 2026-10-23",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:37:01.289510",
+       "waiting_on": "",
+       "question": "\"Friday morning\" - by what time does the proposal need to be in?",
+       "expected_time": "08:00",
+       "time_basis": "assumed",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:36:00.587042",
+       "linked": []
+      }
+     ],
+     "vr3": [
+      {
+       "id": "46902968-9e8a-453c-bdea-c7f3595ca658",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "He promised Vinesh he would send a proposal. Vinesh moved the review from Thursday to Friday morning (Fri 2026-10-23); the proposal must be sent before that review. Ana sent the numbers for it. Sent Mon 2026-10-19 morning, before the Friday review.",
+       "timing": "Send before the review on Friday morning, Fri 2026-10-23",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:38:14.508627",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "08:00",
+       "time_basis": "assumed",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:36:00.587042",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "46902968-9e8a-453c-bdea-c7f3595ca658",
+      "key": "send-proposal-to-vinesh",
+      "kind": "commitment",
+      "title": "Send proposal to Vinesh",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "He promised Vinesh he would send a proposal. Vinesh moved the review from Thursday to Friday morning (Fri 2026-10-23); the proposal must be sent before that review. Ana sent the numbers for it. Sent Mon 2026-10-19 morning, before the Friday review.",
+      "timing": "Send before the review on Friday morning, Fri 2026-10-23",
+      "expected_date": "2026-10-23",
+      "updated_at": "2026-10-20T15:38:14.508627",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "08:00",
+      "time_basis": "assumed",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T15:36:00.587042",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "proposal recorded with its Thursday deadline",
+      "at": "vr1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "a moved review does NOT close the proposal; Friday is recorded somewhere",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Friday recorded (date 2026-10-23 or the word Friday) on a vinesh/review row",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal done exactly once, date kept (Thursday or the moved Friday), never today",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "no stray open rows about the finished proposal",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "bounded size (no junk rows)",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "vinesh-reschedule",
+    "rep": 2
+   },
+   {
+    "owner": "world:lab:rel-vinesh-reschedule-3-10717",
+    "runs": [
+     {
+      "sid": "vr1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Created record from the person's own words; deadline Thu 2026-10-22."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created one new commitment record: \"Send proposal to Vinesh\" \u2014 promised to Vinesh, deadline Thursday 2026-10-22, open, importance 3.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Proposal for Vinesh by Thursday",
+        "timing": "\"by Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "the proposal being completed and sent"
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "finish"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 63778
+     },
+     {
+      "sid": "vr2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Review moved to Friday morning 2026-10-23; status remains open with the open readiness question preserved."
+       },
+       {
+        "obs": 2,
+        "treatment": "skipped",
+        "key": null,
+        "note": "No tracked record waited on Ana's numbers; 'Ana finally sent the numbers' is a one-off event with no operational matter or deadline in this session's transcript."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated the Vinesh proposal review from Thursday 2026-10-22 to Friday morning 2026-10-23. No existing record tracked the awaited numbers from Ana, so that one-off delivery needed no record.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"Friday morning\"",
+        "changed": "Review moved from Thursday to Friday morning.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "The proposal itself being ready"
+       },
+       {
+        "title": "Ana sent the numbers",
+        "timing": "(not specified by the person's own words beyond \"finally\")",
+        "changed": null,
+        "resolved": "The wait for Ana's numbers is over \u2014 \"Ana finally sent the numbers.\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": "(none \u2014 numbers have arrived)"
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "search"
+       ],
+       [
+        "list_open",
+        "search",
+        "search"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 94710
+     },
+     {
+      "sid": "vr3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Set status to done; evidence: 'Sent the Vinesh proposal this morning, all done.'"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Closed the \"Send proposal to Vinesh\" commitment \u2014 the person confirmed they sent it this morning (Monday 2026-10-19). No other open records remain.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"this morning\"",
+        "changed": null,
+        "resolved": "\"Sent the Vinesh proposal this morning, all done.\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "history"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 50771
+     }
+    ],
+    "snapshots": {
+     "vr1": [
+      {
+       "id": "06a2c489-8a36-4e06-ace9-1d7347c37ec0",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Promised Vinesh a proposal; content and status unknown \u2014 not yet confirmed as drafted. Promise to Vinesh; a deadline is set.",
+       "timing": "By Thursday 2026-10-22",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:38:59.854953",
+       "waiting_on": "",
+       "question": "Is the proposal ready or still being drafted? What does it concern?",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:38:59.854928",
+       "linked": []
+      }
+     ],
+     "vr2": [
+      {
+       "id": "06a2c489-8a36-4e06-ace9-1d7347c37ec0",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Promised Vinesh a proposal; still being drafted, not yet confirmed as complete. Vinesh moved the review from Thursday 2026-10-22 to Friday morning 2026-10-23.",
+       "timing": "Review Friday morning 2026-10-23",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:40:16.675138",
+       "waiting_on": "",
+       "question": "Is the proposal ready or still being drafted? What does it concern?",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:38:59.854928",
+       "linked": []
+      }
+     ],
+     "vr3": [
+      {
+       "id": "06a2c489-8a36-4e06-ace9-1d7347c37ec0",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Proposal was promised to Vinesh and has now been sent (this morning, Monday 2026-10-19). The review was moved to Friday morning 2026-10-23.",
+       "timing": "Review Friday morning 2026-10-23",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:41:45.260632",
+       "waiting_on": "",
+       "question": "Is the proposal ready or still being drafted? What does it concern?",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:38:59.854928",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "06a2c489-8a36-4e06-ace9-1d7347c37ec0",
+      "key": "send-proposal-to-vinesh",
+      "kind": "commitment",
+      "title": "Send proposal to Vinesh",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "Proposal was promised to Vinesh and has now been sent (this morning, Monday 2026-10-19). The review was moved to Friday morning 2026-10-23.",
+      "timing": "Review Friday morning 2026-10-23",
+      "expected_date": "2026-10-23",
+      "updated_at": "2026-10-20T15:41:45.260632",
+      "waiting_on": "",
+      "question": "Is the proposal ready or still being drafted? What does it concern?",
+      "expected_time": "",
+      "time_basis": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T15:38:59.854928",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "proposal recorded with its Thursday deadline",
+      "at": "vr1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "a moved review does NOT close the proposal; Friday is recorded somewhere",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Friday recorded (date 2026-10-23 or the word Friday) on a vinesh/review row",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal done exactly once, date kept (Thursday or the moved Friday), never today",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "no stray open rows about the finished proposal",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "bounded size (no junk rows)",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "vinesh-reschedule",
+    "rep": 3
+   },
+   {
+    "owner": "world:lab:rel-vinesh-reschedule-4-10722",
+    "runs": [
+     {
+      "sid": "vr1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "proposal-submission-to-vinesh",
+        "note": "Created as open deadline, due 2026-10-22."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created one open deadline: proposal to be sent to Vinesh by Thursday 2026-10-22.",
+      "touched": [
+       "proposal-submission-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Proposal submission to Vinesh",
+        "timing": "\"by Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "none stated"
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 79656
+     },
+     {
+      "sid": "vr2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "proposal-submission-to-vinesh",
+        "note": "Review moved to Friday 2026-10-23 morning; updated expected_date, timing, detail, and question."
+       },
+       {
+        "obs": 2,
+        "treatment": "no_change",
+        "key": "proposal-submission-to-vinesh",
+        "note": "Ana's numbers arrived (that wait ended) and they were likely input to this matter; record already reflects the proposal still being outstanding pending Friday's review \u2014 no separate record or change r"
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated the Vinesh proposal record to reflect the review moving to Friday 2026-10-23 morning (expected_date moved to 2026-10-23, timing/detail/question refreshed). Ana's numbers have arrived; no separate tracked record existed for them, so no standalone change was made.",
+      "touched": [
+       "proposal-submission-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Proposal submission to Vinesh",
+        "timing": "\"Friday morning\"",
+        "changed": "The review meeting was moved to Friday morning. Previously it was \"by Thursday 2026-10-22\" \u2014 now the review is Friday morning, implying submission must happen before then.",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting",
+        "waiting_on": "Vinesh for the review"
+       },
+       {
+        "title": "Ana sending the numbers",
+        "timing": "(implied recent, no specific time given)",
+        "changed": "The awaited numbers have now arrived.",
+        "resolved": "The waiting for Ana's numbers is over \u2014 \"Ana finally sent the numbers.\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": "none \u2014 delivered"
+       }
+      ],
+      "trace": [
+       [
+        "list_open",
+        "search",
+        "search"
+       ],
+       [
+        "search"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 117545
+     },
+     {
+      "sid": "vr3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "proposal-submission-to-vinesh",
+        "note": "Closed as done; proposal sent Mon 2026-10-19 morning, evidence quoted from transcript."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Closed the open \"Proposal submission to Vinesh\" commitment (proposal-submission-to-vinesh) as done: the person confirmed \"Sent the Vinesh proposal this morning, all done.\" Sent Monday 2026-10-19 morning; the Friday 2026-10-23 review was a sub-element of this same matter, not a separate record.",
+      "touched": [
+       "proposal-submission-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Proposal submission to Vinesh",
+        "timing": "\"this morning\" (Monday 2026-10-19)",
+        "changed": null,
+        "resolved": "\"Sent the Vinesh proposal this morning, all done.\" \u2014 the proposal has been sent, the matter is closed.",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "list_open",
+        "search"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 0,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 50771
+     }
+    ],
+    "snapshots": {
+     "vr1": [
+      {
+       "id": "8f9a4119-a52f-4123-b373-51394860b988",
+       "key": "proposal-submission-to-vinesh",
+       "kind": "commitment",
+       "title": "Proposal submission to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "He promised to send a proposal to Vinesh. No details on content or format known.",
+       "timing": "by Thursday 2026-10-22",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:39:20.653944",
+       "waiting_on": "",
+       "question": "What is the proposal for? What format?",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:39:20.653915",
+       "linked": []
+      }
+     ],
+     "vr2": [
+      {
+       "id": "8f9a4119-a52f-4123-b373-51394860b988",
+       "key": "proposal-submission-to-vinesh",
+       "kind": "commitment",
+       "title": "Proposal submission to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "He promised to send a proposal to Vinesh. No details on content or format known. Vinesh has moved the review to Friday 2026-10-23 morning; the proposal is still due before that review.",
+       "timing": "Review meeting Friday 2026-10-23 morning; proposal still due before the review (no separate fixed date).",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:40:35.748118",
+       "waiting_on": "",
+       "question": "What is the proposal for? What format? What exact time on Friday morning?",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:39:20.653915",
+       "linked": []
+      }
+     ],
+     "vr3": [
+      {
+       "id": "8f9a4119-a52f-4123-b373-51394860b988",
+       "key": "proposal-submission-to-vinesh",
+       "kind": "commitment",
+       "title": "Proposal submission to Vinesh",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "He promised to send a proposal to Vinesh. Sent Monday 2026-10-19 morning, completing the submission. Vinesh has the review Friday 2026-10-23 morning.",
+       "timing": "Sent Monday 2026-10-19 morning. Review meeting Friday 2026-10-23 morning.",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:42:30.899147",
+       "waiting_on": "",
+       "question": "",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:39:20.653915",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "8f9a4119-a52f-4123-b373-51394860b988",
+      "key": "proposal-submission-to-vinesh",
+      "kind": "commitment",
+      "title": "Proposal submission to Vinesh",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "He promised to send a proposal to Vinesh. Sent Monday 2026-10-19 morning, completing the submission. Vinesh has the review Friday 2026-10-23 morning.",
+      "timing": "Sent Monday 2026-10-19 morning. Review meeting Friday 2026-10-23 morning.",
+      "expected_date": "2026-10-23",
+      "updated_at": "2026-10-20T15:42:30.899147",
+      "waiting_on": "",
+      "question": "",
+      "expected_time": "",
+      "time_basis": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T15:39:20.653915",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "proposal recorded with its Thursday deadline",
+      "at": "vr1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "a moved review does NOT close the proposal; Friday is recorded somewhere",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Friday recorded (date 2026-10-23 or the word Friday) on a vinesh/review row",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal done exactly once, date kept (Thursday or the moved Friday), never today",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "no stray open rows about the finished proposal",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "bounded size (no junk rows)",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "vinesh-reschedule",
+    "rep": 4
+   },
+   {
+    "owner": "world:lab:rel-vinesh-reschedule-5-10791",
+    "runs": [
+     {
+      "sid": "vr1",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Created the commitment record from the person's own statement; deadline fixed to the coming Thursday 2026-10-22."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Created one record: commitment to send proposal to Vinesh, due by Thursday 2026-10-22, open, importance 3, with open question on content/format.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Proposal to Vinesh",
+        "timing": "\"Thursday\"",
+        "changed": null,
+        "resolved": null,
+        "ended": null,
+        "status_hint": "none",
+        "waiting_on": "nothing stated"
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 53878
+     },
+     {
+      "sid": "vr2",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Updated detail/timing with Ana's numbers arriving and review moved to Fri 23 Oct 2026 morning; deadline 22 Oct unchanged."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Updated send-proposal-to-vinesh: Ana sent the numbers (unblocked) and Vinesh moved the review to Friday 23 Oct 2026 morning. Deadline stays Thursday 22 Oct 2026; status open.",
+      "touched": [
+       "send-proposal-to-vinesh"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"by Thursday\" (proposal due); \"Friday morning\" (review)",
+        "changed": "Vinesh moved the review from the original day to Friday morning; Ana sent the numbers that were awaited",
+        "resolved": null,
+        "ended": null,
+        "status_hint": "waiting (on nothing now \u2014 ready to work on proposal)",
+        "waiting_on": "none now"
+       }
+      ],
+      "trace": [
+       [
+        "search",
+        "list_open"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 0,
+       "updated": 1,
+       "closed": 0,
+       "agent_owned": true
+      },
+      "ms": 68458
+     },
+     {
+      "sid": "vr3",
+      "status": "consolidated",
+      "agent_status": "verified",
+      "accounting": [
+       {
+        "obs": 1,
+        "treatment": "applied",
+        "key": "send-proposal-to-vinesh",
+        "note": "Closed the send-proposal commitment as done using the person's own words as evidence."
+       },
+       {
+        "obs": 0,
+        "treatment": "applied",
+        "key": "vinesh-reviews-proposal",
+        "note": "Split out the Vinesh review (Friday 23 Oct 2026 morning) into its own watching event; it was folded into the send-proposal detail previously and is now the live thread."
+       }
+      ],
+      "gate_failures": [],
+      "agent_summary": "Closed the \"Send proposal to Vinesh\" commitment (done) on the person's confirmation \"Sent the Vinesh proposal this morning, all done.\" Preserved the now-live Vinesh review thread as a separate watching event on Friday 23 Oct 2026 (time unknown, marked assumed 09:00 with the open question visible).",
+      "touched": [
+       "send-proposal-to-vinesh",
+       "vinesh-reviews-proposal"
+      ],
+      "witness": [
+       {
+        "title": "Send proposal to Vinesh",
+        "timing": "\"this morning\"",
+        "changed": null,
+        "resolved": "\"all done\"",
+        "ended": true,
+        "status_hint": null,
+        "waiting_on": null
+       }
+      ],
+      "trace": [
+       [
+        "search"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "history"
+       ],
+       [
+        "update_item"
+       ],
+       [
+        "search"
+       ],
+       [
+        "create_item"
+       ],
+       [
+        "list_open"
+       ],
+       [
+        "finish"
+       ]
+      ],
+      "fallback": false,
+      "needs_review": null,
+      "counts": {
+       "added": 1,
+       "updated": 0,
+       "closed": 1,
+       "agent_owned": true
+      },
+      "ms": 102709
+     }
+    ],
+    "snapshots": {
+     "vr1": [
+      {
+       "id": "f97632dc-2371-461a-9145-4a2e79d157bb",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Promised Vinesh he would send the proposal by Thursday; Sophie has been told \"Thursday\" as the deadline. No content or format of the proposal known.",
+       "timing": "By Thursday, 22 Oct 2026 (he said \"by Thursday\"; today is Mon 19 Oct 2026, so the coming Thursday)",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:40:18.524039",
+       "waiting_on": "",
+       "question": "What content/format is expected for the proposal?",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:40:18.524006",
+       "linked": []
+      }
+     ],
+     "vr2": [
+      {
+       "id": "f97632dc-2371-461a-9145-4a2e79d157bb",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "open",
+       "confidence": "observed",
+       "detail": "Promised Vinesh he would send the proposal by Thursday 22 Oct 2026; Vinesh moved the review of the proposal to Friday 23 Oct 2026 morning. Ana sent the numbers needed, so work is no longer blocked. No content or format of the proposal known.",
+       "timing": "By Thursday 22 Oct 2026 (deadline). Review moved to Friday 23 Oct 2026 morning.",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:41:14.575501",
+       "waiting_on": "",
+       "question": "What content/format is expected for the proposal?",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:40:18.524006",
+       "linked": []
+      }
+     ],
+     "vr3": [
+      {
+       "id": "f97632dc-2371-461a-9145-4a2e79d157bb",
+       "key": "send-proposal-to-vinesh",
+       "kind": "commitment",
+       "title": "Send proposal to Vinesh",
+       "status": "done",
+       "confidence": "observed",
+       "detail": "Promised Vinesh he would send the proposal by Thursday 22 Oct 2026; Vinesh moved the review of the proposal to Friday 23 Oct 2026 morning. Ana sent the numbers needed, so work is no longer blocked. No content or format of the proposal known.",
+       "timing": "By Thursday 22 Oct 2026 (deadline). Review moved to Friday 23 Oct 2026 morning.",
+       "expected_date": "2026-10-22",
+       "updated_at": "2026-10-20T15:42:24.621779",
+       "waiting_on": "",
+       "question": "What content/format is expected for the proposal?",
+       "expected_time": "",
+       "time_basis": "",
+       "time_zone": "Europe/London",
+       "time_role": "deadline",
+       "importance": 3,
+       "created_at": "2026-10-20T15:40:18.524006",
+       "linked": []
+      },
+      {
+       "id": "5533d39d-0431-4d97-99b7-fee5566a35f8",
+       "key": "vinesh-reviews-proposal",
+       "kind": "event",
+       "title": "Vinesh reviews proposal",
+       "status": "watching",
+       "confidence": "inferred",
+       "detail": "The proposal was sent to Vinesh on Monday 19 Oct 2026 morning (all done). Vinesh moved the review of the proposal to Friday 23 Oct 2026 morning; that review is the live thread now.",
+       "timing": "Review on Friday 23 Oct 2026 morning.",
+       "expected_date": "2026-10-23",
+       "updated_at": "2026-10-20T15:42:31.013077",
+       "waiting_on": "",
+       "question": "What time on Friday 23 Oct morning is the review?",
+       "expected_time": "09:00",
+       "time_basis": "assumed",
+       "time_zone": "Europe/London",
+       "time_role": "happens",
+       "importance": 2,
+       "created_at": "2026-10-20T15:42:31.013048",
+       "linked": []
+      }
+     ]
+    },
+    "ledger": [
+     {
+      "id": "f97632dc-2371-461a-9145-4a2e79d157bb",
+      "key": "send-proposal-to-vinesh",
+      "kind": "commitment",
+      "title": "Send proposal to Vinesh",
+      "status": "done",
+      "confidence": "observed",
+      "detail": "Promised Vinesh he would send the proposal by Thursday 22 Oct 2026; Vinesh moved the review of the proposal to Friday 23 Oct 2026 morning. Ana sent the numbers needed, so work is no longer blocked. No content or format of the proposal known.",
+      "timing": "By Thursday 22 Oct 2026 (deadline). Review moved to Friday 23 Oct 2026 morning.",
+      "expected_date": "2026-10-22",
+      "updated_at": "2026-10-20T15:42:24.621779",
+      "waiting_on": "",
+      "question": "What content/format is expected for the proposal?",
+      "expected_time": "",
+      "time_basis": "",
+      "time_zone": "Europe/London",
+      "time_role": "deadline",
+      "importance": 3,
+      "created_at": "2026-10-20T15:40:18.524006",
+      "linked": []
+     },
+     {
+      "id": "5533d39d-0431-4d97-99b7-fee5566a35f8",
+      "key": "vinesh-reviews-proposal",
+      "kind": "event",
+      "title": "Vinesh reviews proposal",
+      "status": "watching",
+      "confidence": "inferred",
+      "detail": "The proposal was sent to Vinesh on Monday 19 Oct 2026 morning (all done). Vinesh moved the review of the proposal to Friday 23 Oct 2026 morning; that review is the live thread now.",
+      "timing": "Review on Friday 23 Oct 2026 morning.",
+      "expected_date": "2026-10-23",
+      "updated_at": "2026-10-20T15:42:31.013077",
+      "waiting_on": "",
+      "question": "What time on Friday 23 Oct morning is the review?",
+      "expected_time": "09:00",
+      "time_basis": "assumed",
+      "time_zone": "Europe/London",
+      "time_role": "happens",
+      "importance": 2,
+      "created_at": "2026-10-20T15:42:31.013048",
+      "linked": []
+     }
+    ],
+    "checks": [
+     {
+      "name": "proposal recorded with its Thursday deadline",
+      "at": "vr1",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "a moved review does NOT close the proposal; Friday is recorded somewhere",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "Friday recorded (date 2026-10-23 or the word Friday) on a vinesh/review row",
+      "at": "vr2",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "proposal done exactly once, date kept (Thursday or the moved Friday), never today",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "no stray open rows about the finished proposal",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     },
+     {
+      "name": "bounded size (no junk rows)",
+      "at": "vr3",
+      "pass": true,
+      "notes": []
+     }
+    ],
+    "fixture": "vinesh-reschedule",
+    "rep": 5
+   }
+  ]
+ }
+}

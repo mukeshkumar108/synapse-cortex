@@ -46,7 +46,9 @@ def select_rows(ledger, sel):
     title only (a separate row that merely MENTIONS a matter in its detail is not that matter)."""
     if "title_any" in sel:
         needles = [n.lower() for n in sel["title_any"]]
-        return [r for r in ledger if any(n in str(r.get("title") or "").lower() for n in needles)]
+        skip = [n.lower() for n in sel.get("exclude_title_any", [])]
+        return [r for r in ledger if any(n in str(r.get("title") or "").lower() for n in needles)
+                and not any(x in str(r.get("title") or "").lower() for x in skip)]
     needles = [n.lower() for n in sel.get("any", [])]
     return [r for r in ledger if any(n in _text(r).lower() for n in needles)]
 
@@ -71,6 +73,16 @@ def check_one(exp, ledger):
             bad = [f"{r.get('title')!r} date={r.get('expected_date')}" for r in rows if r.get("expected_date") not in exp["date_in"]]
             if bad:
                 notes.append(f"expected_date not in {exp['date_in']}: " + "; ".join(bad))
+        for trig, req in (exp.get("when_set") or {}).items():
+            for r in rows:
+                if (r.get(trig) or "") != "":
+                    for fname, allowed in req.items():
+                        if (r.get(fname) or "") not in allowed:
+                            notes.append(f"{r.get('title')!r} has {trig}={r.get(trig)!r} but {fname}={r.get(fname)!r} (must be {allowed})")
+        for fname, allowed in (exp.get("fields") or {}).items():
+            bad = [f"{r.get('title')!r} {fname}={r.get(fname)!r}" for r in rows if (r.get(fname) or "") not in allowed]
+            if bad:
+                notes.append(f"{fname} not in {allowed}: " + "; ".join(bad))
         if exp.get("kind"):
             bad = [f"{r.get('title')!r} kind={r.get('kind')}" for r in rows if r.get("kind") != exp["kind"]]
             if bad:
@@ -113,6 +125,41 @@ def run_fixture(name, fix, rep):
     return {"owner": owner, "runs": runs, "snapshots": snapshots, "ledger": snapshots[fix["sessions"][-1][0]]}
 
 
+def section(text, heading):
+    """The block under a heading line (a line at column 0 ending with ':') in the rendered operational picture."""
+    out, on = [], False
+    for ln in text.splitlines():
+        if ln and not ln.startswith(("-", " ", "[")) and ln.rstrip().endswith(":"):
+            on = ln.rstrip().startswith(heading)
+            continue
+        if on:
+            out.append(ln)
+    return "\n".join(out)
+
+
+def check_views(fix, owner):
+    notes = []
+    for v in fix.get("views", []):
+        r = api(f"/v1/memory/ledger?workspace_id={WS}&owner={owner}&companion_id=sophie&time_zone={TZ}&now={v['now'].replace('+', '%2B')}", method="GET")
+        for head, needles in (v.get("in") or {}).items():
+            blk = section(r["text"], head)
+            for n in needles:
+                if n.lower() not in blk.lower():
+                    notes.append(f"@{v['now'][11:16]} '{head}' lacks {n!r}")
+        for head, needles in (v.get("not_in") or {}).items():
+            blk = section(r["text"], head)
+            for n in needles:
+                if n.lower() in blk.lower():
+                    notes.append(f"@{v['now'][11:16]} '{head}' wrongly has {n!r}")
+    rg = fix.get("range")
+    if rg:
+        r = api(f"/v1/memory/ledger?workspace_id={WS}&owner={owner}&companion_id=sophie&time_zone={TZ}&view=range&period={rg['period']}&now={rg['now'].replace('+', '%2B')}", method="GET")
+        for n in rg["contains"]:
+            if n.lower() not in r["text"].lower():
+                notes.append(f"week schedule lacks {n!r}")
+    return notes
+
+
 def evaluate(fix, res):
     last = fix["sessions"][-1][0]
     out = []
@@ -120,6 +167,11 @@ def evaluate(fix, res):
         at = exp.get("at", last)
         ok, notes = check_one(exp, res["snapshots"].get(at, []))
         out.append({"name": exp["name"], "at": at, "pass": ok, "notes": notes})
+    if fix.get("views") or fix.get("range"):
+        vn = res.get("view_notes")
+        if vn is None:
+            vn = ["views not evaluated"]
+        out.append({"name": "deterministic views at six clock times + weekly schedule", "at": last, "pass": not vn, "notes": vn})
     return out
 
 
@@ -128,6 +180,9 @@ def one(args):
     fix = FIXTURES[name]
     try:
         res = run_fixture(name, fix, rep)
+        if fix.get("views") or fix.get("range"):
+            res["view_notes"] = check_views(fix, res["owner"])
+            res["views_text"] = api(f"/v1/memory/ledger?workspace_id={WS}&owner={res['owner']}&companion_id=sophie&time_zone={TZ}&now=2026-10-20T14:30:00%2B01:00", method="GET")["text"]
         res["checks"] = evaluate(fix, res)
     except Exception as e:  # a harness/infra failure is reported, never counted as a pass
         res = {"error": f"{type(e).__name__}: {str(e)[:300]}", "checks": [

@@ -108,7 +108,7 @@ Write tagged lines, one per line. Tags (use only these):
 - ITEM: short human title of the THING ITSELF — the appointment, the promise, the wait, the plan — never the open question about it ("Dentist appointment", not "Dentist time confirmation"). When you observe an open situation listed above, use its title.
 - KIND: one of commitment/event/thread/situation/reminder/aspiration/invitation/concern/routine/experiment (best fit, never forced)
 - DETAIL: circumstance, terms, what is known AND unknown
-- TIMING: timing in the person's own words ("Thursday", "for two weeks", "someday")
+- TIMING: timing in the person's own words, VERBATIM ("Thursday", "at 6", "for two weeks", "someday") — it is evidence, so add nothing they did not say. If you have a reading (e.g. "at 6" is probably the evening), put it in DETAIL as your inference ("likely 6pm — am/pm not stated"), never in TIMING.
 - PERSON: someone connected (who + how: owes, waits on, invited by, promised to)
 - BLOCKED-BY: what stands in the way, if anything
 - WAITING-ON: who/what is awaited, if anything
@@ -157,6 +157,12 @@ SOPHIE = ProductMemory(
     preparation_label="SOPHIE PREPARED PERSPECTIVE", default_time_zone="Europe/London")
 product_memory.register(SOPHIE)
 from src.services import bloom_memory  # noqa: E402,F401  (registers the Bloom product)
+
+
+def _ledger_models() -> List[str]:
+    """The witness that reads a session for operational matters. Its own setting (MEMORY_LEDGER_MODELS) so the extractor can be
+    stronger than the notebook/arc writers; absent, it is exactly the discovery model as before."""
+    return _models("MEMORY_LEDGER_MODELS", os.getenv("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
 
 
 def _models(env: str, default: str) -> List[str]:
@@ -235,8 +241,8 @@ def _apply_witness_tag(current: Dict[str, Any], tag: str, value: str) -> None:
         current["reminder_authorised"] = True
         if value:
             current["detail"] = ((current.get("detail") or "") + " " + value).strip()
-    elif tag in ("ENDED", "RESOLVED", "CHANGED") and not _clean(value, 400):
-        return                           # "ENDED: (none)" says nothing happened; it must never close a matter
+    elif tag in ("ENDED", "RESOLVED", "CHANGED") and (not _clean(value, 400) or re.fullmatch(r"\s*[\(\[].*[\)\]]\s*", value or "")):
+        return                           # "ENDED: (none)" / "(leave out — not ended)": a placeholder is never proof; it must not close a matter
     elif tag == "ENDED":
         current["resolved"] = value      # `resolved` carries the proof text for closing paths
         current["ended"] = True
@@ -264,10 +270,23 @@ def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         if current and t and t.lower() not in ("none", "n/a", "no change", "no changes", "nothing", "nothing new"):
             items.append(current)
 
-    for raw_line in (raw or "").splitlines():
+    raw_lines = (raw or "").splitlines()
+
+    def _is_tag_line(text: str) -> bool:
+        mm = re.match(r"^\s*(?:[-*•]|\d+[.)])?\s*([A-Za-z-]+)\s*:", text)
+        return bool(mm and mm.group(1).upper() in _SIT_TAGS)
+
+    prev_blank = True
+    for idx, raw_line in enumerate(raw_lines):
         line = re.sub(r"^(\s*([-*•]|\d+[.)])\s+)+", "", raw_line.strip())
         if not line or line.upper() == "NONE":
+            prev_blank = True
             continue
+        # Format drift: a title line with no ITEM: prefix that opens a block of tagged lines is an implicit ITEM.
+        nxt = next((l for l in raw_lines[idx + 1:] if l.strip()), "")
+        if prev_blank and not _is_tag_line(line) and _is_tag_line(nxt) and len(line) <= 160 and not line.startswith(("#", "---")):
+            line = f"ITEM: {line.strip('*_ ')}"
+        prev_blank = False
         # A bare marker written ahead of the item on the same line ("REMINDER-AUTHORISED: ITEM: Call Mum"):
         # honour the marker, then parse the rest of the line normally.
         while True:
@@ -819,6 +838,8 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
                     "expected_date": i.expected_date.strftime("%Y-%m-%d") if i.expected_date else None,
                     "updated_at": i.updated_at.isoformat() if i.updated_at else None,
                     "waiting_on": i.waiting_on, "question": i.question_text,
+                    "expected_time": i.expected_time, "time_basis": i.time_basis, "time_zone": i.time_zone, "time_role": i.time_role, "importance": i.importance,
+                    "created_at": i.created_at.isoformat() if i.created_at else None,
                     "linked": (json.loads(i.linked_keys_json) if (i.linked_keys_json or "").startswith("[") else [])}
                    for i in ledger],
         "arc": {"version": arc.version, "text": arc.text},
@@ -881,8 +902,11 @@ def build_observations(witness: List[Dict[str, Any]], today: Any) -> Tuple[str, 
     changed, what ended — so uncertainty and evidence survive the hand-off."""
     from datetime import timedelta as _td
     day_ref = ", ".join(f"{(today + _td(days=i)).strftime('%A')} {(today + _td(days=i)).isoformat()}" for i in range(8))
+    past_ref = ", ".join(f"{(today - _td(days=i)).strftime('%A')} {(today - _td(days=i)).isoformat()}" for i in range(1, 8))
     header = (f"Date reference (the person's local calendar): today {today.strftime('%A')} {today.isoformat()}; "
-              f"this week: {day_ref}. Use these exact ISO dates for expected_date.")
+              f"coming days: {day_ref}. Past days: {past_ref}. Use these exact ISO dates for expected_date. "
+              f"Weekday names in the annotations below point FORWARD; when the person speaks of a day in the past tense "
+              f"(\"was due on Sunday\", \"last Friday\"), use the matching day from the past list.")
     lines = [header]
     for n, it in enumerate(witness, 1):
         conf = _clean(it.get("confidence"), 20) or "reported"
@@ -1124,7 +1148,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                     .replace("{tz}", clock["tz"]).replace("{transcript}", transcript)
                     .replace("{findings}", findings or handoff_text))
 
-        extract = await _generate("ledger", _extract_prompt(), 1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
+        extract = await _generate("ledger", _extract_prompt(), 1000, _ledger_models())
         bundle["ledger_extract"] = extract or {"skipped": True}
         raw_extract = str((extract or {}).get("text") or "")
         witness, unparsed = parse_tagged_lines(raw_extract)
@@ -1133,9 +1157,9 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
             # parseable) yet the session notes describe real developments. One
             # retry with an explicit nudge before letting the session go unwritten.
             retry = await _generate("ledger", _extract_prompt() + "\n\nYou replied NONE, but the session notes above describe "
-                "concrete developments. Look again and report every ITEM with its tags — never reply NONE when "
+                "concrete developments. Look again and report every ITEM with its tags — each item starts with a line 'ITEM: <title>'; never reply NONE when "
                 "commitments, deadlines, schedule changes, approvals or completions appear.",
-                1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
+                1000, _ledger_models())
             if retry and str(retry.get("text") or "").strip():
                 bundle["ledger_extract_retry"] = {"model": retry.get("model"), "ms": retry.get("ms")}
                 raw_extract = str(retry.get("text") or "")
@@ -1191,6 +1215,36 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
     bundle["ledger_added"] = counts.get("added", 0)
     bundle["ledger_counts"] = counts
 
+    # Connected understanding: who and what this person's world is about, and how it connects. A separate pass AFTER the ledger so a
+    # failure here can never affect operational records. Off unless the deployment flag is set (it writes new kinds of personal data).
+    from src.config import settings as _settings
+    if _settings.CONNECTED_WORLD_ENABLED and cfg.world_enabled and sitting_kind != "independent" and len(transcript) >= 120:
+        try:
+            from src.db import async_session_maker
+            from src.services import world_agent
+            await db.commit()                         # the main pipeline's work is durable before the isolated pass starts
+            touched = set((agent_out.get("touched_keys") or []))
+            open_rows = await open_ledger(db, workspace_id, owner, limit=60)
+            ledger_ctx = "\n".join(f"- key={i.situation_key} | {i.title} | {i.status}{' | touched this session' if i.situation_key in touched else ''}"
+                                   for i in open_rows if i.situation_key)
+            for key in touched:
+                if not any(i.situation_key == key for i in open_rows):
+                    ledger_ctx += f"\n- key={key} | (closed this session) | touched this session"
+            run_id_value = run.id
+            # Its own session: whatever happens inside (tool errors, rollbacks, a crash) cannot disturb this consolidation.
+            async with async_session_maker() as wdb:
+                w_out = await world_agent.run(wdb, workspace_id=workspace_id, owner=owner, session_id=session_id, run_id=run_id_value, transcript=transcript,
+                                              ledger_context=ledger_ctx, time_zone=clock["tz"], person_label=cfg.user_label,
+                                              date_reference=f"Today is {clock['weekday']} {today} (the person's local date)")
+            bundle["world_agent"] = {k: v for k, v in w_out.items() if k != "calls"}
+            bundle["world_agent_calls"] = w_out.get("calls", [])
+        except Exception as exc:                      # the connected layer never costs the session its other results
+            logger.warning("[memory] connect pass failed open: %s", exc)
+            bundle["world_agent"] = {"status": "failed", "error": type(exc).__name__}
+    else:
+        bundle["world_agent"] = {"status": "skipped", "reason": "disabled for this deployment/product/sitting" if not _settings.CONNECTED_WORLD_ENABLED
+                                 or not cfg.world_enabled or sitting_kind == "independent" else "transcript too short"}
+
     # End-of-sitting attention: due-scan always (deterministic, cheap); review
     # only when the product uses it and something actually changed.
     from src.services import attention_cycle
@@ -1198,7 +1252,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         bundle["attention_due"] = await attention_cycle.mark_due(
             db, workspace_id=workspace_id, owner=owner)
         ledger_touched = bool(witness) or any(
-            (counts or {}).get(k, 0) for k in ("added", "updated", "closed"))
+            (counts or {}).get(k, 0) for k in ("added", "updated", "closed")) or bool((bundle.get("world_agent") or {}).get("wrote"))
         if cfg.attention_enabled and ledger_on and ledger_touched:
             review = await attention_cycle.run_attention_review(
                 db, workspace_id=workspace_id, owner=owner, today_utc=today, time_zone=clock["tz"],
@@ -1254,12 +1308,11 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
     ledger = await open_ledger(db, workspace_id, owner)
     arc = await get_arc(db, workspace_id, owner, cfg)
     notebook_text = "\n\n".join(f"## {cfg.page_titles[k]}\n{pages[k].text}" for k in cfg.pages)
+    # The prepared notes are relational context. Dated operational facts (when, how soon, what is overdue) belong to the
+    # deterministic operational awareness the Runtime composes from the same records, so the notes see only WHAT is open
+    # (title, status, who is awaited), never dates, times or details they could restate or contradict.
     ledger_text = "\n".join(
-        f"- [{i.kind}|{i.status}|{i.confidence}] {i.title}"
-        f"{(' | ' + i.detail) if i.detail else ''}"
-        f"{(' | timing: ' + i.timing_text) if i.timing_text else ''}"
-        f"{(' | waiting on: ' + i.waiting_on) if i.waiting_on else ''}"
-        f"{(' | open question: ' + i.question_text) if i.question_text else ''}"
+        f"- [{i.kind}|{i.status}] {i.title}{(' | waiting on: ' + i.waiting_on) if i.waiting_on else ''}"
         for i in ledger) or "(nothing open)"
     from src.services import attention_cycle as _attn
     attention_text = ("\n".join(await _attn.describe_attention(db, workspace_id=workspace_id, owner=owner))

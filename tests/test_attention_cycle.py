@@ -236,3 +236,58 @@ async def ac_tools(db, owner):
     from src.services import attention_cycle as ac
     r = await ac._tools(db, "wsA", owner, "schedule_action", {"intent": "Check in on the invoice", "matter": "invoice"})
     assert r["ok"]
+
+
+# ----------------------------------------------- situations (connected world) ----
+
+@pytest.mark.asyncio
+async def test_follow_ups_can_originate_from_a_situation_with_boundaries_expiry_and_engagement():
+    import uuid as _u
+    from datetime import datetime, timedelta
+    from sqlmodel import select
+    from src.models.known_world import CueExposure
+    from src.models.world import AttentionAction
+    from src.services import known_world as kw
+    ws, o = "wsS", f"u-{_u.uuid4().hex[:6]}"
+    async with async_session_maker() as db:
+        sit = await kw.create(db, ws, o, name="Niece's medical tests", kind="health", summary="Tests were Thursday; no result recorded", sensitive=True)
+        person = await kw.create(db, ws, o, name="Morgan", kind="person")
+        quiet = await kw.create(db, ws, o, name="Dad's health", kind="situation", summary="Unwell")
+        quiet.suppressed = True
+        await db.commit()
+        tz_t, now_t = attention_cycle._TZ_CTX.set("Europe/London"), attention_cycle._NOW_CTX.set(datetime(2026, 10, 20, 9, 0))
+        try:
+            listed = await attention_cycle._tools(db, ws, o, "list_situations", {})
+            assert {s["name"] for s in listed["situations"]} == {"Niece's medical tests", "Dad's health"}          # people are not situations
+            bad = await attention_cycle._tools(db, ws, o, "schedule_action", {"intent": "x", "source": "entity", "source_ref": str(person.id), "colour": "red"})
+            assert "unsupported argument(s) for schedule_action: colour" in bad["error"]                              # same interface discipline as the other agents
+            assert "live entity or situation" in (await attention_cycle._tools(db, ws, o, "schedule_action", {"intent": "x", "source": "entity", "source_ref": "nope"}))["error"]
+            assert "schedule nothing for it" in (await attention_cycle._tools(db, ws, o, "schedule_action", {"intent": "Ask about dad", "source": "entity", "source_ref": str(quiet.id)}))["error"]
+            assert "source must be" in (await attention_cycle._tools(db, ws, o, "schedule_action", {"intent": "x", "source": "ledger"}))["error"]
+            ok = await attention_cycle._tools(db, ws, o, "schedule_action", {"intent": "Ask how the tests went", "why": "tests were Thursday", "kind": "followup", "source": "entity",
+                                                                              "source_ref": str(sit.id), "due_at": "2026-10-23T18:00", "expires_at": "2026-10-30T18:00"})
+            assert ok["ok"] and ok["action"]["source"] == "entity" and ok["action"]["source_ref"] == str(sit.id) and ok["action"]["due_at"].startswith("2026-10-23T17:00")
+            dup = await attention_cycle._tools(db, ws, o, "schedule_action", {"intent": "Another", "source": "entity", "source_ref": str(sit.id)})
+            assert "already exists" in dup["error"]                                                                      # one live intention per situation
+            aid = ok["action"]["id"]
+            # the view shows the intention without copying the situation's facts anywhere
+            snap = (await kw.entity_view(db, ws, o, "Niece's medical tests", kw.Ctx(datetime(2026, 10, 20, 9, 0), "Europe/London"), "snapshot"))["text"]
+            assert "Follow-ups intended:\n- Ask how the tests went" in snap
+            # engagement is recorded apart from exposure
+            await attention_cycle._tools(db, ws, o, "record_event", {"event": "surfaced", "action": aid, "detail": "asked, they said it went fine"})
+            x = (await db.execute(select(CueExposure).where(CueExposure.owner_peer_id == o))).scalars().one()
+            assert x.source == "entity" and x.ref == str(sit.id) and x.engaged_at is not None and x.shown_count == 0
+            # a boundary set later wins over an already scheduled intention
+            assert [a["id"] for a in await attention_cycle.pending_attention(db, workspace_id=ws, owner=o)] == [aid]
+            sit.suppressed = True
+            await db.commit()
+            assert await attention_cycle.pending_attention(db, workspace_id=ws, owner=o) == []
+            sit.suppressed = False
+            await db.commit()
+            # past its expiry it simply stops appearing
+            assert await attention_cycle.mark_due(db, workspace_id=ws, owner=o, now=datetime(2026, 10, 31, 0, 0)) == []
+            row = (await db.execute(select(AttentionAction).where(AttentionAction.owner_peer_id == o))).scalars().one()
+            assert row.state == "expired"
+        finally:
+            attention_cycle._TZ_CTX.reset(tz_t)
+            attention_cycle._NOW_CTX.reset(now_t)

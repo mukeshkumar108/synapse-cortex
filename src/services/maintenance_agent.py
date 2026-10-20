@@ -24,7 +24,7 @@ import logging
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Set
 
 import httpx
@@ -42,7 +42,7 @@ FALLBACK_MODEL = os.getenv("MAINTENANCE_FALLBACK_MODEL", "openrouter:qwen/qwen3.
 MAX_ITERS = int(os.getenv("MAINTENANCE_MAX_ITERS", "14"))
 MAX_TOKENS = int(os.getenv("MAINTENANCE_MAX_TOKENS", "2500"))
 CALL_TIMEOUT_S = float(os.getenv("MAINTENANCE_TIMEOUT_S", "90"))
-MAX_FINISH_BOUNCES = 2
+MAX_FINISH_BOUNCES = 3
 
 CONTRACT = """You maintain one person's operational agenda. Goal and invariants:
 
@@ -54,16 +54,22 @@ Observations are numbered [O1], [O2]... They come from a witness who read the se
 
 How to act:
 - A CHANGED observation is an UPDATE to the existing record: write the new fact into detail and timing_text, set expected_date (YYYY-MM-DD) when a date or day is fixed or moved, clear question_text/waiting_on that the news answers, and return status waiting -> open the moment what was awaited has arrived. Confirming an appointment's time does not close the appointment. A moved review, meeting or deadline changes that record; it does not close or re-date other records unless the observation says they moved too.
+- An input arriving (a number, a reply, a file, a confirmation) updates what a matter is waiting on; it does not end the matter that depends on it. Close only the matter whose own outcome happened.
+- ENDED outranks STATUS-HINT: when an observation says the matter is over, close it; a waiting/watching hint on an ended matter is noise and must not keep it open.
 - Only an observation that says the matter itself is over closes anything. That is normally tagged ENDED, but the witness sometimes states a delivery or completion ("the proposal was sent", "approved") under CHANGED or in the detail: judge by the words, and a promised thing that has been done is over — close it with the person's own quote as evidence. Do not invent a new waiting state for a promise that was kept. Closing (done/cancelled) requires evidence quoting proof from this session's transcript; invented proof is rejected. When closing, keep the record's existing expected_date unless the session states a different explicit date — the day you process it is not the due date.
 - STATUS-HINT is the witness's reading of what the person said about this matter: apply it as the record's status when the transcript supports it (suppressed = the person asked not to be bothered about it for now; waiting = they are waiting on someone; watching = they are monitoring it). A suppressed matter keeps its own name — never rewrite it as an action like "Ignore X" — and keeps its place on the agenda.
 - waiting means you cannot progress until someone else supplies something. Self-reminders and to-dos are open (actionable by the person); watching is for external developments you monitor. Aspirations stay open.
 - Subtasks of a tracked matter fold into its detail; several observations about one matter fold into one record. Search before creating; create_item takes the complete state (status, expected_date, timing, waiting_on, question_text, confidence).
+- Structure the time. time_role: set "happens" for something that occurs at a time (appointment, meeting, call, event) and "deadline" for something the person must do by a time; leave it empty if unclear. You set it from the person's words; code never guesses it. expected_time: 24-hour HH:MM in the person's local time, with time_basis. Reason freely: if the person says "tomorrow at 6" you may take the likeliest reading (18:00) — but record WHAT YOU KNOW: time_basis "stated" when they gave the time unambiguously ("3pm", "15:30"), "assumed" when it is your reading ("at 6"). For an assumed time keep their exact words in timing_text and put the open question in question_text ("6 am or 6 pm?"). Never present an assumption as something they said. If you have no usable reading, leave expected_time empty. If a date moves and the time is not known, clear the old time with expected_time "". importance: 3 = real consequences if missed (medical, money, legal, a promise to someone), 1 = casual, otherwise 2.
+- Direction matters. A weekday the person speaks of in the past tense ("was due on Sunday", "last Friday") is a PAST date: take it from the past-days list in the date reference, never from the coming days.
+- Missing details are information. An appointment with an unknown time or place is still an appointment: record the date, and put what is missing in question_text ("what time?", "where?"). That is how it gets raised later. Clear question_text when it is answered.
 - Keep confidence honest: observed (they said it happened) / reported (they relayed it) / inferred (your read).
 - Records are read days later. In timing_text and detail never leave relative words ("today", "tonight", "tomorrow", "this morning", "next week") standing alone: write the named day and date and keep the person's own time-of-day words ("Tue 20 Oct 2026, at 6pm").
-- Never invent precision. A time of day the person gave without am/pm ("at 6") stays as they said it, flagged ("at 6, am/pm not stated"), and goes in question_text as an open question; do not turn it into 06:00 or 18:00.
+- Never assume the person's gender, or anyone's relationship to them that they did not state. Write "the person" or "they" (not he/she/him/her) for the person in titles and details; use a pronoun for someone else only if the person's words show it.
+- Reason freely, record uncertainty faithfully. A reasonable assumption (a call "at 6" is probably 18:00) is welcome; an assumption that looks like a fact is not. The person's own words, what you inferred, and what is still unresolved must all stay visible on the record.
 - If a tool call fails, read the error and adapt.
 
-VERIFY and ACCOUNT before finish: re-list the records after your last write and check field-by-field — intended status changes, every intended date in its expected_date field, no two open rows on the same matter. Then call finish with `accounting`: one entry per observation number (plus obs 0 entries for anything you added from the transcript) — treatment applied (you changed/created a record: give its key), merged (folded into another observation's record: give its key), no_change (a record already reflects it: give its key and a note) or skipped (not an operational matter: note why). A finish that leaves an observation unaccounted for, or names a record you did not touch, is refused."""
+VERIFY and ACCOUNT before finish: re-list the records after your last write and check field-by-field — intended status changes, every intended date in its expected_date field, no two open rows on the same matter. Then call finish with `transcript_sweep` (one line on anything in the transcript no observation covered) and `accounting`: one entry per observation number (plus obs 0 entries for anything you added from the transcript) — treatment applied (you changed/created a record: give its key), merged (folded into another observation's record: give its key), no_change (a record already reflects it: give its key and a note) or skipped (not an operational matter: note why). A finish that leaves an observation unaccounted for, or names a record you did not touch, is refused."""
 
 TREATMENTS = ("applied", "merged", "no_change", "skipped")
 STATUSES = ("open", "waiting", "watching", "suppressed")
@@ -74,15 +80,18 @@ _CREATE_PROPS = {
     "timing": {"type": "string"}, "expected_date": {"type": "string"},
     "status": {"type": "string"}, "waiting_on": {"type": "string"}, "question_text": {"type": "string"},
     "confidence": {"type": "string"}, "reminder_authorised": {"type": "boolean"}, "evidence": {"type": "string"},
+    "expected_time": {"type": "string"}, "time_basis": {"type": "string"}, "time_role": {"type": "string"}, "importance": {"type": "integer"},
 }
 _UPDATE_PROPS = {
     "key": {"type": "string"}, "detail": {"type": "string"}, "timing_text": {"type": "string"},
     "expected_date": {"type": "string"}, "waiting_on": {"type": "string"}, "question_text": {"type": "string"},
     "status": {"type": "string"}, "kind": {"type": "string"}, "confidence": {"type": "string"},
     "reminder_authorised": {"type": "boolean"}, "evidence": {"type": "string"},
+    "expected_time": {"type": "string"}, "time_basis": {"type": "string"}, "time_role": {"type": "string"}, "importance": {"type": "integer"},
 }
 _FINISH_PROPS = {
     "summary": {"type": "string"},
+    "transcript_sweep": {"type": "string", "description": "one line: what, if anything, the transcript contained that no observation covered (or 'nothing beyond the observations')"},
     "accounting": {"type": "array", "items": {"type": "object", "properties": {
         "obs": {"type": "integer"}, "treatment": {"type": "string", "enum": list(TREATMENTS)},
         "key": {"type": "string"}, "note": {"type": "string"}}, "required": ["obs", "treatment"]}},
@@ -99,7 +108,7 @@ TOOLS = [
     {"type": "function", "function": {"name": "history", "description": "Evidence history of one record by key.", "parameters": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}}},
     {"type": "function", "function": {"name": "update_item", "description": "Change one record by key. detail/timing_text REPLACE the old text (keep what is still true). expected_date must be YYYY-MM-DD. done/cancelled REQUIRE evidence quoting proof. Valid statuses: open, waiting, watching, suppressed, done, cancelled. Unknown arguments are rejected.", "parameters": {"type": "object", "properties": _UPDATE_PROPS, "required": ["key"]}}},
     {"type": "function", "function": {"name": "create_item", "description": "Create a genuinely new record with its complete state. Search first; never duplicate tracked matters. status is open (default), waiting, watching or suppressed. expected_date YYYY-MM-DD when a date is fixed. confidence observed/reported/inferred. Attach the proving quote as evidence. Unknown arguments are rejected.", "parameters": {"type": "object", "properties": _CREATE_PROPS, "required": ["title"]}}},
-    {"type": "function", "function": {"name": "finish", "description": "End only after re-listing the records following your last write. accounting must cover every observation number.", "parameters": {"type": "object", "properties": _FINISH_PROPS, "required": ["summary", "accounting"]}}},
+    {"type": "function", "function": {"name": "finish", "description": "End only after re-listing the records following your last write. accounting must cover every observation number.", "parameters": {"type": "object", "properties": _FINISH_PROPS, "required": ["summary", "accounting", "transcript_sweep"]}}},
 ]
 
 # Injectable for tests.
@@ -108,6 +117,39 @@ _chat_fn: Optional[Callable[..., Any]] = None
 import contextvars as _cv
 _TRANSCRIPT_CTX: _cv.ContextVar[str] = _cv.ContextVar("maintenance_transcript", default="")
 _TODAY_CTX: _cv.ContextVar[str] = _cv.ContextVar("maintenance_today", default="")
+_TZ_CTX: _cv.ContextVar[str] = _cv.ContextVar("maintenance_tz", default="")
+TIME_ROLES = ("happens", "deadline")
+TIME_BASES = ("stated", "assumed")
+_HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+def _parse_time_fields(args: Dict[str, Any], existing_date: Any) -> tuple[Dict[str, Any], Optional[str]]:
+    """Validate expected_time / time_role / importance. Returns (fields to set, error)."""
+    out: Dict[str, Any] = {}
+    if "expected_time" in args:
+        t = str(args.get("expected_time") or "").strip()
+        if t and not _HHMM.match(t):
+            return {}, "expected_time must be 24-hour HH:MM in the person's local time (e.g. 15:00), or empty to clear it"
+        out["expected_time"] = t
+    if "time_basis" in args:
+        b = str(args.get("time_basis") or "").strip().lower()
+        if b and b not in TIME_BASES:
+            return {}, "time_basis must be 'stated' (the person gave that time) or 'assumed' (your likeliest reading of what they said)"
+        out["time_basis"] = b
+    if "time_role" in args:
+        r = str(args.get("time_role") or "").strip().lower()
+        if r and r not in TIME_ROLES:
+            return {}, "time_role must be 'happens' (occurs at that time) or 'deadline' (must be done by it), or empty if unclear"
+        out["time_role"] = r
+    if "importance" in args:
+        try:
+            i = int(args.get("importance"))
+        except (TypeError, ValueError):
+            return {}, "importance must be 1 (casual), 2 (normal) or 3 (real consequences if missed)"
+        if not 1 <= i <= 3:
+            return {}, "importance must be 1 (casual), 2 (normal) or 3 (real consequences if missed)"
+        out["importance"] = i
+    return out, None
 
 
 def set_chat_fn(fn: Optional[Callable[..., Any]]) -> None:
@@ -168,7 +210,8 @@ def _row_view(r: LedgerItem) -> Dict[str, Any]:
     return {"key": r.situation_key, "kind": r.kind, "status": r.status, "title": r.title,
             "detail": (r.detail or "")[:500], "timing": r.timing_text,
             "expected_date": r.expected_date.strftime("%Y-%m-%d") if r.expected_date else None,
-            "waiting_on": r.waiting_on, "question": r.question_text, "confidence": r.confidence}
+            "waiting_on": r.waiting_on, "question": r.question_text, "confidence": r.confidence,
+            "expected_time": r.expected_time, "time_basis": r.time_basis, "time_role": r.time_role, "importance": r.importance}
 
 
 class RunState:
@@ -181,7 +224,8 @@ class RunState:
         self.last_write_seq = 0
         self.last_read_seq = 0
         self.finish_bounces = 0
-        self.advisory_given = False
+        self.advisory_rounds = 0
+        self.has_transcript = False
         self.obs_timing: Dict[int, str] = {}
         self.accounting: List[Dict[str, Any]] = []
         self.gate_failures: List[str] = []
@@ -193,7 +237,8 @@ class RunState:
 def _record_view_fields(r: LedgerItem) -> Dict[str, Any]:
     return {"status": r.status, "expected_date": r.expected_date.strftime("%Y-%m-%d") if r.expected_date else None,
             "timing_text": r.timing_text, "waiting_on": r.waiting_on, "question_text": r.question_text,
-            "kind": r.kind, "confidence": r.confidence, "detail": r.detail}
+            "kind": r.kind, "confidence": r.confidence, "detail": r.detail,
+            "expected_time": r.expected_time, "time_basis": r.time_basis, "time_role": r.time_role, "importance": r.importance}
 
 
 def _diff(before: Dict[str, Any], after: Dict[str, Any]) -> Dict[str, Any]:
@@ -214,8 +259,13 @@ def _advisories(r: LedgerItem) -> List[str]:
             from src.services.memory_pipeline import resolve_date
             d = resolve_date(r.timing_text, today)
             if d is not None:
-                out.append(f"{r.situation_key}: timing_text '{r.timing_text[:60]}' resolves to {d.strftime('%Y-%m-%d')} "
-                           f"but expected_date is empty — set it if that date is right.")
+                prev = d - timedelta(days=7) if d.strftime("%Y-%m-%d") != today else None
+                both = (f"the upcoming one is {d.strftime('%Y-%m-%d')}, the most recent is {prev.strftime('%Y-%m-%d')}; set the one the person meant"
+                        if prev is not None else f"that is {d.strftime('%Y-%m-%d')}; set it if right")
+                out.append(f"{r.situation_key}: timing_text '{r.timing_text[:60]}' names a day but expected_date is empty — {both}.")
+    if r.status in ("open", "waiting", "watching") and r.expected_date is not None and not (r.time_role or "").strip():
+        out.append(f"{r.situation_key}: has a date but no time_role — if the person's words make clear it HAPPENS at that time "
+                   f"(appointment, meeting, call) or is a DEADLINE, set time_role; leave it empty only if unclear.")
     if r.status == "waiting" and not (r.waiting_on or "").strip():
         out.append(f"{r.situation_key}: status is waiting but waiting_on is empty — say what is awaited, or set status open.")
     return out
@@ -297,6 +347,14 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
             new_date, err = _parse_date_arg(ed)
             if err:
                 return {"error": err}
+        tf, terr = _parse_time_fields(args, r.expected_date)
+        if terr:
+            return {"error": terr}
+        if tf.get("expected_time") and new_date is None and r.expected_date is None:
+            return {"error": "expected_time needs an expected_date (set the date in the same call)"}
+        if st in CLOSING and new_date is not None and r.expected_date is not None and new_date.date() != r.expected_date.date():
+            return {"error": "a close does not change when the thing was due. Keep the record's date as it is (the completion time belongs in the evidence quote); "
+                             "if the person really moved the date, update the date in a separate call first, then close."}
         before = _record_view_fields(r)
         prior_detail = r.detail or ""
         for f, lim in (("detail", 2000), ("timing_text", 300), ("waiting_on", 300), ("question_text", 500)):
@@ -313,6 +371,14 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
             r.confidence = conf
         if new_date is not None:
             r.expected_date = new_date
+        if tf.get("expected_time") and not (tf.get("time_basis") or r.time_basis):
+            return {"error": "when you set expected_time also set time_basis: 'stated' if the person gave that time, 'assumed' if it is your likeliest reading (e.g. 'at 6' -> 18:00; keep the ambiguity in question_text)"}
+        if "expected_time" in tf and not tf["expected_time"]:
+            tf["time_basis"] = ""
+        for k, v in tf.items():
+            setattr(r, k, v)
+        if (new_date is not None or tf.get("expected_time")) and _TZ_CTX.get():
+            r.time_zone = _TZ_CTX.get()          # code stamps the zone the date/time were stated in
         if st:
             r.status = st
         ev = str(args.get("evidence") or "").strip()
@@ -375,6 +441,13 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
             new_date, err = _parse_date_arg(ed)
             if err:
                 return {"error": err}
+        tf, terr = _parse_time_fields(args, new_date)
+        if terr:
+            return {"error": terr}
+        if tf.get("expected_time") and new_date is None:
+            return {"error": "expected_time needs an expected_date (set the date in the same call)"}
+        if tf.get("expected_time") and not tf.get("time_basis"):
+            return {"error": "when you set expected_time also set time_basis: 'stated' if the person gave that time, 'assumed' if it is your likeliest reading (e.g. 'at 6' -> 18:00; keep the ambiguity in question_text)"}
         timing = str(args.get("timing") or "").strip()
         ev = str(args.get("evidence") or "").strip()
         verified, reported = _evidence_spans(ev, _TRANSCRIPT_CTX.get() or "") if ev else ([], "")
@@ -388,6 +461,10 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
                          waiting_on=str(args.get("waiting_on") or "")[:300],
                          question_text=str(args.get("question_text") or "")[:500],
                          confidence=conf, source_refs_json=json.dumps(refs)[:4000],
+                         expected_time=tf.get("expected_time", ""), time_basis=tf.get("time_basis", "") if tf.get("expected_time") else "",
+                         time_role=tf.get("time_role", ""),
+                         importance=tf.get("importance", 2),
+                         time_zone=(_TZ_CTX.get() if (new_date is not None) else ""),
                          authorised_json=json.dumps({"reminder": True, "at": session_id}) if args.get("reminder_authorised") is True else "{}")
         db.add(row)
         await db.commit()
@@ -505,7 +582,10 @@ async def _check_finish(db: AsyncSession, workspace_id: str, owner: str, args: D
             missing = [n for n in range(1, state.n_obs + 1) if n not in seen]
             if missing:
                 problems.append("unaccounted observations: " + ", ".join(f"O{n}" for n in missing) + ".")
-    if not state.advisory_given and state.touched:
+    if state.has_transcript and not str(args.get("transcript_sweep") or "").strip():
+        problems.append("transcript_sweep is required: in one line say what, if anything, the transcript contained that no observation covered "
+                        "(a promise, appointment, reminder, stand-down, aspiration), or 'nothing beyond the observations'. Handle anything you list.")
+    if state.advisory_rounds < 2 and state.touched:
         adv: List[str] = []
         rows = (await db.execute(select(LedgerItem).where(
             LedgerItem.honcho_workspace_id == workspace_id, LedgerItem.owner_peer_id == owner,
@@ -513,6 +593,38 @@ async def _check_finish(db: AsyncSession, workspace_id: str, owner: str, args: D
         by_key = {str(r.situation_key): r for r in rows}
         for r in rows:
             adv.extend(_advisories(r))
+        # A time of day the person stated unambiguously ("by 5pm", "15:30") should reach expected_time. A lexical NOMINATION
+        # for the agent to confirm or decline — it is advice; code never sets the field.
+        for e in entries:
+            raw_t = state.obs_timing.get(e["obs"], "")
+            rec = by_key.get(str(e.get("key") or ""))
+            if (raw_t and rec is not None and e["treatment"] in ("applied", "merged") and not (rec.expected_time or "").strip()
+                    and rec.expected_date is not None and re.search(r"\b\d{1,2}(:\d{2})?\s?(am|pm)\b|\b([01]?\d|2[0-3]):[0-5]\d\b", raw_t, re.IGNORECASE)):
+                adv.append(f"{rec.situation_key}: O{e['obs']} states a time of day (\"{raw_t[:60]}\") but expected_time is empty — set it in 24-hour HH:MM if it is unambiguous.")
+        # A precise clock time whose observation carried no am/pm must be labelled as an assumption (never silently presented as stated).
+        for e in entries:
+            raw_t = state.obs_timing.get(e["obs"], "")
+            rec = by_key.get(str(e.get("key") or ""))
+            if (raw_t and rec is not None and (rec.expected_time or "").strip() and (rec.time_basis or "") != "assumed"
+                    and e["treatment"] in ("applied", "merged")
+                    and re.search(r"\bat\s+\d{1,2}\b(?!\s?(:\d{2}|am|pm|a\.m|p\.m))", raw_t, re.IGNORECASE)
+                    and not re.search(r"\b\d{1,2}(:\d{2})?\s?(am|pm)\b|\b([01]?\d|2[0-3]):[0-5]\d\b|\bo.clock\b|\b(morning|evening|afternoon|night|noon|midnight)\b", raw_t, re.IGNORECASE)):
+                adv.append(f"{rec.situation_key}: O{e['obs']}'s words (\"{raw_t[:60]}\") give no am/pm, so expected_time {rec.expected_time} is your reading: "
+                           f"set time_basis \"assumed\" and keep the open question (unless the transcript states which).")
+        # A day the person named in their own timing words ("due on Sunday") should reach expected_date. Direction (past or coming)
+        # is the model's call, so both candidates are offered; code never sets the field.
+        from src.services.memory_pipeline import resolve_date
+        today_s = _TODAY_CTX.get()
+        for e in entries:
+            raw_t = state.obs_timing.get(e["obs"], "")
+            rec = by_key.get(str(e.get("key") or ""))
+            if raw_t and today_s and rec is not None and e["treatment"] in ("applied", "merged") and rec.expected_date is None:
+                d = resolve_date(raw_t.strip('"'), today_s)
+                if d is not None:
+                    up = d.strftime("%Y-%m-%d")
+                    prev = (d - timedelta(days=7)).strftime("%Y-%m-%d") if up != today_s else None
+                    adv.append(f"{rec.situation_key}: O{e['obs']} names a day (\"{raw_t[:60]}\") but expected_date is empty — "
+                               + (f"upcoming {up}, most recent {prev}; set the one the person meant." if prev else f"that is {up}."))
         # The person's own words for timing must survive the hand-off ("tomorrow at 6" is not just a date).
         for e in entries:
             raw_t = state.obs_timing.get(e["obs"], "")
@@ -520,7 +632,7 @@ async def _check_finish(db: AsyncSession, workspace_id: str, owner: str, args: D
             if raw_t and rec is not None and e["treatment"] in ("applied", "merged") and not (rec.timing_text or "").strip():
                 adv.append(f"{rec.situation_key}: O{e['obs']} gave the person's own timing words \"{raw_t[:60]}\" but timing_text is empty — keep them (time of day matters).")
         if adv:
-            state.advisory_given = True
+            state.advisory_rounds += 1
             problems.append("Check these before finishing (finish again if you disagree): " + " | ".join(adv))
     state.accounting = entries
     return problems
@@ -536,6 +648,7 @@ async def run_maintenance(db: AsyncSession, *, workspace_id: str, owner: str, se
     started = datetime.now(timezone.utc)
     t_tx = _TRANSCRIPT_CTX.set(transcript or "")
     t_day = _TODAY_CTX.set(today or "")
+    t_tz = _TZ_CTX.set(time_zone or "")
     try:
         return await _run_maintenance_inner(
             db, workspace_id=workspace_id, owner=owner, session_id=session_id,
@@ -544,6 +657,7 @@ async def run_maintenance(db: AsyncSession, *, workspace_id: str, owner: str, se
     finally:
         _TRANSCRIPT_CTX.reset(t_tx)
         _TODAY_CTX.reset(t_day)
+        _TZ_CTX.reset(t_tz)
 
 
 def _trim(v: Any, n: int) -> str:
@@ -562,6 +676,7 @@ async def _run_maintenance_inner(db: AsyncSession, *, workspace_id: str, owner: 
     changes = {"created": 0, "updated": 0, "closed": 0}
     state = RunState(n_obs=n_obs)
     state.obs_timing = dict(obs_timing or {})
+    state.has_transcript = bool(transcript)
     models_tried = [PRIMARY_MODEL]
     if FALLBACK_MODEL and FALLBACK_MODEL != PRIMARY_MODEL:
         models_tried.append(FALLBACK_MODEL)

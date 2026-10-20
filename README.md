@@ -1,5 +1,8 @@
 # synapse-cortex
 
+> Current memory work (read for status before changing it): `docs/IMPLEMENTATION_STATUS.md` (built / partial / deferred, commits, deploy, rollback),
+> `docs/DECISIONS.md` (why, and what was rejected), `docs/CONNECTED_UNDERSTANDING.md`, `docs/MEMORY_CONTRACTS_2026-10-20.md`.
+
 > COMPANION PROGRAMME — READ FIRST.
 > Before modifying companion behaviour, memory, runtime, retrieval, or architecture:
 > 1. `docs/COMPANION_NORTH_STAR.md`

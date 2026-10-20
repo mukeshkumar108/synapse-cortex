@@ -51,6 +51,9 @@ def test_vinesh_equivalent_end_states_pass_and_faults_fail():
     sep2 = [row("Send proposal to Vinesh", "done", "2026-10-22", "promised by Thursday; review moved to Friday", kind="commitment"),
             row("Vinesh review", "open", "2026-10-23", "moved to Friday morning; the proposal was sent this morning", "Friday 2026-10-23 morning")]
     assert all(c["pass"] for c in _final("vinesh-reschedule", sep2))
+    sep3 = [row("Send proposal to Vinesh", "done", "2026-10-22", "sent", kind="commitment"),
+            row("Vinesh review of proposal", "open", "2026-10-23", "moved to Friday morning")]       # a title that mentions the proposal
+    assert all(c["pass"] for c in _final("vinesh-reschedule", sep3))
     folded = [row("Send proposal to Vinesh", "done", "2026-10-23", "review moved to Friday; sent this morning", kind="commitment")]
     assert all(c["pass"] for c in _final("vinesh-reschedule", folded))
     junk = [row("Deliver proposal to Vinesh", "done", None, "x"), row("Vinesh proposal", "open"),

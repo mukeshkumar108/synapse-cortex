@@ -1,0 +1,192 @@
+{
+ "model": "inclusionai/ling-3.0-flash",
+ "total_messages": 40,
+ "steps": [
+  {
+   "after_messages": 6,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "initial"
+   },
+   "chars": 649,
+   "checkpoints": 0,
+   "lines": [
+    "[L1] The user started at Northwind last month and is now leading the Bloom pilot (a wellbeing app trial with church groups), showing early trust from manager Morgan Ellis.",
+    "[L2] The user's partner Ashley supports the role but is concerned about the evening workload.",
+    "[L3] Ashley's mother Ruth is unwell with a persistent chest infection, and test results are pending, causing Ashley worry.",
+    "[H1] The outcome of Ruth's test results and her health status.",
+    "[H2] How the user will balance the Bloom pilot's evening demands with personal concerns about Ruth and Ashley.",
+    "[H3] The user's own feelings about taking the lead on Bloom beyond initial excitement."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": false,
+    "Morgan": true,
+    "left Northwind": false,
+    "Priya": false,
+    "Friday": false,
+    "dentist": false,
+    "MOT": true,
+    "lead": true,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 12,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental"
+   },
+   "chars": 972,
+   "checkpoints": 0,
+   "lines": [
+    "[L1] The user started at Northwind last month and is now leading the Bloom pilot (a wellbeing app trial with church groups). Morgan Ellis moved the church groups' demo to Friday afternoon, but the user missed a standup and senses Morgan may be annoyed.",
+    "[L2] Ashley supports the user taking the lead on Bloom but is concerned about the evening workload.",
+    "[L3] Ashley's mother Ruth has a persistent chest infection and is awaiting test results, causing Ashley worry.",
+    "[L4] The user has a dentist appointment on Thursday at 9am.",
+    "[H1] The outcome of Ruth's test results and her health status.",
+    "[H2] How the user will balance the Bloom pilot's evening demands with personal concerns about Ruth and Ashley.",
+    "[H3] The user's own feelings about taking the lead on Bloom beyond initial excitement.",
+    "[H4] Whether Morgan is actually annoyed about the missed standup, and how the user will manage the Bloom demo on Friday afternoon alongside Ruth's health situation and their own workload."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": false,
+    "Morgan": true,
+    "left Northwind": false,
+    "Priya": false,
+    "Friday": true,
+    "dentist": true,
+    "MOT": true,
+    "lead": true,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 18,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental"
+   },
+   "chars": 1399,
+   "checkpoints": 0,
+   "lines": [
+    "[L1] The user started at Northwind last month and is now leading the Bloom pilot (a wellbeing app trial with church groups). Morgan Ellis moved the church groups' demo to Friday afternoon, but the user missed a standup and senses Morgan may be annoyed. Ruth's test results have come back and she has pneumonia; she is in hospital for a few days.",
+    "[L2] Ashley supports the user taking the lead on Bloom but is concerned about the evening workload.",
+    "[L3] Ashley's mother Ruth has pneumonia and is in hospital for a few days, causing Ashley worry.",
+    "[L4] The user has a dentist appointment on Thursday at 9am.",
+    "[L5] Ruth's pneumonia is confirmed and she is hospitalised; Ashley is shaken and the user plans to cook for her tonight.",
+    "[H1] Ruth has pneumonia and is in hospital for a few days; Ashley is shaken by this.",
+    "[H2] The user will balance the Bloom pilot's evening demands with supporting Ashley (e.g., cooking tonight) while Ruth is in hospital with pneumonia.",
+    "[H3] The user's own feelings about taking the lead on Bloom beyond initial excitement.",
+    "[H4] The user is uncertain whether Morgan is annoyed about the missed standup; Morgan sent only a short message. The Bloom demo is on Friday afternoon, and the user is also managing Ruth's hospitalisation and Ashley's wellbeing.",
+    "[H5] Whether Morgan is genuinely annoyed about the missed standup remains unresolved \u2014 the user has not checked in directly."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": false,
+    "Morgan": true,
+    "left Northwind": false,
+    "Priya": false,
+    "Friday": true,
+    "dentist": true,
+    "MOT": true,
+    "lead": true,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 24,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental",
+    "checkpoint": "Checkpoint A [24]",
+    "reconciled_chars": 947
+   },
+   "chars": 890,
+   "checkpoints": 1,
+   "lines": [
+    "You started the conversation feeling stretched thin. You\u2019re new at Northwind, on the Bloom pilot, and your partner Ashley is stressed because her mum Ruth is in hospital with pneumonia. You missed a standup and suspect your manager Morgan is annoyed, which adds pressure. You\u2019ve been weighing whether to step back from leading Bloom because evenings are already overwhelmed, and you feel both relief at the idea and guilt because Morgan trusted you with it. You proposed asking Morgan if Priya from another team could co-lead instead, which feels like a possible way forward.",
+    "Decide whether to ask Morgan about Priya co-leading Bloom.",
+    "Check if Morgan is actually upset about the missed standup.",
+    "Make a final decision on whether you\u2019ll take the lead on Bloom.",
+    "Keep an eye on Ruth\u2019s hospital stay and recovery timeline.",
+    "Support Ashley and monitor how long the household situation affects her."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": false,
+    "Morgan": true,
+    "left Northwind": false,
+    "Priya": true,
+    "Friday": false,
+    "dentist": false,
+    "MOT": false,
+    "lead": true,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 30,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental"
+   },
+   "chars": 1218,
+   "checkpoints": 1,
+   "lines": [
+    "You started the conversation feeling stretched thin. You\u2019re new at Northwind, on the Bloom pilot, and your partner Ashley is stressed because her mum Ruth is in hospital with pneumonia. You missed a standup and suspect your manager Morgan is annoyed, which adds pressure. You\u2019ve been weighing whether to step back from leading Bloom because evenings are already overwhelmed, and you feel both relief at the idea and guilt because Morgan trusted you with it. You proposed asking Morgan if Priya from another team could co-lead instead, which feels like a possible way forward.",
+    "Decide whether to ask Morgan about Priya co-leading Bloom.",
+    "Check if Morgan is actually upset about the missed standup.",
+    "Make a final decision on whether you\u2019ll take the lead on Bloom.",
+    "Keep an eye on Ruth\u2019s hospital stay and recovery timeline.",
+    "Support Ashley and monitor how long the household situation affects her.",
+    "[L1] Morgan has left Northwind; Priya Nair is the new manager. Ruth is Ashley's aunt, not her mum, and is home from hospital recovering. The Bloom pilot is now being led informally with Morgan as an advisor, and Priya is the manager.",
+    "[H1] Decide how to approach Priya Nair regarding Bloom leadership now that she's the manager."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": true,
+    "Morgan": true,
+    "left Northwind": true,
+    "Priya": true,
+    "Friday": false,
+    "dentist": false,
+    "MOT": false,
+    "lead": true,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 36,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental"
+   },
+   "chars": 1388,
+   "checkpoints": 1,
+   "lines": [
+    "You started the conversation feeling stretched thin. You\u2019re new at Northwind, on the Bloom pilot, and your partner Ashley is stressed because her mum Ruth is in hospital with pneumonia. You missed a standup and suspect your manager Morgan is annoyed, which adds pressure. You\u2019ve been weighing whether to step back from leading Bloom because evenings are already overwhelmed, and you feel both relief at the idea and guilt because Morgan trusted you with it. You proposed asking Morgan if Priya from another team could co-lead instead, which feels like a possible way forward.",
+    "Decide whether to ask Morgan about Priya co-leading Bloom.",
+    "Check if Morgan is actually upset about the missed standup.",
+    "Make a final decision on whether you\u2019ll take the lead on Bloom.",
+    "Keep an eye on Ruth\u2019s hospital stay and recovery timeline.",
+    "Support Ashley and monitor how long the household situation affects her.",
+    "[L1] Morgan has left Northwind; Priya Nair is the new manager. Ruth is Ashley's aunt, not her mum, and is home from hospital recovering. The Bloom pilot is now being led informally with Morgan as an advisor, and Priya is the manager. You have decided not to take the lead on Bloom and will tell Priya this in the status update tomorrow.",
+    "[H1] Decide what to include in the status update for Priya Nair on the Bloom pilot (progress so far, demo date Friday, and that you'd rather support than lead)."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": true,
+    "Morgan": true,
+    "left Northwind": true,
+    "Priya": true,
+    "Friday": true,
+    "dentist": false,
+    "MOT": false,
+    "lead": true,
+    "Ashley": true
+   }
+  }
+ ]
+}
