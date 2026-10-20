@@ -341,14 +341,17 @@ async def run(db: AsyncSession, *, workspace_id: str, owner: str, session_id: st
     await db.commit()
     models = [PRIMARY_MODEL] + ([FALLBACK_MODEL] if FALLBACK_MODEL and FALLBACK_MODEL != PRIMARY_MODEL else [])
     model_used = models[0]
+    # The first read is always list_entities, so code does it and hands the result over (one fewer model round trip). The finish gate still needs a re-read after the last write.
+    registry = await _tool(db, st, "list_entities", {})
+    inspected = True
     messages: List[Dict[str, Any]] = [
-        {"role": "system", "content": CONTRACT + f"\n\n{date_reference} (timezone {time_zone})."},
-        {"role": "user", "content": "A finished session. Update the person's connected world.\n\n--- operational records touched or open (link to these by key; never copy their dates) ---\n"
+        {"role": "system", "content": CONTRACT + f"\n\n{date_reference} (timezone {time_zone}).\nMake all independent tool calls in a single turn."},
+        {"role": "user", "content": "A finished session. Update the person's connected world.\n\n--- current entities (already listed for you; list again after your last change) ---\n" + _trim(registry, 7000)
+                                    + "\n\n--- operational records touched or open (link to these by key; never copy their dates) ---\n"
                                     + (ledger_context or "(none)") + "\n\n--- session transcript (ground truth) ---\n" + transcript[-9000:]}]
     calls: List[Dict[str, Any]] = []
     summary: Optional[str] = None
     gate_ok = False
-    inspected = False
     for _ in range(MAX_ITERS):
         out = await agent_runtime.chat(model_used, messages, TOOLS, max_tokens=MAX_TOKENS, module="world", injected=_chat_fn)
         if out is None and len(models) > 1 and model_used == models[0]:

@@ -79,11 +79,13 @@ async def test_agent_false_finish_is_not_verified():
         try:
             out = await maintenance_agent.run_maintenance(
                 db, workspace_id="ws1", owner="u9", session_id="s9",
-                observations="- something happened", today="2026-10-19")
+                observations="[O1] something happened", n_observations=1, today="2026-10-19")
         finally:
             maintenance_agent.set_chat_fn(None)
-    assert out["status"] == "finished_without_inspection"
-    assert out["inspected"] is False
+    # The records are handed over in the opening message (code lists them), so "never looked" no longer exists; what must still fail is a finish that does not
+    # account for the numbered observation.
+    assert out["status"] != "verified" and out["status"] in ("finished_unchecked", "unfinished")
+    assert out["inspected"] is True                                           # handed over by code in the opening message
 
 
 @pytest.mark.asyncio

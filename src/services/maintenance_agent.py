@@ -681,9 +681,14 @@ async def _run_maintenance_inner(db: AsyncSession, *, workspace_id: str, owner: 
     if FALLBACK_MODEL and FALLBACK_MODEL != PRIMARY_MODEL:
         models_tried.append(FALLBACK_MODEL)
     day = f"{weekday} {today}".strip()
+    # The first read of the agenda is always list_open, so code does it and hands the result over: one fewer model round trip on every run.
+    # The finish gate still requires a re-read AFTER the last write.
+    opening = await _tools(db, workspace_id, owner, "list_open", {}, session_id, state)
+    inspected = True
     messages: List[Dict[str, Any]] = [
-        {"role": "system", "content": CONTRACT + f"\n\nToday is {day} (the person's local date; timezone {time_zone})."},
-        {"role": "user", "content": "New session observations. Maintain the agenda.\n\n" + observations
+        {"role": "system", "content": CONTRACT + f"\n\nToday is {day} (the person's local date; timezone {time_zone}).\nMake all independent tool calls in a single turn."},
+        {"role": "user", "content": "New session observations. Maintain the agenda.\n\nCurrent open records (already listed for you; list_open again after your last write):\n"
+         + _trim(opening, 6000) + "\n\n" + observations
          + (("\n\n--- session transcript (ground truth; quote the person's own words as evidence) ---\n"
              + transcript[-8000:]) if transcript else "")}]
     model_used = models_tried[0]
