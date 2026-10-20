@@ -247,6 +247,33 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
     raise HTTPException(status_code=422, detail="view must be packet, overview, entity or inspect")
 
 
+@router.get("/export")
+async def export_owner(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, db: AsyncSession = Depends(get_async_session)):
+    """Everything this product holds about this person (memory pipeline + connected understanding), as JSON. See owner_data.NOT_COVERED."""
+    from src.services import owner_data
+    scope = _scope(request, workspace_id, companion_id)
+    return await owner_data.export_owner(db, scope.workspace, owner)
+
+
+class DeleteRequest(BaseModel):
+    workspace_id: str
+    owner: str
+    companion_id: Optional[str] = None
+    confirm: str                    # must equal the owner id: deletion is permanent
+
+
+@router.post("/delete")
+async def delete_owner(req: DeleteRequest, request: Request, db: AsyncSession = Depends(get_async_session)):
+    """Permanently delete this product's memory of this person. Requires confirm == owner. Nothing else is touched (other products, other owners)."""
+    from src.services import owner_data
+    if req.confirm != req.owner:
+        raise HTTPException(status_code=422, detail="confirm must equal owner; deletion is permanent")
+    scope = _scope(request, req.workspace_id, req.companion_id)
+    counts = await owner_data.delete_owner(db, scope.workspace, req.owner)
+    await db.commit()
+    return {"deleted": counts, "not_covered": owner_data.NOT_COVERED}
+
+
 class ExposureRequest(BaseModel):
     workspace_id: str
     owner: str

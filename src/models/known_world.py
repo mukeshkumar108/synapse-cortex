@@ -40,6 +40,14 @@ class KnownEntity(SQLModel, table=True):
     basis: str = Field(default="stated")                                    # stated | inferred: how we know this entity (and its identity) exists
     source_refs_json: str = Field(default="[]")                             # provenance: [{session, quote}], capped
     merged_into_id: Optional[UUID] = Field(default=None, index=True)
+    # What KIND OF RECORD this is, structurally (the model sets it; code only uses it to decide how to render and when to surface):
+    # "" = a thing (person, project, organisation, place, topic); situation = a developing matter; happening = something that
+    # occurred (an incident or experience, interpretation not required); disposition = a like, interest, hope, fear, value;
+    # pattern = a provisional, revisable reading across several happenings.
+    form: str = Field(default="", index=True)
+    tags: str = Field(default="")                                           # comma-separated, lower-case: "relationships/romantic", "culture/literature", "sleep" (soft relevance signals, not boundaries)
+    occurred_on: Optional[datetime] = Field(default=None)                   # happenings: the day it happened (person's local date)
+    significance: int = Field(default=2)                                    # 1 minor, 2 ordinary, 3 consequential (model-set)
     run_id: Optional[UUID] = Field(default=None, index=True)
     first_seen_at: datetime = Field(default_factory=utc_now, nullable=False)
     last_touched_at: datetime = Field(default_factory=utc_now, nullable=False, index=True)

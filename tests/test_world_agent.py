@@ -359,3 +359,22 @@ async def test_a_wrongly_retired_link_is_shown_when_it_happens_and_can_be_restor
         res = await wa._tool(db, st, "restore_link", {"link_id": str(lk.id)})
         assert res["link"]["status"] == "current" and st.changes["superseded"] == 0
         assert (await wa._tool(db, st, "restore_link", {"link_id": "nope"}))["error"] == "no such link"
+
+
+@pytest.mark.asyncio
+async def test_happenings_dispositions_and_patterns_are_validated_not_guessed():
+    o = owner()
+    st = wa.State(WS, o, "s1", None, TALK, "Person")
+    async with async_session_maker() as db:
+        bad = await wa._tool(db, st, "create_entity", {"name": "X", "kind": "incident", "form": "memory-thing"})
+        assert "form must be" in bad["error"]
+        assert "YYYY-MM-DD" in (await wa._tool(db, st, "create_entity", {"name": "Y", "kind": "incident", "form": "happening", "occurred_on": "last night"}))["error"]
+        ok = await wa._tool(db, st, "create_entity", {"name": "Kissed Rebecca", "kind": "incident", "form": "happening", "occurred_on": "2026-10-19",
+                                                      "significance": 9, "tags": ["Relationships/Romantic", "relationships/romantic", "!!"]})
+        assert ok["ok"]
+        e = await kw.get(db, WS, o, ok["entity"]["id"])
+        assert (e.form, e.tags, e.significance, e.occurred_on.date().isoformat()) == ("happening", "relationships/romantic", 3, "2026-10-19")
+        up = await wa._tool(db, st, "update_entity", {"id": str(e.id), "significance": "x"})
+        assert "significance" in up["error"] and e.significance == 3          # a refused update changes nothing
+        await wa._tool(db, st, "update_entity", {"id": str(e.id), "form": "pattern", "tags": ["sleep"]})
+        assert (e.form, e.tags) == ("pattern", "sleep")

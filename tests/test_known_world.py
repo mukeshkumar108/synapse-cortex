@@ -234,3 +234,65 @@ async def test_the_person_anchor_is_never_nominated_or_listed_among_their_people
         assert "Ashley (person)" in txt and "the person (self)" not in txt and len(shown) == 1
         ov, _ = await kw.overview_text(db, WS, o, ctx())
         assert "the person (self)" not in ov
+
+
+@pytest.mark.asyncio
+async def test_a_recent_incident_surfaces_by_domain_without_a_direct_link_and_unrelated_ones_stay_out():
+    o = owner()
+    async with async_session_maker() as db:
+        me = await kw.ensure_self(db, WS, o)
+        ash = await kw.create(db, WS, o, name="Ashley", kind="person", summary="Partner", tags="relationships/romantic")
+        reb = await kw.create(db, WS, o, name="Rebecca", kind="person", summary="A colleague")
+        kiss = await kw.create(db, WS, o, name="Kissed Rebecca", kind="incident", summary="The person kissed Rebecca the night before.", form="happening",
+                               tags="relationships/romantic", occurred_on=datetime(2026, 10, 19), significance=3, sensitive=True)
+        argue = await kw.create(db, WS, o, name="Argued about the car", kind="incident", summary="A row about the car.", form="happening",
+                                tags="household", occurred_on=datetime(2026, 10, 19), significance=3)
+        for ent in (reb, me):
+            await kw.link(db, WS, o, from_id=kiss.id, relation="involved", target_kind="entity", target_ref=str(ent.id), basis="stated", evidence="q")
+        await db.commit()
+        out = await kw.packet(db, WS, o, "Ashley and I are talking about moving in", ctx())
+        assert "Kissed Rebecca" in out["mentions"] and "involving Rebecca" in out["mentions"]        # no Ashley-to-incident link exists
+        assert "Argued about the car" not in out["mentions"]                                         # same recency and significance, no relevance: absent
+        out2 = await kw.packet(db, WS, o, "I'm so tired today", ctx())
+        assert "REMEMBERED THAT BEARS" not in out2["mentions"]                                       # nothing appears on recency alone
+        assert "Recent consequential happenings" in out2["overview"] and "Kissed Rebecca" in out2["overview"]
+        snap = await kw.entity_view(db, WS, o, "Rebecca", ctx())
+        assert "Remembered:" in snap["text"] and "Kissed Rebecca" in snap["text"]
+
+
+@pytest.mark.asyncio
+async def test_a_preference_is_found_by_the_words_the_person_uses_and_a_pattern_stands_in_for_its_evidence():
+    o = owner()
+    async with async_session_maker() as db:
+        me = await kw.ensure_self(db, WS, o)
+        fav = await kw.create(db, WS, o, name="Favourite book: The Count of Monte Cristo", kind="preference", summary="Their favourite book is The Count of Monte Cristo.",
+                              form="disposition", tags="culture/literature, books")
+        stays = [await kw.create(db, WS, o, name=f"Night at Mum's {i}", kind="experience", summary=f"Stayed over {i}: poor sleep, tension.", form="happening",
+                                 tags="family, sleep", occurred_on=datetime(2026, 10, 10 + i), significance=2) for i in range(3)]
+        pat = await kw.create(db, WS, o, name="Overnight stays at Mum's go badly", kind="pattern", summary="Each overnight stay has involved poor sleep and tension.",
+                              form="pattern", tags="family, sleep", basis="inferred")
+        for s_ in stays:
+            await kw.link(db, WS, o, from_id=pat.id, relation="supported by", target_kind="entity", target_ref=str(s_.id), basis="inferred")
+        await db.commit()
+        out = await kw.packet(db, WS, o, "Any good books you'd recommend?", ctx())
+        assert "Count of Monte Cristo" in out["mentions"] and "Monte Cristo" not in out["overview"]
+        out = await kw.packet(db, WS, o, "I'm staying at mum's again this weekend and not sleeping well", ctx())
+        assert "provisional pattern" in out["mentions"] and "not confirmed" in out["mentions"]
+        assert "Night at Mum's" not in out["mentions"]                    # the pattern stands in for its supporting happenings
+        deep = await kw.entity_view(db, WS, o, "Overnight stays at Mum's go badly", ctx(), "deep")
+        assert deep["found"]
+
+
+@pytest.mark.asyncio
+async def test_sensitive_records_respect_the_products_minimal_setting_and_suppressed_ones_never_surface():
+    o = owner()
+    async with async_session_maker() as db:
+        r = await kw.create(db, WS, o, name="Told about the diagnosis", kind="incident", summary="Detailed private text.", form="happening", tags="health", sensitive=True,
+                            occurred_on=datetime(2026, 10, 19))
+        q = await kw.create(db, WS, o, name="Dropped subject", kind="incident", summary="Do not raise.", form="happening", tags="health", occurred_on=datetime(2026, 10, 19))
+        q.suppressed = True
+        await db.commit()
+        full = await kw.packet(db, WS, o, "my health worries me", ctx(), "full")
+        assert "Detailed private text" in full["mentions"] and "Do not raise" not in full["mentions"]
+        mini = await kw.packet(db, WS, o, "my health worries me", ctx(), "minimal")
+        assert "Detailed private text" not in mini["mentions"] and "details available if they raise it" in mini["mentions"]

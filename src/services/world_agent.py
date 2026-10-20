@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import re
+from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Set
 from uuid import UUID
 
@@ -37,7 +38,12 @@ CONTRACT = """You maintain a small, accurate picture of one person's WORLD: who 
 What belongs:
 - Entities: people, projects, organisations, places and topics that matter beyond a passing mention (a collaborator, family member, a project, a recurring concern: yes; a barista mentioned once: no).
 - Situations (kind "situation", or a more specific word such as "health" or "decision"): developing matters that are NOT tasks — a worry, a family illness, a health observation, an unresolved decision, a relationship in transition, a curiosity worth returning to. Their state lives in a short summary; whether to follow up is decided elsewhere.
-- Operational matters (appointments, deadlines, promises, things awaited) belong to the LEDGER, which is maintained separately. Never copy their dates, times or status into a summary. Instead LINK the entity to the ledger record by its key (link_entity with ledger_key) so the record is read from its owner every time. The records touched in this session are listed for you.
+- - Happenings (form "happening"): something that occurred and may matter later, even when its meaning is not yet known — an argument, a kiss, a celebration, an injury, a setback, a visit, something a third party disclosed. Record WHAT happened in plain words, when (occurred_on, the person's local date), who or what it involved (link it to those entities and to "the person", relation like "involved"), how consequential it seems (significance 1 minor, 2 ordinary, 3 consequential) and tags. Do NOT interpret it, assign a motive or decide what it means; if the person said what it means, say so and quote it. A happening is not a task or an open loop. It only becomes an unresolved concern if the person says it is (then record the concern as a situation, linked to it).
+- Dispositions (form "disposition"): durable likes, dislikes, favourites, interests, hopes, fears, values, ambitions ("my favourite book is The Count of Monte Cristo"). Stated by the person, with a quote. Update or supersede when their view changes. Tag them so they can be found when the subject arises.
+- Patterns (form "pattern"): only when SEVERAL happenings or observations recur in a way the person or the evidence supports (e.g. each overnight stay at their mother's: poor sleep, tension). A pattern is a short, provisional, revisable reading: basis "inferred" unless the person says it; link it "supported by" each happening; revise the summary or retire it (status resolved) when new evidence contradicts it. No diagnoses, no psychological labels, no motives. One happening is not a pattern.
+- tags: up to 8 short lower-case soft signals used to find a record when the subject comes up: a broad domain and facet as "domain/facet" (relationships/romantic, relationships/family, health/sleep, culture/literature, work/projects) plus any ordinary words the person might use ("books", "reading"). They are hints for relevance, never boundaries.
+
+Operational matters (appointments, deadlines, promises, things awaited) belong to the LEDGER, which is maintained separately. Never copy their dates, times or status into a summary. Instead LINK the entity to the ledger record by its key (link_entity with ledger_key) so the record is read from its owner every time. The records touched in this session are listed for you.
 
 Summaries: one or two plain sentences saying what or who this is and where it stands, in the person's terms. No dates or commitments. No diagnoses. No feelings the person did not express. Say only what the person said: something they are considering stays "considering", an open question stays open, never restated as decided or done. The no-assumed-gender rule below applies to summaries AND to the notes and reasons you write. Update the summary when the situation develops, rather than adding to it.
 
@@ -57,11 +63,16 @@ TOOLS = [
     {"type": "function", "function": {"name": "get_entity", "description": "One entity in full: aliases and its links, with link ids.", "parameters": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}}},
     {"type": "function", "function": {"name": "create_entity", "description": "Create a new entity. kind is free text (person, project, organisation, place, topic, situation, health, ...). aliases are other names the person uses for it. basis stated needs a quote from the transcript.",
                                       "parameters": {"type": "object", "properties": {"name": {"type": "string"}, "kind": {"type": "string"}, "summary": {"type": "string"}, "aliases": {"type": "array", "items": {"type": "string"}},
-                                                                                     "sensitive": {"type": "boolean"}, "basis": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["name", "kind"]}}},
+                                                                                     "sensitive": {"type": "boolean"}, "basis": {"type": "string"}, "evidence": {"type": "string"},
+                                                                                     "form": {"type": "string", "description": "empty (a person/project/organisation/place/topic) | situation | happening | disposition | pattern"},
+                                                                                     "tags": {"type": "array", "items": {"type": "string"}}, "occurred_on": {"type": "string", "description": "YYYY-MM-DD, happenings"},
+                                                                                     "significance": {"type": "integer"}}, "required": ["name", "kind"]}}},
     {"type": "function", "function": {"name": "update_entity", "description": "Change an entity: name, kind, summary (replaces), status active|dormant|resolved, sensitive, suppressed, add_aliases.",
                                       "parameters": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "kind": {"type": "string"}, "summary": {"type": "string"}, "status": {"type": "string"},
                                                                                      "sensitive": {"type": "boolean"}, "suppressed": {"type": "boolean"}, "add_aliases": {"type": "array", "items": {"type": "string"}},
-                                                                                     "basis": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["id"]}}},
+                                                                                     "basis": {"type": "string"}, "evidence": {"type": "string"},
+                                                                                     "form": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "occurred_on": {"type": "string"},
+                                                                                     "significance": {"type": "integer"}}, "required": ["id"]}}},
     {"type": "function", "function": {"name": "link_entity", "description": "Connect an entity to exactly one target: another entity (to_entity_id), a ledger record (ledger_key), or an attention intention (attention_id). relation is plain words. basis stated needs a transcript quote.",
                                       "parameters": {"type": "object", "properties": {"from_id": {"type": "string"}, "relation": {"type": "string"}, "to_entity_id": {"type": "string"}, "ledger_key": {"type": "string"},
                                                                                      "attention_id": {"type": "string"}, "basis": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["from_id", "relation", "basis"]}}},
@@ -94,6 +105,29 @@ class State:
 def _brief(e: KnownEntity, aliases: Optional[List[str]] = None) -> Dict[str, Any]:
     return {"id": str(e.id), "name": e.name, "kind": e.kind, "status": e.status, "sensitive": e.sensitive, "suppressed": e.suppressed,
             "basis": e.basis, "summary": e.summary[:160], **({"aliases": aliases} if aliases is not None else {})}
+
+
+def _parse_extras(args: Dict[str, Any]) -> tuple:
+    """(extras dict, error). form/tags/occurred_on/significance, validated; nothing guessed."""
+    out: Dict[str, Any] = {}
+    if "form" in args:
+        f = str(args.get("form") or "").strip().lower()
+        if f not in kw.FORMS:
+            return {}, "form must be empty, situation, happening, disposition or pattern"
+        out["form"] = f
+    if "tags" in args:
+        out["tags"] = kw.norm_tags(args.get("tags") if isinstance(args.get("tags"), (list, str)) else [])
+    if "occurred_on" in args and str(args.get("occurred_on") or "").strip():
+        try:
+            out["occurred_on"] = datetime.strptime(str(args["occurred_on"]).strip()[:10], "%Y-%m-%d")
+        except ValueError:
+            return {}, "occurred_on must be YYYY-MM-DD"
+    if "significance" in args:
+        try:
+            out["significance"] = min(3, max(1, int(args["significance"])))
+        except (TypeError, ValueError):
+            return {}, "significance must be 1, 2 or 3"
+    return out, ""
 
 
 def _person_lines(transcript: str, label: str) -> str:
@@ -164,10 +198,13 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
         if len(await kw.list_all(db, ws, owner, statuses=("active", "dormant", "resolved"), limit=MAX_ENTITIES + 1)) > MAX_ENTITIES:
             return {"error": "the registry is at its size limit; merge or resolve entities first"}
         quote = _quote(str(args.get("evidence") or ""), st)
+        extras, err = _parse_extras(args)
+        if err:
+            return {"error": err}
         basis = "stated" if (str(args.get("basis") or "").strip().lower() == "stated" and quote) else "inferred"
         e = await kw.create(db, ws, owner, name=nm, kind=kind, summary=str(args.get("summary") or ""), sensitive=bool(args.get("sensitive")),
                             basis=basis, aliases=[a for a in (args.get("aliases") or []) if isinstance(a, str)], run_id=st.run_id,
-                            session_id=st.session_id, quote=quote)
+                            session_id=st.session_id, quote=quote, **extras)
         write()
         st.touched.add(str(e.id))
         st.changes["created"] += 1
@@ -181,6 +218,9 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
             return {"error": "no such entity — list or search first, never invent ids"}
         if kw.is_self(e):
             return {"error": "'the person' stands for the person themself and is not edited; link other things to it"}
+        extras, err = _parse_extras(args)
+        if err:
+            return {"error": err}
         if "status" in args and str(args["status"]).strip().lower() not in STATUSES:
             return {"error": "status must be active, dormant or resolved (merge_entities is the way to combine two)"}
         if isinstance(args.get("name"), str) and args["name"].strip():
@@ -199,6 +239,8 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
         for a in (args.get("add_aliases") or []):
             if isinstance(a, str):
                 await kw.add_alias(db, ws, owner, e.id, a)
+        for k_, v_ in extras.items():
+            setattr(e, k_, v_)
         quote = _quote(str(args.get("evidence") or ""), st)
         if quote and str(args.get("basis") or "").strip().lower() == "stated" and e.basis != "stated":
             e.basis = "stated"                     # the person has now said it themself (verified quote): the entity is no longer a mere inference

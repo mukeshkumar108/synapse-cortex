@@ -36,6 +36,9 @@ EXPOSURE_DEMOTE_AFTER = 3          # a situation shown this many sittings withou
 STALE_SITUATION_DAYS = 3
 LIVE = ("active", "dormant")
 SITUATION_KINDS = ("situation", "concern", "worry", "health", "decision", "curiosity", "question")
+FORMS = ("", "situation", "happening", "disposition", "pattern")
+PERTINENT_LIMIT = 4
+RECENT_DAYS = (3, 14, 60)
 SELF_KIND = "self"
 SELF_NAME = "the person"
 
@@ -57,7 +60,30 @@ def _refs(raw: str) -> List[Dict[str, Any]]:
 
 
 def is_situation(e: KnownEntity) -> bool:
-    return str(e.kind or "").lower() in SITUATION_KINDS
+    return str(e.form or "") == "situation" or (not e.form and str(e.kind or "").lower() in SITUATION_KINDS)
+
+
+def is_record(e: KnownEntity) -> bool:
+    """Happenings, dispositions and patterns: remembered things that are not people/projects/situations. They surface by relevance, never by listing."""
+    return str(e.form or "") in ("happening", "disposition", "pattern")
+
+
+def norm_tags(raw: Any) -> str:
+    items = raw if isinstance(raw, (list, tuple)) else str(raw or "").split(",")
+    out: List[str] = []
+    for t in items:
+        t = re.sub(r"[^a-z0-9/ \-]+", "", str(t).lower()).strip()
+        if len(t) >= 2 and t not in out:
+            out.append(t[:40])
+    return ",".join(out[:8])
+
+
+def _tag_words(tags: str) -> set:
+    return {w for t in tags.split(",") for w in re.split(r"[/ \-]+", t) if len(w) >= 3}
+
+
+def _tag_domains(tags: str) -> set:
+    return {t.split("/")[0].strip() for t in tags.split(",") if t.strip()}
 
 
 def is_self(e: KnownEntity) -> bool:
@@ -147,7 +173,7 @@ async def mentions(db: AsyncSession, ws: str, owner: str, text: str, limit: int 
     t = f" {norm(text)} "
     if len(t.strip()) < 3:
         return [], []
-    ents = {e.id: e for e in await list_all(db, ws, owner, statuses=("active", "dormant", "resolved")) if not is_self(e)}
+    ents = {e.id: e for e in await list_all(db, ws, owner, statuses=("active", "dormant", "resolved")) if not is_self(e) and not is_record(e)}
     al = (await db.execute(select(KnownEntityAlias).where(
         KnownEntityAlias.honcho_workspace_id == ws, KnownEntityAlias.owner_peer_id == owner))).scalars().all()
     by_key: Dict[str, List[UUID]] = {}
@@ -177,8 +203,9 @@ async def mentions(db: AsyncSession, ws: str, owner: str, text: str, limit: int 
 
 async def create(db: AsyncSession, ws: str, owner: str, *, name: str, kind: str = "person", summary: str = "", sensitive: bool = False,
                  basis: str = "stated", aliases: Iterable[str] = (), run_id: Optional[UUID] = None, session_id: str = "",
-                 quote: str = "") -> KnownEntity:
-    e = KnownEntity(honcho_workspace_id=ws, owner_peer_id=owner, kind=str(kind or "person").strip().lower()[:40], name=name.strip()[:200],
+                 quote: str = "", form: str = "", tags: Any = "", occurred_on: Optional[datetime] = None, significance: int = 2) -> KnownEntity:
+    e = KnownEntity(form=form if form in FORMS else "", tags=norm_tags(tags), occurred_on=occurred_on,
+                    significance=min(3, max(1, int(significance or 2))),honcho_workspace_id=ws, owner_peer_id=owner, kind=str(kind or "person").strip().lower()[:40], name=name.strip()[:200],
                     name_key=norm(name), summary=str(summary or "").strip()[:SUMMARY_MAX], sensitive=bool(sensitive),
                     basis="stated" if basis == "stated" else "inferred", run_id=run_id,
                     source_refs_json=json.dumps([{"session": session_id, "quote": quote[:300]}] if (session_id or quote) else []))
@@ -384,10 +411,29 @@ async def snapshot_text(db: AsyncSession, ws: str, owner: str, e: KnownEntity, c
         other = await get(db, ws, owner, l.from_entity_id if inbound else l.target_ref)
         if other is None or other.status == "merged":
             continue
+        if is_record(other) or is_self(other):
+            if is_self(other):
+                rel_lines.append(f"- {other.name if inbound else e.name}: {l.relation} {e.name if inbound else other.name}{_label(l.basis)}")
+            continue
         subj, obj = (other, e) if inbound else (e, other)
         rel_lines.append(f"- {subj.name}: {l.relation} {obj.name}{_label(l.basis)}")
     if rel_lines:
         lines.append("Connected to:\n" + "\n".join(dict.fromkeys(rel_lines)))
+    # remembered happenings, dispositions and patterns that involve this entity (newest first)
+    recs: List[Tuple[KnownEntity, KnownLink]] = []
+    for l in cur:
+        if l.target_kind != "entity":
+            continue
+        other = await get(db, ws, owner, l.from_entity_id if l.from_entity_id != e.id else l.target_ref)
+        if other is not None and is_record(other) and other.status in LIVE and not other.suppressed and other.id != e.id:
+            recs.append((other, l))
+    if recs:
+        recs.sort(key=lambda t: (t[0].occurred_on or t[0].last_touched_at), reverse=True)
+        cap = 3 if depth == "snapshot" else 6
+        rl: List[str] = []
+        for r, l in recs[:cap]:
+            rl.append(await _record_line(db, ws, owner, r, ctx, via=l))
+        lines.append("Remembered:\n" + "\n".join(dict.fromkeys(rl)))
     # operational matters, read from the ledger now
     keys = [l.target_ref for l in cur if l.target_kind == "ledger"]
     rows = await _ledger_rows(db, ws, owner, keys)
@@ -445,7 +491,7 @@ async def _rank(db: AsyncSession, ws: str, owner: str, ents: List[KnownEntity], 
 
 async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx, sensitive: str = "full") -> Tuple[str, List[Tuple[str, str]]]:
     """A compact account of the person's current world, from maintained records only. Selective, not exhaustive."""
-    ents = [e for e in await list_all(db, ws, owner, statuses=("active",)) if not e.suppressed and not is_self(e)]
+    ents = [e for e in await list_all(db, ws, owner, statuses=("active",)) if not e.suppressed and not is_self(e) and not is_record(e)]
     self_e = await _find_self(db, ws, owner)
     exp = {r.ref: r for r in (await db.execute(select(CueExposure).where(
         CueExposure.honcho_workspace_id == ws, CueExposure.owner_peer_id == owner, CueExposure.source == "entity"))).scalars().all()}
@@ -480,6 +526,16 @@ async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx, sensiti
             lines.append(f"- {e.name}{tag}: {body}. Last update {_ago(e.last_touched_at, ctx.now)}.")
             shown.append(("entity", str(e.id)))
         blocks.append("Developing situations:\n" + "\n".join(lines))
+    recent = [e for e in await list_all(db, ws, owner, statuses=("active",), limit=300)
+              if e.form == "happening" and not e.suppressed and (e.significance or 2) >= 3
+              and (ctx.now.replace(tzinfo=None) - (e.occurred_on or e.last_touched_at).replace(tzinfo=None)).days <= 7]
+    recent.sort(key=lambda e: (e.occurred_on or e.last_touched_at), reverse=True)
+    if recent:
+        lines = []
+        for e in recent[:2]:
+            lines.append(f"- {e.name} ({_ago(e.occurred_on or e.last_touched_at, ctx.now)})" + ("" if (e.sensitive and sensitive != "full") else f": {e.summary.strip().rstrip('.')}."))
+            shown.append(("entity", str(e.id)))
+        blocks.append("Recent consequential happenings:\n" + "\n".join(lines))
     if not blocks:
         return "", []
     head = f"[THEIR WORLD RIGHT NOW — maintained record, {ctx.now.strftime('%A %-d %B %Y')}. Each line reflects the latest recorded state.]"
@@ -501,10 +557,98 @@ async def mentions_text(db: AsyncSession, ws: str, owner: str, text: str, ctx: C
     return "[WHO OR WHAT THEY MEAN — maintained record]\n" + "\n\n".join(parts), shown
 
 
+def _stem(w: str) -> str:
+    return w[:-1] if len(w) > 4 and w.endswith("s") else w
+
+
+def _words_meet(a: set, b: set) -> bool:
+    """A word of the message and a tag word meet if equal or one begins the other (sleep / sleeping, book / books); 4+ letters for prefixes."""
+    for x in a:
+        for y in b:
+            if x == y or (min(len(x), len(y)) >= 4 and (x.startswith(y) or y.startswith(x))):
+                return True
+    return False
+
+
+async def _record_line(db: AsyncSession, ws: str, owner: str, r: KnownEntity, ctx: Ctx, via: Optional[KnownLink] = None) -> str:
+    when = ""
+    if r.form == "happening" and r.occurred_on is not None:
+        when = f", {r.occurred_on.strftime('%-d %b')} ({_ago(r.occurred_on, ctx.now)})"
+    label = {"happening": "happened", "disposition": r.kind or "disposition", "pattern": "provisional pattern"}.get(r.form, r.kind)
+    who = []
+    for l in (await db.execute(select(KnownLink).where(KnownLink.honcho_workspace_id == ws, KnownLink.owner_peer_id == owner,
+                                                         KnownLink.from_entity_id == r.id, KnownLink.target_kind == "entity",
+                                                         KnownLink.status == "current"))).scalars().all():
+        o = await get(db, ws, owner, l.target_ref)
+        if o is not None and not is_self(o) and not is_record(o) and o.name not in who:
+            who.append(o.name)
+    inv = f"; involving {', '.join(who[:3])}" if who else ""
+    sens = ", sensitive" if r.sensitive else ""
+    return f"- {r.name} ({label}{when}{inv}{sens}){_label(r.basis)}: {r.summary.strip().rstrip('.')}."
+
+
+async def pertinent_text(db: AsyncSession, ws: str, owner: str, text: str, mentioned: Sequence[KnownEntity], ctx: Ctx,
+                         sensitive: str = "full") -> Tuple[str, List[Tuple[str, str]]]:
+    """A SMALL selection of remembered happenings, dispositions and patterns that bear on what the person just said. Not a dump of everything in
+    a domain, and not limited to what is directly linked to someone named: relevance comes from (a) a link to a mentioned entity, (b) a shared
+    tag or domain with the mentioned entities, (c) a word of the message matching one of the record's tags. Recency and significance rank
+    among the relevant ones; nothing appears on recency alone. A pattern stands in for the happenings that support it."""
+    recs = [e for e in await list_all(db, ws, owner, statuses=("active",), limit=400) if is_record(e) and not e.suppressed]
+    if not recs:
+        return "", []
+    links = (await db.execute(select(KnownLink).where(KnownLink.honcho_workspace_id == ws, KnownLink.owner_peer_id == owner,
+                                                        KnownLink.target_kind == "entity", KnownLink.status == "current"))).scalars().all()
+    adj: Dict[UUID, set] = {}
+    support: Dict[UUID, set] = {}
+    for l in links:
+        t = UUID(l.target_ref)
+        adj.setdefault(l.from_entity_id, set()).add(t)
+        adj.setdefault(t, set()).add(l.from_entity_id)
+    ment = {e.id for e in mentioned}
+    ctx_tags = {t for e in mentioned for t in e.tags.split(",") if t}
+    ctx_domains = _tag_domains(",".join(ctx_tags)) if ctx_tags else set()
+    words = {_stem(w) for w in norm(text).split() if len(w) >= 3}
+    scored: List[Tuple[float, KnownEntity]] = []
+    for r in recs:
+        s = 0.0
+        if adj.get(r.id, set()) & ment:
+            s += 4
+        rt = {t for t in r.tags.split(",") if t}
+        if _words_meet({_stem(w) for w in _tag_words(r.tags)}, words):
+            s += 3
+        if rt & ctx_tags:
+            s += 3
+        elif _tag_domains(r.tags) & ctx_domains:
+            s += 2
+        if s == 0:
+            continue
+        if r.form == "happening":
+            age = max(0, (ctx.now.replace(tzinfo=None) - (r.occurred_on or r.last_touched_at).replace(tzinfo=None)).days)
+            s += 3 if age <= RECENT_DAYS[0] else 2 if age <= RECENT_DAYS[1] else 1 if age <= RECENT_DAYS[2] else 0
+        s += (r.significance or 2) - 1 + (1 if r.form == "pattern" else 0)
+        scored.append((s, r))
+    scored.sort(key=lambda t: (-t[0], t[1].name))
+    chosen = [r for _, r in scored]
+    pat_support = {n for r in chosen if r.form == "pattern" for n in adj.get(r.id, set())}
+    chosen = [r for r in chosen if r.form == "pattern" or r.id not in pat_support][:PERTINENT_LIMIT]
+    if not chosen:
+        return "", []
+    lines = []
+    for r in chosen:
+        if r.sensitive and sensitive != "full":
+            lines.append(f"- {r.name} (sensitive): details available if they raise it.")
+        else:
+            lines.append(await _record_line(db, ws, owner, r, ctx))
+    head = "[REMEMBERED THAT BEARS ON THIS — maintained record, chosen because it connects to what they just said; not everything held is shown]"
+    return head + "\n" + "\n".join(lines), [("entity", str(r.id)) for r in chosen]
+
+
 async def packet(db: AsyncSession, ws: str, owner: str, text: str, ctx: Ctx, sensitive: str = "full") -> Dict[str, Any]:
     ov, s1 = await overview_text(db, ws, owner, ctx, sensitive)
+    found, _amb = await mentions(db, ws, owner, text or "")
     mt, s2 = await mentions_text(db, ws, owner, text or "", ctx)
-    return {"overview": ov, "mentions": mt, "shown": [{"source": a, "ref": b} for a, b in dict.fromkeys(s1 + s2)]}
+    pt, s3 = await pertinent_text(db, ws, owner, text or "", found, ctx, sensitive)
+    return {"overview": ov, "mentions": "\n\n".join(x for x in (mt, pt) if x), "shown": [{"source": a, "ref": b} for a, b in dict.fromkeys(s1 + s2 + s3)]}
 
 
 async def entity_view(db: AsyncSession, ws: str, owner: str, query: str, ctx: Ctx, depth: str = "connected") -> Dict[str, Any]:

@@ -92,3 +92,28 @@ async def test_two_products_with_the_same_ids_share_no_entities_links_or_exposur
     assert ins_b["exposure"] == []                                      # Sophie's exposure is invisible to Bloom
     assert (await async_client.get("/v1/memory/world", params={**q, "companion_id": "sophie"}, headers=H("tb"))).status_code == 403
     assert (await async_client.get("/v1/memory/world", params={**q, "workspace_id": "bloom::wsI"}, headers=H("tb"))).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_export_and_delete_are_confirmed_product_scoped_and_complete_for_the_owners_rows(monkeypatch):
+    from httpx import ASGITransport, AsyncClient
+    from src.main import app
+    o1, o2 = f"u-{uuid.uuid4().hex[:6]}", f"u-{uuid.uuid4().hex[:6]}"
+    await seed("sophie-ws", o1, "Morgan")
+    await seed("bloom::bloom-ws", o1, "Quentin")          # the same owner id in another product
+    await seed("sophie-ws", o2, "Nadia")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
+        ex = (await c.get(f"/v1/memory/export?workspace_id=sophie-ws&owner={o1}&companion_id=sophie", headers=H("ts"))).json()
+        assert {e["name"] for e in ex["tables"]["known_entities"]} == {"Morgan", "Morgan's project", "Morgan's worry"} and ex["tables"]["ledger_items"] and ex["not_covered"]
+        no = await c.post("/v1/memory/delete", headers=H("ts"), json={"workspace_id": "sophie-ws", "owner": o1, "companion_id": "sophie", "confirm": "yes"})
+        assert no.status_code == 422                                              # permanent: must be confirmed with the owner id
+        ok = await c.post("/v1/memory/delete", headers=H("ts"), json={"workspace_id": "sophie-ws", "owner": o1, "companion_id": "sophie", "confirm": o1})
+        assert ok.json()["deleted"]["known_entities"] == 3 and ok.json()["deleted"]["ledger_items"] == 1
+        after = (await c.get(f"/v1/memory/export?workspace_id=sophie-ws&owner={o1}&companion_id=sophie", headers=H("ts"))).json()
+        assert not any(after["tables"].values())
+        other_product = (await c.get(f"/v1/memory/export?workspace_id=bloom-ws&owner={o1}&companion_id=bloom", headers=H("tb"))).json()
+        assert {e["name"] for e in other_product["tables"]["known_entities"]} == {"Quentin", "Quentin's project", "Quentin's worry"}   # untouched
+        same_ws_other_owner = (await c.get(f"/v1/memory/export?workspace_id=sophie-ws&owner={o2}&companion_id=sophie", headers=H("ts"))).json()
+        assert same_ws_other_owner["tables"]["known_entities"]
+        cross = await c.post("/v1/memory/delete", headers=H("ts"), json={"workspace_id": "bloom-ws", "owner": o1, "companion_id": "bloom", "confirm": o1})
+        assert cross.status_code in (403, 404, 422) or cross.json()["deleted"]["known_entities"] == 0      # Sophie's credential cannot delete Bloom's data
