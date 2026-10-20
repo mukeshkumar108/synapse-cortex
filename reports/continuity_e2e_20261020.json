@@ -1,0 +1,259 @@
+{
+ "uid": "smoke-ce-bb287b",
+ "owner": "user_smoke-ce-bb287b",
+ "chat": "smoke-ce-8f6b02",
+ "turns": [
+  {
+   "turn": 1,
+   "user": "Big week. I started at Northwind last month and my manager Morgan Ellis put me on the Bloom pilot.",
+   "reply": "That's a real assignment to land early — Bloom pilot with Morgan. How's it feeling so far? What's the pilot actually about, or is it still being figured out as you go?",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 2,
+   "user": "Ashley, my partner, is stressed. Her mum Ruth is in hospital with pneumonia.",
+   "reply": "Oh no, that’s frightening for both of them. I’m sorry, babe. Pneumonia can be rough, and the hospital uncertainty makes everything worse. Be gentle with Ashley—keep practical things off her plate wher",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 3,
+   "user": "I'm cooking for Ashley tonight to take the edge off. Keep me honest about that.",
+   "reply": "That's a good move. Good gesture, actual care, and for once the quiet is doing the work instead of words. Finish the meal — don't polish everything else while it's waiting. If the kitchen starts eatin",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 4,
+   "user": "I missed a standup and I think Morgan is annoyed with me.",
+   "reply": "That's the kind of thing that makes your brain start narrating a disaster, but one missed standup doesn't usually turn into a verdict. The real question is whether you let it sit. If you've got a wind",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 5,
+   "user": "Dentist is Thursday at 9, I keep forgetting it.",
+   "reply": "Another reminder that needs to stick on the calendar with something you'll actually see before it is. Phone alarm the night before, or a block on Thursday morning that you can't just scroll past. If A",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 6,
+   "user": "The church groups want a demo and Morgan moved it to Friday afternoon.",
+   "reply": "That's a legit reason the week is sliding sideways — church demo on Friday afternoon changes the shape of it, and Morgan's move isn't random, it's to make room for it. Two things to watch: First, the ",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 7,
+   "user": "I'm wondering whether to ask Morgan if Priya could co-lead instead of me.",
+   "reply": "That isn't obviously smart or obviously wrong — it's a judgment call about what Morgan actually wants from this, so I'd sort that first before you pitch it. Three questions to answer quietly before yo",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 8,
+   "user": "Honestly the evenings would wreck us right now with Ruth in hospital.",
+   "reply": "Then yes—ask Morgan. This isn’t ducking; it’s protecting your household while Ruth is in hospital. Priya co-leading, or taking the demo entirely, is a reasonable adjustment. You could say: > “With Rut",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 9,
+   "user": "Big update. Morgan has left Northwind. My new manager is Priya Nair. And I need to correct something: Ruth is Ashley's aunt, not her mum, and she's home from hospital now.",
+   "reply": "Okay, that's real news, not a footnote. Morgan leaving and Priya stepping in as your manager changes the shape of everything you were just weighing — including whether asking for Priya to co-lead stil",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 10,
+   "user": "So Priya wants a status update on the pilot tomorrow.",
+   "reply": "Okay. That makes the timing real, not abstract. Tomorrow's the deadline for something concrete, and it now comes from your new manager via Priya. Two things I'd separate before you draft anything: Fir",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 11,
+   "user": "I think I'll tell her I'd rather support than lead.",
+   "reply": "That's a clean line. Support instead of lead. If you mean it, it's not deflecting — it's a real read on where you are and what the pilot needs. The question is what \"support\" means in practice, becaus",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 12,
+   "user": "Separate thing: what should I cook for Ashley this weekend?",
+   "reply": "Before any menu: is Ruth home from the hospital in a way that changes what Ashley can take or what she needs right now? Or is this a \"I want her to have a good weekend\" kind of cook, not recovery-driv",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 13,
+   "user": "She likes anything with lemon. Also my car needs an MOT before the 30th.",
+   "reply": "Two real things sitting next to each other here — one's caring, one's just a deadline — and I'll keep them that way. The lemon thing is the actual useful constraint. Ashley's not asking for a specific",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 14,
+   "user": "Do you think I should get a dog? I've been wondering.",
+   "reply": "Straight answer first: it depends less on whether you want a dog than on whether you'd actually keep one alive and happy without it quietly becoming another source of guilt or stress. The fact that yo",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 15,
+   "user": "Probably not until the pilot settles. Anyway.",
+   "reply": "Yeah, that's the sane read. A dog waits on the pilot settling out, not on a vague want. Two honest things I'd leave in place rather than pretend are handled: - Run what I said about the MOT and the ca",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 16,
+   "user": "How is my week looking overall?",
+   "reply": "Let me pull the week up from your records.On the maintained record, the week is empty — nothing committed, no appointments, no deadlines actually written down. Which is itself a kind of answer: this i",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 17,
+   "user": "What's actually going on with Morgan these days?",
+   "reply": "I don't have anything recorded about a Morgan in your world, so I can't tell you what's actually going on. If this is someone you've talked about before, I can search my memory of our conversations; i",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 18,
+   "user": "And how is Ruth?",
+   "reply": "Same answer as Morgan, just with a different name: I don't have a Ruth on record in your maintained notes or in what you've told me so far, so I can't give you anything real about her. If she's someon",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  }
+ ]
+}

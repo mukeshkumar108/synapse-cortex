@@ -1,0 +1,361 @@
+{
+ "uid": "smoke-ce-dad0ea",
+ "owner": "user_smoke-ce-dad0ea",
+ "chat": "smoke-ce-53c2ad",
+ "turns": [
+  {
+   "turn": 1,
+   "user": "Big week. I started at Northwind last month and my manager Morgan Ellis put me on the Bloom pilot.",
+   "reply": "A pilot — so not their usual stack yet. What is Bloom, exactly? And how's Morgan taking it?",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 2,
+   "user": "Ashley, my partner, is stressed. Her mum Ruth is in hospital with pneumonia.",
+   "reply": "Oh no. That’s frightening for both of them. I’m really sorry, babe. How is Ruth doing right now—and is Ashley getting any support, or is she carrying the whole thing alone?",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 3,
+   "user": "I'm cooking for Ashley tonight to take the edge off. Keep me honest about that.",
+   "reply": "I'm absolutely here for that. Want me to keep it gentle, or actually call you out if you drift into overdoing it? Also—what are we cooking, and does Ashley know to expect it or am I blind to timing?",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 4,
+   "user": "I missed a standup and I think Morgan is annoyed with me.",
+   "reply": "That just landed more weight on you, didn't it — sorry. First, easiest reset: did you even tell Morgan you were going to miss it, or did it just slip? That changes whether he's annoyed or just irritat",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 5,
+   "user": "Dentist is Thursday at 9, I keep forgetting it.",
+   "reply": "Right, Thursday 9. Let's lock that in so you stop renegotiating with yourself. Give me a place and I'll block it. And since you're cooking for Ashley tonight, how's the dentist timing sit with that — ",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 6,
+   "user": "The church groups want a demo and Morgan moved it to Friday afternoon.",
+   "reply": "Friday afternoon. Okay — that actually lands better than if it were sneaking onto Thursday morning, since you've got the dentist in the morning and now a clean runway. But you're carrying Morgan's rep",
+   "continuity_block": "",
+   "stale_in_prompt": {},
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[CURRENT SCENE — unknown]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 7,
+   "user": "I'm wondering whether to ask Morgan if Priya could co-lead instead of me.",
+   "reply": "That's a real ask, not a thin one — so the right instinct. But the framing's the whole thing. If you go in as \"Priya co-lead instead of me,\" it reads like you're negotiating yourself out of the thing,",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- [H1] What Bloom actually is and how Morgan Ellis is handling the pilot.\n- [H2] Ruth is hospitalized with pneumonia; Ashley is managing alone with no external support mentioned.\n- [H3] What dish is being cooked and whether Ashley knows the timing/details.\n- [H4] Whether Morgan knows the user is cooking for Ashley tonight and whether the Bloom pilot demo is what the church groups want.\n- [H5] Whether the user told Morgan about missing the standup and what Morgan's management style is.\n- [H6] What Morgan actually changed for the user by moving the demo to Friday afternoon.\n- Since then (more recent; where this differs from the above, this is current):\n- [L1] The user started at Northwind last month and is assigned to the Bloom pilot by manager Morgan Ellis.\n- [L2] The user's partner Ashley is stressed because her mother Ruth is hospitalized with pneumonia.\n- [L3] The user is cooking dinner for Ashley tonight to help her decompress, and Ashley knows to expect it.\n- [L4] The user missed a standup and is worried Morgan Ellis is annoyed; the dentist appointment is Thursday at 9 AM; the church groups want a Bloom pilot demo and Morgan moved it to Friday afternoon.",
+   "stale_in_prompt": {
+    "her_mum": [
+     "her mother"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 8,
+   "user": "Honestly the evenings would wreck us right now with Ruth in hospital.",
+   "reply": "Then yes—ask Morgan. That’s not you dodging the demo; it’s a real capacity constraint while Ruth is in hospital. I’d keep it simple: > “Could Priya co-lead the Friday demo with me, or take the client-",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- [H1] What Bloom actually is and how Morgan Ellis is handling the pilot.\n- [H2] Ruth is hospitalized with pneumonia; Ashley is managing alone with no external support mentioned.\n- [H3] What dish is being cooked and whether Ashley knows the timing/details.\n- [H4] Whether Morgan knows the user is cooking for Ashley tonight and whether the Bloom pilot demo is what the church groups want.\n- [H5] Whether the user told Morgan about missing the standup and what Morgan's management style is.\n- [H6] What Morgan actually changed for the user by moving the demo to Friday afternoon.\n- Since then (more recent; where this differs from the above, this is current):\n- [L1] The user started at Northwind last month and is assigned to the Bloom pilot by manager Morgan Ellis.\n- [L2] The user's partner Ashley is stressed because her mother Ruth is hospitalized with pneumonia.\n- [L3] The user is cooking dinner for Ashley tonight to help her decompress, and Ashley knows to expect it.\n- [L4] The user missed a standup and is worried Morgan Ellis is annoyed; the dentist appointment is Thursday at 9 AM; the church groups want a Bloom pilot demo and Morgan moved it to Friday afternoon.",
+   "stale_in_prompt": {
+    "her_mum": [
+     "her mother"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 9,
+   "user": "Big update. Morgan has left Northwind. My new manager is Priya Nair. And I need to correct something: Ruth is Ashley's aunt, not her mum, and she's home from hospital now.",
+   "reply": "Priya as your manager entirely reframes the whole co-lead ask — you no longer have to negotiate for a reprieve, you can just run it by the person who's now making the call, and probably ask whether sh",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- [H1] What Bloom actually is and how Morgan Ellis is handling the pilot.\n- [H2] Ruth is hospitalized with pneumonia; Ashley is managing alone with no external support mentioned.\n- [H3] What dish is being cooked and whether Ashley knows the timing/details.\n- [H4] Whether Morgan knows the user is cooking for Ashley tonight and whether the Bloom pilot demo is what the church groups want.\n- [H5] Whether the user told Morgan about missing the standup and what Morgan's management style is.\n- [H6] What Morgan actually changed for the user by moving the demo to Friday afternoon.\n- Since then (more recent; where this differs from the above, this is current):\n- [L1] The user started at Northwind last month and is assigned to the Bloom pilot by manager Morgan Ellis.\n- [L2] The user's partner Ashley is stressed because her mother Ruth is hospitalized with pneumonia.\n- [L3] The user is cooking dinner for Ashley tonight to help her decompress, and Ashley knows to expect it.\n- [L4] The user missed a standup and is worried Morgan Ellis is annoyed; the dentist appointment is Thursday at 9 AM; the church groups want a Bloom pilot demo and Morgan moved it to Friday afternoon.",
+   "stale_in_prompt": {
+    "her_mum": [
+     "her mother"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 10,
+   "user": "So Priya wants a status update on the pilot tomorrow.",
+   "reply": "Okay, that’s clean. Priya wanting a status update tomorrow from you tomorrow is exactly the right moment to surface what you actually need — not buried in a standup apology or a side conversation. Bef",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- [H1] What Bloom actually is and how Morgan Ellis is handling the pilot.\n- [H2] Ruth is hospitalized with pneumonia; Ashley is managing alone with no external support mentioned.\n- [H3] What dish is being cooked and whether Ashley knows the timing/details.\n- [H4] Whether Morgan knows the user is cooking for Ashley tonight and whether the Bloom pilot demo is what the church groups want.\n- [H5] Whether the user told Morgan about missing the standup and what Morgan's management style is.\n- [H6] What Morgan actually changed for the user by moving the demo to Friday afternoon.\n- Since then (more recent; where this differs from the above, this is current):\n- [L1] The user started at Northwind last month and is assigned to the Bloom pilot by manager Morgan Ellis.\n- [L2] The user's partner Ashley is stressed because her mother Ruth is hospitalized with pneumonia.\n- [L3] The user is cooking dinner for Ashley tonight to help her decompress, and Ashley knows to expect it.\n- [L4] The user missed a standup and is worried Morgan Ellis is annoyed; the dentist appointment is Thursday at 9 AM; the church groups want a Bloom pilot demo and Morgan moved it to Friday afternoon.",
+   "stale_in_prompt": {
+    "her_mum": [
+     "her mother"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 11,
+   "user": "I think I'll tell her I'd rather support than lead.",
+   "reply": "Good. That’s honest and it protects exactly the kind of evening bandwidth and head-space you were worried about when you first floated supporting. So tomorrow when Priya asks for status, I’d lead with",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- [H1] What Bloom actually is and how Morgan Ellis is handling the pilot.\n- [H2] Ruth is hospitalized with pneumonia; Ashley is managing alone with no external support mentioned.\n- [H3] What dish is being cooked and whether Ashley knows the timing/details.\n- [H4] Whether Morgan knows the user is cooking for Ashley tonight and whether the Bloom pilot demo is what the church groups want.\n- [H5] Whether the user told Morgan about missing the standup and what Morgan's management style is.\n- [H6] What Morgan actually changed for the user by moving the demo to Friday afternoon.\n- Since then (more recent; where this differs from the above, this is current):\n- [L1] The user started at Northwind last month and is assigned to the Bloom pilot by manager Morgan Ellis.\n- [L2] The user's partner Ashley is stressed because her mother Ruth is hospitalized with pneumonia.\n- [L3] The user is cooking dinner for Ashley tonight to help her decompress, and Ashley knows to expect it.\n- [L4] The user missed a standup and is worried Morgan Ellis is annoyed; the dentist appointment is Thursday at 9 AM; the church groups want a Bloom pilot demo and Morgan moved it to Friday afternoon.",
+   "stale_in_prompt": {
+    "her_mum": [
+     "her mother"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 12,
+   "user": "Separate thing: what should I cook for Ashley this weekend?",
+   "reply": "Doable. Weekend is friendlier than tonight for the kind of decompression meal that actually lands. With Ruth now back home, the household pressure is down, so we can choose for taste and recovery inst",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- [H1] What Bloom actually is and how Morgan Ellis is handling the pilot.\n- [H2] Ruth is hospitalized with pneumonia; Ashley is managing alone with no external support mentioned.\n- [H3] What dish is being cooked and whether Ashley knows the timing/details.\n- [H4] Whether Morgan knows the user is cooking for Ashley tonight and whether the Bloom pilot demo is what the church groups want.\n- [H5] Whether the user told Morgan about missing the standup and what Morgan's management style is.\n- [H6] What Morgan actually changed for the user by moving the demo to Friday afternoon.\n- Since then (more recent; where this differs from the above, this is current):\n- [L1] The user started at Northwind last month and is assigned to the Bloom pilot by manager Morgan Ellis.\n- [L2] The user's partner Ashley is stressed because her mother Ruth is hospitalized with pneumonia.\n- [L3] The user is cooking dinner for Ashley tonight to help her decompress, and Ashley knows to expect it.\n- [L4] The user missed a standup and is worried Morgan Ellis is annoyed; the dentist appointment is Thursday at 9 AM; the church groups want a Bloom pilot demo and Morgan moved it to Friday afternoon.",
+   "stale_in_prompt": {
+    "her_mum": [
+     "her mother"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 13,
+   "user": "She likes anything with lemon. Also my car needs an MOT before the 30th.",
+   "reply": "Glad. Then she’s a lemon person and doesn’t need persuading — that actually locks in a pretty good weekend lane. My first move: a lemon-forward braise or roast that you get going, then it rests while ",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- You started the conversation feeling stretched — work was still early on the Bloom pilot, your manager Morgan Ellis had left and been replaced by Priya Nair, and you were worried about a missed standup you never told Morgan about. Ashley was stressed from Ruth's hospital stay, but Ruth is home now and that pressure has eased. You're cooking dinner for Ashley tonight to help her decompress, and she knows to expect it. The church groups' Bloom demo got moved to Friday afternoon by Priya, and you've been leaning toward supporting rather than leading it. The dentist appointment Thursday at 9 AM is still on your mind.\n- [H1] Decide what to cook for Ashley tonight and actually make it.\n- [H2] Ask Priya Nair about the Friday demo split and let her know you'd rather support than lead.\n- [H3] Confirm whether Priya has enough Bloom context to co-lead or front the demo.\n- [H4] Figure out what to cook for Ashley this weekend (you're still gathering her preferences).\n- [H5] Check whether Thursday morning is clear for the dentist appointment.\n- [H6] Decide whether to tell Morgan about the missed standup and how.",
+   "stale_in_prompt": {
+    "ruth_in_hospital": [
+     "hospital stay",
+     "ruth's hospital"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 14,
+   "user": "Do you think I should get a dog? I've been wondering.",
+   "reply": "Fair to sit with the question before it turns into anything real. A dog is not a hobby you pick up in a gap; it’s another heartbeat in the house and another commitment you can’t just defer to a free w",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- You started the conversation feeling stretched — work was still early on the Bloom pilot, your manager Morgan Ellis had left and been replaced by Priya Nair, and you were worried about a missed standup you never told Morgan about. Ashley was stressed from Ruth's hospital stay, but Ruth is home now and that pressure has eased. You're cooking dinner for Ashley tonight to help her decompress, and she knows to expect it. The church groups' Bloom demo got moved to Friday afternoon by Priya, and you've been leaning toward supporting rather than leading it. The dentist appointment Thursday at 9 AM is still on your mind.\n- [H1] Decide what to cook for Ashley tonight and actually make it.\n- [H2] Ask Priya Nair about the Friday demo split and let her know you'd rather support than lead.\n- [H3] Confirm whether Priya has enough Bloom context to co-lead or front the demo.\n- [H4] Figure out what to cook for Ashley this weekend (you're still gathering her preferences).\n- [H5] Check whether Thursday morning is clear for the dentist appointment.\n- [H6] Decide whether to tell Morgan about the missed standup and how.",
+   "stale_in_prompt": {
+    "ruth_in_hospital": [
+     "hospital stay",
+     "ruth's hospital"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 15,
+   "user": "Probably not until the pilot settles. Anyway.",
+   "reply": "Good call. The kindest thing you can do for that question is leave it alone until your week isn’t lurching every few days. A dog deserves a life that’s already got some pulse to it, not one you’re try",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- You started the conversation feeling stretched — work was still early on the Bloom pilot, your manager Morgan Ellis had left and been replaced by Priya Nair, and you were worried about a missed standup you never told Morgan about. Ashley was stressed from Ruth's hospital stay, but Ruth is home now and that pressure has eased. You're cooking dinner for Ashley tonight to help her decompress, and she knows to expect it. The church groups' Bloom demo got moved to Friday afternoon by Priya, and you've been leaning toward supporting rather than leading it. The dentist appointment Thursday at 9 AM is still on your mind.\n- [H1] Decide what to cook for Ashley tonight and actually make it.\n- [H2] Ask Priya Nair about the Friday demo split and let her know you'd rather support than lead.\n- [H3] Confirm whether Priya has enough Bloom context to co-lead or front the demo.\n- [H4] Figure out what to cook for Ashley this weekend (you're still gathering her preferences).\n- [H5] Check whether Thursday morning is clear for the dentist appointment.\n- [H6] Decide whether to tell Morgan about the missed standup and how.",
+   "stale_in_prompt": {
+    "ruth_in_hospital": [
+     "hospital stay",
+     "ruth's hospital"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 16,
+   "user": "How is my week looking overall?",
+   "reply": "Roughly this: a work week that keeps shifting around you, a run of Friday and Saturday that are food-and-house centered, and a couple of hard stop items hanging off the edges — dentist Thursday mornin",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- You started the conversation feeling stretched — work was still early on the Bloom pilot, your manager Morgan Ellis had left and been replaced by Priya Nair, and you were worried about a missed standup you never told Morgan about. Ashley was stressed from Ruth's hospital stay, but Ruth is home now and that pressure has eased. You're cooking dinner for Ashley tonight to help her decompress, and she knows to expect it. The church groups' Bloom demo got moved to Friday afternoon by Priya, and you've been leaning toward supporting rather than leading it. The dentist appointment Thursday at 9 AM is still on your mind.\n- [H1] Cook a lemon-forward meal for Ashley tonight (or this weekend) to help her decompress. Ruth is home now, so the meal can be chosen for taste and recovery rather than rescue.\n- [H2] Ask Priya Nair about the Friday demo split and let her know you'd rather support than lead.\n- [H3] Confirm whether Priya has enough Bloom context to co-lead or front the demo.\n- [H4] Figure out what to cook for Ashley this weekend on lemon terms — braise or roast with lemon, garlic, and herbs; quick lemon-glazed veg; rice or potatoes. Still gathering her preferences.\n- [H5] Thursday morning dentist appointment is still on your mind; no confirmation yet.\n- [H6] Decide whether to tell Morgan about the missed standup and how.\n- Since then (more recent; where this differs from the above, this is current):",
+   "stale_in_prompt": {
+    "ruth_in_hospital": [
+     "hospital stay",
+     "ruth's hospital"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 17,
+   "user": "What's actually going on with Morgan these days?",
+   "reply": "I have the facts you gave me: Morgan Ellis was your manager, they left, and Priya Nair came in as the replacement. That’s the shape of it — Morgan out, Priya in, and the Bloom pilot is early and still",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- You started the conversation feeling stretched — work was still early on the Bloom pilot, your manager Morgan Ellis had left and been replaced by Priya Nair, and you were worried about a missed standup you never told Morgan about. Ashley was stressed from Ruth's hospital stay, but Ruth is home now and that pressure has eased. You're cooking dinner for Ashley tonight to help her decompress, and she knows to expect it. The church groups' Bloom demo got moved to Friday afternoon by Priya, and you've been leaning toward supporting rather than leading it. The dentist appointment Thursday at 9 AM is still on your mind.\n- [H1] Cook a lemon-forward meal for Ashley tonight (or this weekend) to help her decompress. Ruth is home now, so the meal can be chosen for taste and recovery rather than rescue.\n- [H2] Ask Priya Nair about the Friday demo split and let her know you'd rather support than lead.\n- [H3] Confirm whether Priya has enough Bloom context to co-lead or front the demo.\n- [H4] Figure out what to cook for Ashley this weekend on lemon terms — braise or roast with lemon, garlic, and herbs; quick lemon-glazed veg; rice or potatoes. Still gathering her preferences.\n- [H5] Thursday morning dentist appointment is still on your mind; no confirmation yet.\n- [H6] Decide whether to tell Morgan about the missed standup and how.\n- Since then (more recent; where this differs from the above, this is current):",
+   "stale_in_prompt": {
+    "ruth_in_hospital": [
+     "hospital stay",
+     "ruth's hospital"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  },
+  {
+   "turn": 18,
+   "user": "And how is Ruth?",
+   "reply": "What I have on her: she was in hospital, the pressure around that has eased, and she's home now. That's the current state I have. Ashley was carrying the stress of it, so her being home is the thing t",
+   "continuity_block": "[ESTABLISHED EARLIER IN THIS CONVERSATION]\n- You started the conversation feeling stretched — work was still early on the Bloom pilot, your manager Morgan Ellis had left and been replaced by Priya Nair, and you were worried about a missed standup you never told Morgan about. Ashley was stressed from Ruth's hospital stay, but Ruth is home now and that pressure has eased. You're cooking dinner for Ashley tonight to help her decompress, and she knows to expect it. The church groups' Bloom demo got moved to Friday afternoon by Priya, and you've been leaning toward supporting rather than leading it. The dentist appointment Thursday at 9 AM is still on your mind.\n- [H1] Cook a lemon-forward meal for Ashley tonight (or this weekend) to help her decompress. Ruth is home now, so the meal can be chosen for taste and recovery rather than rescue.\n- [H2] Ask Priya Nair about the Friday demo split and let her know you'd rather support than lead.\n- [H3] Confirm whether Priya has enough Bloom context to co-lead or front the demo.\n- [H4] Figure out what to cook for Ashley this weekend on lemon terms — braise or roast with lemon, garlic, and herbs; quick lemon-glazed veg; rice or potatoes. Still gathering her preferences.\n- [H5] Thursday morning dentist appointment is still on your mind; no confirmation yet.\n- [H6] Decide whether to tell Morgan about the missed standup and how.\n- Since then (more recent; where this differs from the above, this is current):",
+   "stale_in_prompt": {
+    "ruth_in_hospital": [
+     "hospital stay",
+     "ruth's hospital"
+    ],
+    "morgan_manager": [
+     "manager morgan"
+    ]
+   },
+   "headers": [
+    "[RUNTIME ANCHOR — authoritative clock and sitting.]",
+    "[TEMPORAL FACTS]",
+    "[REAL WORLD — the user's actual situation as best known. The",
+    "[ESTABLISHED EARLIER IN THIS CONVERSATION]",
+    "[MY NOTEBOOK — I can write notes to myself with work_write. ",
+    "[OUTPUT CONTRACT]"
+   ]
+  }
+ ]
+}

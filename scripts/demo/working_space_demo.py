@@ -81,8 +81,8 @@ def cmd_fg(label, companion, texts):
         h += [["user", text], ["assistant", reply]]
         prompt = p["prompt"]
         work_block = ""
-        if "[YOUR WORKING SPACE" in prompt:
-            work_block = prompt[prompt.index("[YOUR WORKING SPACE"):].split("\n\n[OUTPUT CONTRACT]")[0][:3000]
+        if "[YOUR NOTEBOOK" in prompt:
+            work_block = prompt[prompt.index("[YOUR NOTEBOOK"):].split("\n\n[OUTPUT CONTRACT]")[0][:3000]
         tools = (p["state"] or {}).get("tools") or []
         print(json.dumps({"turn": tid, "user": text, "reply": reply, "work_block_delivered": work_block or None,
                           "tool_trace": [t for t in tools if str(t.get("tool", "")).startswith("work_") or t.get("tool") == "_availability"],

@@ -30,6 +30,20 @@ the extra tables/columns inert. To roll back: `docker tag deploy-api:pre-connect
 - Verified on the deployed system with a synthetic user (§14): the full Runtime path with real Sophie, four probe turns, the assembled prompt read back. Mixed results are listed there and are not repeated here.
 - Tests: Cortex full suite and Runtime suite green at the commits below (see git log); the end-to-end driver is a manual harness.
 
+## Hardening pass, 2026-10-20 late (measured, then fixed)
+
+- **Latency** (stage timings now in every run bundle, `GET /run/{id}` → `stage_ms`): one consolidation was 167–410 s; the attention agent was the bottleneck (42–270 s; repeated 2500-token no-tool replies from the OpenRouter
+  model, unfinished in 2 of 3 runs). Fixes: attention on the flat-rate qwen3.8-27b (27 s, verified); notebook edits overlap the ledger chain; the first read of the ledger/registry is handed to the agent by code. Provider speed varies 3-4x by time of day, so
+  wall time stays 2-4 min. **Duplicates:** the same sitting arrived by 2-3 routes (end signal, next-sitting hand-off, idle) with different message ids and was consolidated each time; now deduped by content fingerprint and a replay costs ~1 s, no model calls.
+  **During the gap** Cortex reports `pending_consolidations`; the Runtime then shows the previous conversation's last exchanges verbatim ("JUST BEFORE THIS") until the record catches up.
+- **Rolling continuity was effectively off in production**: the scene narrator rewrote the sitting state after every turn and erased the stored account. Fixed (`sitting_store.put` preserves it); verified in a real 18-turn sitting across the checkpoint.
+  Open to-dos now stay addressable (H-lines) and are re-checked each step. Remaining lag: a correction reaches the summary one 6-message step later (the raw tail carries it meanwhile).
+  First-ever conversation depends on the app marking the first turn as a new sitting (`entry_context.chronology.temporalSession`), otherwise no sitting id and no rolling account.
+- **Deletion boundary** is in `DATA_LIFECYCLE.md`: Cortex delete is now schema-wide (a real account has rows in 33 tables); `erase_user` removes Cortex + Runtime + Honcho and verifies (waits for Honcho's async queue). Verified empty on 3 synthetic users. Not erased: backups, vendor logs, the empty Honcho peer.
+- **Attention**: 5 real follow-ups inspected; free-standing ones are now steered to attach to a happening/pattern/situation (not yet re-measured).
+- Reliability after the agent changes: 67/69 checks, 11/12 clean reps (`reports/reliability_20261020_200637.md`); the miss was a past-tense "was due Sunday" left undated (known class).
+- Decided to stop full-suite and sweep ceremony for small changes (founder's call): tests only where they guard something that can hurt a user.
+
 ## Capability table (first version; see the update above for later additions)
 
 | Capability | Intended | Implemented | Observed |
