@@ -53,10 +53,10 @@ while time.time() - t0 < 900 and (pending() > 0 or time.time() - t0 < 60):
     time.sleep(15)
 print(f"[past consolidated after {int(time.time()-t0)}s]", flush=True)
 
-PLAN = [("opening", "Hi. Long day, I'm wrecked."), ("opening", "Not much. Just wanted to sit for a bit."),
-        ("bloom", "Actually I've been thinking about the Bloom pilot again."), ("bloom-deep", "What do you think I'm actually afraid of with it?"),
-        ("change", "Anyway. What should I cook tonight? Something easy."), ("change", "Lemon chicken sounds good. Do I have anything on tomorrow?"),
-        ("ashley", "Ashley and I are looking at flats together next week, I'm nervous."), ("ashley", "I just don't want to mess this up.")]
+PLAN = [("opening", "Hi. Long day, I'm wrecked."), ("bloom", "Actually I've been thinking about the Bloom pilot again."),
+        ("bloom-deep", "What do you think I'm actually afraid of with it?"), ("change", "Anyway. What should I cook tonight? Something easy."),
+        ("ashley", "Ashley and I are looking at flats together next week, I'm nervous."), ("ashley-carry", "I just don't want to mess this up."),
+        ("ashley-carry", "She's been really good about all of it."), ("change", "Totally different thing: can you suggest a podcast?"), ("change-follow", "Something about history."), ("recall", "What exactly did I say about the Bloom pilot the very first time I mentioned it?")]
 chat = f"smoke-gt-{uuid.uuid4().hex[:6]}"; hist = []; out = []
 for i, (phase, t) in enumerate(PLAN, 1):
     tid, reply = turn(chat, hist, i, t, first=(i == 1))
@@ -65,11 +65,25 @@ for i, (phase, t) in enumerate(PLAN, 1):
     blocks = re.split(r"\n\n(?=\[)", pr)
     out.append({"turn": i, "phase": phase, "user": t, "reply": reply, "chars": len(pr), "n_messages": len(p["messages"] or []),
                 "blocks": [(b.split("\n", 1)[0][:70], len(b)) for b in blocks if b.startswith("[")],
-                "shown": [b for b in blocks if re.match(r"\[(THEIR WORLD|WHO OR WHAT|REMEMBERED|JUST BEFORE|ESTABLISHED|OPERATIONAL)", b)], "prompt": pr})
+                "shown": [b for b in blocks if re.match(r"\[(THEIR WORLD|WHO OR WHAT|REMEMBERED|JUST BEFORE|ESTABLISHED|OPERATIONAL)", b)], "evidence": [b for b in blocks if b.startswith("[RETRIEVED EVIDENCE")], "tools": [t.get("tool") for t in ((p["state"] or {}).get("tools") or [])], "prompt": pr})
 json.dump(out, open("/tmp/golden_prompts.json", "w"))
+def toks(txt):
+    try:
+        import tiktoken
+        return len(tiktoken.get_encoding("cl100k_base").encode(txt))
+    except Exception:
+        return round(len(txt) / 3.7)
 for o in out:
-    print(f"\n=== turn {o['turn']} [{o['phase']}] user: {o['user']}\n    prompt {o['chars']} chars, {o['n_messages']} raw messages; blocks: {o['blocks']}")
-    print("    reply:", o["reply"][:260].replace("\n", " "))
-    for b in o["shown"]:
-        print("    ---", b[:700].replace("\n", "\n    "))
+    world_text = " ".join(b for b in o["shown"] if not b.startswith("[OPERATIONAL")).lower()
+    ev = o["evidence"][0] if o["evidence"] else ""
+    ev_lines = [l for l in ev.splitlines()[1:] if len(l.strip()) > 20]
+    covered = sum(1 for l in ev_lines if sum(1 for w in set(re.findall(r"[a-z']{5,}", l.lower())) if w in world_text) >= max(2, len(set(re.findall(r"[a-z']{5,}", l.lower()))) // 2))
+    print(f"\n=== turn {o['turn']} [{o['phase']}] user: {o['user']}\n    prompt ~{toks(o['prompt'])} tokens ({o['chars']} chars), {o['n_messages']} raw messages")
+    print("    sections (tokens):", {b[0][:34]: toks(b[1] if isinstance(b[1], str) else '') for b in []} or [(h[:30], round(n / 3.7)) for h, n in o["blocks"]])
+    print("    has Ashley snapshot:", any("Ashley (person)" in b and b.startswith("[WHO OR WHAT") for b in o["shown"]), "| has Bloom snapshot:", any("Bloom pilot (project)" in b and b.startswith("[WHO OR WHAT") for b in o["shown"]), "| has Rebecca item:", any("Kiss with Rebecca" in b and b.startswith("[REMEMBERED") for b in o["shown"]))
+    if ev:
+        print(f"    EVIDENCE block: {len(ev)} chars, {len(ev_lines)} lines, {covered} of them largely already covered by the world blocks")
+        print("      ", ev[:600].replace("\n", "\n       "))
+    print("    tools used:", o["tools"], "| evidence block:", bool(ev))
+    print("    reply:", o["reply"][:200].replace("\n", " "))
 print(json.dumps({"uid": uid}))

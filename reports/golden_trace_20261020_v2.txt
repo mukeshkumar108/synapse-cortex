@@ -1,0 +1,76 @@
+[past consolidated after 150s]
+
+=== turn 1 [opening] user: Hi. Long day, I'm wrecked.
+    prompt ~1512 tokens (5595 chars), 1 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 52), ('[CURRENT SCENE — unknown]', 69), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: False | has Bloom snapshot: False | has Rebecca item: False
+    tools used: ['_offered'] | evidence block: False
+    reply: Rough days deserve a soft landing. Sit with it for a minute — what was the heaviest part?
+
+=== turn 2 [bloom] user: Actually I've been thinking about the Bloom pilot again.
+    prompt ~1676 tokens (6202 chars), 3 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[WHO OR WHAT THEY MEAN — maint', 162), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 53), ('[CURRENT SCENE — unknown]', 69), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: False | has Bloom snapshot: True | has Rebecca item: False
+    tools used: ['_offered'] | evidence block: False
+    reply: You're wrecked and here we are, back to the thing that won't sit still. That's not random — go on. What's bubbling up about it tonight?
+
+=== turn 3 [bloom-deep] user: What do you think I'm actually afraid of with it?
+    prompt ~1676 tokens (6202 chars), 5 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[WHO OR WHAT THEY MEAN — maint', 162), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 53), ('[CURRENT SCENE — unknown]', 69), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: False | has Bloom snapshot: True | has Rebecca item: False
+    tools used: ['_offered'] | evidence block: False
+    reply: Honest answer: I think it's bigger than "will I do the work." I think you're afraid of choosing wrong, and wrong taking on a life of its own. A few things I'd guess are in there: - You're afraid of sa
+
+=== turn 4 [change] user: Anyway. What should I cook tonight? Something easy.
+    prompt ~1676 tokens (6202 chars), 7 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[WHO OR WHAT THEY MEAN — maint', 162), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 53), ('[CURRENT SCENE — unknown]', 69), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: False | has Bloom snapshot: True | has Rebecca item: False
+    tools used: ['_offered'] | evidence block: False
+    reply: You're wrecked; let the dinner be the kind that doesn't ask anything of you. Seriously easy options: - Crack an egg into instant noodles and add a handful of spinach or whatever greens are close to dy
+
+=== turn 5 [ashley] user: Ashley and I are looking at flats together next week, I'm nervous.
+    prompt ~2501 tokens (9254 chars), 7 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[WHO OR WHAT THEY MEAN — maint', 161), ('[REMEMBERED THAT BEARS ON THIS', 84), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 53), ('[CURRENT SCENE — unknown]', 69), ('[RETRIEVED EVIDENCE — use only', 741), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: True | has Bloom snapshot: False | has Rebecca item: False
+    EVIDENCE block: 2741 chars, 4 lines, 1 of them largely already covered by the world blocks
+       [RETRIEVED EVIDENCE — use only for the question that triggered retrieval. Lines marked 'The companion said' are your own earlier words, not facts about them: only what THEY said establishes something about their life]
+       - [2026-10-20 21:16] The user said: My partner Ashley thinks I should lead it even though it means evenings. Her aunt Ruth is in hospital with pneumonia, so I'm torn.
+       - [2026-10-20 21:16] The companion said: That’s a real tension. Ashley encouraging you doesn’t make the evenings free—especially with Ruth in hospital and the emotional/logistical load that can land on Ashley and th
+    tools used: ['_offered'] | evidence block: True
+    reply: That makes actual sense you'd be nervous. Flats next week = real decision territory, and it's happening while your head is half on Ruth and half on whether Bloom is about to eat your evenings alive. Y
+
+=== turn 6 [ashley-carry] user: I just don't want to mess this up.
+    prompt ~1760 tokens (6511 chars), 7 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[WHO OR WHAT THEY MEAN — maint', 161), ('[REMEMBERED THAT BEARS ON THIS', 84), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 53), ('[CURRENT SCENE — unknown]', 69), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: True | has Bloom snapshot: False | has Rebecca item: False
+    tools used: ['_offered'] | evidence block: False
+    reply: That's a real honest thing to say. I think what you're actually saying is: this matters enough that the idea of getting it wrong is landing heavy. Not vanity — stakes. Can I ask the plain version, tho
+
+=== turn 7 [ashley-carry] user: She's been really good about all of it.
+    prompt ~1760 tokens (6511 chars), 7 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[WHO OR WHAT THEY MEAN — maint', 161), ('[REMEMBERED THAT BEARS ON THIS', 84), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 53), ('[CURRENT SCENE — unknown]', 69), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: True | has Bloom snapshot: False | has Rebecca item: False
+    tools used: ['_offered'] | evidence block: False
+    reply: That's the line that actually carries the weight here. She's been good through Ruth, through the Bloom stuff landing on your plate, through you kissing Rebecca and not pretending that was nothing — an
+
+=== turn 8 [change] user: Totally different thing: can you suggest a podcast?
+    prompt ~1514 tokens (5600 chars), 7 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 53), ('[CURRENT SCENE — unknown]', 69), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: False | has Bloom snapshot: False | has Rebecca item: False
+    tools used: ['_offered'] | evidence block: False
+    reply: Sure — what are you in the mood for when you hit play? Something to keep your head busy while you're sorting flats and family stuff, or something a bit lighter to step out of it for a bit? And do you 
+
+=== turn 9 [change-follow] user: Something about history.
+    prompt ~1514 tokens (5600 chars), 7 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 53), ('[CURRENT SCENE — unknown]', 69), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: False | has Bloom snapshot: False | has Rebecca item: False
+    tools used: ['_offered'] | evidence block: False
+    reply: A couple of solid options depending on how you want it to land: - **Hardcore History** (Dan Carlin) — long-form, dramatic, almost novelistic. If you want to get properly swallowed by one story or war 
+
+=== turn 10 [recall] user: What exactly did I say about the Bloom pilot the very first time I mentioned it?
+    prompt ~1676 tokens (6202 chars), 7 raw messages
+    sections (tokens): [('[RUNTIME ANCHOR — authoritativ', 56), ('[THEIR WORLD RIGHT NOW — maint', 371), ('[WHO OR WHAT THEY MEAN — maint', 162), ('[OPERATIONAL AWARENESS — Tuesd', 207), ('[TEMPORAL FACTS]', 53), ('[CURRENT SCENE — unknown]', 69), ('[MY NOTEBOOK — I can write not', 125), ('[OUTPUT CONTRACT]', 104)]
+    has Ashley snapshot: False | has Bloom snapshot: True | has Rebecca item: False
+    tools used: ['recall', '_offered'] | evidence block: False
+    reply: I don't have that in front of me — the record of our past conversations isn't visible in this current chat. Let me pull it up.First time you brought it up, you said: *"I started at Northwind last mont
+{"uid": "smoke-gt-cfc862"}
