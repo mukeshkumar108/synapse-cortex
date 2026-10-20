@@ -1,4 +1,4 @@
-# Implementation status (memory work, as of 2026-10-20 evening)
+# Implementation status (memory work, as of 2026-10-20 night)
 
 Three words are used on purpose: **intended** (the design), **implemented** (code exists, tests pass), **observed** (seen working or failing with real models/data).
 Where observed is weaker than implemented, that is the finding. Decisions: `DECISIONS.md`. Architecture and evidence: `CONNECTED_UNDERSTANDING.md`,
@@ -22,7 +22,15 @@ Flags after this deploy: `CONNECTED_WORLD_ENABLED` **off** in Cortex and Runtime
 the extra tables/columns inert. To roll back: `docker tag deploy-api:pre-connected-2026-10-20 deploy-api:latest` then `docker compose -f docker-compose.vps.yml up -d api`
 (Cortex) and the same for `companion-runtime`. To switch the new layer off without a rollback: set the two flags to `false` and restart.
 
-## Capability table
+## Update, 2026-10-20 night
+
+- **Enabled in production for the founder.** `CONNECTED_WORLD_ENABLED=true` in Cortex (passed through `deploy/docker-compose.vps.yml`) and Runtime `.env`. Bloom and all other users remain off. Kill switch: set both to `false`, restart.
+- New since the table below: happenings/dispositions/patterns + soft tags + pertinent selection (`CONNECTED_UNDERSTANDING.md` §13), export/delete endpoints, continuity `RETRACT`, attention/ledger-link/pronoun contract lines,
+  `inspect` shows the new fields. Rollback images taken before this deploy: `deploy-api:pre-happenings-2026-10-20`, `companion-runtime:pre-happenings-2026-10-20`.
+- Verified on the deployed system with a synthetic user (§14): the full Runtime path with real Sophie, four probe turns, the assembled prompt read back. Mixed results are listed there and are not repeated here.
+- Tests: Cortex full suite and Runtime suite green at the commits below (see git log); the end-to-end driver is a manual harness.
+
+## Capability table (first version; see the update above for later additions)
 
 | Capability | Intended | Implemented | Observed |
 |---|---|---|---|
@@ -33,17 +41,20 @@ the extra tables/columns inert. To roll back: `docker tag deploy-api:pre-connect
 | Connected understanding: data, connect pass, deterministic views, endpoints | first working version, inspectable, flag-off | yes (this commit) | three real-model runs (`reports/world_*`): relationship corrections, state changes, first-name resolution, self-anchored relationships work; defects F1–F8 found and fixed; kinship-in-prose leak found in run 3 and only patched in the contract, **not re-verified** |
 | Entity-sourced attention intentions | an intention can belong to a situation, expire, be suppressed | yes, unit-tested | not run on a real attention model |
 | Runtime: world block, `know` tool, exposure report | foreground gets who/what the person just named, no search | yes, flag off | the real `build_sections` was run on real Cortex output: `reports/sophie_connected_packet_20261020.txt` (the person named Morgan and Priya; both snapshots arrived, with the open status-update matter read live). The **full executor was not run end to end with the flag on** (the canary ran with it off); wiring is covered by unit tests |
+| Happenings, dispositions, patterns, pertinent selection | remember what happened and what they like without interpreting; surface a few pertinent items | yes, enabled for the founder | e2e (§14): disposition used for a book recommendation; a romantic incident reached a conversation about Ashley with no direct link; a pattern reached the "mum's again" turn and was used. Retrieval depends on model-written tags (untested at scale) |
+| Export / delete | person-level controls | yes; delete takes the owner lock | live-tested on a synthetic user; found and fixed resurrection by an in-flight run; Honcho evidence and Runtime stores NOT covered |
+| Continuity retraction | a later correction removes the contradicted sentence | yes (`RETRACT`) | partial: the named sentence dropped, stale hanging bullets stayed |
+| Entity-sourced attention on real models | check-ins tied to situations | yes | 1 of 5 real intentions was entity-sourced; the rest free-standing; intents used "he/his" (line added, unverified) |
 | In-session continuity assessment | find what rolling continuity loses or distorts | inspected with real packets (40 messages) | stale checkpoint narrative coexists with newer corrections → labelled "Since then…"; root cause (patches cannot retract narrative) **not fixed**; small-model inventions seen |
 | Documentation | decisions, status, architecture, evidence, continuation | these files | — |
 
 ## Partial, deferred, not done (explicitly)
 
-- **Not enabled for any user.** Enabling needs the founder's review of `inspect` output on a real run, a `world_sensitive` decision per product, and a data export/delete path.
-- No user-data deletion/export endpoint (any layer). Needed before sensitive-data products (Bloom wellbeing, health).
+- Enabled for the founder only. Before anyone else: review `inspect` for their data, a `world_sensitive` decision per product, and full erasure (Honcho evidence, Runtime turn logs/sitting state and queued consolidations are not removed by the delete endpoint).
 - Attention has no delivery path; entity-sourced intentions are computed, stored and exposed, never delivered.
 - Connect-pass cost not budgeted: observed 6–12 model calls per significant sitting; first sitting once hit the 14-turn cap (`unfinished`, writes stand).
 - Replay on real consented sessions, multi-week decay of dormant entities, merge suggestions, curiosity/health-specific handling beyond free-text kinds: not built.
-- `rolling_continuity` retract-on-correction: not built (D-W12).
+- `rolling_continuity` retraction is partial (D-W17). Consolidation latency is ~6–7 minutes per run, serialised per person, two runs per chat (modality + episode_end): not changed.
 - `MEMORY_LEDGER_MODELS=deepseek/deepseek-v4-flash,qwen/qwen3.8-27b`: evidence is directional (8 runs, 0 omissions); not enabled in production.
 - Ledger row titles go stale when only detail is updated (e.g. "awaiting results").
 - NanoGPT 429s at concurrency >4 fall back to paid OpenRouter (29 paid calls in one overloaded sweep). Production cost risk if volume rises; noted in the runbook below.
@@ -69,7 +80,12 @@ reliability harness (`scripts/eval_reliability.py`) need a live Cortex and are r
 - Never point pytest at the Postgres a live Cortex uses (fixtures drop tables). Cross-owner overlap is only asserted on Postgres.
 - Credentials: the Neon credential exposed earlier is still pending rotation by the founder.
 
-## Continue from here
+## Continue from here (updated)
+
+0. Next highest value: (a) re-verify the unverified contract lines (kinship in prose, ledger-link target, pronouns in attention) with one more e2e run; (b) measure tag quality — are the right records found when the subject changes? —
+   on a real week of the founder's conversations; (c) decide whether the Runtime should fire one consolidation per chat instead of two; (d) full erasure path across Honcho/Runtime; (e) tie attention intents to entities consistently.
+
+## Continue from here (original)
 
 1. Founder review of `reports/world_run2.md` / `world_run3_bloom.md` (read the "inspect" sections), then decide on enabling for Sophie only.
 2. Re-run `eval_world.py` once to verify the kinship contract line; sweep the Vinesh fixture again if the ledger contract changes.

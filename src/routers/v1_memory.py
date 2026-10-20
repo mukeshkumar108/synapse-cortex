@@ -269,9 +269,16 @@ async def delete_owner(req: DeleteRequest, request: Request, db: AsyncSession = 
     if req.confirm != req.owner:
         raise HTTPException(status_code=422, detail="confirm must equal owner; deletion is permanent")
     scope = _scope(request, req.workspace_id, req.companion_id)
-    counts = await owner_data.delete_owner(db, scope.workspace, req.owner)
-    await db.commit()
-    return {"deleted": counts, "not_covered": owner_data.NOT_COVERED}
+    from src.services.memory_pipeline import ConsolidationBusy, owner_lock
+    try:
+        # Wait out any consolidation in flight for this person, or it would write its results back after the delete.
+        async with owner_lock(scope.workspace, req.owner, timeout=120):
+            counts = await owner_data.delete_owner(db, scope.workspace, req.owner)
+            await db.commit()
+    except ConsolidationBusy:
+        raise HTTPException(status_code=409, detail="a consolidation for this person is still running; try again shortly")
+    return {"deleted": counts, "not_covered": owner_data.NOT_COVERED,
+            "note": "Conversations queued for consolidation before this call can still write new records when they run; the Runtime's own stores and Honcho evidence are separate."}
 
 
 class ExposureRequest(BaseModel):

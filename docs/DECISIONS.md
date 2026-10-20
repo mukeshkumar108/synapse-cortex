@@ -86,6 +86,24 @@ module outside this workstream's remit and was deferred. *Revisit if:* the foreg
 **D-W13 — Honest scope.** Not built: user-data export/delete, replay on real consented sessions, entity-intention evaluation on real attention models, merge
 suggestions, decay of dormant entities, health-observation-specific handling beyond free-text kinds. Listed in `IMPLEMENTATION_STATUS.md`.
 
+**D-W14 — Happenings, dispositions and patterns live in the connected layer, with a structural `form` flag, not a kind list and not a new service.** The founder's example set
+(a kiss, a favourite book, repeated bad nights at mum's) needed "what happened", "what they like" and "what recurs" without interpretation. *Rejected:* a separate episodic store (a competing
+memory system); a closed list of event types; letting `kind` carry the behaviour (the mechanical flag is the small exception, like `time_role`). *Revisit if:* the flag set grows past five.
+
+**D-W15 — Pertinence = some relevance first, then rank; nothing on recency alone; tags are soft.** Relevance comes from a link to a mentioned entity, a message word meeting a tag word,
+or a shared tag/domain; domains are never boundaries (the romantic incident reaches the Ashley conversation with no direct link). *Rejected:* dumping everything in a domain; requiring a direct link;
+embedding search (opaque, unproven need). *Cost of this choice:* retrieval is only as good as the tags the connect model writes — a miss here is a tagging miss.
+
+**D-W16 — Export/delete exist, are honest about what they do not cover, and take the owner lock.** Needed before anyone but the founder. Hard delete, `confirm == owner`, product-scoped. Found live: an in-flight
+consolidation rewrote data after the delete → lock added. Not covered (Honcho evidence, Runtime stores, queued runs) is returned in every response so no caller believes it is a full erasure.
+
+**D-W17 — Continuity corrections are model-named retractions applied by code.** The small continuity model says what is no longer true (`RETRACT "…" => …`); code removes exactly those sentences and
+feeds the corrections into the next reconcile. *Rejected:* regenerating the narrative on every correction (cost); deleting old context because newer exists (it may still be relevant); code deciding what contradicts.
+Partial in practice (D-W17 observed: the model retracts what it names, not everything stale).
+
+**D-W18 — Enabled in production for the founder (2026-10-20 night); flags kept as a kill switch.** The founder is the only user and asked to stop treating this as hidden-behind-a-flag. The flag is two
+environment lines and costs nothing to keep, so it stays as the rollback path. Bloom and any friend-user enablement remain gated on the data-erasure gap (Honcho/Runtime stores) and a human review of `inspect`.
+
 ## Process decisions
 
 **D-P1 — Scratch environment for every model-backed experiment.** Isolated Postgres + the production image with mounted source, keys copied minus DB/

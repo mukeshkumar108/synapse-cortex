@@ -64,7 +64,7 @@ def end(uid, chat, hist):
     return ss.call(f"/v1/conversations/{chat}/end", {"user_id": uid, "companion_id": COMPANION, "canonical_history": msgs})
 
 
-uid = f"smoke-cd-{uuid.uuid4().hex[:6]}"; owner = f"user_{uid}"; results = {"owner": owner, "sittings": []}
+uid = os.environ.get("CD_UID") or f"smoke-cd-{uuid.uuid4().hex[:6]}"; owner = f"user_{uid}"; results = {"owner": owner, "sittings": []}   # CD_UID=<uid>: probes only, against what is already consolidated
 S = [
  ["Big week. I started at Northwind last month and my manager Morgan Ellis has put me on the Bloom pilot, the wellbeing app trial with church groups.",
   "Ashley, my partner, thinks I should take the lead even though it means evenings. Her aunt Ruth has had a chest infection that won't clear.",
@@ -77,7 +77,7 @@ S = [
  ["Update: Morgan has left Northwind but still helps informally. My new manager is Priya Nair. Also Ruth is home from hospital now, she had pneumonia.",
   "I told Ashley I'd think about moving in together properly."],
 ]
-for i, texts in enumerate(S):
+for i, texts in enumerate([] if os.environ.get("CD_UID") else S):
     chat, hist, out = sitting(uid, texts)
     results["sittings"].append({"n": i + 1, "turns": out, "end": end(uid, chat, hist)})
     print(f"sitting {i+1} done; settling {SETTLE}s for consolidation + connect pass", flush=True)

@@ -1,0 +1,188 @@
+{
+ "model": "inclusionai/ling-3.0-flash",
+ "total_messages": 40,
+ "steps": [
+  {
+   "after_messages": 6,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "initial"
+   },
+   "chars": 634,
+   "checkpoints": 0,
+   "lines": [
+    "[L1] The user is new at Northwind and has been assigned to lead the Bloom pilot (a wellbeing app trial with church groups) by their manager Morgan Ellis.",
+    "[L2] The user is excited but feels the pressure of taking the lead, especially with evening commitments.",
+    "[L3] The user's partner Ashley is supportive but concerned, and Ashley's mother Ruth is unwell with a persistent chest infection awaiting test results.",
+    "[H1] The outcome of Ruth's test results and her health status.",
+    "[H2] How the user will balance the Bloom pilot leadership with personal responsibilities.",
+    "[H3] The user's long-term experience and success with the Bloom pilot."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": false,
+    "Morgan": true,
+    "left Northwind": false,
+    "Priya": false,
+    "Friday": false,
+    "dentist": false,
+    "MOT": true,
+    "lead": true,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 12,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental"
+   },
+   "chars": 1022,
+   "checkpoints": 0,
+   "lines": [
+    "[L1] The user is new at Northwind and has been assigned to lead the Bloom pilot (a wellbeing app trial with church groups) by their manager Morgan Ellis.",
+    "[L2] The user is excited but feels the pressure of taking the lead on the Bloom pilot, especially with evening commitments and personal concerns about Ruth's health.",
+    "[L3] The user's partner Ashley is supportive but concerned, and Ashley's mother Ruth is unwell with a persistent chest infection awaiting test results.",
+    "[L4] Ruth's chest infection test results are still pending; Ashley is worried. The dentist appointment is Thursday at 9. The Bloom pilot demo with church groups has been moved to Friday afternoon by Morgan Ellis. The user missed a standup and is concerned Morgan may be annoyed, but it has not been confirmed.",
+    "[H1] Ruth's test results are still pending; her health status is not yet known.",
+    "[H2] How the user will balance the Bloom pilot leadership with personal responsibilities.",
+    "[H3] The user's long-term experience and success with the Bloom pilot."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": false,
+    "Morgan": true,
+    "left Northwind": false,
+    "Priya": false,
+    "Friday": true,
+    "dentist": true,
+    "MOT": true,
+    "lead": true,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 18,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental",
+    "checkpoint": "Checkpoint A [18]",
+    "reconciled_chars": 888
+   },
+   "chars": 833,
+   "checkpoints": 1,
+   "lines": [
+    "The user started the conversation feeling stretched thin \u2014 juggling a new role at Northwind, the Bloom pilot with church groups, and a missed standup that left them unsure if Morgan is upset. Ashley\u2019s mother Ruth is in hospital with pneumonia, which has shaken Ashley, so the user is planning to cook for her tonight to offer some comfort. The immediate family worry feels temporarily set aside by the hospital visit, and the church group demo has shifted to Friday afternoon, which eases the pressure for now. The user is still carrying quiet concern about how Morgan viewed the missed standup.",
+    "Check in with Morgan about the missed standup to clear up any tension.",
+    "Prepare for the church group demo on Friday afternoon.",
+    "Keep supporting Ashley through Ruth\u2019s hospital stay and recovery.",
+    "Attend the dentist appointment Thursday at 9."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": false,
+    "Morgan": true,
+    "left Northwind": false,
+    "Priya": false,
+    "Friday": true,
+    "dentist": true,
+    "MOT": true,
+    "lead": false,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 24,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental"
+   },
+   "chars": 1066,
+   "checkpoints": 1,
+   "lines": [
+    "The user started the conversation feeling stretched thin \u2014 juggling a new role at Northwind, the Bloom pilot with church groups, and a missed standup that left them unsure if Morgan is upset. Ashley\u2019s mother Ruth is in hospital with pneumonia, which has shaken Ashley, so the user is planning to cook for her tonight to offer some comfort. The user is still carrying quiet concern about how Morgan viewed the missed standup.",
+    "Check in with Morgan about the missed standup to clear up any tension.",
+    "Prepare for the church group demo on Friday afternoon.",
+    "Keep supporting Ashley through Ruth\u2019s hospital stay and recovery.",
+    "Attend the dentist appointment Thursday at 9.",
+    "Since then (more recent; where this differs from the above, this is current):",
+    "[L1] The user is seriously reconsidering whether to keep the lead role at Northwind, feeling that the evenings would be unsustainable given Ruth's hospitalization and Ashley's emotional state. They are thinking of asking Morgan to let Priya co-lead instead, which would preserve Morgan's trust while reducing the user's load."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": false,
+    "Morgan": true,
+    "left Northwind": false,
+    "Priya": true,
+    "Friday": true,
+    "dentist": true,
+    "MOT": true,
+    "lead": true,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 30,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental"
+   },
+   "chars": 1110,
+   "checkpoints": 1,
+   "lines": [
+    "The user started the conversation feeling stretched thin \u2014 juggling a new role at Northwind, the Bloom pilot with church groups, and a missed standup that left them unsure if Morgan is upset. The user is still carrying quiet concern about how Morgan viewed the missed standup.",
+    "Check in with Morgan about the missed standup to clear up any tension.",
+    "Prepare for the church group demo on Friday afternoon.",
+    "Keep supporting Ashley through Ruth\u2019s hospital stay and recovery.",
+    "Attend the dentist appointment Thursday at 9.",
+    "Since then (more recent; where this differs from the above, this is current):",
+    "[L1] The user has decided to keep the lead role at Northwind, but Priya Nair is now their manager (Morgan has left). The user still plans to ask Morgan about the missed standup, though Morgan is no longer at Northwind. The user also needs to book the car MOT before the 30th.",
+    "[L2] Morgan has left Northwind. Priya Nair is the user's new manager. Morgan is still helping informally with Bloom as an advisor. Ruth (Ashley's aunt) is home from hospital and recovering. The user needs to book the car MOT before the 30th."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": true,
+    "Morgan": true,
+    "left Northwind": true,
+    "Priya": true,
+    "Friday": true,
+    "dentist": true,
+    "MOT": true,
+    "lead": true,
+    "Ashley": true
+   }
+  },
+  {
+   "after_messages": 36,
+   "trace": {
+    "model": "inclusionai/ling-3.0-flash",
+    "pass": "incremental"
+   },
+   "chars": 1329,
+   "checkpoints": 1,
+   "lines": [
+    "The user started the conversation feeling stretched thin \u2014 juggling a new role at Northwind, the Bloom pilot with church groups, and a missed standup that left them unsure if Morgan is upset. The user is still carrying quiet concern about how Morgan viewed the missed standup.",
+    "Check in with Morgan about the missed standup to clear up any tension.",
+    "Prepare for the church group demo on Friday afternoon.",
+    "Keep supporting Ashley through Ruth\u2019s hospital stay and recovery.",
+    "Attend the dentist appointment Thursday at 9.",
+    "Since then (more recent; where this differs from the above, this is current):",
+    "[L1] The user has decided not to take the lead role at Northwind and will tell Priya Nair this in tomorrow's status update. Priya Nair is their manager (Morgan has left). The user still plans to ask Morgan about the missed standup, though Morgan is no longer at Northwind. The user also needs to book the car MOT before the 30th.",
+    "[L2] Morgan has left Northwind. Priya Nair is the user's new manager. Morgan is still helping informally with Bloom as an advisor. Ruth (Ashley's aunt) is home from hospital and recovering. The user needs to book the car MOT before the 30th.",
+    "[L3] Priya wants a status update on the Bloom pilot tomorrow; the demo is still Friday. The user will use the update to communicate they'd rather support than lead."
+   ],
+   "mentions": {
+    "Ruth": true,
+    "aunt": true,
+    "Morgan": true,
+    "left Northwind": true,
+    "Priya": true,
+    "Friday": true,
+    "dentist": true,
+    "MOT": true,
+    "lead": true,
+    "Ashley": true
+   }
+  }
+ ]
+}

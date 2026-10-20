@@ -1,6 +1,8 @@
 # Connected understanding (Cortex)
 
-Status: **built and tested, deployed dark (flag off), not enabled for any real user.** Written 2026-10-20. Read `IMPLEMENTATION_STATUS.md` for what is
+Status (updated 2026-10-20 night): **deployed and ENABLED in production for the founder (Sophie)**; Bloom and any other users remain off. Sections 1–12 describe the
+first version (people, projects, situations); section 13 adds happenings, dispositions, patterns and pertinent selection; section 14 the end-to-end run on the
+deployed system. Written 2026-10-20. Read `IMPLEMENTATION_STATUS.md` for what is
 done / partial / deferred and `DECISIONS.md` for why. This file is the architecture and the evidence.
 
 ## 1. What it is, and why
@@ -151,7 +153,7 @@ flag off by default, independent sittings skipped), `test_world_endpoint.py` (fl
 intentions: live-entity check, one per entity, suppression, expiry), `test_product_isolation.py` (route inventory). Runtime: `test_world_context.py`
 (off by default; product credential; fail-open; placement; exposure; `know` cap/depth), `test_rolling_continuity.py`.
 
-## 10. Enabling it for real users (needs the founder's explicit review)
+## 10. Enabling it (done for the founder; still gated for anyone else)
 
 The layer stores new categories of personal data (family, health-adjacent situations). Before enabling: (1) review `inspect` output on a real
 non-founder-owner scratch run; (2) decide `world_sensitive` per product (`minimal` hides sensitive situation text in the overview); (3) build the
@@ -170,3 +172,59 @@ rarely shown a reason to); (5) retire legacy `Entity`-service tables the audit f
 Cortex already had `entity_service`/lifecycle tables. They are keyed by owner but not product-qualified in several read paths and carry model-extracted
 `subject_refs` of unreliable quality; this layer deliberately does **not** reuse them and nothing reads them for the packet. They are the likeliest place
 a future change could leak across products; treat any new reader of them as needing the isolation tests first.
+
+
+## 13. Happenings, dispositions, patterns, soft tags (added the same night)
+
+Not a new service: the same `KnownEntity`/`KnownLink` tables with four new columns (`form`, `tags`, `occurred_on`, `significance`; additive).
+`form` is a small structural flag the model sets: empty (a thing), `situation`, `happening`, `disposition`, `pattern`. `kind` stays free text for display.
+
+- **Happening**: something that occurred, interpretation not required ("Kiss with Rebecca": occurred_on, significance 1–3, involved → Rebecca and "the person"). Not a task or an
+  open loop; it becomes an unresolved concern only if the person says so (then a *situation* linked to it).
+- **Disposition**: stated likes/dislikes/favourites/interests/hopes/fears/values, with a quote. Found by the words the person uses.
+- **Pattern**: a short, provisional, revisable reading that stands for several happenings ("supported by" links), basis inferred unless said, no diagnosis; retired
+  (status resolved) when contradicted.
+- **Tags**: ≤8 soft signals the model writes ("relationships/romantic", "culture/literature", "sleep", "books"). They are hints for relevance, never boundaries.
+
+**Pertinent selection** (`known_world.pertinent_text`, no model, in the packet as "[REMEMBERED THAT BEARS ON THIS …]"): a record is a candidate only if it has *some* relevance —
+linked to a mentioned entity (+4), a word of the message begins/equals one of its tag words (+3), shares a tag (+3) or a domain (+2) with the mentioned entities — then recency
+(happenings), significance and pattern-ness rank among the relevant ones; **nothing appears on recency alone**; at most 4; a pattern stands in for its supporting
+happenings; `world_sensitive=minimal` renders sensitive ones as "details available if they raise it"; suppressed ones never appear. The overview adds at most two
+significance-3 happenings from the last 7 days. Entity snapshots gain a "Remembered:" section (happenings/dispositions/patterns linked to that entity). The `know` tool reaches the rest.
+
+**Export and delete** (`GET /v1/memory/export`, `POST /v1/memory/delete` with `confirm == owner`): product-credentialed, scoped to the caller's product workspace, covering the
+pipeline and connected tables (`owner_data.TABLES`). Delete waits for any in-flight consolidation of that person (owner lock) because one resurrected rows in the live test.
+**Not covered:** Honcho evidence, the Runtime's turn logs/sitting state, queued-but-unstarted consolidations, legacy tables (listed in every response).
+
+**In-session continuity**: `RETRACT "<exact words>" => <what is true now>` in the incremental update lets the model name a sentence of the settled narrative that a later turn
+contradicts; code drops those sentences from the rendered narrative and passes the corrections into the next reconcile ("was … now …") so old checkpoints cannot resurrect them.
+
+## 14. End-to-end on the deployed system (real Runtime, real Sophie, synthetic user `smoke-cd-*`)
+
+Driver `scripts/demo/connected_demo.py` (three sittings of 2–5 turns, ended through the Runtime→Cortex path, then four probe turns whose full system prompt is read back from
+`turn_packets`). Outputs: `reports/connected_e2e_20261020.json` (sittings, inspect, and the first probes), `reports/connected_e2e_probes_20261020.json` (probes after consolidation finished).
+
+What the person said, and what existed afterwards (read from `inspect`): a favourite book (disposition), "I kissed Rebecca last night" (happening, involved Rebecca + the person,
+significance consequential), a night at mum's with argument/no sleep/sore neck plus "third time this month" (happening + **pattern** "Overnights at mum's…" supported by it), Morgan leaving
+(happening; "manager of the person" **superseded**, "left, formerly manager of" added), Priya Nair as new manager, Ruth home from hospital (state change), a decision about moving in (situation).
+
+Probes, with the packet checked for the substrings and Sophie's reply read:
+1. "Any book recommendations?" → the disposition was in the packet; she built the recommendation on it ("You've got Monte Cristo as your heavy-lift comfort…").
+2. "Ashley and I are looking at flats together next week, I'm nervous." → the Rebecca happening was in the packet **without any Ashley↔Rebecca link** (selected via the romantic tag and the
+   Ashley mention). She did not mention it in her reply (she mentioned Ruth's illness instead) — discretion, not retrieval failure; whether that is the right behaviour is a product call.
+3. "I'm heading to my mum's again on Saturday." → the pattern was in the packet; reply: "Third time this month, and every single one's landed the same — tense, basically no sleep, and you wake up with that neck."
+4. "Morgan texted me about the pilot again." → current picture (Morgan left, Priya manages); she asked what the text said instead of assuming.
+
+Attention (real model, same run): five intentions, including a check-in about Rebecca, one about the mum pattern, one about moving in, and the dentist reminder (later cancelled); only one was
+entity-sourced (the lead-the-pilot situation). The others were free-standing — the attention agent does not yet consistently tie intentions to entities.
+
+**What went wrong or is unproven (do not skip):**
+- *Latency/ordering*: a consolidation takes about 6–7 minutes (ledger agent, connect pass, attention review), runs are serialised per person, and the Runtime issues two per chat (`modality` + `episode_end`).
+  My first probes ran at 200 s and saw only sitting 1; I re-ran them after all runs finished. Anyone returning within ~10 minutes of a sitting will not yet have it in the world.
+- Link misattribution: "Northwind — next appointment at → dentist" (nonsense). Contract line added; not re-verified.
+- The attention intents wrote "he/his" for the person. Contract line added; not re-verified.
+- The pattern was created from one logged night plus the person's own "third time this month"; it is labelled stated/provisional but rests on one supporting happening in the registry.
+- Continuity retraction is **partial** (inspect v2, `reports/rolling_continuity_inspect_v2.json`): "her mother Ruth is in hospital" was dropped after the correction, but the hanging bullets
+  "Keep supporting Ashley through Ruth's hospital stay" and "Check in with Morgan about the missed standup" stayed. The small model retracts only what it names.
+- Delete resurrection: an in-flight run re-created rows after the first delete (found live, owner lock added); a second in-flight connect pass wrote after the clean-up sweep too. The synthetic data
+  was finally removed with the smoke sweeper after all runs finished.

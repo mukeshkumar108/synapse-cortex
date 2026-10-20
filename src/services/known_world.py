@@ -672,7 +672,7 @@ async def inspect(db: AsyncSession, ws: str, owner: str) -> Dict[str, Any]:
     by_id = {e.id: e for e in ents}
     al = (await db.execute(select(KnownEntityAlias).where(KnownEntityAlias.honcho_workspace_id == ws, KnownEntityAlias.owner_peer_id == owner))).scalars().all()
     exp = (await db.execute(select(CueExposure).where(CueExposure.honcho_workspace_id == ws, CueExposure.owner_peer_id == owner))).scalars().all()
-    return {"entities": [{"id": str(e.id), "name": e.name, "kind": e.kind, "status": e.status, "basis": e.basis, "sensitive": e.sensitive,
+    return {"entities": [{"id": str(e.id), "name": e.name, "kind": e.kind, "form": e.form, "tags": e.tags, "occurred_on": e.occurred_on.date().isoformat() if e.occurred_on else None, "significance": e.significance, "status": e.status, "basis": e.basis, "sensitive": e.sensitive,
                           "suppressed": e.suppressed, "summary": e.summary, "merged_into": str(e.merged_into_id) if e.merged_into_id else None,
                           "aliases": [a.alias for a in al if a.entity_id == e.id], "provenance": _refs(e.source_refs_json),
                           "last_touched": e.last_touched_at.isoformat()} for e in ents],
