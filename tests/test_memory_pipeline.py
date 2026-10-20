@@ -67,8 +67,8 @@ async def test_baseline_prompts_verbatim():
     blob = (memory_pipeline.NOTEBOOK_EDITOR_PROMPT + memory_pipeline.ARC_UPDATE_PROMPT
             + memory_pipeline.SITUATIONS_PROMPT + memory_pipeline.PREPARATION_PROMPT)
     for guard in ("Do not carry the mood", "never turn one difficult exchange into a lasting verdict",
-                  "aspiration is not a task and never closes by silence", "honest about what you don't know",
-                  "Close only on evidence", "An invitation is not an accepted commitment",
+                  "aspiration is not a task and never ends by silence", "honest about what you don't know",
+                  "ENDED only on evidence", "An invitation is not an accepted commitment",
                   "Inferred is not observed"):
         assert guard in blob
 
@@ -423,8 +423,9 @@ async def test_match_close_resolves_open_matter():
 
 def test_situations_prompt_leads_with_resolution_check():
     from src.services import memory_pipeline as mp
-    assert "Checking open items for resolution is primary" in mp.SITUATIONS_PROMPT or \
-        "checking open items for resolution" in mp.SITUATIONS_PROMPT.lower()
+    assert "Checking open items is primary" in mp.SITUATIONS_PROMPT
+    # answered unknowns and moved dates are CHANGED, never ENDED
+    assert "is CHANGED, never ENDED" in mp.SITUATIONS_PROMPT
 
 
 @pytest.mark.asyncio

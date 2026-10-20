@@ -224,7 +224,8 @@ class NotebookPage(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     honcho_workspace_id: str = Field(index=True, nullable=False)
     owner_peer_id: Optional[str] = Field(default=None, index=True)
-    page_key: str = Field(index=True, nullable=False)              # routines | projects | people | perspective
+    page_key: str = Field(index=True, nullable=False)              # per-product page set (see product_memory)
+    product: str = Field(default="sophie", index=True, nullable=False)  # relationship-owned: pages belong to a product
     text: str = Field(nullable=False)                              # markdown bullets, human-readable
     version: int = Field(default=1, nullable=False)
     evidence_refs_json: str = Field(default="[]")
@@ -282,6 +283,7 @@ class SittingPreparation(SQLModel, table=True):
     honcho_workspace_id: str = Field(index=True, nullable=False)
     owner_peer_id: Optional[str] = Field(default=None, index=True)
     window: str = Field(index=True, nullable=False)                # morning | midday | afternoon | evening | sitting
+    product: str = Field(default="sophie", index=True, nullable=False)
     text: str = Field(nullable=False)                              # first-person perspective prose
     based_on_json: str = Field(default="{}")                       # notebook versions + ledger ids consumed
     run_id: Optional[UUID] = Field(default=None, index=True)
@@ -299,6 +301,7 @@ class ContinuingArc(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     honcho_workspace_id: str = Field(index=True, nullable=False)
     owner_peer_id: Optional[str] = Field(default=None, index=True)
+    product: str = Field(default="sophie", index=True, nullable=False)
     text: str = Field(nullable=False)
     version: int = Field(default=1, nullable=False)
     run_id: Optional[UUID] = Field(default=None, index=True)

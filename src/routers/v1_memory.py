@@ -31,16 +31,28 @@ class ConsolidateRequest(BaseModel):
     session_id: str
     messages: List[Dict[str, Any]]          # full transcript, both sides: {id, speaker, text}
     companion_id: str = "sophie"
+    session_time: Optional[str] = None      # ISO time the sitting happened (with offset); relative dates resolve against it
+    time_zone: Optional[str] = None         # IANA zone the person was in
+
+
+def _product(companion_id: str) -> str:
+    from src.services import product_memory
+    try:
+        return product_memory.get(companion_id).name
+    except KeyError:
+        raise HTTPException(status_code=422, detail=f"unknown_memory_product:{companion_id}; known: {', '.join(product_memory.known())}")
 
 
 async def _run_consolidation(workspace_id: str, owner: str, conversation_id: str, session_id: str,
-                             messages: List[Dict[str, Any]], companion_id: str) -> None:
+                             messages: List[Dict[str, Any]], companion_id: str,
+                             session_time: Optional[str] = None, time_zone: Optional[str] = None) -> None:
     try:
         async with async_session_maker() as db:
             try:
                 await memory_pipeline.consolidate(
                     db, workspace_id=workspace_id, owner=owner, conversation_id=conversation_id,
-                    session_id=session_id, messages=messages, companion_id=companion_id)
+                    session_id=session_id, messages=messages, companion_id=companion_id,
+                    session_time=session_time, time_zone=time_zone)
             except Exception:
                 logger.exception("memory consolidation failed for %s %s", owner, session_id)
                 try:
@@ -55,6 +67,7 @@ async def _run_consolidation(workspace_id: str, owner: str, conversation_id: str
 async def consolidate(req: ConsolidateRequest, db: AsyncSession = Depends(get_async_session)):
     if not req.messages:
         raise HTTPException(status_code=422, detail="messages must not be empty")
+    _product(req.companion_id)
     for m in req.messages:
         if set(m) < {"id", "speaker", "text"}:
             raise HTTPException(status_code=422, detail="messages need id, speaker, text")
@@ -68,7 +81,7 @@ async def consolidate(req: ConsolidateRequest, db: AsyncSession = Depends(get_as
         raise HTTPException(status_code=500, detail=f"run_create_failed:{type(exc).__name__}") from exc
     asyncio.create_task(_run_consolidation(
         req.workspace_id, req.owner, req.conversation_id, req.session_id,
-        [dict(m) for m in req.messages], req.companion_id))
+        [dict(m) for m in req.messages], req.companion_id, req.session_time, req.time_zone))
     return {"status": "accepted", "run_id": run_id}
 
 
@@ -89,13 +102,19 @@ async def run_status(run_id: str, db: AsyncSession = Depends(get_async_session))
     if row.status in ("consolidated", "replay_noop", "failed", "empty"):
         out["summary"] = {k: bundle.get(k) for k in (
             "message_count", "new_message_count", "findings", "arc_after",
-            "ledger_added", "ledger_counts", "preparation_text", "ms_total") if k in bundle}
+            "ledger_added", "ledger_counts", "preparation_text", "ms_total", "product", "clock",
+            "ledger_witness_items", "ledger_observations", "ledger_agent", "ledger_needs_review", "ledger_fallback") if k in bundle}
+        if "ledger_agent_calls" in bundle:
+            out["summary"]["ledger_agent_trace"] = [
+                {"finish_reason": c.get("finish_reason"), "trace": c.get("trace")} for c in bundle["ledger_agent_calls"]]
     return out
 
 
 @router.get("/preparation")
-async def preparation(workspace_id: str, owner: str, db: AsyncSession = Depends(get_async_session)):
-    prep = await memory_pipeline.get_preparation(db, workspace_id=workspace_id, owner=owner)
+async def preparation(workspace_id: str, owner: str, companion_id: str = "sophie",
+                      db: AsyncSession = Depends(get_async_session)):
+    _product(companion_id)
+    prep = await memory_pipeline.get_preparation(db, workspace_id=workspace_id, owner=owner, companion_id=companion_id)
     if prep is None:
         return {"found": False}
     return {"found": True, **prep}
@@ -104,13 +123,17 @@ async def preparation(workspace_id: str, owner: str, db: AsyncSession = Depends(
 class PrepareRequest(BaseModel):
     workspace_id: str
     owner: str
+    companion_id: str = "sophie"
+    time_zone: Optional[str] = None
 
 @router.post("/prepare")
 async def prepare_now(req: PrepareRequest, db: AsyncSession = Depends(get_async_session)):
     """Compose a fresh preparation now (time or state moved on). Supersedes the
     cached one. Background-worthy; awaited here for operator use."""
     try:
-        prep = await memory_pipeline.prepare(db, workspace_id=req.workspace_id, owner=req.owner)
+        _product(req.companion_id)
+        prep = await memory_pipeline.prepare(db, workspace_id=req.workspace_id, owner=req.owner,
+                                             companion_id=req.companion_id, time_zone=req.time_zone)
         await db.commit()
     except Exception as exc:
         await db.rollback()
@@ -122,10 +145,11 @@ async def prepare_now(req: PrepareRequest, db: AsyncSession = Depends(get_async_
 
 
 @router.get("/state")
-async def state(workspace_id: str, owner: str, include_closed: bool = False,
+async def state(workspace_id: str, owner: str, include_closed: bool = False, companion_id: str = "sophie",
                 db: AsyncSession = Depends(get_async_session)):
+    _product(companion_id)
     return await memory_pipeline.read_state(db, workspace_id=workspace_id, owner=owner,
-                                            include_closed=include_closed)
+                                            include_closed=include_closed, companion_id=companion_id)
 
 
 class SoloTickRequest(BaseModel):

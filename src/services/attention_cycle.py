@@ -39,6 +39,52 @@ ACTION_STATES = ("pending", "due", "held", "delivered", "cancelled", "expired", 
 EVENT_KINDS = ("decided", "scheduled", "surfaced", "attempted", "delivered", "responded",
                "snoozed", "suppressed", "unsuppressed", "rescheduled", "cancelled", "expired")
 
+import contextvars as _cv
+_TZ_CTX: _cv.ContextVar[str] = _cv.ContextVar("attention_tz", default="UTC")
+_NOW_CTX: _cv.ContextVar[Optional[datetime]] = _cv.ContextVar("attention_now", default=None)   # naive UTC "now" of this review
+
+
+async def supersede_for_closed_matter(db: AsyncSession, *, workspace_id: str, owner: str, matter_key: str,
+                                      why: str = "matter closed") -> int:
+    """A follow-up toward a matter that is over is moot. Mechanical consequence of a close:
+    its pending/due/held intentions are superseded (audited), never delivered."""
+    rows = (await db.execute(select(AttentionAction).where(
+        AttentionAction.honcho_workspace_id == workspace_id, AttentionAction.owner_peer_id == owner,
+        AttentionAction.matter_key == matter_key,
+        AttentionAction.state.in_(["pending", "due", "held"])))).scalars().all()
+    for r in rows:
+        r.state = "superseded"
+        r.updated_at = utc_now()
+        await _event(db, workspace_id, owner, "cancelled", f"{why}: {r.intent[:120]}", "matter-lifecycle",
+                     action_id=r.id, matter_key=matter_key)
+    if rows:
+        await db.commit()
+    return len(rows)
+
+
+def _due_problem(due_at: Optional[datetime]) -> Optional[str]:
+    now = _NOW_CTX.get()
+    if due_at is not None and now is not None and due_at < now.replace(tzinfo=None) - __import__("datetime").timedelta(minutes=5):
+        return f"due_at is in the past (it is now {now.strftime('%Y-%m-%dT%H:%M')} UTC); pick a time that has not happened yet, or null"
+    return None
+
+
+def local_to_utc_naive(raw: str, tz_name: Optional[str] = None) -> Optional[datetime]:
+    """due_at arrives as the person's LOCAL wall-clock (YYYY-MM-DDTHH:MM); it is
+    stored as naive UTC so the deterministic due-scan stays timezone-free."""
+    from zoneinfo import ZoneInfo
+    tz_name = tz_name or _TZ_CTX.get() or "UTC"
+    try:
+        zi = ZoneInfo(tz_name)
+    except Exception:
+        zi = ZoneInfo("UTC")
+    try:
+        local = datetime.fromisoformat(raw[:16]).replace(tzinfo=zi)
+    except ValueError:
+        return None
+    return local.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 CONTRACT = """You review what is on someone's plate and decide what deserves attention. You are an executive assistant with judgment, not a reminder rulebook. A dentist appointment and a vague walk idea must not receive identical treatment.
 
 Responsibility is always toward the user: reminders and follow-ups are FOR him, never for Sophie. Phrase every intent accordingly ("Remind him Thursday morning", never "Remind Sophie"). The stored matter already says whose appointment it is; your intent says what YOU will do about it.
@@ -47,13 +93,13 @@ You have: open operational matters (with dates, people, dependencies), the histo
 
 Decide per matter: schedule a reminder or follow-up (with a due time), flag it for the next conversation, defer it, suppress it (scoped: what exactly to stop, and until when), reschedule/cancel existing intentions whose matter changed, or do nothing. Doing nothing is often correct.
 
-Rules: never duplicate an open intention for the same matter — update it. A held or suppressed action stays held until its condition lapses or evidence changes it; say what would unhold it. If the user said to stop fussing, record the scope of that response and adjust — it rarely cancels the matter itself. Delivery is a separate channel: schedule freely, but only the delivery path marks delivered. Verify before finish: re-list intentions and confirm each matches your decisions."""
+Never invent precision: if the time of day is ambiguous (e.g. "at 6" with no am/pm) do not guess a clock time — leave due_at null and say what is unclear in timing_note, or schedule only for a time that is correct under every reading. Rules: never duplicate an open intention for the same matter — update it. A held or suppressed action stays held until its condition lapses or evidence changes it; say what would unhold it. If the user said to stop fussing, record the scope of that response and adjust — it rarely cancels the matter itself. Delivery is a separate channel: schedule freely, but only the delivery path marks delivered. Verify before finish: re-list intentions and confirm each matches your decisions."""
 
 TOOLS = [
     {"type": "function", "function": {"name": "list_matters", "description": "Open operational matters with keys, dates, people, dependencies.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "attention_history", "description": "What Sophie already did: events newest-first, optional matter filter.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "limit": {"type": "integer"}}}}},
     {"type": "function", "function": {"name": "list_actions", "description": "Current intentions (pending/due/held), optional matter filter.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}}}}},
-    {"type": "function", "function": {"name": "schedule_action", "description": "Persist an intention Sophie holds toward the user (reminders are FOR him, never for Sophie: 'Remind him Thursday morning'). Matter key (or null), what she intends + why, kind reminder/followup/surface/opportunity, due_at YYYY-MM-DDTHH:MM (UTC) or null, timing_note for uncertainty. Duplicates of open intentions are refused — update instead.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "intent": {"type": "string"}, "why": {"type": "string"}, "kind": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}}, "required": ["intent"]}}},
+    {"type": "function", "function": {"name": "schedule_action", "description": "Persist an intention Sophie holds toward the user (reminders are FOR him, never for Sophie: 'Remind him Thursday morning'). Matter key (or null), what she intends + why, kind reminder/followup/surface/opportunity, due_at YYYY-MM-DDTHH:MM in the PERSON'S LOCAL time (code converts it) or null, timing_note for uncertainty. Duplicates of open intentions are refused — update instead.", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "intent": {"type": "string"}, "why": {"type": "string"}, "kind": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}}, "required": ["intent"]}}},
     {"type": "function", "function": {"name": "update_action", "description": "Change an intention by id: state (pending/due/held/cancelled/expired/superseded — delivered only with evidence of actual delivery), due_at, timing_note. Reschedule by setting a new due_at (old value kept in history).", "parameters": {"type": "object", "properties": {"id": {"type": "string"}, "state": {"type": "string"}, "due_at": {"type": "string"}, "timing_note": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["id"]}}},
     {"type": "function", "function": {"name": "record_event", "description": "Record what happened: responded/snoozed/suppressed/surfaced/attempted with detail (e.g. user said stop fussing — scope it).", "parameters": {"type": "object", "properties": {"matter": {"type": "string"}, "action": {"type": "string"}, "event": {"type": "string"}, "detail": {"type": "string"}}, "required": ["event"]}}},
     {"type": "function", "function": {"name": "finish", "description": "End only after verifying intentions match decisions.", "parameters": {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"]}}},
@@ -85,7 +131,7 @@ async def _chat(model: str, messages: List[Dict[str, str]]) -> Optional[Dict[str
         if via_or:
             headers["X-Title"] = "cortex-attention"
         body: Dict[str, Any] = {"model": mid, "messages": messages, "tools": TOOLS,
-                                "tool_choice": "auto", "max_tokens": 1200}
+                                "tool_choice": "auto", "max_tokens": int(os.getenv("ATTENTION_MAX_TOKENS", "2500"))}
         async with httpx.AsyncClient(timeout=CALL_TIMEOUT_S) as client:
             resp = await client.post(base + "/chat/completions", headers=headers, json=body)
             resp.raise_for_status()
@@ -97,7 +143,7 @@ async def _chat(model: str, messages: List[Dict[str, str]]) -> Optional[Dict[str
                         used.get("completion_tokens"), used.get("reasoning_tokens", 0),
                         int((time.monotonic() - t0) * 1000))
             return {"content": msg.get("content") or "", "tool_calls": msg.get("tool_calls") or [],
-                    "model": model, "provider": "openrouter" if via_or else "nanogpt", "usage": used}
+                    "finish_reason": data["choices"][0].get("finish_reason"), "model": model, "provider": "openrouter" if via_or else "nanogpt", "usage": used}
     except Exception as exc:
         status = getattr(getattr(exc, "response", None), "status_code", None)
         logger.warning("attention chat failed (%s): %s%s", model, type(exc).__name__,
@@ -107,7 +153,9 @@ async def _chat(model: str, messages: List[Dict[str, str]]) -> Optional[Dict[str
 
 def _action_view(a: AttentionAction) -> Dict[str, Any]:
     return {"id": str(a.id), "matter": a.matter_key, "intent": a.intent, "why": a.why,
-            "kind": a.kind, "due_at": a.due_at.isoformat() if a.due_at else None,
+            "kind": a.kind,
+            # stored as naive UTC; emitted with its offset so every reader can convert to the person's clock
+            "due_at": a.due_at.replace(tzinfo=timezone.utc).isoformat() if a.due_at else None,
             "timing_note": a.timing_note, "state": a.state}
 
 
@@ -215,13 +263,27 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
         if kind not in ("reminder", "followup", "surface", "opportunity"):
             return {"error": f"illegal kind {kind}"}
         matter = str(args.get("matter") or "").strip() or None
+        if matter:
+            from src.models.world import LedgerItem
+            led = (await db.execute(select(LedgerItem).where(
+                LedgerItem.honcho_workspace_id == workspace_id, LedgerItem.owner_peer_id == owner,
+                LedgerItem.situation_key == matter))).scalars().first()
+            if led is None:
+                return {"error": f"unknown matter key '{matter}': use a key from list_matters, or null for a general intention"}
+            if led.status in ("done", "cancelled", "answered"):
+                return {"error": f"matter '{matter}' is {led.status}; there is nothing left to follow up"}
         due_at = None
         raw_due = str(args.get("due_at") or "").strip()
         if raw_due:
             try:
-                due_at = _dt.fromisoformat(raw_due[:16])
+                due_at = local_to_utc_naive(raw_due)
             except ValueError:
-                return {"error": "due_at must be YYYY-MM-DDTHH:MM"}
+                due_at = None
+            if due_at is None:
+                return {"error": "due_at must be YYYY-MM-DDTHH:MM (the person's local time)"}
+            problem = _due_problem(due_at)
+            if problem:
+                return {"error": problem}
         dup_q = select(AttentionAction).where(
             AttentionAction.honcho_workspace_id == workspace_id,
             AttentionAction.owner_peer_id == owner,
@@ -265,10 +327,13 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
         raw_due = str(args.get("due_at") or "").strip()
         if raw_due:
             from datetime import datetime as _dt
-            try:
-                row.due_at = _dt.fromisoformat(raw_due[:16])
-            except ValueError:
-                return {"error": "due_at must be YYYY-MM-DDTHH:MM"}
+            new_due = local_to_utc_naive(raw_due)
+            if new_due is None:
+                return {"error": "due_at must be YYYY-MM-DDTHH:MM (the person's local time)"}
+            problem = _due_problem(new_due)
+            if problem:
+                return {"error": problem}
+            row.due_at = new_due
         if isinstance(args.get("timing_note"), str):
             row.timing_note = args["timing_note"][:300]
         row.updated_at = utc_now()
@@ -299,7 +364,9 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
 async def run_attention_review(db: AsyncSession, *, workspace_id: str, owner: str,
                                today_utc: Optional[str] = None,
                                reason: str = "scheduled",
-                               findings: Optional[str] = None) -> Dict[str, Any]:
+                               findings: Optional[str] = None,
+                               time_zone: str = "UTC", weekday: str = "",
+                               now_utc: Optional[datetime] = None) -> Dict[str, Any]:
     """One attention review: agent examines matters + history + clock, decides,
     persists intentions. Returns grounded outcome (verified / no_change_verified
     / never_inspected / unfinished). When session findings are supplied, the
@@ -308,12 +375,29 @@ async def run_attention_review(db: AsyncSession, *, workspace_id: str, owner: st
     from datetime import datetime as _dt
     started = _dt.now(timezone.utc)
     today_utc = today_utc or started.date().isoformat()
+    _tz_token = _TZ_CTX.set(time_zone or "UTC")
+    _now_token = _NOW_CTX.set((now_utc.astimezone(timezone.utc).replace(tzinfo=None) if now_utc and now_utc.tzinfo else now_utc)
+                              or started.replace(tzinfo=None))
+    try:
+        return await _run_attention_review_inner(
+            db, workspace_id=workspace_id, owner=owner, today=today_utc, reason=reason,
+            findings=findings, time_zone=time_zone or "UTC", weekday=weekday, started=started)
+    finally:
+        _TZ_CTX.reset(_tz_token)
+        _NOW_CTX.reset(_now_token)
+
+
+async def _run_attention_review_inner(db: AsyncSession, *, workspace_id: str, owner: str, today: str,
+                                      reason: str, findings: Optional[str], time_zone: str,
+                                      weekday: str, started: Any) -> Dict[str, Any]:
+    from datetime import datetime as _dt
+    today_utc = today
     calls: List[Dict[str, Any]] = []
     inspected = False
     finished_summary: Optional[str] = None
     models = [PRIMARY_MODEL] + ([FALLBACK_MODEL] if FALLBACK_MODEL != PRIMARY_MODEL else [])
     messages: List[Dict[str, str]] = [
-        {"role": "system", "content": CONTRACT + f"\n\nToday is {today_utc} (UTC)."},
+        {"role": "system", "content": CONTRACT + f"\n\nToday is {(weekday + ' ') if weekday else ''}{today_utc} (the person's local date; timezone {time_zone}). Give every due_at as the person's local wall-clock time."},
         {"role": "user", "content": f"Review attention ({reason}). Open matters, history and clock are available through tools."
          + (f"\n\nLatest session findings — if these show Sophie asked about a tracked unknown, record a surfaced event for it; if the user answered, declined, or asked to drop it, record a responded event with what they said:\n{findings[:3000]}" if (findings or "").strip() else "")}]
     model_used = models[0]
@@ -340,9 +424,13 @@ async def run_attention_review(db: AsyncSession, *, workspace_id: str, owner: st
             try:
                 args = json.loads(fn.get("arguments") or "{}")
             except Exception:
-                args = {}
-            if not isinstance(args, dict):
-                args = {}
+                args = None
+            if not isinstance(args, dict) or out.get("finish_reason") == "length":
+                # Malformed or truncated arguments never run as {}: tell the model.
+                calls[-1].setdefault("ops", []).append(fn.get("name"))
+                messages.append({"role": "tool", "tool_call_id": tc.get("id", ""), "name": str(fn.get("name")),
+                                 "content": json.dumps({"error": "arguments were incomplete or not valid JSON; nothing ran. Resend this call."})})
+                continue
             calls[-1].setdefault("ops", []).append(fn.get("name"))
             if fn.get("name") in ("list_matters", "attention_history", "list_actions"):
                 inspected = True
@@ -446,6 +534,24 @@ async def last_review_at(db: AsyncSession, *, workspace_id: str, owner: str) -> 
     return row
 
 
+async def owner_time_zone(db: AsyncSession, *, workspace_id: str, owner: str, default: Optional[str] = "Europe/London") -> Optional[str]:
+    """The person's timezone as last reported with a consolidation (the Runtime
+    supplies it); `default` only if none was ever supplied."""
+    import json as _json
+    from src.models.world import MemoryRun
+    rows = (await db.execute(select(MemoryRun).where(
+        MemoryRun.honcho_workspace_id == workspace_id, MemoryRun.owner_peer_id == owner,
+        MemoryRun.status == "consolidated").order_by(MemoryRun.created_at.desc()).limit(5))).scalars().all()
+    for r in rows:
+        try:
+            tz = (_json.loads(r.bundle_json or "{}").get("clock") or {}).get("time_zone")
+        except Exception:
+            tz = None
+        if tz and tz != "UTC":
+            return str(tz)
+    return default
+
+
 async def tick_once(*, workspace_id: str, owner: str, now: Optional[datetime] = None) -> Dict[str, Any]:
     """One scheduled pass: deterministic due-scan always; agent review only
     when the last review is stale and there is anything to review. No quiet-hour
@@ -464,9 +570,16 @@ async def tick_once(*, workspace_id: str, owner: str, now: Optional[datetime] = 
             has_matters = bool(await open_ledger(db, workspace_id, owner, limit=1))
             has_actions = bool(await pending_attention(db, workspace_id=workspace_id, owner=owner))
             if stale and (has_matters or has_actions):
+                tz_name = await owner_time_zone(db, workspace_id=workspace_id, owner=owner)
+                try:
+                    from zoneinfo import ZoneInfo
+                    local_now = now.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(tz_name))
+                except Exception:
+                    tz_name, local_now = "UTC", now.replace(tzinfo=timezone.utc)
                 out["review"] = await run_attention_review(
                     db, workspace_id=workspace_id, owner=owner,
-                    today_utc=now.date().isoformat(), reason="scheduled-tick")
+                    today_utc=local_now.date().isoformat(), weekday=local_now.strftime("%A"),
+                    time_zone=tz_name, reason="scheduled-tick", now_utc=now.replace(tzinfo=timezone.utc))
                 out["review"].pop("calls", None)
             else:
                 out["review"] = {"status": "skipped",

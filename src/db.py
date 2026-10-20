@@ -85,6 +85,9 @@ _ADDITIVE_COLUMNS = (
     ("ledger_items", "question_text", "TEXT DEFAULT ''"),
     ("ledger_items", "linked_keys_json", "TEXT DEFAULT '[]'"),
     ("ledger_items", "authorised_json", "TEXT DEFAULT '{}'"),
+    ("notebook_pages", "product", "VARCHAR DEFAULT 'sophie' NOT NULL"),
+    ("sitting_preparations", "product", "VARCHAR DEFAULT 'sophie' NOT NULL"),
+    ("continuing_arcs", "product", "VARCHAR DEFAULT 'sophie' NOT NULL"),
 )
 
 

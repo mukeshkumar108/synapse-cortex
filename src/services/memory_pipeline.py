@@ -13,6 +13,7 @@ replays with no new messages are no-ops for state.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -27,6 +28,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.world import ContinuingArc, LedgerItem, MemoryRun, NotebookPage, SittingPreparation, utc_now
 from src.services import nano_adapter
+from src.services import product_memory
+from src.services.product_memory import ProductMemory
 
 logger = logging.getLogger(__name__)
 
@@ -88,9 +91,9 @@ Resolution: preserve what remains relevant. When an ordinary disagreement has be
 
 Return ONLY the revised account as short plain prose, no commentary. If there was no previous account, write one from the handoff alone."""
 
-SITUATIONS_PROMPT = """Read this conversation transcript and note what is unfolding in this person's life. You are a witness, not a clerk: notice things, don't file them. A separate deterministic step structures what you notice, so NEVER worry about JSON, formatting, keys or exactness — plain tagged lines only, one observation per line.
+SITUATIONS_PROMPT = """Read this conversation transcript and note what is unfolding in this person's life that has real-world follow-through. You are a witness, not a clerk: notice things, don't file them. A separate deterministic step structures what you notice, so NEVER worry about JSON, formatting, keys or exactness — plain tagged lines only, one observation per line.
 
-Today is {today_utc} (UTC). Use it to understand relative dates ("tomorrow", "Friday"), but always quote the person's own words for timing too.
+Today is {today} (the person's local date; timezone {tz}). Use it to understand relative dates ("tomorrow", "Friday"), but always quote the person's own words for timing too.
 
 Currently open situations (stable keys in brackets, for reference only):
 {open_items}
@@ -101,8 +104,9 @@ Currently open situations (stable keys in brackets, for reference only):
 --- earlier findings (a guide, not the authority — the transcript above rules; catch what it missed) ---
 {findings}
 
-Write tagged lines, one per line. Tags (use only these):- ITEM: short human title of a circumstance worth tracking (commitment, plan, wait, invitation, aspiration, concern, routine change, question, anything with a life cycle)
-- KIND: one of commitment/event/thread/situation/reminder/aspiration/invitation/concern/routine (best fit, never forced)
+Write tagged lines, one per line. Tags (use only these):
+- ITEM: short human title of the THING ITSELF — the appointment, the promise, the wait, the plan — never the open question about it ("Dentist appointment", not "Dentist time confirmation"). When you observe an open situation listed above, use its title.
+- KIND: one of commitment/event/thread/situation/reminder/aspiration/invitation/concern/routine/experiment (best fit, never forced)
 - DETAIL: circumstance, terms, what is known AND unknown
 - TIMING: timing in the person's own words ("Thursday", "for two weeks", "someday")
 - PERSON: someone connected (who + how: owes, waits on, invited by, promised to)
@@ -112,22 +116,25 @@ Write tagged lines, one per line. Tags (use only these):- ITEM: short human titl
 - MATTERS-BECAUSE: why this deserves attention, in one line
 - EVIDENCE: short quote from the transcript
 - CONFIDENCE: observed (they said it happened) / reported (they relayed it) / inferred (your read — mark honestly)
-- RESOLVED: what ended, and the quote proving it (only if the transcript shows it ended)
+- CHANGED: what changed on this matter WITHOUT it ending — a question was answered, a time/date/place was fixed or moved, terms changed. State the new fact in plain words.
+- ENDED: the matter ITSELF is over (it happened, was delivered, was cancelled, or the person dropped it), and the quote proving it. A promise kept ("sent it", "it's done", "approved") is ENDED, not CHANGED. If nothing ended, leave the ENDED line out entirely — never write "ENDED: none".
 - STATUS-HINT: waiting / watching / suppressed (explicit stand-down like "ignore X tonight") — only if stated or obvious; else leave out
 
 Rules, no exceptions:
-- First job: compare this session against the open situations above. If the transcript answers, resolves, confirms or settles any of them, say so (RESOLVED with the proving quote) — even if the session contains nothing else new. Checking open items for resolution is primary, not an afterthought.
-- An aspiration is not a task and never closes by silence.
+- First job: compare this session against the open situations above. If the transcript changes or ends any of them, say so (CHANGED or ENDED, on that situation's title) — even if the session contains nothing else new. Checking open items is primary, not an afterthought.
+- Answering a question, confirming or fixing a time, or moving a date/time is CHANGED, never ENDED. A moved review, meeting or deadline changes that matter; it does not end any other matter.
+- Only things with real-world follow-through are items: commitments and promises, appointments and events, deadlines, things awaited from others, reminders the person asked for, agreed experiments or exercises, and aspirations the person voices. Ideas, metaphors, questions about oneself, feelings, explorations and discoveries are NOT items — the notebook keeps those. If nothing qualifies, say NONE.
+- An aspiration is not a task and never ends by silence.
 - An invitation is not an accepted commitment; a provisional invitation stays provisional.
 - Inferred is not observed. A hypothesis is not a fact.
 - An unresolved question isn't a task.
-- Close only on evidence: tag RESOLVED only when the transcript shows the matter ended, with the proving quote.
-- If a tracked matter ended, do NOT create a new ITEM about its ending — emit RESOLVED naming it, with the quote. New ITEMs are for new or changed circumstances only.
+- ENDED only on evidence: the transcript must show the matter ended, with the proving quote.
+- If a tracked matter ended, do NOT create a new ITEM about its ending — emit ENDED naming it, with the quote. New ITEMs are for new circumstances only.
 - A temporary change to routines counts: record what changed, how long it lasts, AND the exact condition that ends it.
 - "Remind me …" is an explicit authorised request: tag it REMINDER-AUTHORISED plus the ITEM, so a later scheduler can act on it. Inference never authorises.
 - A temporary stand-down ("ignore X tonight", "leave it for now", "don't bring it up") is STATUS-HINT: suppressed on the matching open item — never a new row, never deletion.
 - Never invent dates, owners, or obligations. Time passing proves nothing.
-- A short "nothing new" reply is fine: if the transcript adds nothing circumstantial, say NONE."""
+- A short "nothing new" reply is fine: if the transcript adds nothing with follow-through, say NONE."""
 
 PREPARATION_PROMPT = """You are forming a brief private perspective for Sophie, a companion who genuinely cares about this person, ahead of their next conversation. Inputs: the living notebook, the operational ledger, the continuing arc of recent conversations, and the current date/time.
 
@@ -135,11 +142,21 @@ Write short, first-person, future-oriented thoughts: what matters to him and why
 
 Cover the person, not the operations: who he is and is becoming, relationships and how they stand, concerns, curiosities, developments and open threads in his life. Dated obligations, deadlines and appointments belong to the operational radar, which is composed separately — do not restate them here beyond a passing mention when they genuinely color the moment.
 
-This is not a script and not instructions for what she must say — just things she can think from. Never write behavioural intentions, strategies or self-coaching: no "I will keep this thread warm", no "I want to make sure he…", no "I am just here to make sure…", no "Sophie is holding him to…". Observations and curiosity only; what she does in the conversation is decided there, not here. Her independent explorations are her own; she may bring one up if it is genuinely relevant to the moment, never as a report of everything she did. Do not perform being a companion, declare your role, or use therapeutic language. Do not carry yesterday's mood into today; begin open to the present.
+These notes are cached and read later, possibly the next day: anchor anything time-relative to a named day or date, never to "tonight", "this morning" or "now". This is not a script and not instructions for what she must say — just things she can think from. Never write behavioural intentions, strategies or self-coaching: no "I will keep this thread warm", no "I want to make sure he…", no "I am just here to make sure…", no "Sophie is holding him to…". Observations and curiosity only; what she does in the conversation is decided there, not here. Her independent explorations are her own; she may bring one up if it is genuinely relevant to the moment, never as a report of everything she did. Do not perform being a companion, declare your role, or use therapeutic language. Do not carry yesterday's mood into today; begin open to the present.
 
 Return ONLY 3-8 short paragraphs or lines, plain and warm, no headers, no commentary."""
 
 SYSTEM = "You are a careful listener maintaining a companion's long-term understanding of a real person."
+
+SOPHIE = ProductMemory(
+    name="sophie", companion_name="Sophie", user_label="Him",
+    pages=PAGES, page_titles=PAGE_TITLES, page_scopes=PAGE_SCOPES, page_subjects=PAGE_SUBJECT,
+    listening_prompt=LISTENING_PROMPT, handoff_prompt=HANDOFF_PROMPT, editor_prompt=NOTEBOOK_EDITOR_PROMPT,
+    arc_prompt=ARC_UPDATE_PROMPT, preparation_prompt=PREPARATION_PROMPT, arc_seed=ARC_SEED,
+    independent_listening_prompt=INDEPENDENT_LISTENING_PROMPT, independent_rule=INDEPENDENT_RULE,
+    preparation_label="SOPHIE PREPARED PERSPECTIVE", default_time_zone="Europe/London")
+product_memory.register(SOPHIE)
+from src.services import bloom_memory  # noqa: E402,F401  (registers the Bloom product)
 
 
 def _models(env: str, default: str) -> List[str]:
@@ -178,7 +195,8 @@ def _fingerprint(*parts: str) -> str:
 def _clean(value: Any, limit: int) -> str:
     """Strip whitespace, wrapping quotes and model null-words to a true empty."""
     s = str(value or "").strip().strip("\"'“”‘’()[]").strip()
-    if s.lower() in ("n/a", "na", "none", "null", "nil", "-", "--", "unknown", "not specified", "not applicable"):
+    if s.lower() in ("n/a", "na", "none", "null", "nil", "-", "--", "unknown", "not specified", "not applicable",
+                   "none stated", "not stated", "nothing", "no change", "none given", "not given"):
         return ""
     return s[:limit]
 
@@ -205,7 +223,7 @@ def _parse_situations(raw: str) -> Dict[str, List[Dict[str, Any]]]:
 
 
 _SIT_TAGS = ("ITEM", "KIND", "DETAIL", "TIMING", "PERSON", "BLOCKED-BY", "WAITING-ON",
-             "QUESTION", "MATTERS-BECAUSE", "EVIDENCE", "CONFIDENCE", "RESOLVED",
+             "QUESTION", "MATTERS-BECAUSE", "EVIDENCE", "CONFIDENCE", "RESOLVED", "ENDED", "CHANGED",
              "STATUS-HINT", "REMINDER-AUTHORISED")
 
 
@@ -217,8 +235,15 @@ def _apply_witness_tag(current: Dict[str, Any], tag: str, value: str) -> None:
         current["reminder_authorised"] = True
         if value:
             current["detail"] = ((current.get("detail") or "") + " " + value).strip()
+    elif tag in ("ENDED", "RESOLVED", "CHANGED") and not _clean(value, 400):
+        return                           # "ENDED: (none)" says nothing happened; it must never close a matter
+    elif tag == "ENDED":
+        current["resolved"] = value      # `resolved` carries the proof text for closing paths
+        current["ended"] = True
     elif tag == "RESOLVED":
-        current["resolved"] = value
+        current["resolved"] = value      # legacy, unclassified tag: answered unknown, change, or end
+    elif tag == "CHANGED":
+        current["changed"] = value
     else:
         key = {"KIND": "kind", "DETAIL": "detail", "TIMING": "timing", "BLOCKED-BY": "blocked_by",
                "WAITING-ON": "waiting_on", "QUESTION": "question", "MATTERS-BECAUSE": "matters",
@@ -232,6 +257,7 @@ def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     items: List[Dict[str, Any]] = []
     unparsed: List[str] = []
     current: Optional[Dict[str, Any]] = None
+    pending_reminder = False
 
     def flush() -> None:
         t = str((current or {}).get("title") or "").strip()
@@ -242,6 +268,17 @@ def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         line = re.sub(r"^(\s*([-*•]|\d+[.)])\s+)+", "", raw_line.strip())
         if not line or line.upper() == "NONE":
             continue
+        # A bare marker written ahead of the item on the same line ("REMINDER-AUTHORISED: ITEM: Call Mum"):
+        # honour the marker, then parse the rest of the line normally.
+        while True:
+            lead = re.match(r"^(REMINDER-AUTHORISED)\s*:\s*((?:ITEM|KIND|DETAIL|TIMING)\s*:.*)$", line, re.IGNORECASE)
+            if not lead:
+                break
+            if current is not None:
+                current["reminder_authorised"] = True
+            else:
+                pending_reminder = True
+            line = lead.group(2).strip()
         m = re.match(r"^([A-Za-z-]+)\s*:\s*(.*)$", line)
         if not m or m.group(1).upper() not in _SIT_TAGS:
             if current is not None and line and not line.startswith(("#", "##")):
@@ -253,12 +290,21 @@ def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         if tag == "ITEM":
             flush()
             current = {"title": value, "people": [], "evidence": []}
-        elif tag == "RESOLVED" and current is None:
-            # Standalone resolution (the rules ask for exactly this): seed an
-            # entry naming the matter so it reaches matching/closing.
+            if pending_reminder:
+                current["reminder_authorised"] = True
+                pending_reminder = False
+        elif tag in ("RESOLVED", "ENDED", "CHANGED") and current is None:
+            # Standalone notice (the rules ask for exactly this): seed an entry
+            # naming the matter so it reaches matching/closing/updating.
             parts = [p.strip() for p in re.split(r"\s*\|\s*", value, maxsplit=1)]
-            current = {"title": parts[0], "people": [], "evidence": [],
-                       "resolved": parts[1] if len(parts) > 1 else parts[0]}
+            body = parts[1] if len(parts) > 1 else parts[0]
+            current = {"title": parts[0], "people": [], "evidence": []}
+            if tag == "CHANGED":
+                current["changed"] = body
+            else:
+                current["resolved"] = body
+                if tag == "ENDED":
+                    current["ended"] = True
         elif tag == "STATUS-HINT" and "|" in value:
             # Standalone notice carrying its own matter inline, e.g.
             # `STATUS-HINT: suppressed | "Pete keeps pinging..." | EVIDENCE: ...`:
@@ -617,33 +663,44 @@ async def apply_situations(db: AsyncSession, *, workspace_id: str, owner: str, r
         refs["closed_session"] = session_id
         item.source_refs_json = json.dumps(refs)[:4000]
         counts["closed"] += 1
+        try:
+            from src.services import attention_cycle as _ac
+            await _ac.supersede_for_closed_matter(db, workspace_id=workspace_id, owner=owner,
+                                                  matter_key=str(item.situation_key or ""))
+        except Exception as exc:        # a lifecycle side effect never blocks the close itself
+            logger.warning("[memory] supersede follow-ups failed open: %s", exc)
     return counts
 
 
-def format_transcript(messages: List[Dict[str, Any]]) -> str:
+def format_transcript(messages: List[Dict[str, Any]], cfg: Optional[ProductMemory] = None) -> str:
+    cfg = cfg or SOPHIE
     lines = []
     for m in messages:
         label = str(m.get("label") or "").strip()
         if not label:
-            label = "Him" if str(m.get("speaker") or "") in ("user", "him") else "Sophie"
+            label = cfg.user_label if str(m.get("speaker") or "") in ("user", "him") else cfg.companion_name
         text = str(m.get("text") or "").strip()
         if text:
             lines.append(f"{label}: {text}")
     return "\n".join(lines)
 
 
-async def live_pages(db: AsyncSession, workspace_id: str, owner: str) -> Dict[str, NotebookPage]:
+async def live_pages(db: AsyncSession, workspace_id: str, owner: str,
+                     cfg: Optional[ProductMemory] = None) -> Dict[str, NotebookPage]:
+    cfg = cfg or SOPHIE
     out: Dict[str, NotebookPage] = {}
-    for key in PAGES:
+    for key in cfg.pages:
         rows = (await db.execute(select(NotebookPage).where(
             NotebookPage.honcho_workspace_id == workspace_id,
             NotebookPage.owner_peer_id == owner,
+            NotebookPage.product == cfg.name,
             NotebookPage.page_key == key,
             NotebookPage.superseded_by_id.is_(None)))).scalars().all()
         if rows:
             out[key] = sorted(rows, key=lambda r: r.version, reverse=True)[0]
         else:
-            page = NotebookPage(honcho_workspace_id=workspace_id, owner_peer_id=owner, page_key=key, text=PAGE_SEEDS[key])
+            page = NotebookPage(honcho_workspace_id=workspace_id, owner_peer_id=owner, page_key=key,
+                                product=cfg.name, text=cfg.seed(key))
             db.add(page)
             await db.flush()
             out[key] = page
@@ -675,12 +732,15 @@ async def open_ledger(db: AsyncSession, workspace_id: str, owner: str, limit: in
     return list(rows)
 
 
-async def get_arc(db: AsyncSession, workspace_id: str, owner: str) -> ContinuingArc:
+async def get_arc(db: AsyncSession, workspace_id: str, owner: str,
+                  cfg: Optional[ProductMemory] = None) -> ContinuingArc:
+    cfg = cfg or SOPHIE
     row = (await db.execute(select(ContinuingArc).where(
         ContinuingArc.honcho_workspace_id == workspace_id,
-        ContinuingArc.owner_peer_id == owner).order_by(ContinuingArc.version.desc()).limit(1))).scalars().first()
+        ContinuingArc.owner_peer_id == owner,
+        ContinuingArc.product == cfg.name).order_by(ContinuingArc.version.desc()).limit(1))).scalars().first()
     if row is None:
-        row = ContinuingArc(honcho_workspace_id=workspace_id, owner_peer_id=owner, text=ARC_SEED)
+        row = ContinuingArc(honcho_workspace_id=workspace_id, owner_peer_id=owner, product=cfg.name, text=cfg.arc_seed)
         db.add(row)
         await db.flush()
     return row
@@ -735,21 +795,23 @@ async def recover_orphaned_runs(db: AsyncSession, *, older_than_minutes: int = 1
 
 
 async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
-                   include_closed: bool = False) -> Dict[str, Any]:
+                   include_closed: bool = False, companion_id: str = "sophie") -> Dict[str, Any]:
     """Notebook + ledger + arc + attention for inspection. Pure reads, no model."""
     from src.services import attention_cycle as _attn
-    pages = await live_pages(db, workspace_id, owner)
+    cfg = product_memory.get(companion_id)
+    pages = await live_pages(db, workspace_id, owner, cfg)
     if include_closed:
         rows = (await db.execute(select(LedgerItem).where(
             LedgerItem.honcho_workspace_id == workspace_id,
-            LedgerItem.owner_peer_id == owner).order_by(LedgerItem.created_at).limit(200))).scalars().all()
-        ledger = list(rows)
+            LedgerItem.owner_peer_id == owner).order_by(LedgerItem.created_at.desc()).limit(200))).scalars().all()
+        ledger = list(reversed(rows))        # the newest 200, oldest first (never drop the newest past the cap)
     else:
         ledger = await open_ledger(db, workspace_id, owner, limit=50)
-    arc = await get_arc(db, workspace_id, owner)
-    prep = await get_preparation(db, workspace_id=workspace_id, owner=owner)
+    arc = await get_arc(db, workspace_id, owner, cfg)
+    prep = await get_preparation(db, workspace_id=workspace_id, owner=owner, companion_id=companion_id)
     return {
-        "notebook": {k: {"title": PAGE_TITLES[k], "version": p.version, "text": p.text} for k, p in pages.items()},
+        "product": cfg.name,
+        "notebook": {k: {"title": cfg.page_titles[k], "version": p.version, "text": p.text} for k, p in pages.items()},
         "ledger": [{"id": str(i.id), "key": i.situation_key, "kind": i.kind, "title": i.title,
                     "status": i.status, "confidence": i.confidence, "detail": i.detail,
                     "timing": i.timing_text,
@@ -767,16 +829,198 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
     }
 
 
+# ---------------------------------------------------------------- time ----
+
+def resolve_clock(session_time: Optional[str], time_zone: Optional[str]) -> Dict[str, Any]:
+    """The person's local moment for a session. Relative language ("tomorrow",
+    "Friday") is resolved against when the person SPOKE, in THEIR timezone —
+    never the background worker's clock. A naive session_time is read as the
+    person's local wall time; no session_time means 'now'."""
+    from zoneinfo import ZoneInfo
+    tzname = str(time_zone or "").strip() or "UTC"
+    try:
+        zi = ZoneInfo(tzname)
+    except Exception:
+        tzname, zi = "UTC", ZoneInfo("UTC")
+    dt = None
+    raw = str(session_time or "").strip()
+    if raw:
+        try:
+            dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=zi)
+        except ValueError:
+            dt = None
+    if dt is None:
+        dt = datetime.now(timezone.utc)
+    local = dt.astimezone(zi)
+    return {"tz": tzname, "event_utc": dt.astimezone(timezone.utc), "local": local,
+            "today": local.date().isoformat(), "weekday": local.strftime("%A")}
+
+
+def _annotate_timing(timing: str, today: Any) -> str:
+    """Deterministically attach ISO dates to weekday/tomorrow mentions so the
+    agent copies exact dates instead of doing weekday arithmetic. A weekday
+    equal to today's resolves to today (matching resolve_date)."""
+    from datetime import timedelta as _td
+    out = str(timing or "")
+    if not out:
+        return out
+    for i in range(7):
+        d = today + _td(days=i)
+        name = d.strftime("%A")
+        out = re.sub(rf"\b{name}\b(?!\s*\()", f"{name} ({d.isoformat()})", out, flags=re.IGNORECASE)
+    tom = today + _td(days=1)
+    return re.sub(r"\btomorrow\b(?!\s*\()", f"tomorrow ({tom.isoformat()})", out, flags=re.IGNORECASE)
+
+
+def build_observations(witness: List[Dict[str, Any]], today: Any) -> Tuple[str, int]:
+    """Numbered observations for the maintenance agent. Every field the witness
+    produced is carried — questions, waits, people, confidence, evidence, what
+    changed, what ended — so uncertainty and evidence survive the hand-off."""
+    from datetime import timedelta as _td
+    day_ref = ", ".join(f"{(today + _td(days=i)).strftime('%A')} {(today + _td(days=i)).isoformat()}" for i in range(8))
+    header = (f"Date reference (the person's local calendar): today {today.strftime('%A')} {today.isoformat()}; "
+              f"this week: {day_ref}. Use these exact ISO dates for expected_date.")
+    lines = [header]
+    for n, it in enumerate(witness, 1):
+        conf = _clean(it.get("confidence"), 20) or "reported"
+        bits = [f"[O{n}] {it.get('title', '')} [{it.get('kind') or 'situation'}] (confidence: {conf})"]
+        if _clean(it.get("detail"), 400):
+            bits.append(":: " + _clean(it.get("detail"), 400))
+        if it.get("timing"):
+            bits.append("| timing: " + _annotate_timing(str(it["timing"]), today))
+        if _clean(it.get("waiting_on"), 200):
+            bits.append("| waiting-on: " + _clean(it.get("waiting_on"), 200))
+        if _clean(it.get("question"), 200):
+            bits.append("| question: " + _clean(it.get("question"), 200))
+        people = [str(p) for p in (it.get("people") or []) if _clean(p, 120)][:4]
+        if people:
+            bits.append("| people: " + "; ".join(_clean(p, 120) for p in people))
+        if _clean(it.get("blocked_by"), 200):
+            bits.append("| blocked-by: " + _clean(it.get("blocked_by"), 200))
+        if _clean(it.get("matters"), 200):
+            bits.append("| why it matters: " + _clean(it.get("matters"), 200))
+        if it.get("status_hint"):
+            bits.append("| STATUS-HINT: " + str(it["status_hint"]))
+        if it.get("reminder_authorised"):
+            bits.append("| REMINDER-AUTHORISED (the person explicitly asked to be reminded)")
+        if _clean(it.get("changed"), 400):
+            bits.append("| CHANGED: " + _annotate_timing(_clean(it.get("changed"), 400), today))
+        if str(it.get("resolved") or "").strip():
+            tag = "ENDED" if it.get("ended") else "RESOLVED (legacy tag)"
+            bits.append(f"| {tag}: " + str(it["resolved"]).strip()[:300])
+        quotes = [_clean(e, 200) for e in (it.get("evidence") or []) if _clean(e, 200)][:2]
+        if quotes:
+            bits.append("| evidence: " + " / ".join(f'"{q}"' for q in quotes))
+        lines.append(" ".join(bits))
+    text = "\n".join(lines)
+    return text[:9000], len(witness)
+
+
+# --------------------------------------------------------- concurrency ----
+
+class ConsolidationBusy(Exception):
+    """Another consolidation for the same owner did not finish in time."""
+
+
+_OWNER_LOCKS: Dict[str, asyncio.Lock] = {}
+LOCK_WAIT_S = float(os.getenv("MEMORY_LOCK_WAIT_S", "900"))
+
+
+class owner_lock:
+    """Serialises consolidations per (workspace, owner): in-process lock plus,
+    on Postgres, a session advisory lock on a dedicated connection (so it holds
+    across the session's commits and across worker processes). A second
+    consolidation waits, then sees the first one's coverage (replay is a no-op)."""
+
+    def __init__(self, workspace_id: str, owner: str, timeout: Optional[float] = None) -> None:
+        self.key = f"{workspace_id}|{owner}"
+        self.timeout = LOCK_WAIT_S if timeout is None else timeout
+        self._conn = None
+        self._lock: Optional[asyncio.Lock] = None
+        self._h = int.from_bytes(hashlib.sha256(self.key.encode()).digest()[:8], "big", signed=True)
+
+    async def __aenter__(self) -> "owner_lock":
+        from sqlalchemy import text
+        self._lock = _OWNER_LOCKS.setdefault(self.key, asyncio.Lock())
+        try:
+            await asyncio.wait_for(self._lock.acquire(), self.timeout)
+        except asyncio.TimeoutError as exc:
+            raise ConsolidationBusy(self.key) from exc
+        try:
+            from src.db import engine
+            if engine.dialect.name == "postgresql":
+                self._conn = await engine.connect()
+                try:
+                    await asyncio.wait_for(self._conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": self._h}), self.timeout)
+                except asyncio.TimeoutError as exc:
+                    await self._conn.invalidate()
+                    self._conn = None
+                    raise ConsolidationBusy(self.key) from exc
+        except BaseException:
+            self._lock.release()
+            raise
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        from sqlalchemy import text
+        try:
+            if self._conn is not None:
+                try:
+                    await self._conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": self._h})
+                    await self._conn.rollback()
+                finally:
+                    await self._conn.close()
+        finally:
+            if self._lock is not None:
+                self._lock.release()
+
+
 async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conversation_id: str,
                       session_id: str, messages: List[Dict[str, Any]], companion_id: str = "sophie",
-                      now_iso: Optional[str] = None, sitting_kind: str = "user") -> Dict[str, Any]:
-    """Consolidate one COMPLETED session. Full transcript in, replay-safe.
-    sitting_kind: "user" (with the person) or "independent" (Sophie's own
-    sitting, user absent — the shared arc is left alone; continuity lives on
-    the exploring page)."""
+                      now_iso: Optional[str] = None, sitting_kind: str = "user",
+                      session_time: Optional[str] = None, time_zone: Optional[str] = None) -> Dict[str, Any]:
+    """Consolidate one COMPLETED session, serialised per owner. `session_time`
+    (ISO, ideally with offset) and `time_zone` (IANA) are when and where the
+    person spoke; relative dates resolve against them. sitting_kind: "user"
+    (with the person) or "independent" (the companion's own sitting, user absent
+    — no ledger, no shared arc)."""
+    cfg = product_memory.get(companion_id)
+    try:
+        async with owner_lock(workspace_id, owner):
+            return await _consolidate(db, workspace_id=workspace_id, owner=owner, conversation_id=conversation_id,
+                                      session_id=session_id, messages=messages, cfg=cfg, companion_id=companion_id,
+                                      session_time=session_time or now_iso, time_zone=time_zone,
+                                      sitting_kind=sitting_kind)
+    except ConsolidationBusy:
+        run = (await db.execute(select(MemoryRun).where(
+            MemoryRun.honcho_workspace_id == workspace_id, MemoryRun.owner_peer_id == owner,
+            MemoryRun.conversation_id == conversation_id, MemoryRun.session_id == session_id,
+            MemoryRun.status == "running").order_by(MemoryRun.created_at.desc()).limit(1))).scalars().first()
+        if run is not None:
+            run.status = "failed"
+            run.bundle_json = json.dumps({"status": "failed", "error": "lock_timeout",
+                                          "note": "another consolidation for this owner held the lock; replay the session"})
+            run.finished_at = utc_now()
+            await db.commit()
+        logger.warning("[memory] %s %s lock timeout", owner, session_id)
+        return {"status": "failed", "session_id": session_id, "new_messages": 0,
+                "run_id": str(run.id) if run is not None else None, "error": "lock_timeout"}
+
+
+async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conversation_id: str,
+                       session_id: str, messages: List[Dict[str, Any]], cfg: ProductMemory, companion_id: str,
+                       session_time: Optional[str], time_zone: Optional[str], sitting_kind: str) -> Dict[str, Any]:
     from datetime import datetime as _dt
     started = _dt.now(_tz_utc())
-    now_iso = now_iso or started.isoformat()
+    if not time_zone:
+        # No zone supplied (e.g. an idle background pass): use the last one this person's sittings reported.
+        from src.services import attention_cycle as _attn_tz
+        time_zone = await _attn_tz.owner_time_zone(db, workspace_id=workspace_id, owner=owner, default=None)
+    clock = resolve_clock(session_time, time_zone or cfg.default_time_zone)
+    today = clock["today"]
+    now_iso = clock["local"].isoformat()
     run = (await db.execute(select(MemoryRun).where(
         MemoryRun.honcho_workspace_id == workspace_id,
         MemoryRun.owner_peer_id == owner,
@@ -789,14 +1033,16 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
         db.add(run)
         await db.flush()
     bundle: Dict[str, Any] = {"workspace_id": workspace_id, "owner": owner, "conversation_id": conversation_id,
-                              "session_id": session_id, "companion_id": companion_id, "run_id": str(run.id),
-                              "sitting_kind": sitting_kind}
+                              "session_id": session_id, "companion_id": companion_id, "product": cfg.name,
+                              "run_id": str(run.id), "sitting_kind": sitting_kind,
+                              "clock": {"time_zone": clock["tz"], "session_time_utc": clock["event_utc"].isoformat(),
+                                        "local_date": today, "weekday": clock["weekday"]}}
 
     trimmed = [m for m in messages if str(m.get("text") or "").strip()]
     ids = [str(m.get("id") or "") for m in trimmed if str(m.get("id") or "")]
     already = set(await covered_ids(db, workspace_id, owner, conversation_id)) if ids else set()
     fresh = [m for m in trimmed if str(m.get("id") or "") not in already] if ids else trimmed
-    transcript = format_transcript(trimmed[:MAX_TRANSCRIPT_MESSAGES])
+    transcript = format_transcript(trimmed[:MAX_TRANSCRIPT_MESSAGES], cfg)
     bundle.update(message_count=len(trimmed), new_message_count=len(fresh),
                   truncated=len(trimmed) > MAX_TRANSCRIPT_MESSAGES)
 
@@ -815,16 +1061,17 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
     if not transcript.strip():
         return await finish("empty", [])
 
-    pages = await live_pages(db, workspace_id, owner)
-    arc = await get_arc(db, workspace_id, owner)
+    pages = await live_pages(db, workspace_id, owner, cfg)
+    arc = await get_arc(db, workspace_id, owner, cfg)
     ledger = await open_ledger(db, workspace_id, owner)
     bundle["notebook_before"] = {k: p.text for k, p in pages.items()}
     bundle["arc_before"] = arc.text
 
-    listen = INDEPENDENT_LISTENING_PROMPT if sitting_kind == "independent" else LISTENING_PROMPT
+    independent = sitting_kind == "independent" and cfg.independent_listening_prompt is not None
+    listen = cfg.independent_listening_prompt if independent else cfg.listening_prompt
     discovery = await _generate("discovery", f"{listen}\n\n--- conversation ---\n{transcript}",
                                 2000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
-    handoff = await _generate("handoff", f"{HANDOFF_PROMPT}\n\n--- transcript ---\n{transcript}",
+    handoff = await _generate("handoff", f"{cfg.handoff_prompt}\n\n--- transcript ---\n{transcript}",
                               300, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
     findings = str((discovery or {}).get("text") or "")
     handoff_text = str((handoff or {}).get("text") or "")
@@ -836,143 +1083,129 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
         return await finish("replay_noop" if not fresh else "empty", [],
                             {"note": "replay_no_new_messages" if not fresh else "no_findings"})
 
-    sitting_rule = f"\n\n{INDEPENDENT_RULE}" if sitting_kind == "independent" else ""
-    for key in PAGES:
-        subject = f"\n\n{PAGE_SUBJECT[key]}" if key in PAGE_SUBJECT else ""
+    sitting_rule = f"\n\n{cfg.independent_rule}" if independent and cfg.independent_rule else ""
+    for key in cfg.pages:
+        subject = f"\n\n{cfg.page_subjects[key]}" if key in cfg.page_subjects else ""
         edit = await _generate(f"edit:{key}",
-                               f"{NOTEBOOK_EDITOR_PROMPT}\n\n{PAGE_SCOPES[key]}{subject}{sitting_rule}\n\n--- page: {PAGE_TITLES[key]} ---\n{pages[key].text}\n\n--- new findings ---\n{findings or handoff_text}",
+                               f"{cfg.editor_prompt}\n\n{cfg.page_scopes[key]}{subject}{sitting_rule}\n\n--- page: {cfg.page_titles[key]} ---\n{pages[key].text}\n\n--- new findings ---\n{findings or handoff_text}",
                                1500, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
         bundle[f"edit_{key}"] = edit or {"skipped": True}
         new_text = str((edit or {}).get("text") or "").strip()
         if new_text and new_text != pages[key].text.strip():
             pages[key].superseded_by_id = pages[key].id
             nxt = NotebookPage(honcho_workspace_id=workspace_id, owner_peer_id=owner, page_key=key,
-                               text=new_text, version=pages[key].version + 1, run_id=run.id)
+                               product=cfg.name, text=new_text, version=pages[key].version + 1, run_id=run.id)
             db.add(nxt)
             await db.flush()
             pages[key] = nxt
     bundle["notebook_after"] = {k: p.text for k, p in pages.items()}
 
-    open_lines = "\n".join(
-        f"- key={i.situation_key or '(no key)'} [{i.kind}|{i.status}|{i.confidence}] {i.title}"
-        f"{(' | timing: ' + i.timing_text) if i.timing_text else ''}"
-        f"{(' | waiting on: ' + i.waiting_on) if i.waiting_on else ''}"
-        f"{(' | open question: ' + i.question_text) if i.question_text else ''}"
-        for i in ledger) or "(none open)"
-    today_utc = (str(now_iso or "")[:10] if re.match(r"^\d{4}-\d{2}-\d{2}", str(now_iso or ""))
-                 else datetime.now(timezone.utc).date().isoformat())
-    extract = await _generate("ledger", SITUATIONS_PROMPT.replace("{open_items}", open_lines).replace(
-        "{today_utc}", today_utc).replace("{transcript}", transcript).replace(
-        "{findings}", findings or handoff_text),
-        1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
-    bundle["ledger_extract"] = extract or {"skipped": True}
-    raw_extract = str((extract or {}).get("text") or "")
-    witness, unparsed = parse_tagged_lines(raw_extract)
-    if not witness and len(findings or "") > 80:
-        # Witness blindness guard: the model replied NONE (or emitted nothing
-        # parseable) yet the session notes describe real developments. One
-        # retry with an explicit nudge before letting the session go unwritten.
-        retry = await _generate("ledger", SITUATIONS_PROMPT.replace("{open_items}", open_lines).replace(
-            "{today_utc}", today_utc).replace("{transcript}", transcript).replace(
-            "{findings}", findings or handoff_text) + "\n\nYou replied NONE, but the session notes above describe "
-            "concrete developments. Look again and report every ITEM with its tags — never reply NONE when "
-            "commitments, deadlines, schedule changes, approvals or completions appear.",
-            1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
-        if retry and str(retry.get("text") or "").strip():
-            bundle["ledger_extract_retry"] = {"model": retry.get("model"), "ms": retry.get("ms")}
-            raw_extract = str(retry.get("text") or "")
-            witness, unparsed = parse_tagged_lines(raw_extract)
-    bundle["ledger_witness_items"] = witness
-    bundle["ledger_unparsed"] = unparsed
-    statements, match_report = await shape_situations(witness, today_utc, ledger)
-    bundle["ledger_match"] = match_report
-    # legacy JSON fallback: if the model emitted structured output instead
-    if not statements["new"] and not statements["update"] and not statements["close"]:
-        statements = _parse_situations(raw_extract)
-    # Agentic maintenance owns ledger writes: observations + open ledger in,
-    # investigated updates out. Deterministic skip when nothing observed.
-    agent_out: Dict[str, Any] = {"status": "skipped", "reason": "no witness observations"}
-    if witness:
+    # ------------------------------------------------ operational ledger ----
+    # The ledger holds the person's actionable matters. A companion's own
+    # independent sitting is not the person's affairs: it never writes here.
+    ledger_on = cfg.ledger_enabled and sitting_kind != "independent"
+    counts: Dict[str, Any] = {"added": 0, "updated": 0, "closed": 0}
+    witness: List[Dict[str, Any]] = []
+    raw_extract = ""
+    agent_out: Dict[str, Any] = {"status": "skipped", "reason": "independent sitting: no ledger writes"
+                                 if not ledger_on else "no witness observations"}
+    if ledger_on:
+        open_lines = "\n".join(
+            f"- key={i.situation_key or '(no key)'} [{i.kind}|{i.status}|{i.confidence}] {i.title}"
+            f"{(' | timing: ' + i.timing_text) if i.timing_text else ''}"
+            f"{(' | waiting on: ' + i.waiting_on) if i.waiting_on else ''}"
+            f"{(' | open question: ' + i.question_text) if i.question_text else ''}"
+            for i in ledger) or "(none open)"
+
+        def _extract_prompt() -> str:
+            return (SITUATIONS_PROMPT.replace("{open_items}", open_lines).replace("{today}", f"{clock['weekday']} {today}")
+                    .replace("{tz}", clock["tz"]).replace("{transcript}", transcript)
+                    .replace("{findings}", findings or handoff_text))
+
+        extract = await _generate("ledger", _extract_prompt(), 1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
+        bundle["ledger_extract"] = extract or {"skipped": True}
+        raw_extract = str((extract or {}).get("text") or "")
+        witness, unparsed = parse_tagged_lines(raw_extract)
+        if not witness and len(findings or "") > 80:
+            # Witness blindness guard: the model replied NONE (or emitted nothing
+            # parseable) yet the session notes describe real developments. One
+            # retry with an explicit nudge before letting the session go unwritten.
+            retry = await _generate("ledger", _extract_prompt() + "\n\nYou replied NONE, but the session notes above describe "
+                "concrete developments. Look again and report every ITEM with its tags — never reply NONE when "
+                "commitments, deadlines, schedule changes, approvals or completions appear.",
+                1000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b"))
+            if retry and str(retry.get("text") or "").strip():
+                bundle["ledger_extract_retry"] = {"model": retry.get("model"), "ms": retry.get("ms")}
+                raw_extract = str(retry.get("text") or "")
+                witness, unparsed = parse_tagged_lines(raw_extract)
+        bundle["ledger_witness_items"] = witness
+        bundle["ledger_unparsed"] = unparsed
+
+    # Agentic maintenance owns ledger writes: numbered observations + open
+    # ledger in, investigated updates out. Deterministic skip when nothing observed.
+    if ledger_on and witness:
         from src.services import maintenance_agent
-        from datetime import timedelta as _td, datetime as _dt2
-        try:
-            _today = _dt2.strptime(today_utc[:10], "%Y-%m-%d").date()
-        except Exception:
-            _today = datetime.now(timezone.utc).date()
-        _day_ref = ", ".join(
-            f"{(_today + _td(days=i)).strftime('%A')} {(_today + _td(days=i)).isoformat()}"
-            for i in range(8))
-
-        def _resolve_timing(timing: str) -> str:
-            """Deterministically annotate weekday/tomorrow mentions with ISO dates
-            so the agent copies exact dates instead of doing weekday arithmetic."""
-            out = str(timing or "")
-            if not out:
-                return out
-            for i in range(8):
-                _d = _today + _td(days=i)
-                _name = _d.strftime("%A")
-                if re.search(rf"\b{_name}\b", out, re.IGNORECASE):
-                    out = re.sub(rf"\b{_name}\b", f"{_name} ({_d.isoformat()})", out, flags=re.IGNORECASE)
-            _tom = _today + _td(days=1)
-            out = re.sub(r"\btomorrow\b", f"tomorrow ({_tom.isoformat()})", out, flags=re.IGNORECASE)
-            return out
-
-        obs_lines = [f"Date reference (UTC): today {_today.strftime('%A')} {_today.isoformat()}; "
-                     f"this week: {_day_ref}. Use these exact ISO dates for expected_date."]
-        for it in witness:
-            obs_lines.append(f"- {it.get('title', '')} [{it.get('kind', 'situation')}] :: "
-                             f"{str(it.get('detail') or '')[:400]}"
-                             f"{' | timing: ' + _resolve_timing(it['timing']) if it.get('timing') else ''}"
-                             f"{' | STATUS-HINT: ' + it['status_hint'] if it.get('status_hint') else ''}"
-                             f"{' | RESOLVED: ' + it['resolved'][:300] if it.get('resolved') else ''}")
+        today_date = clock["local"].date()
+        obs_text, n_obs = build_observations(witness, today_date)
         before = {(str(i.situation_key), i.status, str(i.updated_at))
                   for i in await open_ledger(db, workspace_id, owner, limit=200)}
         agent_out = await maintenance_agent.run_maintenance(
             db, workspace_id=workspace_id, owner=owner, session_id=session_id,
-            observations="\n".join(obs_lines), today_utc=today_utc,
-            transcript=transcript)
+            observations=obs_text, n_observations=n_obs, today=today, weekday=clock["weekday"],
+            obs_timing={n: _clean(it.get("timing"), 200) for n, it in enumerate(witness, 1) if _clean(it.get("timing"), 200)},
+            time_zone=clock["tz"], transcript=transcript)
         after = {(str(i.situation_key), i.status, str(i.updated_at))
                  for i in await open_ledger(db, workspace_id, owner, limit=200)}
         agent_out["ledger_moved"] = before != after
+        bundle["ledger_observations"] = obs_text
     bundle["ledger_agent"] = {k: v for k, v in agent_out.items() if k != "calls"}
     bundle["ledger_agent_calls"] = agent_out.get("calls", [])
+    agent_changes = agent_out.get("changes") or {}
+    wrote = bool(agent_out.get("wrote")) or any(agent_changes.get(k, 0) for k in ("created", "updated", "closed")) \
+        or bool(agent_out.get("ledger_moved"))
+    # A verified run is grounded: the finish gate already required a re-read, a full accounting against records
+    # touched in this run, and a reason for every observation set aside. No second deterministic pass is layered on it.
     if agent_out.get("status") == "verified":
-        agent_changes = agent_out.get("changes") or {}
-        if (witness and not any(agent_changes.get(k, 0) for k in ("created", "updated", "closed"))
-                and not agent_out.get("ledger_moved")):
-            # Claimed success with no observable effect: do not trust it.
-            agent_out["status"] = "unverified_claims"
-            bundle["ledger_agent"]["status"] = "unverified_claims"
-    if agent_out.get("status") == "verified":
-        agent_changes = agent_out.get("changes") or {}
-        counts = {"added": int(agent_changes.get("created", 0)),
-                  "updated": int(agent_changes.get("updated", 0)),
+        counts = {"added": int(agent_changes.get("created", 0)), "updated": int(agent_changes.get("updated", 0)),
                   "closed": int(agent_changes.get("closed", 0)), "agent_owned": True}
-        bundle["ledger_added"] = counts["added"]
-        bundle["ledger_counts"] = counts
-    else:
-        # Agent did not verify: fall back to direct deterministic apply so
-        # observations are still captured; the next session retries judgment.
+    elif ledger_on and witness and wrote:
+        # The agent wrote but did not pass its checks. Never layer a stale-snapshot
+        # deterministic apply on top of partial agent writes: keep the agent's
+        # state and flag the run for review; the next session retries judgment.
+        counts = {"added": int(agent_changes.get("created", 0)), "updated": int(agent_changes.get("updated", 0)),
+                  "closed": int(agent_changes.get("closed", 0)), "agent_owned": True, "needs_review": True}
+        bundle["ledger_needs_review"] = {"agent_status": agent_out.get("status"),
+                                         "gate_failures": agent_out.get("gate_failures"),
+                                         "touched": agent_out.get("touched_keys")}
+    elif ledger_on and (witness or raw_extract.strip()):
+        # Zero agent writes: nothing to conflict with, so capture the observations deterministically.
+        statements, match_report = await shape_situations(witness, today, ledger)
+        bundle["ledger_match"] = match_report
+        if not statements["new"] and not statements["update"] and not statements["close"]:
+            statements = _parse_situations(raw_extract)   # legacy JSON fallback
         counts = await apply_situations(db, workspace_id=workspace_id, owner=owner, run_id=run.id,
                                         session_id=session_id, statements=statements, known=ledger)
-        bundle["ledger_added"] = counts["added"]
-        bundle["ledger_counts"] = counts
+        bundle["ledger_fallback"] = True
+    bundle["ledger_added"] = counts.get("added", 0)
+    bundle["ledger_counts"] = counts
+
     # End-of-sitting attention: due-scan always (deterministic, cheap); review
-    # only when something actually changed (new observations or ledger writes).
+    # only when the product uses it and something actually changed.
     from src.services import attention_cycle
     try:
         bundle["attention_due"] = await attention_cycle.mark_due(
             db, workspace_id=workspace_id, owner=owner)
         ledger_touched = bool(witness) or any(
             (counts or {}).get(k, 0) for k in ("added", "updated", "closed"))
-        if ledger_touched:
+        if cfg.attention_enabled and ledger_on and ledger_touched:
             review = await attention_cycle.run_attention_review(
-                db, workspace_id=workspace_id, owner=owner, today_utc=today_utc,
-                reason="end-of-sitting", findings=findings or handoff_text)
+                db, workspace_id=workspace_id, owner=owner, today_utc=today, time_zone=clock["tz"],
+                weekday=clock["weekday"], reason="end-of-sitting", findings=findings or handoff_text,
+                now_utc=clock["event_utc"])
             bundle["attention_review"] = {k: v for k, v in review.items()}
         else:
-            bundle["attention_review"] = {"status": "skipped", "reason": "nothing changed"}
+            bundle["attention_review"] = {"status": "skipped", "reason": "nothing changed" if cfg.attention_enabled and ledger_on
+                                          else "not used by this product or sitting"}
     except Exception as exc:
         logger.warning("[memory] attention hook failed open: %s", exc)
         bundle["attention_review"] = {"status": "failed", "error": type(exc).__name__}
@@ -983,7 +1216,7 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
         bundle["arc_edit"] = {"skipped": "independent_sitting"}
     else:
         arc_edit = await _generate("arc",
-                                   f"{ARC_UPDATE_PROMPT}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
+                                   f"{cfg.arc_prompt}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
                                    500, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
         bundle["arc_edit"] = arc_edit or {"skipped": True}
         new_arc = str((arc_edit or {}).get("text") or "").strip()
@@ -992,38 +1225,32 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
             arc.updated_at = utc_now()
     bundle["arc_after"] = arc.text
 
-    prep = await prepare(db, workspace_id=workspace_id, owner=owner, now_iso=now_iso, run_id=run.id)
+    prep = await prepare(db, workspace_id=workspace_id, owner=owner, now_iso=now_iso, run_id=run.id,
+                         companion_id=companion_id, time_zone=clock["tz"])
     bundle["preparation"] = {k: v for k, v in prep.items() if k != "text"}
     bundle["preparation_text"] = prep.get("text", "")
     return await finish("consolidated", [str(m.get("id")) for m in fresh if str(m.get("id") or "")] or [f"fp:{_fingerprint(transcript)}"])
 
 
 async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
-                  now_iso: Optional[str] = None, run_id: Optional[UUID] = None) -> Dict[str, Any]:
+                  now_iso: Optional[str] = None, run_id: Optional[UUID] = None,
+                  companion_id: str = "sophie", time_zone: Optional[str] = None) -> Dict[str, Any]:
     """Compose a small situated perspective and cache it (superseding the last)."""
     from datetime import datetime as _dt
+    cfg = product_memory.get(companion_id)
     now_iso = now_iso or _dt.now(_tz_utc()).isoformat()
-    try:
-        _now = _dt.fromisoformat(str(now_iso))
-        if _now.tzinfo is None:
-            _now = _now.replace(tzinfo=timezone.utc)
-    except ValueError:
-        _now = _dt.now(timezone.utc)
-    try:
-        from zoneinfo import ZoneInfo
-        _local = _now.astimezone(ZoneInfo("Europe/London"))
-    except Exception:
-        _local = _now
+    clock = resolve_clock(now_iso, time_zone or cfg.default_time_zone)
+    _now, _local = clock["event_utc"], clock["local"]
     # The clock is authoritative. The model interprets what it means, never
     # recomputes it: any mention of today must agree with this line.
     clock_line = (f"Current time (authoritative — do not recompute the date, weekday or time; "
                   f"any mention of today must agree with this): {_local.strftime('%A')} "
-                  f"{_local.date().isoformat()} {_local.strftime('%H:%M')} Europe/London "
-                  f"(UTC {_now.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M')}).")
-    pages = await live_pages(db, workspace_id, owner)
+                  f"{_local.date().isoformat()} {_local.strftime('%H:%M')} {clock['tz']} "
+                  f"(UTC {_now.strftime('%Y-%m-%d %H:%M')}).")
+    pages = await live_pages(db, workspace_id, owner, cfg)
     ledger = await open_ledger(db, workspace_id, owner)
-    arc = await get_arc(db, workspace_id, owner)
-    notebook_text = "\n\n".join(f"## {PAGE_TITLES[k]}\n{pages[k].text}" for k in PAGES)
+    arc = await get_arc(db, workspace_id, owner, cfg)
+    notebook_text = "\n\n".join(f"## {cfg.page_titles[k]}\n{pages[k].text}" for k in cfg.pages)
     ledger_text = "\n".join(
         f"- [{i.kind}|{i.status}|{i.confidence}] {i.title}"
         f"{(' | ' + i.detail) if i.detail else ''}"
@@ -1032,10 +1259,10 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
         f"{(' | open question: ' + i.question_text) if i.question_text else ''}"
         for i in ledger) or "(nothing open)"
     from src.services import attention_cycle as _attn
-    attention_text = "\n".join(await _attn.describe_attention(
-        db, workspace_id=workspace_id, owner=owner)) or "(nothing awaiting attention)"
+    attention_text = ("\n".join(await _attn.describe_attention(db, workspace_id=workspace_id, owner=owner))
+                      if cfg.attention_enabled else "") or "(nothing awaiting attention)"
     call = await _generate("preparation",
-                           f"{PREPARATION_PROMPT}\n\n--- now ---\n{now_iso}\n{clock_line}\n\n--- notebook ---\n{notebook_text}\n\n--- operational ledger (open) ---\n{ledger_text}\n\n--- needs attention (due/pending intentions; already-excluded holds and suppressions are not listed; treat these as live candidates, not orders) ---\n{attention_text}\n\n--- where conversations stand ---\n{arc.text}",
+                           f"{cfg.preparation_prompt}\n\n--- now ---\n{now_iso}\n{clock_line}\n\n--- notebook ---\n{notebook_text}\n\n--- operational ledger (open) ---\n{ledger_text}\n\n--- needs attention (due/pending intentions; already-excluded holds and suppressions are not listed; treat these as live candidates, not orders) ---\n{attention_text}\n\n--- where conversations stand ---\n{arc.text}",
                            600, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
     text = str((call or {}).get("text") or "").strip()
     fingerprint = _fingerprint(notebook_text, ledger_text, attention_text, arc.text, now_iso[:10])
@@ -1044,9 +1271,10 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
         old = (await db.execute(select(SittingPreparation).where(
             SittingPreparation.honcho_workspace_id == workspace_id,
             SittingPreparation.owner_peer_id == owner,
+            SittingPreparation.product == cfg.name,
             SittingPreparation.superseded_by_id.is_(None)))).scalars().all()
         prep = SittingPreparation(honcho_workspace_id=workspace_id, owner_peer_id=owner, window="sitting",
-                                  text=text, based_on_json=json.dumps({"inputs": fingerprint}), run_id=run_id)
+                                  product=cfg.name, text=text, based_on_json=json.dumps({"inputs": fingerprint}), run_id=run_id)
         db.add(prep)
         await db.flush()
         for o in old:
@@ -1136,12 +1364,14 @@ async def review(db: AsyncSession, *, workspace_id: str, owner: str, lookback_ru
 
 
 async def get_preparation(db: AsyncSession, *, workspace_id: str, owner: str,
-                          max_age_hours: float = 72.0) -> Optional[Dict[str, Any]]:
+                          max_age_hours: float = 72.0, companion_id: str = "sophie") -> Optional[Dict[str, Any]]:
     """Latest cached preparation; None when missing or stale. Pure read, no model."""
     from datetime import datetime as _dt
+    cfg = product_memory.get(companion_id)
     row = (await db.execute(select(SittingPreparation).where(
         SittingPreparation.honcho_workspace_id == workspace_id,
         SittingPreparation.owner_peer_id == owner,
+        SittingPreparation.product == cfg.name,
         SittingPreparation.superseded_by_id.is_(None)).order_by(SittingPreparation.created_at.desc()).limit(1))).scalars().first()
     if row is None:
         return None

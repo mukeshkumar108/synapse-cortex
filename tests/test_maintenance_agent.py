@@ -49,7 +49,7 @@ async def test_agent_maintains_s2_end_to_end():
             out = await maintenance_agent.run_maintenance(
                 db, workspace_id="ws1", owner="u1", session_id="s2",
                 observations="- Ashley loved the renders, done\n- Vinesh moved to Friday morning",
-                today_utc="2026-10-19")
+                today="2026-10-19")
         finally:
             maintenance_agent.set_chat_fn(None)
     assert out["status"] == "verified" and out["inspected"] is True
@@ -79,7 +79,7 @@ async def test_agent_false_finish_is_not_verified():
         try:
             out = await maintenance_agent.run_maintenance(
                 db, workspace_id="ws1", owner="u9", session_id="s9",
-                observations="- something happened", today_utc="2026-10-19")
+                observations="- something happened", today="2026-10-19")
         finally:
             maintenance_agent.set_chat_fn(None)
     assert out["status"] == "finished_without_inspection"
@@ -100,7 +100,7 @@ async def test_agent_skipped_when_nothing_observed():
         try:
             out = await maintenance_agent.run_maintenance(
                 db, workspace_id="ws1", owner="u8", session_id="s8",
-                observations="", today_utc="2026-10-19")
+                observations="", today="2026-10-19")
         finally:
             maintenance_agent.set_chat_fn(None)
     assert out["status"] == "verified"
@@ -152,6 +152,10 @@ async def test_run_reports_change_counts():
                      {"key": "dentist", "status": "done",
                       "evidence": "dentist thursday confirmed at 2pm"})}}],
                     "model": "fake", "provider": "fake", "usage": {}}
+        if n == 2:   # re-read after the write: finish is refused until the state is re-listed
+            return {"content": "", "tool_calls": [
+                {"id": "c2b", "type": "function", "function": {"name": "list_open", "arguments": "{}"}}],
+                    "model": "fake", "provider": "fake", "usage": {}}
         return {"content": "", "tool_calls": [
             {"id": "c3", "type": "function",
              "function": {"name": "finish", "arguments": json.dumps({"summary": "closed dentist"})}}],
@@ -169,7 +173,7 @@ async def test_run_reports_change_counts():
         try:
             out = await ma.run_maintenance(
                 db, workspace_id="ws1", owner="u1", session_id="sx",
-                observations="- dentist done", today_utc="2026-10-19",
+                observations="- dentist done", today="2026-10-19",
                 transcript="user: dentist thursday confirmed at 2pm, all good")
         finally:
             ma.set_chat_fn(None)

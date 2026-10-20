@@ -1,0 +1,316 @@
+{
+ "owner": "bloom-demo-95546",
+ "bloom": {
+  "product": "bloom",
+  "notebook": {
+   "life": {
+    "title": "Life & Context",
+    "version": 3,
+    "text": "# Life & Context\n\n**Work**\n- Currently employed; the person's manager hired them.\n- Considering a move to the design team, specifically driven by an interest in the collaborative, people-oriented aspects of design rather than just sketching.\n- Intends to initiate the conversation with their manager regarding the transfer after the sister's wedding.\n\n**Family**\n- Sister\u2019s wedding is scheduled for Saturday.\n\n**Routines**\n- Tracking daily energy sources by writing for five minutes each evening; decided to continue this practice through the week of the wedding.\n- Observed that drawing appeared in their evening notes on two consecutive nights.\n\n**Personal Observation**\n- Noted feeling \"only alive\" when sketching on weekends.\n- Surprised by enjoyment of a client call."
+   },
+   "reflections": {
+    "title": "Reflections & Themes",
+    "version": 3,
+    "text": "# Reflections & Themes\n\n## Self-Observations & Insights\n*   **Source of Vitality:** Noted that they \"only feel alive when I'm sketching on weekends.\"\n*   **Recurring Pattern:** Observed that drawing came up in their evening notes two nights in a row.\n*   **Unexpected Enjoyment:** Found it surprising that they enjoyed a client call.\n*   **Design Preference:** Realized they like the people side of design, not just the sketching.\n*   **Perceived Risk in Communication:** Believed that initiating a conversation about moving to the design team would make them look \"ungrateful.\"\n*   **Interpersonal Dynamics:** Observed that their manager might take the request personally because the manager hired them.\n\n## Values & Intentions\n*   **Ongoing Practice:** Decided to write down for five minutes each evening what gave them energy, with the intention to report back on the results.\n*   **Extended Commitment:** Decided to continue these evening notes through the week of their wedding.\n\n## Current Context\n*   **Planned Action:** Plan to talk to their manager regarding a move to the design team after the wedding.\n*   **Upcoming Event:** Sister\u2019s wedding is scheduled for this coming Saturday, contributing to a chaotic week."
+   },
+   "concerns": {
+    "title": "Developing Concerns",
+    "version": 3,
+    "text": "# Developing Concerns\n\n**Transition to Design Team**\n*   **Current State:** The person is putting off a conversation with their manager regarding a move to the design team.\n*   **Perceived Barrier:** They stated they are \"scared it makes me look ungrateful.\" They observed that the manager might take it personally because the manager hired them.\n*   **Context:** Their sister\u2019s wedding is on Saturday, making the upcoming week chaotic.\n*   **Intention:** They plan to talk to their manager after the wedding.\n\n**Energy and Vitality Tracking**\n*   **Observation:** The person noted that they \"only feel alive when I'm sketching on weekends.\"\n*   **Action:** They decided to write down for five minutes each evening what gave them energy for a week and report back.\n*   **New Findings:**\n    *   They noticed that drawing came up in their evening notes two nights in a row.\n    *   They found it surprising that they enjoyed a client call.\n    *   They realized they like the people side of design, not just the sketching.\n*   **Continued Action:** They decided to continue their evening notes through the week of their wedding."
+   },
+   "growth": {
+    "title": "Learning, Practice & Experiments",
+    "version": 3,
+    "text": "# Learning, Practice & Experiments\n\n## Experiments & Exercises\n*   **Energy Tracking:** The person is writing down for five minutes each evening what gave them energy.\n    *   **Duration:** Extended through the week of their sister\u2019s wedding.\n    *   **Status:** Ongoing; person decided to continue past the original one-week timeframe.\n    *   **Context:** Initiated during a chaotic week; currently being practiced through the wedding week.\n    *   **Observations:**\n        *   Drawing appeared in the notes two consecutive nights.\n        *   The person found it surprising that they enjoyed a client call.\n        *   The person realized they prefer the people side of design over just the sketching.\n\n## Intended Actions\n*   **Manager Conversation:** The person intends to speak with their manager about moving to the design team.\n    *   **Current State:** The conversation is scheduled to occur after the sister\u2019s wedding.\n    *   **Reasons Cited for Delay:** Fear that the request will make them look ungrateful; observation that the manager (who hired them) might take it personally."
+   }
+  },
+  "ledger": [
+   {
+    "id": "4501003f-9717-4c8a-a678-394037aad61b",
+    "key": "energy-journaling-experiment-five-minutes-each-evening-for-a-week",
+    "kind": "experiment",
+    "title": "Energy journaling experiment \u2014 five minutes each evening for a week",
+    "status": "open",
+    "confidence": "observed",
+    "detail": "Self-imposed experiment agreed in session: write down each evening, for five minutes, what gave them energy. Two nights done so far; drawing appeared both times and one entry included a client call the person actually enjoyed (\"I think I like the people side of design too, not just the sketching\"). Extended through the sister's wedding week; person confirmed \"Yes, keep going.\" Tied to the career decision about moving to the design team.",
+    "timing": "Five minutes each evening, through the sister's wedding week (week containing 2026-10-24); person confirmed continuation (\"Yes, keep going\")",
+    "expected_date": "2026-10-26",
+    "updated_at": "2026-10-20T11:28:06.946270",
+    "waiting_on": "Person to report back how it went at next session",
+    "question": "What patterns emerge? Does the data shift their confidence to talk to their manager?",
+    "linked": []
+   },
+   {
+    "id": "bcb0de0b-1a92-4493-954a-d19020819258",
+    "key": "sister-s-wedding-saturday",
+    "kind": "event",
+    "title": "Sister's wedding \u2014 Saturday",
+    "status": "open",
+    "confidence": "observed",
+    "detail": "Person's sister is getting married on Saturday (2026-10-24); person notes \"this week is chaotic\" because of it. Context for current stress; agreed to keep sessions light this week.",
+    "timing": "Saturday 2026-10-24",
+    "expected_date": "2026-10-24",
+    "updated_at": "2026-10-20T11:26:43.986311",
+    "waiting_on": "",
+    "question": "",
+    "linked": []
+   },
+   {
+    "id": "db67ede9-6e07-4835-b46d-98185e87b7d3",
+    "key": "conversation-with-manager-about-moving-to-the-design-team",
+    "kind": "thread",
+    "title": "Conversation with manager about moving to the design team",
+    "status": "open",
+    "confidence": "observed",
+    "detail": "Person intends to initiate a conversation with their manager about moving to the design team, after the sister's wedding. Originally avoided due to fear of appearing ungrateful (manager hired them); now has a concrete plan. New data point reinforcing motivation: enjoys the people side of design (client calls), not just the sketching (\"I think I like the people side of design too, not just the sketching\"). Related: energy journaling experiment is the ongoing first step.",
+    "timing": "After the sister's wedding (2026-10-24) \u2014 person says \"I might talk to my manager after the wedding\"",
+    "expected_date": null,
+    "updated_at": "2026-10-20T11:28:06.952462",
+    "waiting_on": "Person to initiate the conversation after the wedding",
+    "question": "When exactly after the wedding will the conversation happen?",
+    "linked": []
+   }
+  ],
+  "arc": {
+   "version": 3,
+   "text": "The person continued their evening energy notes for two nights, noticing drawing appeared both times and realizing they enjoyed a client call more than expected. They're considering extending the notes through the wedding week and may raise something with their manager afterward. The emerging thread is their growing interest in the people side of design alongside their sketching work."
+  },
+  "preparation": {
+   "text": "Wednesday morning, three days before the sister\u2019s wedding.\nThe energy journaling experiment is ongoing; two entries so far both featured drawing, and one noted unexpected enjoyment of a client call.\nThe plan to discuss the move to the design team with the manager remains scheduled for after the wedding, with no specific date set yet.\nNo new data points have been recorded since the last session, so the current understanding is based on the previous two nights of notes.\nIf the person wants to open a conversation, it might be worth asking how the chaos of the wedding week is affecting their ability to keep up with the evening notes.",
+   "id": "7d8c0284-8d4e-4251-989a-6dcf3e00457b",
+   "at": "2026-10-20T11:28:20.271629"
+  },
+  "attention": {
+   "pending": [],
+   "suppressed": {}
+  }
+ },
+ "sophie_view_same_person": {
+  "notebook": {
+   "routines": {
+    "title": "Routines & Physical Life",
+    "version": 1,
+    "text": "# Routines & Physical Life\n\nNothing established yet.\n"
+   },
+   "projects": {
+    "title": "Projects & Shared Work",
+    "version": 1,
+    "text": "# Projects & Shared Work\n\nNothing established yet.\n"
+   },
+   "people": {
+    "title": "People & Life",
+    "version": 1,
+    "text": "# People & Life\n\nNothing established yet.\n"
+   },
+   "perspective": {
+    "title": "Perspective, Standing & Open Loops",
+    "version": 1,
+    "text": "# Perspective, Standing & Open Loops\n\nNothing established yet.\n"
+   },
+   "exploring": {
+    "title": "Things I'm Exploring",
+    "version": 1,
+    "text": "# Things I'm Exploring\n\nNothing established yet.\n"
+   }
+  },
+  "arc": {
+   "version": 1,
+   "text": "No conversations recorded yet."
+  },
+  "preparation": null,
+  "ledger_rows": 3
+ },
+ "runs": [
+  {
+   "sid": "b1",
+   "status": "consolidated",
+   "agent": {
+    "status": "verified",
+    "summary": "Created three new records for this session: (1) the energy journaling experiment (five minutes each evening for a week, reporting back to Bloom around 2026-10-26); (2) the sister's wedding on Saturday 2026-10-24; and (3) the ongoing avoided conversation with the manager about moving to the design team. All three are open; no prior records existed.",
+    "inspected": true,
+    "model": "qwen/qwen3.8-27b",
+    "ms": 14770,
+    "changes": {
+     "created": 3,
+     "updated": 0,
+     "closed": 0
+    },
+    "accounting": [
+     {
+      "obs": 1,
+      "treatment": "applied",
+      "key": "energy-journaling-experiment-five-minutes-each-evening-for-a-week",
+      "note": "Created record with person's own words as evidence; expected_date set to 2026-10-26 (end of one week of evenings)."
+     },
+     {
+      "obs": 2,
+      "treatment": "applied",
+      "key": "sister-s-wedding-saturday",
+      "note": "Created event record; wedding on Saturday 2026-10-24."
+     },
+     {
+      "obs": 3,
+      "treatment": "applied",
+      "key": "conversation-with-manager-about-moving-to-the-design-team",
+      "note": "Created thread record; no fixed date, person keeps putting it off."
+     }
+    ],
+    "gate_failures": [],
+    "touched_keys": [
+     "conversation-with-manager-about-moving-to-the-design-team",
+     "energy-journaling-experiment-five-minutes-each-evening-for-a-week",
+     "sister-s-wedding-saturday"
+    ],
+    "wrote": true,
+    "ledger_moved": true
+   },
+   "witness": [
+    {
+     "title": "Energy journaling experiment",
+     "people": [
+      "Person (self-imposed), Bloom (reporting to)"
+     ],
+     "evidence": [
+      "\"I'll write down for five minutes each evening what gave me energy, for a week, and I'll tell you how it went.\""
+     ],
+     "kind": "experiment",
+     "detail": "Person will write down for five minutes each evening what gave them energy, for one week, and report back to Bloom",
+     "timing": "\"five minutes each evening, for a week\"",
+     "blocked_by": "None stated",
+     "waiting_on": "Person to report back next session",
+     "question": "What patterns emerge? Does the data shift their confidence to talk to their manager?",
+     "matters": "Explicitly agreed action step tied to a career decision; has a defined endpoint and reporting obligation",
+     "confidence": "observed"
+    },
+    {
+     "title": "Sister's wedding",
+     "people": [
+      "Person's sister (getting married), Person (attending)"
+     ],
+     "evidence": [
+      "\"my sister's wedding is on Saturday so this week is chaotic.\""
+     ],
+     "kind": "event",
+     "detail": "Person's sister is getting married; person notes the week is chaotic because of it",
+     "timing": "\"Saturday\"",
+     "blocked_by": "None stated",
+     "waiting_on": "None",
+     "question": "None",
+     "matters": "Major life event occurring this weekend; context for the person's current stress/chaos",
+     "confidence": "observed"
+    },
+    {
+     "title": "Design team transfer conversation",
+     "people": [
+      "Person's manager (hired them, potential recipient of request)"
+     ],
+     "evidence": [
+      "\"I keep putting off the conversation with my manager about moving to the design team. I think I'm scared it makes me look ungrateful.\""
+     ],
+     "kind": "thread",
+     "detail": "Person is avoiding a conversation with their manager about moving to the design team; fear of appearing ungrateful and of manager taking it personally (manager hired them)",
+     "timing": "Not specified (\"I keep putting off\")",
+     "blocked_by": "Person's fear of appearing ungrateful; perception that manager will take it personally",
+     "waiting_on": "Person to initiate conversation",
+     "question": "When will the person actually have this conversation?",
+     "matters": "Significant career decision with emotional barriers; person feels \"only alive\" when sketching, suggesting strong motivation",
+     "confidence": "observed"
+    }
+   ]
+  },
+  {
+   "sid": "b2",
+   "status": "consolidated",
+   "agent": {
+    "status": "verified",
+    "summary": "Two records updated to reflect the session: (1) The energy journaling experiment now reflects two completed nights, the discovery of enjoyment for client calls/people-side of design, and the extension through the wedding week. (2) The manager conversation thread now has a concrete timing anchor (\"after the wedding,\" 2026-10-24) and includes the new motivational data point about enjoying client calls. The sister's wedding record was already accurate and required no changes.",
+    "inspected": true,
+    "model": "qwen/qwen3.8-27b",
+    "ms": 20058,
+    "changes": {
+     "created": 0,
+     "updated": 2,
+     "closed": 0
+    },
+    "accounting": [
+     {
+      "obs": 1,
+      "treatment": "applied",
+      "key": "energy-journaling-experiment-five-minutes-each-evening-for-a-week",
+      "note": "Updated detail with two nights done, drawing pattern, client-call enjoyment; updated timing to 'through the wedding week'; kept open with report-back question."
+     },
+     {
+      "obs": 2,
+      "treatment": "applied",
+      "key": "conversation-with-manager-about-moving-to-the-design-team",
+      "note": "Updated timing to 'after the wedding (2026-10-24)'; refreshed detail with concrete plan and new people-side motivation; kept open, question narrowed to 'when exactly after the wedding.'"
+     },
+     {
+      "obs": 3,
+      "treatment": "no_change",
+      "key": "sister-s-wedding-saturday",
+      "note": "Record already has Saturday 2026-10-24 with correct status; observation confirms what's already tracked. No changes needed."
+     }
+    ],
+    "gate_failures": [],
+    "touched_keys": [
+     "conversation-with-manager-about-moving-to-the-design-team",
+     "energy-journaling-experiment-five-minutes-each-evening-for-a-week"
+    ],
+    "wrote": true,
+    "ledger_moved": true
+   },
+   "witness": [
+    {
+     "title": "Energy journaling experiment \u2014 five minutes each evening for a week",
+     "people": [
+      "Bloom (waiting for report)"
+     ],
+     "evidence": [
+      "\"I did the evening notes two nights... Yes, keep going.\""
+     ],
+     "kind": "experiment",
+     "detail": "Person completed two nights of notes; drawing appeared both times; one night included an enjoyable client call. Experiment continues through the week of the sister's wedding.",
+     "timing": "\"through the wedding week\"",
+     "waiting_on": "Person to report back how it went at next session",
+     "question": "What patterns emerge? Does the data shift their confidence to talk to their manager?",
+     "matters": "Data gathering intended to inform a major career decision; ongoing through a high-stress week.",
+     "confidence": "observed",
+     "changed": "Experiment extended through the wedding week; person confirmed continuation."
+    },
+    {
+     "title": "Conversation with manager about moving to the design team",
+     "people": [
+      "Manager (awaiting the conversation)"
+     ],
+     "evidence": [
+      "\"I might talk to my manager after the wedding.\""
+     ],
+     "kind": "thread",
+     "detail": "Person intends to initiate the conversation after the sister's wedding. Discovery that they enjoy the people side of design (client calls) reinforces motivation.",
+     "timing": "\"after the wedding\"",
+     "blocked_by": "Waiting until after the wedding (Saturday 2026-10-24)",
+     "waiting_on": "Person to initiate the conversation",
+     "question": "When exactly after the wedding will the conversation happen?",
+     "matters": "Concrete timeline set for a long-delayed career move; linked to the ongoing experiment.",
+     "confidence": "observed",
+     "changed": "Timing fixed to \"after the wedding\" (previously \"keeps putting it off\" / unspecified); new data point (enjoying client calls) added to the rationale."
+    },
+    {
+     "title": "Sister's wedding",
+     "people": [
+      "Sister (getting married)"
+     ],
+     "evidence": [
+      "\"keep going through the wedding week\""
+     ],
+     "kind": "event",
+     "detail": "Scheduled for this Saturday; serves as the temporal anchor for the manager conversation and the duration of the journaling experiment.",
+     "timing": "\"Saturday\"",
+     "matters": "Acts as the deadline/trigger for the next step in the career thread.",
+     "confidence": "observed"
+    }
+   ]
+  }
+ ]
+}

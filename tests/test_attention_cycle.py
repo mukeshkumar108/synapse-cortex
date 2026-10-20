@@ -189,3 +189,50 @@ async def test_review_records_surfaced_from_findings():
     async with async_session_maker() as db:
         lines = await attention_cycle.describe_attention(db, workspace_id="ws1", owner="u1")
         assert any("already asked" in l for l in lines), lines
+
+
+@pytest.mark.asyncio
+async def test_follow_ups_must_reference_a_live_matter_and_a_future_time():
+    from datetime import datetime, timezone
+    from src.models.world import LedgerItem
+    from src.services import attention_cycle as ac
+    async with async_session_maker() as db:
+        db.add(LedgerItem(honcho_workspace_id="wsA", owner_peer_id="uA", kind="commitment", title="Open thing", status="open", situation_key="open-thing"))
+        db.add(LedgerItem(honcho_workspace_id="wsA", owner_peer_id="uA", kind="commitment", title="Done thing", status="done", situation_key="done-thing"))
+        await db.commit()
+        tz_t = ac._TZ_CTX.set("Europe/London")
+        now_t = ac._NOW_CTX.set(datetime(2026, 10, 19, 19, 0))               # 20:00 BST on the person's Monday
+        try:
+            assert "unknown matter key" in (await ac._tools(db, "wsA", "uA", "schedule_action", {"intent": "x", "matter": "invoice-approval"}))["error"]
+            assert "nothing left to follow up" in (await ac._tools(db, "wsA", "uA", "schedule_action", {"intent": "x", "matter": "done-thing"}))["error"]
+            assert "in the past" in (await ac._tools(db, "wsA", "uA", "schedule_action", {"intent": "x", "matter": "open-thing", "due_at": "2026-10-19T09:00"}))["error"]
+            ok = await ac._tools(db, "wsA", "uA", "schedule_action", {"intent": "Remind him", "matter": "open-thing", "due_at": "2026-10-20T08:00"})
+            assert ok["ok"] and ok["action"]["due_at"] == "2026-10-20T07:00:00+00:00"       # 08:00 BST stored as UTC, emitted with its offset
+        finally:
+            ac._TZ_CTX.reset(tz_t)
+            ac._NOW_CTX.reset(now_t)
+
+
+@pytest.mark.asyncio
+async def test_closing_a_matter_supersedes_its_pending_follow_ups():
+    from src.models.world import AttentionAction, LedgerItem
+    from src.services import maintenance_agent as ma
+    from sqlmodel import select
+    async with async_session_maker() as db:
+        db.add(LedgerItem(honcho_workspace_id="wsA", owner_peer_id="uB", kind="commitment", title="Invoice", status="open", situation_key="invoice"))
+        await db.commit()
+        await ac_tools(db, "uB")
+        tok = ma._TRANSCRIPT_CTX.set("James approved the invoice this morning.")
+        try:
+            res = await ma._tools(db, "wsA", "uB", "update_item", {"key": "invoice", "status": "done", "evidence": "James approved the invoice this morning."})
+        finally:
+            ma._TRANSCRIPT_CTX.reset(tok)
+        assert res["ok"] and res["follow_ups_superseded"] == 1
+        (a,) = (await db.execute(select(AttentionAction).where(AttentionAction.owner_peer_id == "uB"))).scalars().all()
+        assert a.state == "superseded"
+
+
+async def ac_tools(db, owner):
+    from src.services import attention_cycle as ac
+    r = await ac._tools(db, "wsA", owner, "schedule_action", {"intent": "Check in on the invoice", "matter": "invoice"})
+    assert r["ok"]
