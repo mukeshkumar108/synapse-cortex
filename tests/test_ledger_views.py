@@ -66,7 +66,7 @@ def test_imminent_window_and_what_changes_as_the_day_passes():
 def test_passed_items_stop_claiming_the_foreground_but_are_not_deleted():
     b, v = bands(at(9, day=25))
     assert "dentist" in b["older"] and "dentist" not in b.get("check_up_on", [])
-    assert v["bands"]["older"] and "Older, still open" in lv.render(v)
+    assert v["bands"]["older"] and "Older things still open" in lv.render(v)
 
 
 def test_time_zones_are_respected_not_assumed():
@@ -101,9 +101,9 @@ def test_importance_orders_within_a_band_only_and_time_still_leads():
 
 def test_render_is_factual_and_never_instructs():
     txt = lv.render(lv.compute(LEDGER, at(12), "Europe/London"))
-    for must in ("[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 12:00pm (Europe/London)", "Right now (next 3 hours):", "Today:", "Overdue:",
-                 "Things to check up on:", "Waiting on:", "This week:", "was scheduled for yesterday (Mon 19 Oct), 2:00pm; outcome not recorded",
-                 "was due Sun 18 Oct; not marked done", "waiting on Ana", "open question: what time?", "Recently closed: James's invoice approval."):
+    for must in ("[WHAT I'M HOLDING FOR THEM — Tuesday 20 October 2026, 12:00pm (Europe/London)", "Coming up in the next 3 hours:", "Today:", "Overdue:",
+                 "I want to ask how these went:", "I'm waiting to hear on:", "This week:", "was scheduled for yesterday (Mon 19 Oct), 2:00pm; outcome not recorded",
+                 "was due Sun 18 Oct; not marked done", "waiting on Ana", "open question: what time?", "Recently settled: James's invoice approval."):
         assert must in txt, must
     low = txt.lower()
     for banned in ("consider", "perhaps", "you could", "if relevant", "you might", "remind", "should"):

@@ -47,7 +47,7 @@ async def test_disabled_deployments_answer_empty_and_enabled_ones_serve_the_view
     assert off["enabled"] is False and off["overview"] == "" and off["mentions"] == "" and off["shown"] == []
     monkeypatch.setattr(settings, "CONNECTED_WORLD_ENABLED", True, raising=False)
     p = (await async_client.get("/v1/memory/world", params={"workspace_id": "wsE", "owner": o, "q": "I spoke to Morgan today", **Q}, headers=H("legacy"))).json()
-    assert p["enabled"] and "THEIR WORLD RIGHT NOW" in p["overview"] and "Morgan meeting: Thu 22 Oct, 3:00pm" in p["mentions"]
+    assert p["enabled"] and "WHAT I KNOW OF THEIR WORLD RIGHT NOW" in p["overview"] and "Morgan meeting: Thu 22 Oct, 3:00pm" in p["mentions"]
     ent = (await async_client.get("/v1/memory/world", params={"workspace_id": "wsE", "owner": o, "view": "entity", "q": "Morgan L", "depth": "deep", **Q}, headers=H("legacy"))).json()
     assert ent["found"] and "Supporting evidence" in ent["text"]
     nope = (await async_client.get("/v1/memory/world", params={"workspace_id": "wsE", "owner": o, "view": "entity", "q": "Zed", **Q}, headers=H("legacy"))).json()

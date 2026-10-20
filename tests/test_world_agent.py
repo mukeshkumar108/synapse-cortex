@@ -319,7 +319,7 @@ async def test_the_person_has_their_own_anchor_so_nothing_stands_in_for_them_and
                                                                                           "evidence": "Ashley, my partner, thinks I should take the lead"})
         await db.commit()
         txt, _ = await kw.overview_text(db, WS, o, kw.Ctx(datetime(2026, 10, 19, 20), "Europe/London"))
-    assert "Ashley (person)" in txt and "Relationship to the person: partner of the person" in txt and "the person (self)" not in txt
+    assert "Ashley (person)" in txt and "To them: partner of them" in txt and "the person (self)" not in txt
 
 
 @pytest.mark.asyncio

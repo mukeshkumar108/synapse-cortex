@@ -347,7 +347,7 @@ async def _relation_to_self(db: AsyncSession, ws: str, owner: str, e: KnownEntit
     rows = (await db.execute(select(KnownLink).where(
         KnownLink.honcho_workspace_id == ws, KnownLink.owner_peer_id == owner, KnownLink.from_entity_id == e.id,
         KnownLink.target_kind == "entity", KnownLink.target_ref == str(self_e.id), KnownLink.status == "current"))).scalars().all()
-    return "; ".join(dict.fromkeys(f"{l.relation} the person{_label(l.basis)}" for l in rows))
+    return "; ".join(dict.fromkeys(f"{l.relation} them{_label(l.basis)}" for l in rows))
 
 
 async def _entity_links(db: AsyncSession, ws: str, owner: str, e: KnownEntity, include_superseded: bool = False) -> List[KnownLink]:
@@ -413,7 +413,7 @@ async def snapshot_text(db: AsyncSession, ws: str, owner: str, e: KnownEntity, c
             continue
         if is_record(other) or is_self(other):
             if is_self(other):
-                rel_lines.append(f"- {other.name if inbound else e.name}: {l.relation} {e.name if inbound else other.name}{_label(l.basis)}")
+                rel_lines.append(f"- {'them' if inbound else e.name}: {l.relation} {e.name if inbound else 'them'}{_label(l.basis)}")
             continue
         subj, obj = (other, e) if inbound else (e, other)
         rel_lines.append(f"- {subj.name}: {l.relation} {obj.name}{_label(l.basis)}")
@@ -513,10 +513,10 @@ async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx, sensiti
         for _, e, n_open in pp:
             tail = f" {n_open} open matter{'s' if n_open != 1 else ''}." if n_open else ""
             rel = await _relation_to_self(db, ws, owner, e, self_e)
-            tail = (f" Relationship to the person: {rel}." if rel else "") + tail
+            tail = (f" To them: {rel}." if rel else "") + tail
             lines.append(f"- {e.name} ({e.kind}){_label(e.basis)}: {e.summary.strip().rstrip('.')}.{tail}" if e.summary.strip() else f"- {e.name} ({e.kind}).{tail}")
             shown.append(("entity", str(e.id)))
-        blocks.append("People, projects and places:\n" + "\n".join(lines))
+        blocks.append("The people and things in their life:\n" + "\n".join(lines))
     ss = (await _rank(db, ws, owner, situations, ctx))[:OVERVIEW_SITUATIONS]
     if ss:
         lines = []
@@ -525,7 +525,7 @@ async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx, sensiti
             body = e.summary.strip().rstrip(".") if (sensitive == "full" or not e.sensitive) else "details available if they raise it"
             lines.append(f"- {e.name}{tag}: {body}. Last update {_ago(e.last_touched_at, ctx.now)}.")
             shown.append(("entity", str(e.id)))
-        blocks.append("Developing situations:\n" + "\n".join(lines))
+        blocks.append("What's developing for them:\n" + "\n".join(lines))
     recent = [e for e in await list_all(db, ws, owner, statuses=("active",), limit=300)
               if e.form == "happening" and not e.suppressed and (e.significance or 2) >= 3
               and (ctx.now.replace(tzinfo=None) - (e.occurred_on or e.last_touched_at).replace(tzinfo=None)).days <= 7]
@@ -535,10 +535,10 @@ async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx, sensiti
         for e in recent[:2]:
             lines.append(f"- {e.name} ({_ago(e.occurred_on or e.last_touched_at, ctx.now)})" + ("" if (e.sensitive and sensitive != "full") else f": {e.summary.strip().rstrip('.')}."))
             shown.append(("entity", str(e.id)))
-        blocks.append("Recent consequential happenings:\n" + "\n".join(lines))
+        blocks.append("What has happened recently that matters:\n" + "\n".join(lines))
     if not blocks:
         return "", []
-    head = f"[THEIR WORLD RIGHT NOW — maintained record, {ctx.now.strftime('%A %-d %B %Y')}. Each line reflects the latest recorded state.]"
+    head = f"[WHAT I KNOW OF THEIR WORLD RIGHT NOW — {ctx.now.strftime('%A %-d %B %Y')}. My latest picture of the people and things in their life.]"
     return head + "\n" + "\n".join(blocks), shown
 
 
@@ -554,7 +554,7 @@ async def mentions_text(db: AsyncSession, ws: str, owner: str, text: str, ctx: C
     for alias, cands in ambiguous:
         parts.append(f"\"{alias}\" could mean " + " or ".join(f"{c.name} ({c.kind}: {_cut(c.summary.rstrip('.'), 90)})" for c in cands)
                      + ". Which one is meant has not been established.")
-    return "[WHO OR WHAT THEY MEAN — maintained record]\n" + "\n\n".join(parts), shown
+    return "[WHO THEY MEAN — what I know about it]\n" + "\n\n".join(parts), shown
 
 
 def _stem(w: str) -> str:
@@ -639,7 +639,7 @@ async def pertinent_text(db: AsyncSession, ws: str, owner: str, text: str, menti
             lines.append(f"- {r.name} (sensitive): details available if they raise it.")
         else:
             lines.append(await _record_line(db, ws, owner, r, ctx))
-    head = "[REMEMBERED THAT BEARS ON THIS — maintained record, chosen because it connects to what they just said; not everything held is shown]"
+    head = "[I REMEMBER THIS, AND IT BEARS ON WHAT THEY JUST SAID — only what connects; I hold more than this]"
     return head + "\n" + "\n".join(lines), [("entity", str(r.id)) for r in chosen]
 
 
