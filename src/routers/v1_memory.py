@@ -177,7 +177,7 @@ async def ledger_view(request: Request, workspace_id: str, owner: str, companion
                              .order_by(_L.created_at.desc()).limit(500))).scalars().all()
     data = [{"key": i.situation_key, "kind": i.kind, "title": i.title, "status": i.status,
              "expected_date": i.expected_date.strftime("%Y-%m-%d") if i.expected_date else None,
-             "expected_time": i.expected_time, "time_basis": i.time_basis, "time_zone": i.time_zone, "time_role": i.time_role, "importance": i.importance,
+             "expected_time": i.expected_time, "time_basis": i.time_basis, "time_zone": i.time_zone, "time_role": i.time_role, "importance": i.importance, "party": i.party,
              "waiting_on": i.waiting_on, "question": i.question_text, "detail": i.detail,
              "updated_at": i.updated_at.isoformat() if i.updated_at else None,
              "created_at": i.created_at.isoformat() if i.created_at else None} for i in rows]

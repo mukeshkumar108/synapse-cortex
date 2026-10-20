@@ -162,3 +162,13 @@ def test_an_assumed_time_informs_the_view_but_is_labelled_and_never_authorises_a
     assert {c["key"]: c["time_basis"] for c in lv.cues(v)} == {"mum": "assumed", "vin": "stated"}
     sched = lv.render_range(rows, date(2026, 10, 20), date(2026, 10, 20), at(9), "Europe/London")["text"]
     assert "6:00pm (assumed) Call Mum" in sched
+
+
+def test_a_companions_own_matters_never_appear_on_the_persons_plate():
+    mine = row("see-photos", "See photos of the walks")
+    mine["party"] = "companion"
+    theirs = row("dentist-x", "Dentist", "2026-10-22", "09:00", "happens")
+    theirs["party"] = "user"
+    view = lv.compute([mine, theirs, row("legacy", "Old row with no party recorded")], datetime(2026, 10, 20, 12, tzinfo=LON), "Europe/London")
+    text = lv.render(view)
+    assert "Dentist" in text and "Old row with no party recorded" in text and "See photos" not in text      # unknown party is treated as the person's

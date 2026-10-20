@@ -1362,7 +1362,7 @@ async def prepare(db: AsyncSession, *, workspace_id: str, owner: str,
                   f"{_local.date().isoformat()} {_local.strftime('%H:%M')} {clock['tz']} "
                   f"(UTC {_now.strftime('%Y-%m-%d %H:%M')}).")
     pages = await live_pages(db, workspace_id, owner, cfg)
-    ledger = await open_ledger(db, workspace_id, owner)
+    ledger = [i for i in await open_ledger(db, workspace_id, owner) if (i.party or "") != "companion"]
     arc = await get_arc(db, workspace_id, owner, cfg)
     notebook_text = "\n\n".join(f"## {cfg.page_titles[k]}\n{pages[k].text}" for k in cfg.pages)
     # The prepared notes are relational context. Dated operational facts (when, how soon, what is overdue) belong to the

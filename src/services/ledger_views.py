@@ -187,6 +187,8 @@ def compute(rows: Iterable[Dict[str, Any]], now: datetime, time_zone: str, defau
     bands: Dict[str, List[Item]] = {k: [] for k in ("imminent", "today", "overdue", "check_up_on", "waiting", "week", "later", "undated", "older")}
     closed: List[Item] = []
     for r in rows:
+        if str(r.get("party") or "") == "companion":
+            continue                    # the companion's own wishes and reflections are not the person's plate
         it = to_item(r, zone)
         if it.status in OPEN:
             bands[classify(it, now, today)].append(it)

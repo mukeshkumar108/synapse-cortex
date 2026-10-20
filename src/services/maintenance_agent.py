@@ -60,7 +60,7 @@ How to act:
 - STATUS-HINT is the witness's reading of what the person said about this matter: apply it as the record's status when the transcript supports it (suppressed = the person asked not to be bothered about it for now; waiting = they are waiting on someone; watching = they are monitoring it). A suppressed matter keeps its own name — never rewrite it as an action like "Ignore X" — and keeps its place on the agenda.
 - waiting means you cannot progress until someone else supplies something. Self-reminders and to-dos are open (actionable by the person); watching is for external developments you monitor. Aspirations stay open.
 - Subtasks of a tracked matter fold into its detail; several observations about one matter fold into one record. Search before creating; create_item takes the complete state (status, expected_date, timing, waiting_on, question_text, confidence).
-- Structure the time. time_role: set "happens" for something that occurs at a time (appointment, meeting, call, event) and "deadline" for something the person must do by a time; leave it empty if unclear. You set it from the person's words; code never guesses it. expected_time: 24-hour HH:MM in the person's local time, with time_basis. Reason freely: if the person says "tomorrow at 6" you may take the likeliest reading (18:00) — but record WHAT YOU KNOW: time_basis "stated" when they gave the time unambiguously ("3pm", "15:30"), "assumed" when it is your reading ("at 6"). For an assumed time keep their exact words in timing_text and put the open question in question_text ("6 am or 6 pm?"). Never present an assumption as something they said. If you have no usable reading, leave expected_time empty. If a date moves and the time is not known, clear the old time with expected_time "". importance: 3 = real consequences if missed (medical, money, legal, a promise to someone), 1 = casual, otherwise 2.
+- Structure the time. time_role: set "happens" for something that occurs at a time (appointment, meeting, call, event) and "deadline" for something the person must do by a time; leave it empty if unclear. You set it from the person's words; code never guesses it. expected_time: 24-hour HH:MM in the person's local time, with time_basis. Reason freely: if the person says "tomorrow at 6" you may take the likeliest reading (18:00) — but record WHAT YOU KNOW: time_basis "stated" when they gave the time unambiguously ("3pm", "15:30"), "assumed" when it is your reading ("at 6"). For an assumed time keep their exact words in timing_text and put the open question in question_text ("6 am or 6 pm?"). Never present an assumption as something they said. If you have no usable reading, leave expected_time empty. If a date moves and the time is not known, clear the old time with expected_time "". party: whose matter it is. "user" = the person's own commitments, plans, appointments, awaited things. "companion" = the companion's own wish, curiosity or private reflection (what she wants to see or think about, her solo-sitting thoughts): NOT the person's plate, so it never appears in their list. "shared" = something the two of you do together. Use the speaker: a line only the companion said about herself is hers, not theirs. importance: 3 = real consequences if missed (medical, money, legal, a promise to someone), 1 = casual, otherwise 2.
 - Direction matters. A weekday the person speaks of in the past tense ("was due on Sunday", "last Friday") is a PAST date: take it from the past-days list in the date reference, never from the coming days.
 - Missing details are information. An appointment with an unknown time or place is still an appointment: record the date, and put what is missing in question_text ("what time?", "where?"). That is how it gets raised later. Clear question_text when it is answered.
 - Keep confidence honest: observed (they said it happened) / reported (they relayed it) / inferred (your read).
@@ -80,7 +80,7 @@ _CREATE_PROPS = {
     "timing": {"type": "string"}, "expected_date": {"type": "string"},
     "status": {"type": "string"}, "waiting_on": {"type": "string"}, "question_text": {"type": "string"},
     "confidence": {"type": "string"}, "reminder_authorised": {"type": "boolean"}, "evidence": {"type": "string"},
-    "expected_time": {"type": "string"}, "time_basis": {"type": "string"}, "time_role": {"type": "string"}, "importance": {"type": "integer"},
+    "expected_time": {"type": "string"}, "time_basis": {"type": "string"}, "time_role": {"type": "string"}, "importance": {"type": "integer"}, "party": {"type": "string"},
 }
 _UPDATE_PROPS = {
     "key": {"type": "string"}, "detail": {"type": "string"}, "timing_text": {"type": "string"},
@@ -141,6 +141,11 @@ def _parse_time_fields(args: Dict[str, Any], existing_date: Any) -> tuple[Dict[s
         if r and r not in TIME_ROLES:
             return {}, "time_role must be 'happens' (occurs at that time) or 'deadline' (must be done by it), or empty if unclear"
         out["time_role"] = r
+    if "party" in args:
+        pt = str(args.get("party") or "").strip().lower()
+        if pt not in ("", "user", "companion", "shared"):
+            return {}, "party must be 'user' (the person's own matter), 'companion' (the companion's own wish, reflection or private thought) or 'shared' (the two of them)"
+        out["party"] = pt
     if "importance" in args:
         try:
             i = int(args.get("importance"))
@@ -211,7 +216,7 @@ def _row_view(r: LedgerItem) -> Dict[str, Any]:
             "detail": (r.detail or "")[:500], "timing": r.timing_text,
             "expected_date": r.expected_date.strftime("%Y-%m-%d") if r.expected_date else None,
             "waiting_on": r.waiting_on, "question": r.question_text, "confidence": r.confidence,
-            "expected_time": r.expected_time, "time_basis": r.time_basis, "time_role": r.time_role, "importance": r.importance}
+            "expected_time": r.expected_time, "time_basis": r.time_basis, "time_role": r.time_role, "importance": r.importance, "party": r.party}
 
 
 class RunState:
@@ -463,7 +468,7 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
                          confidence=conf, source_refs_json=json.dumps(refs)[:4000],
                          expected_time=tf.get("expected_time", ""), time_basis=tf.get("time_basis", "") if tf.get("expected_time") else "",
                          time_role=tf.get("time_role", ""),
-                         importance=tf.get("importance", 2),
+                         importance=tf.get("importance", 2), party=tf.get("party", ""),
                          time_zone=(_TZ_CTX.get() if (new_date is not None) else ""),
                          authorised_json=json.dumps({"reminder": True, "at": session_id}) if args.get("reminder_authorised") is True else "{}")
         db.add(row)

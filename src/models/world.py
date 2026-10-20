@@ -275,6 +275,7 @@ class LedgerItem(SQLModel, table=True):
     time_zone: str = Field(default="")                             # IANA zone the date/time were stated in (stamped by code from the sitting)
     time_basis: str = Field(default="")                            # epistemic status of expected_time: "stated" (the person gave it) | "assumed" (the model's likeliest reading, e.g. "at 6" -> 18:00) | "" no time
     time_role: str = Field(default="")                             # "happens" (occurs at that time) | "deadline" (must be done by it) | "" unknown. Model-set; code never infers it.
+    party: str = Field(default="")                                 # whose matter this is: user | companion | shared ("" = unknown, treated as the user's). A companion's own wishes and solo reflections are not the person's plate.
     importance: int = Field(default=2)                             # 1 casual, 2 normal, 3 real consequences if missed. Ordering within a time band only.
 
 
