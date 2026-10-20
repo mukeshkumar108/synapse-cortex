@@ -209,6 +209,23 @@ _SIT_TAGS = ("ITEM", "KIND", "DETAIL", "TIMING", "PERSON", "BLOCKED-BY", "WAITIN
              "STATUS-HINT", "REMINDER-AUTHORISED")
 
 
+def _apply_witness_tag(current: Dict[str, Any], tag: str, value: str) -> None:
+    """Apply one parsed tag to the in-progress witness item."""
+    if tag in ("PERSON", "EVIDENCE"):
+        current.setdefault("people" if tag == "PERSON" else "evidence", []).append(value)
+    elif tag == "REMINDER-AUTHORISED":
+        current["reminder_authorised"] = True
+        if value:
+            current["detail"] = ((current.get("detail") or "") + " " + value).strip()
+    elif tag == "RESOLVED":
+        current["resolved"] = value
+    else:
+        key = {"KIND": "kind", "DETAIL": "detail", "TIMING": "timing", "BLOCKED-BY": "blocked_by",
+               "WAITING-ON": "waiting_on", "QUESTION": "question", "MATTERS-BECAUSE": "matters",
+               "CONFIDENCE": "confidence", "STATUS-HINT": "status_hint"}[tag]
+        current[key] = value
+
+
 def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     """Parse witness observations into item dicts. Malformed lines are returned
     visibly as unparsed — never silently dropped, never trusted structurally."""
@@ -242,21 +259,31 @@ def parse_tagged_lines(raw: str) -> Tuple[List[Dict[str, Any]], List[str]]:
             parts = [p.strip() for p in re.split(r"\s*\|\s*", value, maxsplit=1)]
             current = {"title": parts[0], "people": [], "evidence": [],
                        "resolved": parts[1] if len(parts) > 1 else parts[0]}
+        elif tag == "STATUS-HINT" and "|" in value:
+            # Standalone notice carrying its own matter inline, e.g.
+            # `STATUS-HINT: suppressed | "Pete keeps pinging..." | EVIDENCE: ...`:
+            # seed a new entry so the suppression reaches the agent, then
+            # absorb the remaining inline segments as its tags.
+            flush()
+            segs = [s.strip() for s in value.split("|")]
+            hint = segs[0].strip().lower()
+            quoted = re.findall(r'"([^"]+)"', value)
+            title = (quoted[0] if quoted else (segs[1] if len(segs) > 1 else value)).strip()
+            current = {"title": title, "people": [], "evidence": [],
+                       "status_hint": hint if hint in ("suppressed", "waiting", "watching", "open") else "suppressed"}
+            for seg in segs[1:]:
+                seg = seg.strip()
+                if quoted and seg.strip("'\"").strip() == quoted[0]:
+                    continue  # title already captured
+                m2 = re.match(r"^([A-Za-z-]+)\s*:\s*(.*)$", seg.strip("'\""))
+                if m2 and m2.group(1).upper() in _SIT_TAGS and m2.group(1).upper() not in ("ITEM", "STATUS-HINT"):
+                    _apply_witness_tag(current, m2.group(1).upper(), m2.group(2).strip())
+                elif seg:
+                    current["detail"] = ((current.get("detail") or "") + " " + seg.strip("'\"")).strip()
         elif current is None:
             unparsed.append(line)
-        elif tag in ("PERSON", "EVIDENCE"):
-            current.setdefault("people" if tag == "PERSON" else "evidence", []).append(value)
-        elif tag == "REMINDER-AUTHORISED":
-            current["reminder_authorised"] = True
-            if value:
-                current["detail"] = ((current.get("detail") or "") + " " + value).strip()
-        elif tag == "RESOLVED":
-            current["resolved"] = value
         else:
-            key = {"KIND": "kind", "DETAIL": "detail", "TIMING": "timing", "BLOCKED-BY": "blocked_by",
-                   "WAITING-ON": "waiting_on", "QUESTION": "question", "MATTERS-BECAUSE": "matters",
-                   "CONFIDENCE": "confidence", "STATUS-HINT": "status_hint"}[tag]
-            current[key] = value
+            _apply_witness_tag(current, tag, value)
     flush()
     return items, unparsed
 
@@ -872,6 +899,7 @@ async def consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conver
             obs_lines.append(f"- {it.get('title', '')} [{it.get('kind', 'situation')}] :: "
                              f"{str(it.get('detail') or '')[:400]}"
                              f"{' | timing: ' + it['timing'] if it.get('timing') else ''}"
+                             f"{' | STATUS-HINT: ' + it['status_hint'] if it.get('status_hint') else ''}"
                              f"{' | RESOLVED: ' + it['resolved'][:300] if it.get('resolved') else ''}")
         before = {(str(i.situation_key), i.status, str(i.updated_at))
                   for i in await open_ledger(db, workspace_id, owner, limit=200)}

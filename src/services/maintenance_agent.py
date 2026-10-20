@@ -45,7 +45,7 @@ TOOLS = [
     {"type": "function", "function": {"name": "list_open", "description": "List open situations: keys, titles, status, detail, timing, expected dates.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "search", "description": "Substring search over titles and details.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
     {"type": "function", "function": {"name": "history", "description": "Evidence history of one record by key.", "parameters": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}}},
-    {"type": "function", "function": {"name": "update_item", "description": "Change one record by key. expected_date must be YYYY-MM-DD. done/cancelled/answered REQUIRE evidence quoting proof.", "parameters": {"type": "object", "properties": {"key": {"type": "string"}, "detail": {"type": "string"}, "timing_text": {"type": "string"}, "expected_date": {"type": "string"}, "waiting_on": {"type": "string"}, "question_text": {"type": "string"}, "status": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["key"]}}},
+    {"type": "function", "function": {"name": "update_item", "description": "Change one record by key. expected_date must be YYYY-MM-DD. done/cancelled REQUIRE evidence quoting proof. Valid statuses: open, waiting, watching, suppressed, done, cancelled.", "parameters": {"type": "object", "properties": {"key": {"type": "string"}, "detail": {"type": "string"}, "timing_text": {"type": "string"}, "expected_date": {"type": "string"}, "waiting_on": {"type": "string"}, "question_text": {"type": "string"}, "status": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["key"]}}},
     {"type": "function", "function": {"name": "create_item", "description": "Create a genuinely new record. Search first; never duplicate tracked matters. Attach the proving quote as evidence on every write, not just closes.", "parameters": {"type": "object", "properties": {"title": {"type": "string"}, "kind": {"type": "string"}, "detail": {"type": "string"}, "timing": {"type": "string"}, "evidence": {"type": "string"}}, "required": ["title"]}}},
     {"type": "function", "function": {"name": "finish", "description": "End only after verifying. Summarize what changed.", "parameters": {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"]}}},
 ]
@@ -145,6 +145,8 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
             return {"error": "no such key — inspect first, never invent keys"}
         r = rows[0]
         st = str(args.get("status") or "").strip()
+        if st == "answered":
+            st = "done"  # contract status: answered approvals resolve as done
         if st and st not in ("open", "waiting", "watching", "suppressed", "done", "cancelled", "answered"):
             return {"error": f"illegal status {st}"}
         if st in ("done", "cancelled", "answered") and not str(args.get("evidence") or "").strip():
@@ -190,8 +192,8 @@ async def _tools(db: AsyncSession, workspace_id: str, owner: str, name: str, arg
     if name == "create_item":
         import re as _re
         title = str(args.get("title") or "").strip()
-        if not title:
-            return {"error": "title required"}
+        if not title or title.lower() in ("none", "n/a", "no change", "no changes", "nothing", "nothing new"):
+            return {"error": "title required — NONE/nothing is not a trackable matter"}
         key = _re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:80]
         rows = (await db.execute(select(LedgerItem).where(
             LedgerItem.honcho_workspace_id == workspace_id, LedgerItem.owner_peer_id == owner,
