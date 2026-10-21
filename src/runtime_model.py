@@ -73,12 +73,13 @@ def _nano_only() -> bool:
 
 
 def _nano_model_set() -> set:
-    return {m.strip() for m in os.getenv("NANOGPT_MODELS", _DEFAULT_NANO_MODELS).split(",") if m.strip()}
+    return {m.strip() for m in (os.getenv("NANOGPT_MODELS") or _DEFAULT_NANO_MODELS).split(",") if m.strip()}
 
 
 def _nano_chain(model_id: str, covered: set) -> list:
     """The requested model first when the subscription covers it, then other subscription models in measured order."""
-    fallbacks = [m.strip() for m in os.getenv("LLM_NANO_FALLBACKS", _DEFAULT_NANO_FALLBACKS).split(",") if m.strip()]
+    # `or`, not a getenv default: the compose file passes unset variables through as empty strings
+    fallbacks = [m.strip() for m in (os.getenv("LLM_NANO_FALLBACKS") or _DEFAULT_NANO_FALLBACKS).split(",") if m.strip()]
     chain = [model_id] if model_id in covered else []
     chain += [m for m in fallbacks if m != model_id][:NANO_FALLBACK_MODELS if chain else NANO_FALLBACK_MODELS + 1]
     return chain

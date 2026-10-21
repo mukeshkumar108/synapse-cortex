@@ -176,3 +176,15 @@ async def test_the_chain_stops_after_its_time_budget(monkeypatch):
 
     result, err, calls = await _run(monkeypatch, plan)
     assert isinstance(err, RuntimeError) and len(calls) == 2  # after two 30 s attempts it is over budget, so the third never starts
+
+
+def test_empty_environment_values_mean_use_the_defaults(monkeypatch):
+    # docker compose passes `${VAR:-}` through as an empty string; that must not be read as "no models"
+    monkeypatch.setenv("LLM_NANO_FALLBACKS", "")
+    monkeypatch.setenv("NANOGPT_MODELS", "")
+    covered = rm._nano_model_set()
+    assert "qwen/qwen3.8-27b" in covered
+    chain = rm._nano_chain("openai/gpt-5.6-luna", covered)
+    assert len(chain) >= 3 and "openai/gpt-5.6-luna" not in chain
+    chain = rm._nano_chain("moonshotai/kimi-k2.6", covered)
+    assert chain[0] == "moonshotai/kimi-k2.6" and len(chain) >= 3
