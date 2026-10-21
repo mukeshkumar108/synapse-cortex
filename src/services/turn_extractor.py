@@ -594,6 +594,10 @@ class LLMExtractorProvider(BaseExtractorProvider):
                        if os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY")
                        else "https://api.openai.com/v1/chat/completions")
         self.api_url = api_url or os.getenv("SYNAPSE_MODEL_URL") or default_url
+        if os.getenv("LLM_NANO_ONLY", "").strip().lower() in ("1", "true", "yes", "on") and os.getenv("NANO_API_KEY", "").strip():
+            # the flat-rate subscription is the only provider; the extractor's models are subscription models
+            self.api_url = os.getenv("NANO_BASE_URL", "https://nano-gpt.com/api/v1").rstrip("/") + "/chat/completions"
+            self.api_key = os.getenv("NANO_API_KEY", "").strip()
         self.model = model or os.getenv("SYNAPSE_EXTRACTOR_MODEL") or "google/gemini-2.5-flash-lite"
         if models is None:
             raw = os.getenv("SYNAPSE_EXTRACTOR_FALLBACK_MODELS", "")

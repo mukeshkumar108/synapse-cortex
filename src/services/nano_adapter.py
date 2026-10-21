@@ -38,6 +38,11 @@ def _roll() -> None:
         _usage.update({"day": today, "out": 0, "calls": 0, "failures": 0, "by_model": {}})
 
 
+def nano_only() -> bool:
+    """LLM_NANO_ONLY: the flat-rate subscription is the only provider; `openrouter:` chain entries are skipped, never spent."""
+    return os.getenv("LLM_NANO_ONLY", "").strip().lower() in ("1", "true", "yes", "on") and bool(os.getenv("NANO_API_KEY", "").strip())
+
+
 def configured() -> bool:
     return bool(os.getenv("NANO_API_KEY", "").strip())
 
@@ -99,6 +104,9 @@ async def generate_text(*, system: str, prompt: str, models: Optional[Sequence[s
     chain: List[str] = list(models or DEFAULT_CHAIN)
     for entry in chain:
         via_or = entry.startswith("openrouter:")
+        if via_or and nano_only():
+            logger.info("skipping %s: LLM_NANO_ONLY keeps calls on the NanoGPT subscription", entry)
+            continue
         model = entry.split(":", 1)[1] if via_or else entry
         key, base = (or_key, "https://openrouter.ai/api/v1") if via_or else (nano_key, BASE_URL)
         if not key:
@@ -153,6 +161,9 @@ async def generate_json(*, system: str, prompt: str, models: Optional[Sequence[s
     chain: List[str] = list(models or DEFAULT_CHAIN)
     for entry in chain:
         via_or = entry.startswith("openrouter:")
+        if via_or and nano_only():
+            logger.info("skipping %s: LLM_NANO_ONLY keeps calls on the NanoGPT subscription", entry)
+            continue
         model = entry.split(":", 1)[1] if via_or else entry
         key, base = (or_key, "https://openrouter.ai/api/v1") if via_or else (nano_key, BASE_URL)
         if not key:

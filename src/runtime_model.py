@@ -5,9 +5,11 @@ closed (returns None-shaped errors) so the agenda falls back deterministically."
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sys
+import time
 
 import httpx
 
@@ -56,32 +58,92 @@ def spent_today() -> dict:
     return {m: round(v, 4) for (d, m), v in _spent.items() if d == _day()}
 
 
+_DEFAULT_NANO_MODELS = ("qwen/qwen3.8-27b,moonshotai/kimi-k2.6,moonshotai/kimi-k2.5,minimax/minimax-m3,z-ai/glm-5.3-flash,"
+                        "deepseek/deepseek-v4-flash,deepseek-ai/deepseek-v3.2-exp")
+# Ordered by how well each follows a strict JSON contract (measured in the lab); all are covered by the NanoGPT subscription.
+_DEFAULT_NANO_FALLBACKS = "qwen/qwen3.8-27b,moonshotai/kimi-k2.6,deepseek/deepseek-v4-flash,z-ai/glm-5.3-flash"
+NANO_PRIMARY_ATTEMPTS = int(os.getenv("LLM_NANO_PRIMARY_ATTEMPTS", "3"))
+NANO_FALLBACK_ATTEMPTS = int(os.getenv("LLM_NANO_FALLBACK_ATTEMPTS", "2"))
+NANO_FALLBACK_MODELS = int(os.getenv("LLM_NANO_FALLBACK_MODELS", "3"))      # at least two other models after the requested one
+NANO_TOTAL_BUDGET_S = float(os.getenv("LLM_NANO_TOTAL_BUDGET_SECONDS", "120"))  # stop walking the chain after this long: callers fail open
+
+
+def _nano_only() -> bool:
+    return os.getenv("LLM_NANO_ONLY", "").strip().lower() in ("1", "true", "yes", "on") and bool(os.getenv("NANO_API_KEY", "").strip())
+
+
+def _nano_model_set() -> set:
+    return {m.strip() for m in os.getenv("NANOGPT_MODELS", _DEFAULT_NANO_MODELS).split(",") if m.strip()}
+
+
+def _nano_chain(model_id: str, covered: set) -> list:
+    """The requested model first when the subscription covers it, then other subscription models in measured order."""
+    fallbacks = [m.strip() for m in os.getenv("LLM_NANO_FALLBACKS", _DEFAULT_NANO_FALLBACKS).split(",") if m.strip()]
+    chain = [model_id] if model_id in covered else []
+    chain += [m for m in fallbacks if m != model_id][:NANO_FALLBACK_MODELS if chain else NANO_FALLBACK_MODELS + 1]
+    return chain
+
+
 class AgendaRankerAdapter:
     """Async structured-output adapter for the cheap agenda ranking model."""
 
     async def generate_structured(self, *, system: str, prompt: str, json_schema: dict,
                                   model_id: str, max_tokens: int = 900,
-                                  temperature: float = 0.2, strict: bool = True, timeout: float | None = None, **_: object):
+                                  temperature: float = 0.2, strict: bool = True, timeout: float | None = None, **kw: object):
+        """One structured call. With LLM_NANO_ONLY the flat-rate NanoGPT subscription is the only provider: the requested model
+        gets a few attempts, then other subscription models take over, and OpenRouter is never used. Without it, behaviour is
+        exactly the single call it always was."""
+        try:      # the module that asked (for budgets and the usage label): this wrapper is one frame deeper than it used to be
+            caller = str(sys._getframe(1).f_globals.get("__name__", "unknown")).rsplit(".", 1)[-1]
+        except Exception:
+            caller = "unknown"
+        if not _nano_only():
+            return await self._generate_once(system=system, prompt=prompt, json_schema=json_schema, model_id=model_id, max_tokens=max_tokens,
+                                             temperature=temperature, strict=strict, timeout=timeout, _module=caller, **kw)
+        covered = _nano_model_set()
+        chain = _nano_chain(model_id, covered)
+        if model_id not in covered:
+            logger.warning("llm_substituted module-request=%s is not in the NanoGPT subscription; using %s", model_id, chain[0])
+        last: Exception | None = None
+        started = time.monotonic()
+        for index, model in enumerate(chain):
+            for attempt in range(NANO_PRIMARY_ATTEMPTS if index == 0 and model == model_id else NANO_FALLBACK_ATTEMPTS):
+                if last is not None and time.monotonic() - started > NANO_TOTAL_BUDGET_S:
+                    logger.error("llm_nano_chain_budget_exceeded after %.0fs; giving up (callers fail open)", time.monotonic() - started)
+                    raise last
+                try:
+                    return await self._generate_once(system=system, prompt=prompt, json_schema=json_schema, model_id=model, max_tokens=max_tokens,
+                                                     temperature=temperature, strict=strict, timeout=timeout, force_nano=True, _module=caller, **kw)
+                except BudgetExceeded:
+                    raise                                   # a spent budget is not a transient failure
+                except Exception as exc:
+                    last = exc
+                    status = getattr(getattr(exc, "response", None), "status_code", None)
+                    logger.warning("llm_nano_attempt_failed model=%s attempt=%d: %s%s", model, attempt + 1, type(exc).__name__, f" HTTP {status}" if status else "")
+                    if "max_tokens mid-object" in str(exc):
+                        break                               # the same prompt hits the same ceiling again: next model, not another attempt
+                    await asyncio.sleep(min(1.0 * (attempt + 1), 4.0))
+        assert last is not None
+        raise last
+
+    async def _generate_once(self, *, system: str, prompt: str, json_schema: dict,
+                             model_id: str, max_tokens: int = 900,
+                             temperature: float = 0.2, strict: bool = True, timeout: float | None = None, force_nano: bool = False,
+                             _module: str | None = None, **_: object):
         api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
         # Provider routing (no hardcoding): models listed in NANOGPT_MODELS go to
         # NanoGPT flat-rate when a key is present; everything else keeps the
         # existing OpenRouter route. Tomorrow's model change is an env edit.
-        _nano_models = {m.strip() for m in os.getenv(
-            "NANOGPT_MODELS",
-            "qwen/qwen3.8-27b,moonshotai/kimi-k2.6,moonshotai/kimi-k2.5,minimax/minimax-m3,z-ai/glm-5.3-flash,deepseek/deepseek-v4-flash,deepseek-ai/deepseek-v3.2-exp").split(",") if m.strip()}
+        _nano_models = _nano_model_set()
         _nano_key = os.getenv("NANO_API_KEY", "").strip()
-        if _nano_key and model_id in _nano_models:
+        if _nano_key and (force_nano or model_id in _nano_models):
             url, api_key, provider = "https://nano-gpt.com/api/v1/chat/completions", _nano_key, "nanogpt"
         else:
             url = ("https://openrouter.ai/api/v1/chat/completions"
                    if os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY")
                    else os.getenv("SYNAPSE_MODEL_URL") or "https://api.openai.com/v1/chat/completions")
             provider = "openrouter"
-        module = "unknown"
-        try:
-            module = str(sys._getframe(1).f_globals.get("__name__", "unknown")).rsplit(".", 1)[-1]
-        except Exception:
-            pass
+        module = _module or "unknown"
         budget = float(_policy(DAILY_BUDGET_USD, "LLM_DAILY_BUDGET_USD", module))
         from src import call_context as _cc
         person = _cc.person_of(_cc.current().get("world_owner"))
@@ -93,7 +155,7 @@ class AgendaRankerAdapter:
             raise BudgetExceeded(f"daily budget for {module} exhausted")
         headers = {"Content-Type": "application/json"}
         try:      # the module that asked: sent as X-Title so the usage log says what each call was for
-            headers.update({"HTTP-Referer": "https://localhost/synapse-cortex", "X-Title": "synapse-cortex:" + str(sys._getframe(1).f_globals.get("__name__", "unknown")).rsplit(".", 1)[-1]})
+            headers.update({"HTTP-Referer": "https://localhost/synapse-cortex", "X-Title": "synapse-cortex:" + module})
         except Exception:
             pass
         if api_key:
