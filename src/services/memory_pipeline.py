@@ -913,10 +913,17 @@ def _annotate_timing(timing: str, today: Any) -> str:
     out = str(timing or "")
     if not out:
         return out
+    # "next <weekday>" is ambiguous in English: the coming one, or the one in the following week. Say both and let the agent decide from the person's words and
+    # record any doubt; guessing the nearer one silently stored a deadline four days in the past (measured, golden moments g7).
     for i in range(7):
         d = today + _td(days=i)
         name = d.strftime("%A")
-        out = re.sub(rf"\b{name}\b(?!\s*\()", f"{name} ({d.isoformat()})", out, flags=re.IGNORECASE)
+        week_after = d + _td(days=7)
+        out = re.sub(rf"\bnext {name}\b(?!\s*\()", f"next {name} ({week_after.isoformat()}; or {d.isoformat()} if they meant the coming one)", out, flags=re.IGNORECASE)
+    for i in range(7):
+        d = today + _td(days=i)
+        name = d.strftime("%A")
+        out = re.sub(rf"(?<!next )\b{name}\b(?!\s*\()", f"{name} ({d.isoformat()})", out, flags=re.IGNORECASE)
     tom = today + _td(days=1)
     return re.sub(r"\btomorrow\b(?!\s*\()", f"tomorrow ({tom.isoformat()})", out, flags=re.IGNORECASE)
 
@@ -1216,11 +1223,21 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         obs_text, n_obs = build_observations(witness, today_date)
         before = {(str(i.situation_key), i.status, str(i.updated_at))
                   for i in await open_ledger(db, workspace_id, owner, limit=200)}
-        agent_out = await maintenance_agent.run_maintenance(
-            db, workspace_id=workspace_id, owner=owner, session_id=session_id,
+        _writer_kwargs = dict(
+            db=db, workspace_id=workspace_id, owner=owner, session_id=session_id,
             observations=obs_text, n_observations=n_obs, today=today, weekday=clock["weekday"],
             obs_timing={n: _clean(it.get("timing"), 200) for n, it in enumerate(witness, 1) if _clean(it.get("timing"), 200)},
             time_zone=clock["tz"], transcript=transcript)
+        _writer = os.getenv("LEDGER_WRITER", "agent").strip().lower()      # EXPERIMENT (H1): agent (default) | light | hybrid; see ledger_light.py
+        if _writer in ("light", "hybrid"):
+            from src.services import ledger_light
+            agent_out = await ledger_light.run(**_writer_kwargs)
+            if _writer == "hybrid" and agent_out.get("status") != "verified":
+                bundle["ledger_light_escalated"] = {"status": agent_out.get("status"), "gate_failures": agent_out.get("gate_failures")}
+                agent_out = await maintenance_agent.run_maintenance(**_writer_kwargs)
+                agent_out["escalated_from_light"] = True
+        else:
+            agent_out = await maintenance_agent.run_maintenance(**_writer_kwargs)
         after = {(str(i.situation_key), i.status, str(i.updated_at))
                  for i in await open_ledger(db, workspace_id, owner, limit=200)}
         agent_out["ledger_moved"] = before != after

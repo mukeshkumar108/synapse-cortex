@@ -119,7 +119,9 @@ def run_fixture(name, fix, rep):
                                  for w in (summ.get("ledger_witness_items") or [])],
                      "trace": [[t["name"] for t in (c.get("trace") or [])] for c in (summ.get("ledger_agent_trace") or [])],
                      "fallback": bool(summ.get("ledger_fallback")), "needs_review": summ.get("ledger_needs_review"),
-                     "counts": summ.get("ledger_counts"), "ms": summ.get("ms_total")})
+                     "counts": summ.get("ledger_counts"), "ms": summ.get("ms_total"),
+                     "stage_ms": summ.get("stage_ms"), "writer": agent.get("writer") or "agent", "escalated": bool(summ.get("ledger_light_escalated")),
+                     "agent_calls": len(summ.get("ledger_agent_calls") or summ.get("ledger_agent_trace") or [])})
         state = api(f"/v1/memory/state?workspace_id={WS}&owner={owner}&include_closed=true", method="GET")
         snapshots[sid] = state.get("ledger", [])
     return {"owner": owner, "runs": runs, "snapshots": snapshots, "ledger": snapshots[fix["sessions"][-1][0]]}

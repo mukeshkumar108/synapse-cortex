@@ -1,0 +1,1307 @@
+[
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "none",
+  "sample": 0,
+  "transcript": "Companion: Good morning. It\u2019s nice to connect with you.\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Good morning. I'm sorry to hear about Leo\u2019s crutches, but glad he\u2019s getting around.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and read it to me.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. Try: 'Hi Sam, can we move our call to Thursday? Following up on the budget doc.'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 3,
+    "note": "The opening failed to raise Leo as per the ideal, and the email rewrite did not actually make the text shorter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 2,
+    "note": "Companion failed to mention Leo in opening as ideal required; Alex had to volunteer it, making the exchange awkward."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "none",
+  "sample": 1,
+  "transcript": "Companion: Good morning, Alex. It's nice to see you.\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Good morning. I'm glad Leo's managing on the crutches, even if it sounds like a bit of an adjustment.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and show me what you've got.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. Try: 'Hi Sam, can we move our call to Thursday? Following up on the budget doc.'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion failed to raise Leo in the opening as required by the ideal, and Alex's response implies a question that was never asked."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 2,
+    "note": "Companion failed to raise Leo at the opening as required by the ideal, forcing Alex to bring it up unprompted; the second 'Good morning' was awkward and redundant."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "none",
+  "sample": 2,
+  "transcript": "Companion: Morning, Alex. Good to see you again.\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Ah, I'm glad he's managing on the crutches. That's a relief.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and read me what you have so far.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. How about: 'Hi Sam, re the budget doc, can we move our call to Thursday?'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The opening failed to raise Leo as per the ideal, and Alex's response implies the companion had previously asked about him, which contradicts the 'no invented' constraint for the opening."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 3,
+    "note": "Companion failed to raise Leo at opening as ideal requires; Alex had to bring it up unprompted, making the exchange slightly awkward."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "none",
+  "sample": 3,
+  "transcript": "Companion: Good morning, Alex. It\u2019s good to see you today.\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Ah, I'm glad to hear he's getting around, even if it's on crutches. That must be quite an adjustment for him.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and show me the email.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Of course. How about: 'Hi Sam, re: budget doc\u2014can we move our call to Thursday?'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion failed to raise Leo in the opening as required by the ideal, and Alex's response implies the companion had previously asked about him."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 3,
+    "note": "Companion failed to raise Leo at opening as ideal requires; Alex had to bring it up unprompted, making the exchange awkward."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "none",
+  "sample": 4,
+  "transcript": "Companion: Good morning, Alex. It is nice to begin a new conversation with you.\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Oh, I'm glad to hear Leo is getting around, even if it's on crutches. How are you doing this morning?\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course, let me see what you have so far.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. 'Hi Sam, following up on the budget doc\u2014can we move our call to Thursday?'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion failed to raise Leo in the opening as required by the ideal, though it handled the email task well."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 3,
+    "note": "Companion failed to raise Leo at all in opening, forcing Alex to volunteer it awkwardly; otherwise handled task cleanly."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "static",
+  "sample": 0,
+  "transcript": "Companion: Morning, Alex. How are you feeling today?\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Oh good, I'm glad he's managing with the crutches. That must be a relief.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course, let me see what you've got.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. 'Hi Sam, following up on the budget doc \u2014 can we move our call to Thursday?'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The opening failed to raise Leo as per the ideal, and the right_link check failed because the ideal required a tentative link which was not present."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 3,
+    "note": "Opening didn't raise Leo as required; Alex had to bring it up unprompted, but otherwise handled well."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "static",
+  "sample": 1,
+  "transcript": "Companion: Morning, Alex. How are things with you and Leo this week?\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Good to hear he's getting around, even if it's a bit awkward.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Let me see it.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. 'Hi Sam, following up on the budget doc \u2014 can we move our call to Thursday?'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion raised Leo lightly once, then focused entirely on the email task without further personal chat."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 3,
+    "note": "Opening asks about 'you and Leo' rather than raising Leo lightly once; otherwise stays on task well."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "static",
+  "sample": 2,
+  "transcript": "Companion: Morning, Alex. Good to see you. How's Leo doing with his leg?\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Good to hear he's managing. Are you two up to anything this week?\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and read it to me.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. \"Hi Sam, re the budget doc, can we move our call to Thursday?\"",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": true,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion lightly raised Leo in the opening but then asked a follow-up question about plans, which was unnecessary before Alex pivoted to the urgent task."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": true,
+    "natural": 3,
+    "note": "The follow-up question about plans this week was an unnecessary personal intrusion that the ideal explicitly forbids."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "static",
+  "sample": 3,
+  "transcript": "Companion: Morning, Alex. How are you doing today?\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Oh good, I'm glad he's managing with the crutches. Must be a real change of pace for him, though.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and show me the draft.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: \"Hi Sam, following up on the budget doc\u2014can we move our call to Thursday?\"",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The opening failed to raise Leo as per the ideal, and the companion continued the Leo topic after Alex moved on to the task."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 3,
+    "note": "Opening didn't raise Leo at all\u2014Alex had to bring it up unprompted, making the companion seem forgetful or generic."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "static",
+  "sample": 4,
+  "transcript": "Companion: Good morning, Alex. How are things with you today?\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Ah, that's good to hear \u2014 crutches are a step up from being stuck in bed.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and paste the email, and I'll help you sharpen it.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. \"Hi Sam, following up on the budget doc \u2014 can we move our call to Thursday?\"",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The opening failed to raise Leo as per the ideal, but the subsequent handling of the task was efficient and correct."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 3,
+    "note": "Opening fails ideal by not raising Leo at all; Alex had to bring it up unprompted, making the exchange awkward."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "progressive",
+  "sample": 0,
+  "transcript": "Companion: Hey Alex, good to see you. How are things going this morning?\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Leo on crutches. I'm glad he's up and moving, even if it's not easy.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and show me the email.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. How about: 'Hi Sam, following up on the budget doc. Can we move our call to Thursday?'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The opening failed to raise Leo as per the ideal, and the email edit was minimal rather than a substantive tightening."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 3,
+    "note": "Opening failed to raise Leo at all, forcing Alex to bring it up unprompted; otherwise clean task focus."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "progressive",
+  "sample": 1,
+  "transcript": "Companion: Hey, Alex. Good to see you. How are things?\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Ah, I'm glad to hear Leo's managing on crutches. How are you holding up with all that?\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and show me what you've got.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. How about: 'Hi Sam, following up on the budget doc. Can we move our call to Thursday?'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The opening failed to raise Leo as required by the ideal, and the companion's response to Alex's update was slightly repetitive before moving to the task."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 3,
+    "note": "Opening failed to raise Leo at all, forcing Alex to volunteer it; otherwise handled task cleanly."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "progressive",
+  "sample": 2,
+  "transcript": "Companion: Good morning, Alex. I was thinking about Leo the other day\u2014how is he doing after the rugby injury?\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: I'm glad he's getting around all right. Crutches can be a real nuisance, but at least he's on the mend.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course, let me take a look at it with you.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. How about: \"Hi Sam, re the budget doc, can we move our call to Thursday?\"",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion raised Leo lightly once, then focused entirely on the email task without further personal chat."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Follows ideal well: light Leo opening, natural response, then clean pivot to email help with no further personal chat."
+   }
+  ],
+  "key_mentions": 2
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "progressive",
+  "sample": 3,
+  "transcript": "Companion: Good morning, Alex. I was thinking about Leo the other day\u2014how's he doing after the rugby injury?\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: Good to hear he's getting around, even if it's a bit awkward.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course. Go ahead and show me the email, and I can help you make it clear and concise.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure. 'Hi Sam, re: the budget doc, can we move our call to Thursday?'",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion raised Leo lightly once, then focused entirely on the email task without further personal chat."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Perfect execution: light Leo opening, natural response, then clean pivot to email help with no further personal chat."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c1-nephew-then-task",
+  "arm": "progressive",
+  "sample": 4,
+  "transcript": "Companion: Good morning, Alex. I was sorry to hear about Leo breaking his leg.\nAlex: Morning. Oh, Leo's fine, he's hobbling about on crutches, thanks for asking.\nCompanion: That's good to hear, I'm glad he's managing alright.\nAlex: Anyway, can you help me tighten this email to my boss? It has to go before ten.\nCompanion: Of course, let me take a look at it with you.\nAlex: Here it is: 'Hi Sam, following up on the budget doc, can we move our call to Thursday?' Make it shorter.\nCompanion: Sure, how about \"Hi Sam, can we move our budget call to Thursday?\"",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion raised Leo lightly once, accepted the update without pushing, and focused entirely on the email task as requested."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Perfect execution: light Leo mention, natural response, then clean pivot to email help with no further personal chat."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "none",
+  "sample": 0,
+  "transcript": "Companion: Morning, Alex. Good to be talking with you again.\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: Ah, I'm sorry to hear that. Is there anything you need a hand with this morning?\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: I can help you break it down into smaller steps if that would take some weight off.\nAlex: I just don't know where to start.\nCompanion: Then let's start very small. What's the first thing you'd need to do if you had ten minutes of clear focus right now?",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion missed the opportunity to tentatively link the lack of sleep to the back pain as specified in the ideal, but otherwise handled the task well."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Missed opportunity to tentatively link sleeplessness to back pain, but otherwise clean and helpful."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "none",
+  "sample": 1,
+  "transcript": "Companion: Good morning, Alex. I'm glad you're here.\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: I hear you. That kind of tired can make everything feel heavier.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: Then let's not try to solve anything big right now. Just tell me what the first small step on that deadline looks like to you.\nAlex: I just don't know where to start.\nCompanion: Then let's just sit with that for a moment. What's the first thing that comes to mind when you think about it, even if it's just a single word or a feeling.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening and engaged effectively with the deadline without forcing a link to the back pain."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Missed opportunity to tentatively link sleeplessness to back pain, but otherwise clean and supportive."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "none",
+  "sample": 2,
+  "transcript": "Companion: Good morning, Alex. It\u2019s nice to be talking with you again.\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: I hear you. That kind of tired can make everything feel heavier.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: That\u2019s a lot to carry on so little rest. Is there any part of it I can help you think through?\nAlex: I just don't know where to start.\nCompanion: Sometimes the hardest part is just picking one small thread. What feels most urgent, or what feels lightest to begin with?",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening, validated the fatigue without over-explaining, and offered practical help with the deadline without inventing causes or dumping history."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Opening stays light, misses chance to tentatively link sleep to back pain but doesn't invent; handles deadline well without dumping Morgan history."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "none",
+  "sample": 3,
+  "transcript": "Companion: Good morning, Alex. It's nice to connect with you.\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: Oh, I'm sorry to hear that. A rough night can really throw everything off.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: That sounds like a heavy weight to be carrying on so little rest.\nAlex: I just don't know where to start.\nCompanion: That's the hardest part, isn't it\u2014just finding that first thread to pull.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion missed the opportunity to tentatively link the sleep issues to the back pain or the deadline to Morgan's shifting requirements as specified in the ideal."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Missed opportunity to tentatively link sleep to back pain and Morgan's shifting requirements to deadline stress, but stays light and natural."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "none",
+  "sample": 4,
+  "transcript": "Companion: Morning, Alex. It\u2019s good to see you.\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: I'm sorry you're so tired. Is there anything you need right now\u2014a quiet moment or a chance to sit down?\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: That sounds like a heavy weight on top of the exhaustion. I can sit with you while you catch your breath.\nAlex: I just don't know where to start.\nCompanion: Let's just sit for a moment, then. The starting point can wait a few breaths longer.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion missed the opportunity to tentatively link the sleep issues to the back pain or the deadline to Morgan's shifting requirements as specified in the ideal."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Missed opportunity to tentatively link sleeplessness to back pain, but otherwise gentle and appropriate."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "static",
+  "sample": 0,
+  "transcript": "Companion: Morning, Alex. Good to see you.\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: I'm sorry to hear that, Alex. I remember you've been dealing with back pain disrupting your sleep.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: That deadline sounds heavy, especially on top of no sleep. If you want to talk through where things stand with it, I can listen.\nAlex: I just don't know where to start.\nCompanion: That's a tough place to be. Do you want to just name the first thing that comes to mind, even if it feels small?",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion used a light, tentative link to the back pain and offered supportive, non-intrusive help with the deadline."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Companion handled the back pain link tentatively and well, but missed the ideal opportunity to tentatively connect Morgan's shifting requirements when Alex mentioned the deadline."
+   }
+  ],
+  "key_mentions": 2
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "static",
+  "sample": 1,
+  "transcript": "Companion: Morning, Alex. I hope the weekend gave you a bit of room to breathe.\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: That sounds rough. I remember you mentioned the back pain had been making sleep hard, so I\u2019m guessing that\u2019s still a factor.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: That's a lot to be carrying into the week. Do you want to talk through where things stand with the project?\nAlex: I just don't know where to start.\nCompanion: Alright. Let's just look at what's right in front of you, not the whole pile. What's the single next thing you'd need to do, even if it's small?",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion handled the opening lightly, made a tentative link between sleep and back pain without claiming cause, and effectively guided Alex through the task paralysis."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean opening, tentative back-pain link without claiming cause, engages deadline helpfully, stays present-focused."
+   }
+  ],
+  "key_mentions": 2
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "static",
+  "sample": 2,
+  "transcript": "Companion: Morning, Alex. Good to see you. How are things feeling today?\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: I hear you. That sounds rough, especially with that project deadline just a few days away.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: That's a lot to carry when you're already running on empty. What would be most helpful to focus on right now?\nAlex: I just don't know where to start.\nCompanion: That's a heavy place to be. Let's just pick one small thing you can look at, nothing more.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion missed the opportunity to tentatively link the lack of sleep to the back pain mentioned in the history, instead linking it to the deadline."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Opening is light and appropriate; missed opportunity to tentatively link sleep to back pain, and deadline link was present but not tied to Morgan's shifting requirements as ideal suggested."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "static",
+  "sample": 3,
+  "transcript": "Companion: Morning, Alex. Good to see you.\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: That sounds rough. I hope you can take it easy this morning.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: I remember you mentioned trying a new pillow last time. I hope you get some real rest soon, with that deadline and all.\nAlex: I just don't know where to start.\nCompanion: That sounds like a lot to carry on no sleep. Do you want to talk through where the project feels most tangled right now?",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": true,
+    "natural": 4,
+    "note": "The companion invented a detail about a 'new pillow' that was not in the history, constituting an intrusion."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": true,
+    "natural": 2,
+    "note": "Companion invented a 'new pillow' memory and missed the ideal's tentative back-pain link; final line is good but overall derailed."
+   }
+  ],
+  "key_mentions": 2
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "static",
+  "sample": 4,
+  "transcript": "Companion: Good morning, Alex. How are you feeling today?\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: Oh, I'm sorry to hear that. I hope the new pillow is helping a little, at least.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: Oh, that's a lot to carry when you're already running on empty. If you want to talk through the shifting requirements, I can listen.\nAlex: I just don't know where to start.\nCompanion: That's the hardest part, especially when you're exhausted. Maybe just start by listing what's actually due Thursday versus what's still shifting.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": true,
+    "natural": 4,
+    "note": "The companion invented a 'new pillow' which is not in the history, constituting an intrusion."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": true,
+    "natural": 2,
+    "note": "The 'new pillow' is invented; the ideal called for connecting to Alex's mentioned back pain, not inventing a remedy."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "progressive",
+  "sample": 0,
+  "transcript": "Companion: Good morning. I\u2019m glad to see you\u2014how are things feeling today?\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: I'm sorry you're running on so little sleep. Do you want to sit quietly for a bit, or is there something gentle we can do together this morning?\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: I remember that deadline. Let's just sit with it for a moment\u2014no need to push through how tired you are.\nAlex: I just don't know where to start.\nCompanion: It sounds like everything is pressing at once, which makes starting feel impossible. Let\u2019s just pick one small corner of it, no pressure, and look at it together.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion missed the opportunity to tentatively link the sleep issue to the back pain as specified in the ideal, though the rest of the interaction was supportive and natural."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Missed opportunity to tentatively link sleep to back pain, but otherwise stays light and responsive without dumping memory or claiming causes."
+   }
+  ],
+  "key_mentions": 2
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "progressive",
+  "sample": 1,
+  "transcript": "Companion: Good morning, Alex. I was just thinking about the project deadline \u2014 is your schedule feeling manageable with three days to go?\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: That sounds rough. I'm sorry you're running on empty.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: I can feel how heavy that weight must be right now.\nAlex: I just don't know where to start.\nCompanion: I'm right here with you. Let's just pick one small piece together.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": false,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion missed the opportunity to tentatively link the lack of sleep to the back pain mentioned in the ideal."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Opening lightly touches deadline without dumping; misses opportunity to tentatively link sleeplessness to back pain, but stays natural and supportive."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "progressive",
+  "sample": 2,
+  "transcript": "Companion: Good Monday morning. How are you feeling about the week ahead?\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: I hear you. A rough night can make the whole week feel heavier before it even starts.\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: That sounds like a lot to carry on so little rest.\nAlex: I just don't know where to start.\nCompanion: That feeling of being stuck is the worst, especially when you're already tired. Want to talk through what's on your plate for a minute?",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening, validated the fatigue without inventing causes, and offered practical help with the deadline."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Missed opportunity to tentatively link sleep to back pain, but otherwise stays light and appropriately engages."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "progressive",
+  "sample": 3,
+  "transcript": "Companion: Good morning, Alex. It\u2019s good to see you. How are things feeling today?\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: I'm sorry you're running on empty. Is there anything I can do to help ease the morning a bit?\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: That's right, only three days now. Let's take it one small piece at a time\u2014what's the most urgent thing this morning?\nAlex: I just don't know where to start.\nCompanion: Let's just pick the first thing your eyes land on in the project notes.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "The companion handled the opening well and provided practical, low-pressure support for the deadline without overstepping or inventing causes."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Missed opportunity to tentatively link sleep to back pain, but otherwise clean and supportive."
+   }
+  ],
+  "key_mentions": 1
+ },
+ {
+  "conv": "c2-pulls-as-it-goes",
+  "arm": "progressive",
+  "sample": 4,
+  "transcript": "Companion: Morning, Alex. Glad to see you. How are you feeling today?\nAlex: Morning. Honestly I'm shattered, barely slept.\nCompanion: I hear that. Do you want to sit quietly for a bit, or is there something small I can help with this morning?\nAlex: Yeah, and that deadline on Thursday is looming too.\nCompanion: That sounds heavy. Want to talk through what's left to do, or just name it out loud and set it aside for a few minutes?\nAlex: I just don't know where to start.\nCompanion: That is a hard place to be. Let's just pick one tiny thing, the very first step, and name it together.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light, offered concrete help with the deadline, and avoided heavy-handed links or invented details."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stays present, doesn't dump memory, and gently engages with what Alex actually brings up."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "none",
+  "sample": 0,
+  "transcript": "Companion: Hey there. It\u2019s nice to meet you.\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Take your time and try one on me. I\u2019m listening.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That sounds direct and clear, which is a good start. It tells people exactly what to expect from you.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed focused on the task, avoided irrelevant chatter, and provided helpful feedback without overstepping."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean, focused help with no irrelevant chatter."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "none",
+  "sample": 1,
+  "transcript": "Companion: Hey, it\u2019s good to see you. How\u2019s your week been going?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Go ahead and try them on me. I'm listening.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That feels clear and direct. It says what you\u2019re going to do without overpromising.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening and immediately focused on the requested practice task without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean, focused exchange that stays on task without any invented or heavy-handed elements."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "none",
+  "sample": 2,
+  "transcript": "Companion: Hi there. It's good to talk with you.\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Go ahead and say your opening lines to me, just like you would to the person you're nervous about.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That sounds clear and purposeful. You could soften it slightly by adding a brief acknowledgment of their time, but it works as it is.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening and provided helpful, specific feedback on the requested practice task without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Clean opening, immediately responsive to the practice request, no irrelevant chatter."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "none",
+  "sample": 3,
+  "transcript": "Companion: It's good to see you, Alex.\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. I'm right here. Go ahead whenever you're ready.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That sounds clear and direct. It says who you are and what you're doing in one breath.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light, avoided unrelated chatter, and provided helpful feedback on the requested practice."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean, focused, and perfectly aligned with the ideal."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "none",
+  "sample": 4,
+  "transcript": "Companion: Hey, Alex. Good to see you.\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Take your time and say the first one that comes to mind.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That lands clearly. It sounds confident and direct, not rushed.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening and provided helpful, on-task feedback without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean, focused help with no unnecessary digressions."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "static",
+  "sample": 0,
+  "transcript": "Companion: Evening, Alex. You seem like you've got a lot on your mind tonight.\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Go ahead and start whenever you're ready.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That opening is direct and clear, which works well. You could add a brief nod to your team's effort before moving into the project status.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed focused on the task, avoided unrelated small talk, and provided helpful feedback on the opening line."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Clean, focused exchange that stays on task without bringing in unrelated topics."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "static",
+  "sample": 1,
+  "transcript": "Companion: Hey, Alex. You've got the leadership team presentation tomorrow, right? How are you feeling about it?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Let me hear your opening lines.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That's a solid, clear opening. It sets the right tone\u2014confident and direct.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion opened lightly, stayed focused on the practice task, and avoided irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Opening raises the presentation directly rather than lightly or not at all, but otherwise stays focused and helpful."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "static",
+  "sample": 2,
+  "transcript": "Companion: Hey, Alex. Good to see you. How's your evening going?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Go ahead and say your opening lines to me.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That's a solid, clear start. It tells them exactly what to expect.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening and immediately focused on the requested practice task without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean, light opening and immediate helpful focus on the practice task."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "static",
+  "sample": 3,
+  "transcript": "Companion: Hey, Alex. Good to see you. How's your evening going?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. I can help you with that. Go ahead and say your opening lines to me.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That lands clearly and confident. You might try adding a short phrase right after that names the specific outcome you want them to walk away with.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening and provided helpful, specific feedback on the presentation lines without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean opening, immediately helped with practice, no irrelevant small talk."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "static",
+  "sample": 4,
+  "transcript": "Companion: Hey Alex, I\u2019m glad you\u2019re here. How are you feeling this evening?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Let\u2019s hear your opening lines.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That's a strong start \u2014 direct and confident. Want to try it again and I\u2019ll listen for how it lands?",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed focused on the task, avoided unrelated chatter, and provided helpful feedback."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean, focused, and perfectly aligned with the ideal."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "progressive",
+  "sample": 0,
+  "transcript": "Companion: Hey Alex, good to see you. How are you feeling about tomorrow?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Let me hear what you have so far, and I'll help you shape it.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That's a solid start. It's direct and clear. Do you want to try saying it out loud once to see how it feels?",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion opened lightly regarding the presentation and immediately focused on the requested practice task without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean, focused opening that lightly acknowledges tomorrow, immediately pivots to helping with practice, and stays on task without any unrelated chatter."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "progressive",
+  "sample": 1,
+  "transcript": "Companion: Hey, Alex. It's good to see you. I was thinking about your presentation tomorrow and wanted to check in\u2014how are you feeling about it?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Let's start with the first line you want to say.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That's a solid, clear start. It tells them exactly what to expect.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion opened by acknowledging the presentation lightly and then focused entirely on the requested practice task without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": false,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Opening raises the presentation proactively rather than lightly or not at all, but otherwise stays focused and helpful."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "progressive",
+  "sample": 2,
+  "transcript": "Companion: Hey, Alex. It\u2019s good to see you. How are you feeling about tomorrow?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Let's start from the top. What's the first thing you want to say?\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That sounds direct and clear. You might try saying it slowly, with a small pause after \"show where the project is\" to let the listener follow along. Do you want to try it once or twice?",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion opened lightly regarding the presentation and provided helpful, specific feedback on the practice request without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean, focused opening and stays on task without any unrelated chatter."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "progressive",
+  "sample": 3,
+  "transcript": "Companion: Hey Alex, good to see you. How's your evening going?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. What's the situation you're preparing for?\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That sounds clear and professional. If you want it to feel a bit warmer, you could add something like \"I'm excited to share where the project is and what it needs.\"",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening and provided helpful, on-task feedback for the presentation practice without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 4,
+    "note": "Clean opening, stayed on task, no invented memories or unrelated chatter."
+   }
+  ],
+  "key_mentions": 0
+ },
+ {
+  "conv": "c3-task-priority",
+  "arm": "progressive",
+  "sample": 4,
+  "transcript": "Companion: Hey, Alex. Good to see you. How's your week going?\nAlex: I'm nervous. Can you help me practise my opening lines?\nCompanion: Of course. Go ahead and say them to me. I'm listening.\nAlex: Okay, here's my first line: 'Thank you for having me; I'll show where the project is and what it needs.' Thoughts?\nCompanion: That sounds direct and clear. I can hear you're ready to get to the point.",
+  "verdicts": [
+   {
+    "judge": "qwen/qwen3.8-27b",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "The companion stayed light in the opening and focused entirely on the requested practice task without irrelevant chatter."
+   },
+   {
+    "judge": "moonshotai/kimi-k2.6",
+    "opening_ok": true,
+    "nagging": false,
+    "task_ok": true,
+    "right_link": true,
+    "intrusion": false,
+    "natural": 5,
+    "note": "Clean, focused exchange that stays on task without dumping or inventing."
+   }
+  ],
+  "key_mentions": 0
+ }
+]

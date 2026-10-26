@@ -112,3 +112,20 @@ owners (pollution risk); mocking models (hides exactly what we were measuring).
 
 **D-P2 — Report failures, including the ones that moved.** Sweep reports keep every miss; two invalid runs were deleted *because they were invalid*
 (harness error, not behaviour) and that is stated in `IMPLEMENTATION_STATUS.md`.
+
+## Read side (2026-10-26, behaviour-first experiments)
+
+**D-R1 — How Cortex is SERVED matters more than how it is stored.** In 224 scripted replies, the same records served as the old block scored 29/56 with 9 intrusive replies; served by the opportunities read, 38/56 with none.
+Causes, each now fixed or designed out: a cached narrative with a stale "now"; relative time words stored in summaries ("this Saturday", "(tomorrow)"); asides promoted to tracked situations (NOT fixed yet); follow-ups worded as wants;
+ranking on recency; the opening never carrying the happening. *Rejected:* a flat notes arm (unstable: 22/28, 16/28, 26/56). *Evidence:* `reports/h11_golden_moments_2026-10-26`.
+
+**D-R2 — Code refuses relative time words in entity summaries (`world_agent.relative_time_problem`).** The agent contract already said "no dates in summaries"; it wrote them anyway. Code refuses a malformed write and sends the error back; it never rewrites meaning (D-W2).
+
+**D-R3 — "next <weekday>" names both dates.** `_annotate_timing` silently chose the coming weekday and stored a deadline four days in the past. It now says "(date in the following week; or the coming date if they meant that one)" and the agent decides from the person's words.
+
+**D-R4 — Opportunities are served as versioned packets (`docs/OPPORTUNITIES_PACKET_CONTRACT.md`), by stage.** Less, better-timed context beats more (H11, H12: one top item at the opening raised the nephew moment 6/10 vs 3/10 with the full block; the full block every turn gave 4/10 intrusions on a worry conversation vs 0).
+The contract is the same whether packets are built on demand or prepared ahead later. *Not validated:* retiring used items and withholding relational items during a task (the test hit a ceiling); a real selector; real users. *Rejected for now:* a sensitivity score (the moment decides, not the item alone).
+
+**D-R5 — A packet's retirement is not a matter's retirement.** Used items leave the active packet; the matter keeps its own life cycle in the ledger and world records.
+
+**D-R6 — A one-call ledger writer exists behind `LEDGER_WRITER=light|hybrid`; the agent stays the default.** H1: comparable correctness on the four fixtures with about 3x fewer calls (4.6 -> 1.4); short fixtures, so not yet a reason to switch.

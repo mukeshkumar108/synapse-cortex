@@ -1,0 +1,597 @@
+{
+ "at": "2026-10-26T12:31:22.702488+00:00",
+ "writer": "light",
+ "summary": {
+  "sessions": 24,
+  "errors": 0,
+  "operational": 12,
+  "recall_captured": 12,
+  "recall_agent_triggered": 12,
+  "non_operational": 12,
+  "agent_skipped": 8,
+  "false_rows": 2
+ },
+ "results": [
+  {
+   "sid": "n01",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 0,
+   "agent_ran": false,
+   "agent_status": "skipped",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 13933,
+   "stage_ms": {
+    "discovery_handoff": 2072,
+    "ledger_witness": 2681,
+    "ledger_agent": 0,
+    "connect_pass": 0,
+    "attention": 13,
+    "notebook_pages_wait": 4406,
+    "arc": 1270,
+    "preparation": 3462
+   }
+  },
+  {
+   "sid": "n02",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 23173,
+   "stage_ms": {
+    "discovery_handoff": 2267,
+    "ledger_witness": 4378,
+    "ledger_agent": 2155,
+    "connect_pass": 0,
+    "attention": 7373,
+    "notebook_pages_wait": 10,
+    "arc": 1497,
+    "preparation": 5476
+   }
+  },
+  {
+   "sid": "n03",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 0,
+   "agent_ran": false,
+   "agent_status": "skipped",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 12003,
+   "stage_ms": {
+    "discovery_handoff": 1523,
+    "ledger_witness": 3654,
+    "ledger_agent": 0,
+    "connect_pass": 0,
+    "attention": 14,
+    "notebook_pages_wait": 1966,
+    "arc": 1864,
+    "preparation": 2974
+   }
+  },
+  {
+   "sid": "n04",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 0,
+   "agent_ran": false,
+   "agent_status": "skipped",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 11630,
+   "stage_ms": {
+    "discovery_handoff": 1637,
+    "ledger_witness": 3744,
+    "ledger_agent": 0,
+    "connect_pass": 0,
+    "attention": 15,
+    "notebook_pages_wait": 1740,
+    "arc": 1083,
+    "preparation": 3403
+   }
+  },
+  {
+   "sid": "n05",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 0,
+   "agent_ran": false,
+   "agent_status": "skipped",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 12635,
+   "stage_ms": {
+    "discovery_handoff": 2850,
+    "ledger_witness": 3850,
+    "ledger_agent": 0,
+    "connect_pass": 0,
+    "attention": 8,
+    "notebook_pages_wait": 950,
+    "arc": 1522,
+    "preparation": 3446
+   }
+  },
+  {
+   "sid": "n06",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "finished_unchecked",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Submit report"
+   ],
+   "captured": null,
+   "false_row": true,
+   "ms_total": 34469,
+   "stage_ms": {
+    "discovery_handoff": 1780,
+    "ledger_witness": 4351,
+    "ledger_agent": 6842,
+    "connect_pass": 0,
+    "attention": 16343,
+    "notebook_pages_wait": 32,
+    "arc": 1393,
+    "preparation": 3720
+   }
+  },
+  {
+   "sid": "n07",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 0,
+   "agent_ran": false,
+   "agent_status": "skipped",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 15155,
+   "stage_ms": {
+    "discovery_handoff": 1998,
+    "ledger_witness": 3182,
+    "ledger_agent": 0,
+    "connect_pass": 0,
+    "attention": 8,
+    "notebook_pages_wait": 3464,
+    "arc": 1318,
+    "preparation": 5172
+   }
+  },
+  {
+   "sid": "n08",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 0,
+   "agent_ran": false,
+   "agent_status": "skipped",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 16036,
+   "stage_ms": {
+    "discovery_handoff": 4201,
+    "ledger_witness": 3471,
+    "ledger_agent": 0,
+    "connect_pass": 0,
+    "attention": 13,
+    "notebook_pages_wait": 2702,
+    "arc": 1170,
+    "preparation": 4460
+   }
+  },
+  {
+   "sid": "n09",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 20970,
+   "stage_ms": {
+    "discovery_handoff": 2844,
+    "ledger_witness": 5724,
+    "ledger_agent": 2195,
+    "connect_pass": 0,
+    "attention": 6287,
+    "notebook_pages_wait": 14,
+    "arc": 1084,
+    "preparation": 2815
+   }
+  },
+  {
+   "sid": "n10",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 0,
+   "agent_ran": false,
+   "agent_status": "skipped",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 13146,
+   "stage_ms": {
+    "discovery_handoff": 2382,
+    "ledger_witness": 2851,
+    "ledger_agent": 0,
+    "connect_pass": 0,
+    "attention": 12,
+    "notebook_pages_wait": 2244,
+    "arc": 1497,
+    "preparation": 4149
+   }
+  },
+  {
+   "sid": "n11",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 0,
+   "agent_ran": false,
+   "agent_status": "skipped",
+   "ledger_rows": 0,
+   "ledger_titles": [],
+   "captured": null,
+   "false_row": false,
+   "ms_total": 14186,
+   "stage_ms": {
+    "discovery_handoff": 1902,
+    "ledger_witness": 4158,
+    "ledger_agent": 0,
+    "connect_pass": 0,
+    "attention": 10,
+    "notebook_pages_wait": 1352,
+    "arc": 1080,
+    "preparation": 5677
+   }
+  },
+  {
+   "sid": "n12",
+   "op": false,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Noticing the 'I'm fine' habit"
+   ],
+   "captured": null,
+   "false_row": true,
+   "ms_total": 35932,
+   "stage_ms": {
+    "discovery_handoff": 2598,
+    "ledger_witness": 4721,
+    "ledger_agent": 5825,
+    "connect_pass": 0,
+    "attention": 17617,
+    "notebook_pages_wait": 28,
+    "arc": 1090,
+    "preparation": 3885
+   }
+  },
+  {
+   "sid": "o01",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Call plumber about leaking sink"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 39292,
+   "stage_ms": {
+    "discovery_handoff": 2015,
+    "ledger_witness": 3071,
+    "ledger_agent": 6108,
+    "connect_pass": 0,
+    "attention": 21408,
+    "notebook_pages_wait": 7,
+    "arc": 2113,
+    "preparation": 4561
+   }
+  },
+  {
+   "sid": "o02",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Send Maya the photos from the weekend"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 25498,
+   "stage_ms": {
+    "discovery_handoff": 1589,
+    "ledger_witness": 3593,
+    "ledger_agent": 3682,
+    "connect_pass": 0,
+    "attention": 6758,
+    "notebook_pages_wait": 119,
+    "arc": 1194,
+    "preparation": 8541
+   }
+  },
+  {
+   "sid": "o03",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Job interview"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 59555,
+   "stage_ms": {
+    "discovery_handoff": 1591,
+    "ledger_witness": 2660,
+    "ledger_agent": 4139,
+    "connect_pass": 0,
+    "attention": 39641,
+    "notebook_pages_wait": 62,
+    "arc": 1505,
+    "preparation": 9948
+   }
+  },
+  {
+   "sid": "o04",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Renew passport (form)"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 34219,
+   "stage_ms": {
+    "discovery_handoff": 1838,
+    "ledger_witness": 2525,
+    "ledger_agent": 4424,
+    "connect_pass": 0,
+    "attention": 19551,
+    "notebook_pages_wait": 6,
+    "arc": 1281,
+    "preparation": 4571
+   }
+  },
+  {
+   "sid": "o05",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Book doctor's appointment for knee"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 33371,
+   "stage_ms": {
+    "discovery_handoff": 1996,
+    "ledger_witness": 5805,
+    "ledger_agent": 4496,
+    "connect_pass": 0,
+    "attention": 12959,
+    "notebook_pages_wait": 25,
+    "arc": 1066,
+    "preparation": 7017
+   }
+  },
+  {
+   "sid": "o06",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Buy sister's birthday gift (something for her new flat)"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 38719,
+   "stage_ms": {
+    "discovery_handoff": 2284,
+    "ledger_witness": 3793,
+    "ledger_agent": 7287,
+    "connect_pass": 0,
+    "attention": 19150,
+    "notebook_pages_wait": 56,
+    "arc": 1754,
+    "preparation": 4379
+   }
+  },
+  {
+   "sid": "o07",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Return parcel to post office near work to keep refund"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 36150,
+   "stage_ms": {
+    "discovery_handoff": 2476,
+    "ledger_witness": 4010,
+    "ledger_agent": 4414,
+    "connect_pass": 0,
+    "attention": 20227,
+    "notebook_pages_wait": 25,
+    "arc": 1159,
+    "preparation": 3828
+   }
+  },
+  {
+   "sid": "o08",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Saturday morning walk with Dad"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 24118,
+   "stage_ms": {
+    "discovery_handoff": 2158,
+    "ledger_witness": 5768,
+    "ledger_agent": 4374,
+    "connect_pass": 0,
+    "attention": 7044,
+    "notebook_pages_wait": 18,
+    "arc": 1258,
+    "preparation": 3491
+   }
+  },
+  {
+   "sid": "o09",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Put the bins out"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 31806,
+   "stage_ms": {
+    "discovery_handoff": 2331,
+    "ledger_witness": 4799,
+    "ledger_agent": 6416,
+    "connect_pass": 0,
+    "attention": 11887,
+    "notebook_pages_wait": 50,
+    "arc": 1519,
+    "preparation": 4792
+   }
+  },
+  {
+   "sid": "o10",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Mortgage broker appointment"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 36941,
+   "stage_ms": {
+    "discovery_handoff": 1950,
+    "ledger_witness": 3420,
+    "ledger_agent": 4996,
+    "connect_pass": 0,
+    "attention": 21795,
+    "notebook_pages_wait": 15,
+    "arc": 1689,
+    "preparation": 3069
+   }
+  },
+  {
+   "sid": "o11",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 2,
+   "ledger_titles": [
+    "Finish slides for the team",
+    "Work on slides (few hours)"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 39108,
+   "stage_ms": {
+    "discovery_handoff": 1989,
+    "ledger_witness": 3844,
+    "ledger_agent": 5070,
+    "connect_pass": 0,
+    "attention": 22734,
+    "notebook_pages_wait": 28,
+    "arc": 1442,
+    "preparation": 3991
+   }
+  },
+  {
+   "sid": "o12",
+   "op": true,
+   "status": "consolidated",
+   "witness_items": 1,
+   "agent_ran": true,
+   "agent_status": "verified",
+   "ledger_rows": 1,
+   "ledger_titles": [
+    "Dog's first jabs vet check"
+   ],
+   "captured": true,
+   "false_row": null,
+   "ms_total": 40463,
+   "stage_ms": {
+    "discovery_handoff": 2965,
+    "ledger_witness": 3364,
+    "ledger_agent": 4825,
+    "connect_pass": 0,
+    "attention": 20478,
+    "notebook_pages_wait": 91,
+    "arc": 1632,
+    "preparation": 7098
+   }
+  }
+ ]
+}

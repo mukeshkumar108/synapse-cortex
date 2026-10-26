@@ -147,6 +147,22 @@ def _nq(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip().lower()
 
 
+_REL_TIME = re.compile(
+    r"\b(today|tonight|tomorrow|yesterday|this (?:morning|afternoon|evening|week|weekend|month|year|mon|tues|wednes|thurs|fri|satur|sun)\w*"
+    r"|last (?:night|week|weekend|month|year)|next (?:week|weekend|month|year|mon|tues|wednes|thurs|fri|satur|sun)\w*"
+    r"|the (?:day|night|week) (?:before|after)|(?:a few |a couple of )?(?:days?|weeks?) ago|earlier today|just now)\b", re.IGNORECASE)
+
+
+def relative_time_problem(text: str) -> Optional[str]:
+    """Code refuses a malformed write; it never rewrites meaning. A summary is read days after it was written, so a relative time word in it is wrong by then
+    (measured: a companion treated an upcoming wedding as past, and said a flat still smelled of chilli made a week earlier)."""
+    m = _REL_TIME.search(text or "")
+    if not m:
+        return None
+    return (f"the summary uses a relative time word ('{m.group(0)}'). A summary is read days later: say what or who this is, with no time words "
+            f"(a happening's date goes in occurred_on), and send it again.")
+
+
 def _quote(evidence: str, st: "State") -> str:
     """The evidence as the person said it, or "" if it is not in their words. Whole-quote check (pieces joined by an ellipsis are each
     checked); nothing is repaired or stitched together."""
@@ -203,6 +219,9 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
             return {"error": f"'{nm}' already exists as {hit.id} ({hit.name}) — update it, or add an alias, instead of duplicating"}
         if len(await kw.list_all(db, ws, owner, statuses=("active", "dormant", "resolved"), limit=MAX_ENTITIES + 1)) > MAX_ENTITIES:
             return {"error": "the registry is at its size limit; merge or resolve entities first"}
+        bad_time = relative_time_problem(str(args.get("summary") or ""))
+        if bad_time:
+            return {"error": bad_time}
         quote = _quote(str(args.get("evidence") or ""), st)
         extras, err = _parse_extras(args)
         if err:
@@ -236,6 +255,9 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
         if isinstance(args.get("kind"), str) and args["kind"].strip():
             e.kind = args["kind"].strip().lower()[:40]
         if isinstance(args.get("summary"), str):
+            bad_time = relative_time_problem(args["summary"])
+            if bad_time:
+                return {"error": bad_time}
             e.summary = args["summary"].strip()[:kw.SUMMARY_MAX]
         if "status" in args:
             e.status = str(args["status"]).strip().lower()
