@@ -125,3 +125,18 @@ async def test_three_letter_words_count_and_function_words_do_not():
         out = await opportunities.read(db, WS, OWNER, CTX)
     assert opportunities.build_packet(out, stage="moment", user_text="How's Leo's leg?")["items"]
     assert not opportunities.build_packet(out, stage="moment", user_text="Can you tell me with that, the and his")["items"]
+
+
+@pytest.mark.asyncio
+async def test_forward_stance_changes_the_wording_but_a_private_item_always_gets_the_gentle_one():
+    async with async_session_maker() as db:
+        await _entity(db, "Leo breaks his leg in rugby", kind="injury", form="happening", occurred_on=datetime(2026, 10, 17), significance=2)
+        await _entity(db, "Mum's fall", kind="health", form="happening", occurred_on=datetime(2026, 10, 25), significance=3, sensitive=True)
+        out = await opportunities.read(db, WS, OWNER, CTX)
+    said = "Leo broke his leg and Mum had a fall"
+    gentle = opportunities.build_packet(out, stage="moment", user_text=said)["text"]
+    forward = opportunities.build_packet(out, stage="moment", user_text=said, stance="forward")
+    assert "naturally ask about or mention" not in gentle and "optional" in gentle
+    t = forward["text"]
+    assert forward["stance"] == "forward" and "naturally ask about or mention" in t.split("Private")[0] and "Leo breaks his leg" in t.split("Private")[0]
+    assert "Private (acknowledge lightly at most; do not probe" in t and "Mum's fall" in t.split("Private")[1] and "Mum's fall" not in t.split("Private")[0]

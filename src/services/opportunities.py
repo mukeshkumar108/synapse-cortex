@@ -139,19 +139,38 @@ def looks_like_task(text: str) -> bool:
     return any(w in t for w in _TASK_WORDS)
 
 
-def _render(items: List[Dict[str, Any]], purpose: str) -> str:
+STANCES = ("gentle", "forward")
+
+
+def _render(items: List[Dict[str, Any]], purpose: str, stance: str = "gentle") -> str:
+    """Wording matters as much as selection (measured, H13: the same opening item was taken in 6 of 24 cases with 'optional' wording and 22 of 24 with 'natural to
+    mention' wording, but the stronger wording also pushed a private matter in 7 of 8 cases). So the stance is a per-product setting, and a private item is ALWAYS
+    given the gentle, do-not-probe wording whatever the stance."""
     if not items:
         return ""
-    head = {"reconnect": "Possible opportunity (optional: raise it lightly, or not):",
-            "touched": "Things the person's words touch (use only if natural; each is optional):",
-            "task_support": "Relevant to what the person asked for (optional):",
-            "survey": "Possible opportunities (each is optional: raise one lightly, offer help, or hold it):"}[purpose]
-    lines = [f"- {i['text']}" + (f" [{i['when']}]" if i.get("when") else "") + ("  (private: acknowledge lightly, do not probe)" if i.get("private") else "") for i in items]
-    return head + "\n" + "\n".join(lines)
+    forward = stance == "forward" and purpose in ("reconnect", "touched")
+    head_open = {"reconnect": "Possible opportunity (optional: raise it lightly, or not):",
+                 "touched": "Things the person's words touch (use only if natural; each is optional):",
+                 "task_support": "Relevant to what the person asked for (optional):",
+                 "survey": "Possible opportunities (each is optional: raise one lightly, offer help, or hold it):"}[purpose]
+    head_forward = ("Worth attention now: something you would naturally ask about or mention if the moment is right (a light touch, never a script; leave it "
+                    "only if the person is clearly occupied or it would intrude):")
+    head_private = "Private (acknowledge lightly at most; do not probe, and do not open with specifics):"
+
+    def line(i: Dict[str, Any]) -> str:
+        return f"- {i['text']}" + (f" [{i['when']}]" if i.get("when") else "")
+    plain = [i for i in items if not i.get("private")]
+    private = [i for i in items if i.get("private")]
+    out = []
+    if plain:
+        out.append((head_forward if forward else head_open) + "\n" + "\n".join(line(i) for i in plain))
+    if private:
+        out.append(head_private + "\n" + "\n".join(line(i) for i in private))
+    return "\n\n".join(out)
 
 
 def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str = "", task: Optional[bool] = None, used: Optional[List[str]] = None,
-                 valid_minutes: Optional[int] = None) -> Dict[str, Any]:
+                 valid_minutes: Optional[int] = None, stance: str = "gentle") -> Dict[str, Any]:
     """Select the small packet for this moment from what `read` found. Deterministic. Empty items means: give the companion nothing.
     stage: opening (re-entry: the single top opportunity), moment (only items the person's own words touch; relational items withheld during a task),
     survey (everything, the older single-block shape). `used` are item ids already used in this conversation (packet retirement, not matter retirement)."""
@@ -179,6 +198,6 @@ def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str 
     import hashlib
     pid = hashlib.sha1((out["now"] + stage + "|".join(i["id"] for i in items)).encode()).hexdigest()[:12]
     return {"version": PACKET_VERSION, "id": pid, "stage": stage, "purpose": purpose, "built_at": built.isoformat(), "valid_until": (built + _td(minutes=minutes)).isoformat(),
-            "items": items, "text": _render(items, purpose), "usage": USAGE,
+            "stance": stance if stance in STANCES else "gentle", "items": items, "text": _render(items, purpose, stance if stance in STANCES else "gentle"), "usage": USAGE,
             "retire": {"packet": "when its items have been used, or the conversation moves on",
                        "matter": "never by use alone: only when the matter itself resolves (ledger status, or the person says it is settled)"}}
