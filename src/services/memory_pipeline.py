@@ -913,10 +913,17 @@ def _annotate_timing(timing: str, today: Any) -> str:
     out = str(timing or "")
     if not out:
         return out
+    # "next <weekday>" is ambiguous in English: the coming one, or the one in the following week. Say both and let the agent decide from the person's words and
+    # record any doubt; guessing the nearer one silently stored a deadline four days in the past (measured, golden moments g7).
     for i in range(7):
         d = today + _td(days=i)
         name = d.strftime("%A")
-        out = re.sub(rf"\b{name}\b(?!\s*\()", f"{name} ({d.isoformat()})", out, flags=re.IGNORECASE)
+        week_after = d + _td(days=7)
+        out = re.sub(rf"\bnext {name}\b(?!\s*\()", f"next {name} ({week_after.isoformat()}; or {d.isoformat()} if they meant the coming one)", out, flags=re.IGNORECASE)
+    for i in range(7):
+        d = today + _td(days=i)
+        name = d.strftime("%A")
+        out = re.sub(rf"(?<!next )\b{name}\b(?!\s*\()", f"{name} ({d.isoformat()})", out, flags=re.IGNORECASE)
     tom = today + _td(days=1)
     return re.sub(r"\btomorrow\b(?!\s*\()", f"tomorrow ({tom.isoformat()})", out, flags=re.IGNORECASE)
 

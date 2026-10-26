@@ -249,6 +249,23 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
     raise HTTPException(status_code=422, detail="view must be packet, overview, entity or inspect")
 
 
+@router.get("/opportunities")
+async def opportunities_view(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, now: Optional[str] = None,
+                             time_zone: Optional[str] = None, db: AsyncSession = Depends(get_async_session)):
+    """What may be worth the companion's attention right now: a few optional opportunities ranked by stakes and time, and everything else as background.
+    Deterministic, no model. Tense is computed from dates, never from stored words (see services/opportunities.py)."""
+    from src.config import settings as _s
+    from src.services import attention_cycle as _ac, known_world as _kw, opportunities as _op, product_memory as _pm
+    scope = _scope(request, workspace_id, companion_id)
+    cfg = _pm.get(scope.product)
+    tz = time_zone or await _ac.owner_time_zone(db, workspace_id=scope.workspace, owner=owner, default=None) or cfg.default_time_zone
+    ctx = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone)
+    world_on = bool(_s.CONNECTED_WORLD_ENABLED and cfg.world_enabled)
+    rows = await memory_pipeline.open_ledger(db, scope.workspace, owner, limit=100) if cfg.ledger_enabled else []
+    out = await _op.read(db, scope.workspace, owner, ctx, world_on=world_on, ledger_rows=rows)
+    return {"enabled": True, "product": scope.product, "world": world_on, **out}
+
+
 @router.get("/export")
 async def export_owner(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, db: AsyncSession = Depends(get_async_session)):
     """Everything this product holds about this person (memory pipeline + connected understanding), as JSON. See owner_data.NOT_COVERED."""

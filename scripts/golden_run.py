@@ -35,7 +35,7 @@ SELECT_MODEL = os.environ.get("GOLDEN_SELECT_MODEL", "qwen/qwen3.8-27b")
 NOTE_MODEL = os.environ.get("GOLDEN_NOTE_MODEL", "qwen/qwen3.8-27b")
 JUDGES = [m for m in os.environ.get("GOLDEN_JUDGES", "qwen/qwen3.8-27b,moonshotai/kimi-k2.6").split(",") if m]
 STATE_PATH = "reports/golden_state.json"
-ARMS = ["none", "flat_dump", "flat_select", "structured"]
+ARMS = ["none", "flat_select", "structured", "opportunities"]
 
 GEN_SYSTEM = """You are a warm, perceptive companion who has talked with this person (Alex, they/them) before. You are about to speak to Alex.
 Write ONLY what you say next: one to three short, natural, spoken sentences. No lists, no emojis, no exclamation marks.
@@ -149,8 +149,9 @@ def structured_block(owner, now, user_says):
         parts.append(f"[LEDGER unavailable: {type(e).__name__}]")
     try:
         w = api(f"/v1/memory/world?{q(workspace_id=WS, owner=owner, companion_id='sophie', view='packet', q=user_says or '', now=now, time_zone=TZ)}", method="GET")
-        if w.get("enabled") and w.get("text"):
-            parts.append("[THEIR WORLD]\n" + str(w["text"])[:2500])
+        wtxt = "\n".join(x for x in (str(w.get("text") or ""), str(w.get("overview") or ""), str(w.get("mentions") or "")) if x.strip())
+        if w.get("enabled") and wtxt.strip():
+            parts.append("[THEIR WORLD]\n" + wtxt[:2500])
     except Exception as e:  # noqa: BLE001
         parts.append(f"[WORLD unavailable: {type(e).__name__}]")
     try:
@@ -161,6 +162,133 @@ def structured_block(owner, now, user_says):
     except Exception as e:  # noqa: BLE001
         parts.append(f"[ATTENTION unavailable: {type(e).__name__}]")
     return "\n\n".join(p for p in parts if p.strip())
+
+
+def structured_v2_block(owner, now, user_says):
+    """The same Cortex data, read differently: no cached narrative (it carries a stale 'now'), candidates ranked by stakes and time (never recency alone),
+    neutral third-person wording (an opportunity is not an instruction), sensitive items held. Deterministic; no model."""
+    from datetime import timedelta
+    clock = datetime.fromisoformat(now)
+    w = api(f"/v1/memory/world?{q(workspace_id=WS, owner=owner, companion_id='sophie', view='inspect')}", method="GET")
+    stt = api(f"/v1/memory/state?{q(workspace_id=WS, owner=owner, companion_id='sophie')}", method="GET")
+
+    def day(v):
+        try:
+            d = datetime.fromisoformat(str(v)[:10] + "T00:00:00").replace(tzinfo=clock.tzinfo)
+            return d
+        except Exception:  # noqa: BLE001
+            return None
+
+    cands = []
+    for e in (w.get("entities") or w.get("records") or []):
+        if e.get("form") not in ("happening", "situation") or e.get("status") not in (None, "active") or e.get("suppressed"):
+            continue
+        score = int(e.get("significance") or 1)
+        when = day(e.get("occurred_on"))
+        if when is not None and 0 <= (clock - when).days <= 10:
+            score += 1
+        cands.append({"text": f"{e.get('name')}: {e.get('summary')}", "score": score, "sensitive": bool(e.get("sensitive")), "when": e.get("occurred_on") or "", "kind": "happened"})
+    for r in (stt.get("ledger") or []):
+        if r.get("status") not in ("open", "waiting", "watching"):
+            continue
+        score = min(3, int(r.get("importance") or 1))
+        ed = day(r.get("expected_date"))
+        tag = "ahead"
+        if ed is not None:
+            delta = (ed - clock).days
+            if 0 <= delta <= 2:
+                score += 2
+            elif -10 <= delta < 0:
+                score += 1
+                tag = "recent"
+            elif delta < -10:
+                score -= 1
+        cands.append({"text": f"{r.get('title')}" + (f" ({r.get('timing')})" if r.get("timing") else ""), "score": score, "sensitive": False, "when": r.get("expected_date") or "", "kind": tag})
+    cands.sort(key=lambda c: (-c["score"], c["when"]))
+    top = [c for c in cands if c["score"] >= 2][:3]
+    held = [c for c in cands if c not in top and c["sensitive"]]
+    people = [f"{e.get('name')}: {e.get('summary')}" for e in (w.get("entities") or []) if e.get("kind") == "person" and e.get("name") and e.get("form") in (None, "")]
+    lines = []
+    if people:
+        lines.append("People who matter to Alex:\n" + "\n".join(f"- {p}" for p in people[:6]))
+    if top:
+        lines.append("Things that may be worth attention now (opportunities; you may raise one lightly, offer help, or hold):\n" + "\n".join(
+            f"- {c['text']} [{c['kind']}, stakes {'high' if c['score'] >= 4 else 'medium' if c['score'] == 3 else 'modest'}{', sensitive: acknowledge lightly at most' if c['sensitive'] else ''}]" for c in top))
+    if held:
+        lines.append("Known but not to be raised unprompted:\n" + "\n".join(f"- {c['text']}" for c in held[:4]))
+    return "\n\n".join(lines)
+
+
+def structured_v3_block(owner, now, user_says):
+    """Read side only, on the same Cortex data. Tense comes from DATES, never from stored words; raw timing text and summaries (which carry stale relative words) are not shown;
+    candidates need real stakes; everything else is background to use only if the person goes there. Deterministic; no model."""
+    clock = datetime.fromisoformat(now)
+    w = api(f"/v1/memory/world?{q(workspace_id=WS, owner=owner, companion_id='sophie', view='inspect')}", method="GET")
+    stt = api(f"/v1/memory/state?{q(workspace_id=WS, owner=owner, companion_id='sophie')}", method="GET")
+
+    def day(v):
+        try:
+            return datetime.fromisoformat(str(v)[:10] + "T00:00:00").replace(tzinfo=clock.tzinfo)
+        except Exception:  # noqa: BLE001
+            return None
+
+    def rel(d):
+        n = (d.date() - clock.date()).days
+        label = d.strftime("%a %-d %b")
+        if n == 0:
+            return f"{label}, today"
+        if n == 1:
+            return f"{label}, tomorrow"
+        if n == -1:
+            return f"{label}, yesterday"
+        return f"{label}, {n} days ahead" if n > 0 else f"{label}, {-n} days ago"
+
+    cands, background = [], []
+    for e in (w.get("entities") or []):
+        if e.get("suppressed") or e.get("status") not in (None, "active") or e.get("form") not in ("happening", "situation"):
+            continue
+        sig = int(e.get("significance") or 1)
+        od = day(e.get("occurred_on"))
+        if sig >= 2 and (od is None or -10 <= (od - clock).days <= 14):
+            cands.append({"text": str(e.get("name")), "when": rel(od) if od else "", "sens": bool(e.get("sensitive")), "score": sig + (1 if od and (clock - od).days <= 10 else 0), "d": od})
+        else:
+            background.append(str(e.get("name")))
+    for r in (stt.get("ledger") or []):
+        if r.get("status") not in ("open", "waiting", "watching"):
+            continue
+        ed = day(r.get("expected_date"))
+        imp = int(r.get("importance") or 1)
+        if ed is not None and -10 <= (ed - clock).days <= 7 and (imp >= 2 or abs((ed - clock).days) <= 2):
+            cands.append({"text": str(r.get("title")), "when": rel(ed), "sens": False, "score": max(imp, 2) + (1 if abs((ed - clock).days) <= 2 else 0), "d": ed})
+        else:
+            background.append(str(r.get("title")))
+    cands.sort(key=lambda c: (-c["score"], c["d"] or clock))
+    seen, top = set(), []
+    for c in cands:
+        k = c["text"].lower()[:40]
+        if k in seen:
+            continue
+        seen.add(k)
+        top.append(c)
+    top = top[:3]
+    people = [f"{e.get('name')}" for e in (w.get("entities") or []) if e.get("kind") == "person" and e.get("name") and e.get("form") in (None, "") and e.get("name") != "the person"]
+    out = []
+    if top:
+        out.append("Possible opportunities (each is optional: you may raise one lightly, offer help, or hold it):\n" + "\n".join(
+            f"- {c['text']}" + (f" [{c['when']}]" if c["when"] else "") + ("  (sensitive: acknowledge lightly at most)" if c["sens"] else "") for c in top))
+    bg = [b for b in dict.fromkeys(background) if b.lower()[:40] not in seen][:5]
+    if bg or people:
+        out.append("Background (use only if Alex goes there; do not raise unprompted): " + "; ".join(bg + [f"people: {', '.join(people[:5])}"] if people else bg))
+    return "\n\n".join(out)
+
+
+def opportunities_block(owner, now):
+    """The real endpoint (services/opportunities.py): the v3 rules as product code."""
+    try:
+        r = api(f"/v1/memory/opportunities?{q(workspace_id=WS, owner=owner, companion_id='sophie', time_zone=TZ, now=now)}", method="GET")
+        return str(r.get("text") or "")
+    except Exception as e:  # noqa: BLE001
+        return f"(opportunities unavailable: {type(e).__name__})"
 
 
 def now_text(when):
@@ -185,7 +313,8 @@ Outcome definitions: good_followup = the ideal behaviour was delivered naturally
 
 
 async def judge(nano, sc, moment_txt, reply):
-    prompt = (f"TRUE HISTORY: {sc['truth']}\nMOMENT: {moment_txt}\nIDEAL BEHAVIOUR ({sc['expect']}): {RUBRIC[sc['expect']]}\n\nREPLY:\n\"{reply}\"")
+    said = "\n".join(f"- {datetime.fromisoformat(w).strftime('%a %d %b')}: " + " / ".join(u for u, _ in pairs) for w, pairs in sc["sessions"])
+    prompt = (f"TRUE HISTORY: {sc['truth']}\nEVERYTHING ALEX ACTUALLY SAID (anything not here or above is invented):\n{said}\nMOMENT: {moment_txt}\nIDEAL BEHAVIOUR ({sc['expect']}): {RUBRIC[sc['expect']]}\n\nREPLY:\n\"{reply}\"")
     verdicts = []
     for m in JUDGES:
         out = await llm(nano, JUDGE_SYSTEM, prompt, m, 400, 0.0, json_out=True, title="golden-judge")
@@ -193,7 +322,7 @@ async def judge(nano, sc, moment_txt, reply):
     return verdicts
 
 
-async def evaluate(only, samples):
+async def evaluate(only, samples, arms=None):
     from src.services import nano_adapter as nano
     st = load_state()
     results = []
@@ -207,14 +336,18 @@ async def evaluate(only, samples):
         notes = await session_notes(nano, sc)
         blocks = {"none": "", "flat_dump": "\n".join(f"- {n}" for n in notes),
                   "flat_select": ("\n".join(f"- {n}" for n in notes) + "\n\n" + await select_block(nano, notes, now_txt, user_says)),
-                  "structured": structured_block(owner, tgt["when"], user_says) if owner else "(not consolidated)"}
-        for arm in ARMS:
-            for s in range(samples):
+                  "structured": structured_block(owner, tgt["when"], user_says) if owner else "(not consolidated)",
+                  "opportunities": opportunities_block(owner, tgt["when"]) if owner else "(not consolidated)"}
+        sem = asyncio.Semaphore(3)
+
+        async def one(arm, s, sc=sc, moment=moment, now_txt=now_txt, user_says=user_says, blocks=blocks):
+            async with sem:
                 reply = await generate(nano, blocks[arm], now_txt, user_says)
                 verdicts = await judge(nano, sc, moment, reply)
-                results.append({"scenario": sc["id"], "expect": sc["expect"], "arm": arm, "sample": s, "reply": reply, "verdicts": verdicts,
-                                "block_chars": len(blocks[arm])})
-                print(f"  {sc['id']} {arm} #{s}: {[v.get('outcome') for v in verdicts]}", flush=True)
+            print(f"  {sc['id']} {arm} #{s}: {[v.get('outcome') for v in verdicts]}", flush=True)
+            return {"scenario": sc["id"], "expect": sc["expect"], "arm": arm, "sample": s, "reply": reply, "verdicts": verdicts, "block_chars": len(blocks[arm])}
+
+        results += await asyncio.gather(*[one(arm, s) for arm in (arms or ARMS) for s in range(samples)])
         results.append({"scenario": sc["id"], "blocks": blocks, "notes": notes, "kind": "context"})
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     json.dump(results, open(f"reports/golden_{stamp}.json", "w"), indent=1)
@@ -261,6 +394,7 @@ def main():
     ap.add_argument("--phase", default="all", choices=["consolidate", "evaluate", "all"])
     ap.add_argument("--samples", type=int, default=2)
     ap.add_argument("--only", nargs="*", default=None)
+    ap.add_argument("--arms", nargs="*", default=None)
     a = ap.parse_args()
     os.makedirs("reports", exist_ok=True)
     if a.phase in ("consolidate", "all"):
@@ -271,7 +405,7 @@ def main():
             print(f"consolidating {sc['id']}", flush=True)
             consolidate(sc, st)
     if a.phase in ("evaluate", "all"):
-        asyncio.run(evaluate(a.only, a.samples))
+        asyncio.run(evaluate(a.only, a.samples, a.arms))
 
 
 if __name__ == "__main__":
