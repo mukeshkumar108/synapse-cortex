@@ -1228,7 +1228,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
             observations=obs_text, n_observations=n_obs, today=today, weekday=clock["weekday"],
             obs_timing={n: _clean(it.get("timing"), 200) for n, it in enumerate(witness, 1) if _clean(it.get("timing"), 200)},
             time_zone=clock["tz"], transcript=transcript)
-        _writer = os.getenv("LEDGER_WRITER", "agent").strip().lower()      # EXPERIMENT (H1): agent (default) | light | hybrid; see ledger_light.py
+        _writer = os.getenv("LEDGER_WRITER", "hybrid").strip().lower()      # hybrid (default): the one-call writer, the agent only if it cannot verify; agent | light remain as an emergency override, see ledger_light.py
         if _writer in ("light", "hybrid"):
             from src.services import ledger_light
             agent_out = await ledger_light.run(**_writer_kwargs)

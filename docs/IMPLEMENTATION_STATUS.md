@@ -108,7 +108,7 @@ reliability harness (`scripts/eval_reliability.py`) need a live Cortex and are r
 
 ## Update, 2026-10-26 (behaviour-first experiments; see DECISIONS D-R1..D-R6)
 
-- Added (tested, 883 pass): `GET /v1/memory/opportunities` (read-only, deterministic, versioned packets by stage), code refusal of relative time words in entity summaries, "next <weekday>" naming both dates, the flagged one-call ledger writer (`LEDGER_WRITER`, default `agent`).
+- Added (tested, 883 pass): `GET /v1/memory/opportunities` (read-only, deterministic, versioned packets by stage), code refusal of relative time words in entity summaries, "next <weekday>" naming both dates, the one-call ledger writer as the DEFAULT with the agent as its fallback (`LEDGER_WRITER=hybrid`).
 - Not built: anything that consumes the packets (Runtime), Jev's connection-versus-task flag, preparation ahead of time, the five-event log, a fix for asides becoming tracked situations.
 - One test fails on main and here, unrelated and time-dependent: `tests/test_attention_cycle.py::test_review_schedules_and_verifies` asserts a date that has passed.
 - Evidence and harnesses: `reports/h1_h2_2026-10-26`, `reports/h11_golden_moments_2026-10-26`, `reports/h12_progressive_2026-10-26`, `scripts/golden_*.py`, `scripts/h2_gate.py`, `scripts/progressive_test.py`.

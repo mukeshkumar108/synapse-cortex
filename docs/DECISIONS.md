@@ -128,4 +128,4 @@ The contract is the same whether packets are built on demand or prepared ahead l
 
 **D-R5 — A packet's retirement is not a matter's retirement.** Used items leave the active packet; the matter keeps its own life cycle in the ledger and world records.
 
-**D-R6 — A one-call ledger writer exists behind `LEDGER_WRITER=light|hybrid`; the agent stays the default.** H1: comparable correctness on the four fixtures with about 3x fewer calls (4.6 -> 1.4); short fixtures, so not yet a reason to switch.
+**D-R6 — The one-call ledger writer is the default, with the agent as its fallback (`LEDGER_WRITER=hybrid`).** H1: comparable correctness on the four fixtures with about 3x fewer calls (4.6 -> 1.4), and the hybrid never needed its fallback in 27 sessions; one code path that cannot do worse than the agent, not a parallel product. `agent` and `light` remain as an emergency override only. Rollback: Git, and the `pre-packets-2026-10-26` image.
