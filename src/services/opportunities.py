@@ -17,6 +17,9 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlmodel import select
+
+from src.models.known_world import KnownLink
 from src.services import known_world
 
 MAX_CANDIDATES = 3
@@ -52,11 +55,20 @@ def relative_label(day: datetime, today) -> str:
 async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *, world_on: bool = True, ledger_rows: Optional[List[Any]] = None) -> Dict[str, Any]:
     now, tz, today = ctx.now, ctx.now.tzinfo, ctx.today
     cands: List[Dict[str, Any]] = []
-    background: List[str] = []
+    background: List[Dict[str, Any]] = []
     people: List[str] = []
+    private_keys: set = set()          # ledger keys that belong to a private matter
+    private_stems: List[set] = []      # word stems of private entities, to catch the same matter written up separately in the ledger
 
     if world_on:
-        for e in await known_world.list_all(db, ws, owner, statuses=("active",), limit=300):
+        entities = await known_world.list_all(db, ws, owner, statuses=("active",), limit=300)
+        sensitive_ids = {e.id for e in entities if e.sensitive and not e.suppressed}
+        private_stems = [_stems(f"{e.name} {e.summary}") for e in entities if e.id in sensitive_ids]
+        if sensitive_ids:
+            links = (await db.execute(select(KnownLink).where(KnownLink.honcho_workspace_id == ws, KnownLink.owner_peer_id == owner,
+                                                              KnownLink.target_kind == "ledger", KnownLink.status == "current"))).scalars().all()
+            private_keys = {str(l.target_ref) for l in links if l.from_entity_id in sensitive_ids}
+        for e in entities:
             if e.suppressed or e.name_key == "the person":
                 continue
             if e.kind == "person" and not (e.form or "") and e.name:
@@ -78,11 +90,14 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
             continue
         ed = _day(r.expected_date, tz)
         imp = int(r.importance or 1)
+        # Sensitivity belongs to the MATTER, not to the record that happens to hold it: a ledger row linked to a private entity, or sharing a distinctive word (five letters or
+        # more) with one, is private too. A false positive only makes the item gentler, which is the safe direction.
+        is_private = str(r.situation_key) in private_keys or any({w for w in _stems(str(r.title)) if len(w) >= 5} & {w for w in ps if len(w) >= 5} for ps in private_stems)
         if ed is not None and -PAST_DAYS <= (ed.date() - today).days <= LEDGER_AHEAD_DAYS and (imp >= 2 or 0 <= (ed.date() - today).days <= 1):      # low-importance matters count only when imminent, never after the fact
-            cands.append({"id": f"ledger:{r.situation_key}", "text": str(r.title), "when": relative_label(ed, today), "private": False, "source": "ledger",
+            cands.append({"id": f"ledger:{r.situation_key}", "text": str(r.title), "when": relative_label(ed, today), "private": is_private, "source": "ledger",
                           "ref": str(r.situation_key), "score": max(imp, 2) + (1 if abs((ed.date() - today).days) <= 2 else 0), "sort": ed})
         else:
-            background.append({"id": f"ledger:{r.situation_key}", "text": str(r.title), "source": "ledger", "ref": str(r.situation_key), "private": False})
+            background.append({"id": f"ledger:{r.situation_key}", "text": str(r.title), "source": "ledger", "ref": str(r.situation_key), "private": is_private})
 
     cands.sort(key=lambda c: (-c["score"], c["sort"] or now))
     seen: set = set()

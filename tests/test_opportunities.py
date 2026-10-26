@@ -140,3 +140,20 @@ async def test_forward_stance_changes_the_wording_but_a_private_item_always_gets
     t = forward["text"]
     assert forward["stance"] == "forward" and "naturally ask about or mention" in t.split("Private")[0] and "Leo breaks his leg" in t.split("Private")[0]
     assert "Private (acknowledge lightly at most; do not probe" in t and "Mum's fall" in t.split("Private")[1] and "Mum's fall" not in t.split("Private")[0]
+
+
+@pytest.mark.asyncio
+async def test_sensitivity_follows_the_matter_into_the_ledger_by_link_and_by_subject():
+    from src.models.known_world import KnownLink
+    async with async_session_maker() as db:
+        e = await _entity(db, "Mum's fall and hospital stay", kind="health", form="situation", significance=3, sensitive=True, summary="mum is in hospital after a fall")
+        linked = _row("Dad's insurance call", "2026-10-26", importance=3)
+        db.add(KnownLink(honcho_workspace_id=WS, owner_peer_id=OWNER, from_entity_id=e.id, relation="concerns", target_kind="ledger", target_ref=linked.situation_key, status="current"))
+        same_subject = _row("Mother's hospital tests", "2026-10-26", importance=3)
+        unrelated = _row("Send the report", "2026-10-26", importance=3)
+        await db.commit()
+        out = await opportunities.read(db, WS, OWNER, CTX, ledger_rows=[linked, same_subject, unrelated])
+    by = {c["text"]: c["private"] for c in out["candidates"]}
+    assert by.get("Dad's insurance call") is True          # linked to a private entity
+    assert by.get("Mother's hospital tests") is True       # no link, but it shares the distinctive word 'hospital' with the private matter
+    assert by.get("Send the report") is False
