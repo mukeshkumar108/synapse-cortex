@@ -251,9 +251,12 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
 
 @router.get("/opportunities")
 async def opportunities_view(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, now: Optional[str] = None,
-                             time_zone: Optional[str] = None, db: AsyncSession = Depends(get_async_session)):
+                             time_zone: Optional[str] = None, stage: str = "survey", user_text: Optional[str] = None, task: Optional[bool] = None,
+                             used: Optional[str] = None, db: AsyncSession = Depends(get_async_session)):
     """What may be worth the companion's attention right now: a few optional opportunities ranked by stakes and time, and everything else as background.
-    Deterministic, no model. Tense is computed from dates, never from stored words (see services/opportunities.py)."""
+    Deterministic, no model. Tense is computed from dates, never from stored words (see services/opportunities.py).
+    `packet` is the versioned contract (docs/OPPORTUNITIES_PACKET_CONTRACT.md): stage=opening (one minimal re-entry packet), moment (only items the person's
+    words touch; pass user_text, and `used`, a comma list of item ids already used this conversation), survey (everything). Empty items means give nothing."""
     from src.config import settings as _s
     from src.services import attention_cycle as _ac, known_world as _kw, opportunities as _op, product_memory as _pm
     scope = _scope(request, workspace_id, companion_id)
@@ -263,7 +266,10 @@ async def opportunities_view(request: Request, workspace_id: str, owner: str, co
     world_on = bool(_s.CONNECTED_WORLD_ENABLED and cfg.world_enabled)
     rows = await memory_pipeline.open_ledger(db, scope.workspace, owner, limit=100) if cfg.ledger_enabled else []
     out = await _op.read(db, scope.workspace, owner, ctx, world_on=world_on, ledger_rows=rows)
-    return {"enabled": True, "product": scope.product, "world": world_on, **out}
+    if stage not in ("opening", "moment", "survey"):
+        raise HTTPException(status_code=422, detail="stage must be opening, moment or survey")
+    packet = _op.build_packet(out, stage=stage, user_text=user_text or "", task=task, used=[u for u in (used or "").split(",") if u])
+    return {"enabled": True, "product": scope.product, "world": world_on, **out, "packet": packet}
 
 
 @router.get("/export")

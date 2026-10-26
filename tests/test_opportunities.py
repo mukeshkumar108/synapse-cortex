@@ -75,3 +75,44 @@ def test_relative_time_words_in_a_summary_are_refused_by_code():
     from src.services.world_agent import relative_time_problem as bad
     assert bad("Priya's wedding, this Saturday.") and bad("made a pot of chilli the day before today") and bad("Meeting next week")
     assert not bad("Friend who is getting married; asked to do a reading") and not bad("Leo's parent, currently run ragged driving him around.")
+
+
+async def _seed_packet_world(db):
+    await _entity(db, "Leo breaks his leg in rugby", kind="injury", form="happening", occurred_on=datetime(2026, 10, 17), significance=2)
+    await _entity(db, "Chronic back pain affecting sleep", kind="health", form="situation", significance=1)
+    await _entity(db, "Project with shifting requirements", kind="work", form="situation", significance=1)
+    await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_opening_packet_is_one_minimal_item_and_empty_when_nothing_fits():
+    async with async_session_maker() as db:
+        await _seed_packet_world(db)
+        out = await opportunities.read(db, WS, OWNER, CTX)
+        empty = await opportunities.read(db, "nothing-here", "nobody", CTX)
+    pk = opportunities.build_packet(out, stage="opening")
+    assert pk["version"] == 1 and pk["purpose"] == "reconnect" and len(pk["items"]) == 1
+    assert pk["items"][0]["text"] == "Leo breaks his leg in rugby" and "Background" not in pk["text"] and pk["valid_until"] > pk["built_at"]
+    assert opportunities.build_packet(empty, stage="opening")["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_moment_packet_follows_the_persons_words_and_retires_used_items_but_not_the_matter():
+    async with async_session_maker() as db:
+        await _seed_packet_world(db)
+        out = await opportunities.read(db, WS, OWNER, CTX)
+    pk = opportunities.build_packet(out, stage="moment", user_text="I'm shattered, barely slept, my back is killing me")
+    assert [i["text"] for i in pk["items"]] == ["Chronic back pain affecting sleep"] and pk["purpose"] == "touched"
+    used_id = pk["items"][0]["id"]
+    again = opportunities.build_packet(out, stage="moment", user_text="my back again", used=[used_id])
+    assert again["items"] == []                                  # the packet is retired once used...
+    assert out["background_items"][0]["source"] == "world" and out["background_items"][0]["ref"]      # ...while the matter stays in the records with its own life cycle
+
+
+@pytest.mark.asyncio
+async def test_a_task_withholds_unrelated_relational_items():
+    async with async_session_maker() as db:
+        await _seed_packet_world(db)
+        out = await opportunities.read(db, WS, OWNER, CTX)
+    pk = opportunities.build_packet(out, stage="moment", user_text="Can you help me tighten this email to my boss? It has to go before ten.")
+    assert pk["items"] == [] and pk["purpose"] == "task_support"
