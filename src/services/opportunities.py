@@ -39,6 +39,11 @@ def _day(value: Any, tz) -> Optional[datetime]:
         return None
 
 
+def relative_time_in(text: str) -> bool:
+    from src.services.world_agent import relative_time_problem
+    return bool(relative_time_problem(text))
+
+
 def relative_label(day: datetime, today) -> str:
     """'Thu 22 Oct, tomorrow' from the date alone."""
     n = (day.date() - today).days
@@ -57,6 +62,7 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
     cands: List[Dict[str, Any]] = []
     background: List[Dict[str, Any]] = []
     people: List[str] = []
+    people_notes: Dict[str, str] = {}      # a known person's name -> their stored one-line summary ("the person's twelve-year-old nephew")
     private_keys: set = set()          # ledger keys that belong to a private matter
     private_stems: List[set] = []      # word stems of private entities, to catch the same matter written up separately in the ledger
 
@@ -73,6 +79,8 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
                 continue
             if e.kind == "person" and not (e.form or "") and e.name:
                 people.append(str(e.name))
+                if (e.summary or "").strip() and not relative_time_in(e.summary):
+                    people_notes[str(e.name)] = str(e.summary).strip()
                 continue
             if e.form not in ("happening", "situation"):
                 continue
@@ -124,7 +132,7 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
     if bg or people:
         parts.append("Background (use only if the person goes there; do not raise unprompted): " + "; ".join(bg + ([f"people: {', '.join(people[:5])}"] if people else [])))
     return {"text": "\n\n".join(parts), "candidates": [{k: v for k, v in c.items() if k != "sort"} for c in top], "background": bg, "background_items": bg_items,
-            "people": people[:8], "now": now.isoformat(), "time_zone": ctx.tz}
+            "people": people[:8], "people_notes": people_notes, "now": now.isoformat(), "time_zone": ctx.tz}
 
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -210,11 +218,15 @@ def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str 
         purpose, items = ("task_support" if is_task else "touched"), [item(x, k) for x, k in hits[:2]]
     else:
         purpose, items = "survey", [item(c, "opportunity") for c in cands] + [item(b, "background") for b in bg]
+    who = []
+    for name, note in (out.get("people_notes") or {}).items():
+        if any(name.lower() in i["text"].lower() for i in items):
+            who.append(f"- {name}: {note}")
     built = _dt.fromisoformat(out["now"])
     minutes = valid_minutes if valid_minutes is not None else (360 if stage == "opening" else 30)
     import hashlib
     pid = hashlib.sha1((out["now"] + stage + "|".join(i["id"] for i in items)).encode()).hexdigest()[:12]
     return {"version": PACKET_VERSION, "id": pid, "stage": stage, "purpose": purpose, "built_at": built.isoformat(), "valid_until": (built + _td(minutes=minutes)).isoformat(),
-            "stance": stance if stance in STANCES else "gentle", "items": items, "text": _render(items, purpose, stance if stance in STANCES else "gentle"), "usage": USAGE,
+            "stance": stance if stance in STANCES else "gentle", "items": items, "who": who, "text": _render(items, purpose, stance if stance in STANCES else "gentle") + (("\n\nWho this is:\n" + "\n".join(who)) if (who and items) else ""), "usage": USAGE,
             "retire": {"packet": "when its items have been used, or the conversation moves on",
                        "matter": "never by use alone: only when the matter itself resolves (ledger status, or the person says it is settled)"}}

@@ -171,3 +171,14 @@ async def test_a_forward_opening_says_to_open_with_the_item_but_a_private_openin
         out2 = await opportunities.read(db, WS, OWNER, CTX)
     pk2 = opportunities.build_packet(out2, stage="opening", stance="forward")
     assert pk2["text"].startswith("Private (acknowledge lightly at most") and "Open with this" not in pk2["text"]
+
+
+@pytest.mark.asyncio
+async def test_a_packet_says_who_a_named_person_is_so_a_weak_model_cannot_mistake_them_for_the_user():
+    async with async_session_maker() as db:
+        await _entity(db, "Leo", kind="person", summary="The person's twelve-year-old nephew.")
+        await _entity(db, "Leo breaks his leg in rugby", kind="injury", form="happening", occurred_on=datetime(2026, 10, 17), significance=2)
+        out = await opportunities.read(db, WS, OWNER, CTX)
+    pk = opportunities.build_packet(out, stage="opening")
+    assert "Who this is:\n- Leo: The person's twelve-year-old nephew." in pk["text"] and pk["who"]
+    assert "Who this is" not in opportunities.build_packet(out, stage="moment", user_text="send the invoice")["text"]
