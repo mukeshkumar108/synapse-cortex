@@ -170,6 +170,8 @@ def _render(items: List[Dict[str, Any]], purpose: str, stance: str = "gentle") -
                  "survey": "Possible opportunities (each is optional: raise one lightly, offer help, or hold it):"}[purpose]
     head_forward = ("Worth attention now: something you would naturally ask about or mention if the moment is right (a light touch, never a script; leave it "
                     "only if the person is clearly occupied or it would intrude):")
+    head_lead = ("Open with this, lightly and in your own words, unless the person arrives with something else (a light touch, never a script; leave it "
+                 "only if the person is clearly occupied or it would intrude):")
     head_private = "Private (acknowledge lightly at most; do not probe, and do not open with specifics):"
 
     def line(i: Dict[str, Any]) -> str:
@@ -178,7 +180,7 @@ def _render(items: List[Dict[str, Any]], purpose: str, stance: str = "gentle") -
     private = [i for i in items if i.get("private")]
     out = []
     if plain:
-        out.append((head_forward if forward else head_open) + "\n" + "\n".join(line(i) for i in plain))
+        out.append(((head_lead if purpose == "reconnect" else head_forward) if forward else head_open) + "\n" + "\n".join(line(i) for i in plain))
     if private:
         out.append(head_private + "\n" + "\n".join(line(i) for i in private))
     return "\n\n".join(out)

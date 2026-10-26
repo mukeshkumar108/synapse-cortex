@@ -157,3 +157,17 @@ async def test_sensitivity_follows_the_matter_into_the_ledger_by_link_and_by_sub
     assert by.get("Dad's insurance call") is True          # linked to a private entity
     assert by.get("Mother's hospital tests") is True       # no link, but it shares the distinctive word 'hospital' with the private matter
     assert by.get("Send the report") is False
+
+
+@pytest.mark.asyncio
+async def test_a_forward_opening_says_to_open_with_the_item_but_a_private_opening_never_does():
+    async with async_session_maker() as db:
+        await _entity(db, "Leo breaks his leg in rugby", kind="injury", form="happening", occurred_on=datetime(2026, 10, 17), significance=2)
+        out = await opportunities.read(db, WS, OWNER, CTX)
+    pk = opportunities.build_packet(out, stage="opening", stance="forward")
+    assert pk["text"].startswith("Open with this, lightly and in your own words")
+    async with async_session_maker() as db:
+        await _entity(db, "Mum's fall", kind="health", form="happening", occurred_on=datetime(2026, 10, 25), significance=3, sensitive=True)
+        out2 = await opportunities.read(db, WS, OWNER, CTX)
+    pk2 = opportunities.build_packet(out2, stage="opening", stance="forward")
+    assert pk2["text"].startswith("Private (acknowledge lightly at most") and "Open with this" not in pk2["text"]
