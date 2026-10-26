@@ -37,7 +37,6 @@ class ProductMemory:
     attention_enabled: bool = True  # persisted intentions / follow-through review after consolidation
     preparation_label: str = "PREPARED PERSPECTIVE"
     world_enabled: bool = True      # this product uses the connect pass (entities, situations, links) when the deployment flag is on
-    world_sensitive: str = "full"   # how much of a sensitive situation the overview carries: "full" | "minimal"
     default_time_zone: str = "UTC"  # used only when the caller supplies no timezone
 
     def seed(self, key: str) -> str:

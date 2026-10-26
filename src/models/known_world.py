@@ -35,7 +35,7 @@ class KnownEntity(SQLModel, table=True):
     name_key: str = Field(default="", index=True, nullable=False)          # normalised, for deterministic matching
     summary: str = Field(default="")                                        # compact identity / current state, <= ~500 chars; never dates or commitments
     status: str = Field(default="active", index=True, nullable=False)      # active | dormant | resolved | merged
-    sensitive: bool = Field(default=False)                                  # emotional / health / family: handled with extra care by product policy
+    sensitive: bool = Field(default=False)                                  # RETIRED: no behaviour reads this. Whether and how to raise something is the persona's policy; the person's own boundary is `suppressed`
     suppressed: bool = Field(default=False)                                 # the person asked not to be prompted about it: never raised unprompted (memory is kept)
     basis: str = Field(default="stated")                                    # stated | inferred: how we know this entity (and its identity) exists
     source_refs_json: str = Field(default="[]")                             # provenance: [{session, quote}], capped

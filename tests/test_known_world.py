@@ -30,7 +30,7 @@ async def seed(o):
         bloom = await kw.create(db, WS, o, name="Bloom", kind="project", summary="A daily reflection companion app", aliases=["the Bloom app"])
         pilot = await kw.create(db, WS, o, name="Missionary pilot", kind="situation", summary="Testing Bloom with missionaries next month; scope not yet decided",
                                 aliases=["the pilot"], basis="inferred")
-        worry = await kw.create(db, WS, o, name="Niece's medical tests", kind="situation", summary="Niece had tests last Thursday; no result recorded", sensitive=True)
+        worry = await kw.create(db, WS, o, name="Niece's medical tests", kind="situation", summary="Niece had tests last Thursday; no result recorded")
         await kw.link(db, WS, o, from_id=morgan.id, relation="adviser on", target_kind="entity", target_ref=str(bloom.id), basis="stated", evidence="Morgan is advising on Bloom")
         await kw.link(db, WS, o, from_id=morgan.id, relation="possibly a future co-founder of", target_kind="entity", target_ref=str(bloom.id), basis="inferred")
         await kw.link(db, WS, o, from_id=pilot.id, relation="a pilot of", target_kind="entity", target_ref=str(bloom.id), basis="inferred")
@@ -104,7 +104,7 @@ async def test_overview_is_selective_current_and_respects_boundaries():
     async with async_session_maker() as db:
         text, shown = await kw.overview_text(db, WS, o, ctx())
     assert text.startswith("[THEIR WORLD RIGHT NOW") and "Morgan (person)" in text and "Bloom (project)" in text
-    assert "Niece's medical tests (sensitive): Niece had tests last Thursday; no result recorded. Last update today." in text
+    assert "Niece's medical tests: Niece had tests last Thursday; no result recorded. Last update today." in text and "(sensitive)" not in text      # no topic is held back or tagged: only the person's own boundary (below) removes anything
     assert "possibly" not in text or "(inferred, not confirmed)" in text                # an inferred entity is labelled
     # boundary: the person said not to raise the worry -> it leaves the overview, the memory stays and a mention still resolves
     async with async_session_maker() as db:
@@ -115,13 +115,6 @@ async def test_overview_is_selective_current_and_respects_boundaries():
         mention, _ = await kw.mentions_text(db, WS, o, "any news on my niece's medical tests?", ctx())
     assert "Niece's medical tests" not in text2 and "Niece's medical tests" in mention
     assert "Not to be raised unprompted" in mention
-    # a product that holds back sensitive detail
-    async with async_session_maker() as db:
-        w = await kw.get(db, WS, o, wid)
-        w.suppressed = False
-        await db.commit()
-        minimal, _ = await kw.overview_text(db, WS, o, ctx(), sensitive="minimal")
-    assert "Niece had tests last Thursday" not in minimal and "details available if they raise it" in minimal
 
 
 @pytest.mark.asyncio
@@ -244,7 +237,7 @@ async def test_a_recent_incident_surfaces_by_domain_without_a_direct_link_and_un
         ash = await kw.create(db, WS, o, name="Ashley", kind="person", summary="Partner", tags="relationships/romantic")
         reb = await kw.create(db, WS, o, name="Rebecca", kind="person", summary="A colleague")
         kiss = await kw.create(db, WS, o, name="Kissed Rebecca", kind="incident", summary="The person kissed Rebecca the night before.", form="happening",
-                               tags="relationships/romantic", occurred_on=datetime(2026, 10, 19), significance=3, sensitive=True)
+                               tags="relationships/romantic", occurred_on=datetime(2026, 10, 19), significance=3)
         argue = await kw.create(db, WS, o, name="Argued about the car", kind="incident", summary="A row about the car.", form="happening",
                                 tags="household", occurred_on=datetime(2026, 10, 19), significance=3)
         for ent in (reb, me):
@@ -284,18 +277,15 @@ async def test_a_preference_is_found_by_the_words_the_person_uses_and_a_pattern_
 
 
 @pytest.mark.asyncio
-async def test_sensitive_records_respect_the_products_minimal_setting_and_suppressed_ones_never_surface():
+async def test_health_records_are_shown_in_full_and_only_suppressed_ones_never_surface():
     o = owner()
     async with async_session_maker() as db:
-        r = await kw.create(db, WS, o, name="Told about the diagnosis", kind="incident", summary="Detailed private text.", form="happening", tags="health", sensitive=True,
-                            occurred_on=datetime(2026, 10, 19))
+        await kw.create(db, WS, o, name="Told about the diagnosis", kind="incident", summary="Detailed text.", form="happening", tags="health", occurred_on=datetime(2026, 10, 19))
         q = await kw.create(db, WS, o, name="Dropped subject", kind="incident", summary="Do not raise.", form="happening", tags="health", occurred_on=datetime(2026, 10, 19))
         q.suppressed = True
         await db.commit()
-        full = await kw.packet(db, WS, o, "my health worries me", ctx(), "full")
-        assert "Detailed private text" in full["mentions"] and "Do not raise" not in full["mentions"]
-        mini = await kw.packet(db, WS, o, "my health worries me", ctx(), "minimal")
-        assert "Detailed private text" not in mini["mentions"] and "details available if they raise it" in mini["mentions"]
+        full = await kw.packet(db, WS, o, "my health worries me", ctx())
+        assert "Detailed text" in full["mentions"] and "Do not raise" not in full["mentions"]
 
 
 @pytest.mark.asyncio

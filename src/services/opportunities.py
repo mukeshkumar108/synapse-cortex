@@ -6,8 +6,8 @@ mention, an offer of help, or only holding, right now?
 Rules (each one came from a measured failure, see the Cortex review, "Results so far: H11"):
   * Tense comes from DATES, never from stored words. Summaries and timing text carry relative words ("tomorrow", "this Saturday") written days earlier; they are not shown.
   * A candidate needs real stakes (a significant happening or situation, or a dated ledger matter close in time). Everything else is background.
-  * Wording is neutral and third person. An opportunity is not an instruction: the companion may raise it, offer help, hold it, or say nothing.
-  * Private items are marked so the companion acknowledges lightly and does not probe.
+  * Facts only: what, when, who. How to behave with them (whether to raise one, how lightly, what to leave) is the product's policy, carried by the persona, never by
+    this module. The only boundary honoured here is the person's own: an entity they asked not to be prompted about (`suppressed`) is never surfaced.
   * Nothing is ranked on recency alone.
 """
 from __future__ import annotations
@@ -17,9 +17,6 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlmodel import select
-
-from src.models.known_world import KnownLink
 from src.services import known_world
 
 MAX_CANDIDATES = 3
@@ -63,17 +60,9 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
     background: List[Dict[str, Any]] = []
     people: List[str] = []
     people_notes: Dict[str, str] = {}      # a known person's name -> their stored one-line summary ("the person's twelve-year-old nephew")
-    private_keys: set = set()          # ledger keys that belong to a private matter
-    private_stems: List[set] = []      # word stems of private entities, to catch the same matter written up separately in the ledger
 
     if world_on:
         entities = await known_world.list_all(db, ws, owner, statuses=("active",), limit=300)
-        sensitive_ids = {e.id for e in entities if e.sensitive and not e.suppressed}
-        private_stems = [_stems(f"{e.name} {e.summary}") for e in entities if e.id in sensitive_ids]
-        if sensitive_ids:
-            links = (await db.execute(select(KnownLink).where(KnownLink.honcho_workspace_id == ws, KnownLink.owner_peer_id == owner,
-                                                              KnownLink.target_kind == "ledger", KnownLink.status == "current"))).scalars().all()
-            private_keys = {str(l.target_ref) for l in links if l.from_entity_id in sensitive_ids}
         for e in entities:
             if e.suppressed or e.name_key == "the person":
                 continue
@@ -86,26 +75,24 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
                 continue
             od = _day(e.occurred_on, tz)
             sig = int(e.significance or 1)
+            quotes = [r.get("quote") for r in known_world._refs(e.source_refs_json) if r.get("quote")]
+            said = str(quotes[-1])[:160] if quotes else ""
             within = od is None or -PAST_DAYS <= (od.date() - today).days <= AHEAD_DAYS
             if sig >= 2 and within:
-                cands.append({"id": f"world:{e.id}", "text": str(e.name), "when": relative_label(od, today) if od else "", "private": bool(e.sensitive),
-                              "source": "world", "ref": str(e.id), "score": sig + (1 if od and 0 <= (today - od.date()).days <= PAST_DAYS else 0), "sort": od})
+                cands.append({"id": f"world:{e.id}", "text": str(e.name), "when": relative_label(od, today) if od else "", "said": said, "source": "world", "ref": str(e.id), "score": sig + (1 if od and 0 <= (today - od.date()).days <= PAST_DAYS else 0), "sort": od})
             else:
-                background.append({"id": f"world:{e.id}", "text": str(e.name), "source": "world", "ref": str(e.id), "private": bool(e.sensitive)})
+                background.append({"id": f"world:{e.id}", "text": str(e.name), "said": said, "source": "world", "ref": str(e.id)})
 
     for r in ledger_rows or []:
         if r.status not in ("open", "waiting", "watching"):
             continue
         ed = _day(r.expected_date, tz)
         imp = int(r.importance or 1)
-        # Sensitivity belongs to the MATTER, not to the record that happens to hold it: a ledger row linked to a private entity, or sharing a distinctive word (five letters or
-        # more) with one, is private too. A false positive only makes the item gentler, which is the safe direction.
-        is_private = str(r.situation_key) in private_keys or any({w for w in _stems(str(r.title)) if len(w) >= 5} & {w for w in ps if len(w) >= 5} for ps in private_stems)
         if ed is not None and -PAST_DAYS <= (ed.date() - today).days <= LEDGER_AHEAD_DAYS and (imp >= 2 or 0 <= (ed.date() - today).days <= 1):      # low-importance matters count only when imminent, never after the fact
-            cands.append({"id": f"ledger:{r.situation_key}", "text": str(r.title), "when": relative_label(ed, today), "private": is_private, "source": "ledger",
+            cands.append({"id": f"ledger:{r.situation_key}", "text": str(r.title), "when": relative_label(ed, today), "source": "ledger",
                           "ref": str(r.situation_key), "score": max(imp, 2) + (1 if abs((ed.date() - today).days) <= 2 else 0), "sort": ed})
         else:
-            background.append({"id": f"ledger:{r.situation_key}", "text": str(r.title), "source": "ledger", "ref": str(r.situation_key), "private": is_private})
+            background.append({"id": f"ledger:{r.situation_key}", "text": str(r.title), "source": "ledger", "ref": str(r.situation_key)})
 
     cands.sort(key=lambda c: (-c["score"], c["sort"] or now))
     seen: set = set()
@@ -127,10 +114,9 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
 
     parts: List[str] = []
     if top:
-        parts.append("Possible opportunities (each is optional: raise one lightly, offer help, or hold it):\n" + "\n".join(
-            f"- {c['text']}" + (f" [{c['when']}]" if c["when"] else "") + ("  (private: acknowledge lightly, do not probe)" if c["private"] else "") for c in top))
+        parts.append("From earlier:\n" + "\n".join(f"- {c['text']}" + (f" [{c['when']}]" if c["when"] else "") for c in top))
     if bg or people:
-        parts.append("Background (use only if the person goes there; do not raise unprompted): " + "; ".join(bg + ([f"people: {', '.join(people[:5])}"] if people else [])))
+        parts.append("Also held: " + "; ".join(bg + ([f"people: {', '.join(people[:5])}"] if people else [])))
     return {"text": "\n\n".join(parts), "candidates": [{k: v for k, v in c.items() if k != "sort"} for c in top], "background": bg, "background_items": bg_items,
             "people": people[:8], "people_notes": people_notes, "now": now.isoformat(), "time_zone": ctx.tz}
 
@@ -142,8 +128,6 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
 # cycle belongs to the ledger and the world records, not to exposure.
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------
 PACKET_VERSION = 1
-USAGE = ("Optional. Not a script and not an instruction: raise an item lightly, offer help with it, hold it, or ignore it. "
-         "Do not keep returning to an item once it has been dealt with. If the person asks for help with something, help with that first.")
 _TASK_WORDS = ("help me", "can you help", "could you", "tighten", "practise", "practice", "make it shorter", "rewrite", "draft", "proofread", "thoughts?")
 
 
@@ -162,40 +146,35 @@ def looks_like_task(text: str) -> bool:
     return any(w in t for w in _TASK_WORDS)
 
 
-STANCES = ("gentle", "forward")
+def _thought(i: Dict[str, Any]) -> str:
+    """One item as the companion's own thought, in the first person and active voice. Tense comes from the date label, never from stored words."""
+    when = str(i.get("when") or "")
+    line = f"- {i['text']}" + (f" ({when})" if when else "")
+    if when.endswith("ago") or when.endswith("yesterday"):
+        return line + ". I want to ask how it has gone."
+    if when.endswith("today"):
+        return line + ". I have been thinking about it since I woke."
+    if when:
+        return line + ". I want to know how they feel about it and whether I can help."
+    return line + ". I want to know how that is going."
 
 
-def _render(items: List[Dict[str, Any]], purpose: str, stance: str = "gentle") -> str:
-    """Wording matters as much as selection (measured, H13: the same opening item was taken in 6 of 24 cases with 'optional' wording and 22 of 24 with 'natural to
-    mention' wording, but the stronger wording also pushed a private matter in 7 of 8 cases). So the stance is a per-product setting, and a private item is ALWAYS
-    given the gentle, do-not-probe wording whatever the stance."""
+def _render(items: List[Dict[str, Any]], purpose: str) -> str:
+    """The attention packet. At an opening it is the companion's own thought (measured: the same facts read as her thoughts were taken as often or more often than
+    as a list or an instruction, with no restraint rules needed). Mid-conversation it is plain facts. Never a behavioural instruction, never a condition."""
     if not items:
         return ""
-    forward = stance == "forward" and purpose in ("reconnect", "touched")
-    head_open = {"reconnect": "Possible opportunity (optional: raise it lightly, or not):",
-                 "touched": "Things the person's words touch (use only if natural; each is optional):",
-                 "task_support": "Relevant to what the person asked for (optional):",
-                 "survey": "Possible opportunities (each is optional: raise one lightly, offer help, or hold it):"}[purpose]
-    head_forward = ("Worth attention now: something you would naturally ask about or mention if the moment is right (a light touch, never a script; leave it "
-                    "only if the person is clearly occupied or it would intrude):")
-    head_lead = ("Open with this, lightly and in your own words, unless the person arrives with something else (a light touch, never a script; leave it "
-                 "only if the person is clearly occupied or it would intrude):")
-    head_private = "Private (acknowledge lightly at most; do not probe, and do not open with specifics):"
-
-    def line(i: Dict[str, Any]) -> str:
-        return f"- {i['text']}" + (f" [{i['when']}]" if i.get("when") else "")
-    plain = [i for i in items if not i.get("private")]
-    private = [i for i in items if i.get("private")]
-    out = []
-    if plain:
-        out.append(((head_lead if purpose == "reconnect" else head_forward) if forward else head_open) + "\n" + "\n".join(line(i) for i in plain))
-    if private:
-        out.append(head_private + "\n" + "\n".join(line(i) for i in private))
-    return "\n\n".join(out)
+    if purpose in ("reconnect", "survey"):
+        body = "What is on my mind about them right now:\n" + "\n".join(_thought(i) for i in items)
+    else:
+        head = {"touched": "Their words bring to mind:", "task_support": "Relevant to what they asked for:"}[purpose]
+        body = head + "\n" + "\n".join(f"- {i['text']}" + (f" [{i['when']}]" if i.get("when") else "") for i in items)
+    said = [f"- {i['text']}: \"{i['said']}\"" for i in items if i.get("said")]
+    return body + (("\n\nWhat they said about it, in their words:\n" + "\n".join(said)) if said else "")
 
 
 def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str = "", task: Optional[bool] = None, used: Optional[List[str]] = None,
-                 valid_minutes: Optional[int] = None, stance: str = "gentle") -> Dict[str, Any]:
+                 valid_minutes: Optional[int] = None) -> Dict[str, Any]:
     """Select the small packet for this moment from what `read` found. Deterministic. Empty items means: give the companion nothing.
     stage: opening (re-entry: the single top opportunity), moment (only items the person's own words touch; relational items withheld during a task),
     survey (everything, the older single-block shape). `used` are item ids already used in this conversation (packet retirement, not matter retirement)."""
@@ -206,7 +185,7 @@ def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str 
     is_task = looks_like_task(user_text) if task is None else bool(task)
 
     def item(x: Dict[str, Any], kind: str) -> Dict[str, Any]:
-        return {"id": x["id"], "kind": kind, "text": x["text"], "when": x.get("when", ""), "private": bool(x.get("private")),
+        return {"id": x["id"], "kind": kind, "text": x["text"], "when": x.get("when", ""), "said": x.get("said", ""),
                 "stakes": int(x.get("score", 1)), "source": {"system": x["source"], "ref": x["ref"]}}
 
     if stage == "opening":
@@ -227,6 +206,6 @@ def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str 
     import hashlib
     pid = hashlib.sha1((out["now"] + stage + "|".join(i["id"] for i in items)).encode()).hexdigest()[:12]
     return {"version": PACKET_VERSION, "id": pid, "stage": stage, "purpose": purpose, "built_at": built.isoformat(), "valid_until": (built + _td(minutes=minutes)).isoformat(),
-            "stance": stance if stance in STANCES else "gentle", "items": items, "who": who, "text": _render(items, purpose, stance if stance in STANCES else "gentle") + (("\n\nWho this is:\n" + "\n".join(who)) if (who and items) else ""), "usage": USAGE,
+            "items": items, "who": who, "text": _render(items, purpose) + (("\n\nWho this is:\n" + "\n".join(who)) if (who and items) else ""),
             "retire": {"packet": "when its items have been used, or the conversation moves on",
                        "matter": "never by use alone: only when the matter itself resolves (ledger status, or the person says it is settled)"}}

@@ -17,10 +17,9 @@ The same packet is produced today ON DEMAND from the maintained records (the wor
   "valid_until": "2026-10-26T15:00:00+01:00",
   "items": [
     {"id": "world:<entity id> | ledger:<situation key>", "kind": "opportunity | background", "text": "Leo breaks his leg in rugby",
-     "when": "Sat 17 Oct, 9 days ago", "private": false, "stakes": 3, "source": {"system": "world | ledger", "ref": "..."}}
+     "when": "Sat 17 Oct, 9 days ago", "said": "the person's own last words about it, if any", "stakes": 3, "source": {"system": "world | ledger", "ref": "..."}}
   ],
-  "text": "the items rendered as a short block, neutral third person",
-  "usage": "Optional. Not a script and not an instruction ...",
+  "text": "the items rendered as the companion's own thought (opening) or plain facts (moment)",
   "retire": {"packet": "...", "matter": "..."}
 }
 ```
@@ -37,8 +36,8 @@ Empty `items` means: give the companion nothing.
 
 1. Tense comes from DATES, never from stored words. Summaries and timing text are not shown (they carry relative words written days earlier).
 2. A candidate needs real stakes; everything else is background. Nothing is ranked on recency alone.
-3. Neutral third-person wording. An opportunity is not an instruction. The companion may raise it, offer help, hold it, or ignore it.
-4. `private` marks items to acknowledge lightly and not probe. Whether something is appropriate also depends on the moment, which is why selection by stage exists; the flag is an input, not the decision.
+3. No behavioural instruction, no condition, no stance, no privacy marking. At an opening the items are the companion's own thoughts, first person and active ("I want to ask how it has gone"); mid-conversation they are plain facts. Whether and how to raise anything is the product's policy, carried by the persona, never by Cortex. (D-R10)
+4. The only boundary honoured is the person's own: an entity they asked not to be prompted about (`suppressed`) is never offered. Their own words about a matter travel with it (`said`), so the model reads the person, not a category.
 
 ## Packet life cycle is not matter life cycle
 

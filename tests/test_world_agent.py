@@ -147,7 +147,7 @@ async def test_finish_needs_a_reread_and_a_considered_line_and_is_never_trapped(
 @pytest.mark.asyncio
 async def test_updates_follow_the_rules_status_boundaries_aliases_and_renames_keep_resolving():
     o = owner()
-    steps = [{"calls": [_tc(1, "list_entities", {}), _tc(2, "create_entity", {"name": "Niece's medical tests", "kind": "health", "summary": "Tests on Thursday", "sensitive": True})]},
+    steps = [{"calls": [_tc(1, "list_entities", {}), _tc(2, "create_entity", {"name": "Niece's medical tests", "kind": "health", "summary": "Tests on Thursday"})]},
              {"calls": [_tc(3, "list_entities", {})]}]
     await run(o, steps)
     (e,) = [x for x in await rows(o, KnownEntity) if x.kind != "self"]
@@ -159,7 +159,7 @@ async def test_updates_follow_the_rules_status_boundaries_aliases_and_renames_ke
     seen = []
     await run(o, steps2, seen=seen)
     (e2,) = [x for x in await rows(o, KnownEntity) if x.kind != "self"]
-    assert e2.suppressed and e2.sensitive and e2.name == "Anna's medical tests" and "no result recorded" in e2.summary and e2.status == "active"
+    assert e2.suppressed and e2.name == "Anna's medical tests" and "no result recorded" in e2.summary and e2.status == "active"
     async with async_session_maker() as db:
         assert [x.name for x in await kw.find(db, WS, o, "Niece's medical tests")] == ["Anna's medical tests"]      # the old name still resolves
         assert [x.name for x in await kw.find(db, WS, o, "Anna's tests")] == ["Anna's medical tests"]

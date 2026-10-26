@@ -57,7 +57,7 @@ Names: aliases are the names the person actually uses: a first name, a short for
 
 Relationships: describe them in plain words between two things ("adviser on", "potential pilot for", "worried about"). basis "stated" ONLY if the person said it, and you must give the quote — it is checked against the transcript and downgraded to "inferred" if it is not there. Inferred relations are welcome (they help) but stay labelled; never promote an inference to a fact. A different relation between the same two things can coexist (an adviser can also be a friend). When a relationship CHANGES or is corrected, add the new link and supersede_link the old with the reason, taking the link id from get_entity: only the link that actually changed. If you retire the wrong one, restore_link brings it back. A stated quote may come only from the person's own words (not the assistant's), copied exactly.
 
-Care: set sensitive true for emotional, health or family difficulty. If the person says not to bring something up, set suppressed true — the memory is kept, it just stops being raised unprompted. Corrections ("that's not right", a wrong name) fix the entity or merge the duplicate; they are never ignored.
+Care: if the person says not to bring something up, set suppressed true — the memory is kept, it just stops being raised unprompted. Corrections ("that's not right", a wrong name) fix the entity or merge the duplicate; they are never ignored.
 
 Method: list_entities first, search before creating, create only what is genuinely new, link what this session connected, then re-read (list_entities or get_entity) after your last change and finish with `considered`: one line saying what you deliberately did NOT record and why (or "nothing notable"). Making no changes is a correct outcome when nothing durable was said."""
 
@@ -67,13 +67,13 @@ TOOLS = [
     {"type": "function", "function": {"name": "get_entity", "description": "One entity in full: aliases and its links, with link ids.", "parameters": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}}},
     {"type": "function", "function": {"name": "create_entity", "description": "Create a new entity. kind is free text (person, project, organisation, place, topic, situation, health, ...). aliases are other names the person uses for it. basis stated needs a quote from the transcript.",
                                       "parameters": {"type": "object", "properties": {"name": {"type": "string"}, "kind": {"type": "string"}, "summary": {"type": "string"}, "aliases": {"type": "array", "items": {"type": "string"}},
-                                                                                     "sensitive": {"type": "boolean"}, "basis": {"type": "string"}, "evidence": {"type": "string"},
+                                                                                     "basis": {"type": "string"}, "evidence": {"type": "string"},
                                                                                      "form": {"type": "string", "description": "empty (a person/project/organisation/place/topic) | situation | happening | disposition | pattern"},
                                                                                      "tags": {"type": "array", "items": {"type": "string"}}, "occurred_on": {"type": "string", "description": "YYYY-MM-DD, happenings"},
                                                                                      "significance": {"type": "integer"}}, "required": ["name", "kind"]}}},
-    {"type": "function", "function": {"name": "update_entity", "description": "Change an entity: name, kind, summary (replaces), status active|dormant|resolved, sensitive, suppressed, add_aliases.",
+    {"type": "function", "function": {"name": "update_entity", "description": "Change an entity: name, kind, summary (replaces), status active|dormant|resolved, suppressed, add_aliases.",
                                       "parameters": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "kind": {"type": "string"}, "summary": {"type": "string"}, "status": {"type": "string"},
-                                                                                     "sensitive": {"type": "boolean"}, "suppressed": {"type": "boolean"}, "add_aliases": {"type": "array", "items": {"type": "string"}},
+                                                                                     "suppressed": {"type": "boolean"}, "add_aliases": {"type": "array", "items": {"type": "string"}},
                                                                                      "basis": {"type": "string"}, "evidence": {"type": "string"},
                                                                                      "form": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "occurred_on": {"type": "string"},
                                                                                      "significance": {"type": "integer"}}, "required": ["id"]}}},
@@ -107,7 +107,7 @@ class State:
 
 
 def _brief(e: KnownEntity, aliases: Optional[List[str]] = None) -> Dict[str, Any]:
-    return {"id": str(e.id), "name": e.name, "kind": e.kind, "status": e.status, "sensitive": e.sensitive, "suppressed": e.suppressed,
+    return {"id": str(e.id), "name": e.name, "kind": e.kind, "status": e.status, "suppressed": e.suppressed,
             "basis": e.basis, "summary": e.summary[:160], **({"aliases": aliases} if aliases is not None else {})}
 
 
@@ -227,7 +227,7 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
         if err:
             return {"error": err}
         basis = "stated" if (str(args.get("basis") or "").strip().lower() == "stated" and quote) else "inferred"
-        e = await kw.create(db, ws, owner, name=nm, kind=kind, summary=str(args.get("summary") or ""), sensitive=bool(args.get("sensitive")),
+        e = await kw.create(db, ws, owner, name=nm, kind=kind, summary=str(args.get("summary") or ""),
                             basis=basis, aliases=[a for a in (args.get("aliases") or []) if isinstance(a, str)], run_id=st.run_id,
                             session_id=st.session_id, quote=quote, **extras)
         write()
@@ -261,7 +261,7 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
             e.summary = args["summary"].strip()[:kw.SUMMARY_MAX]
         if "status" in args:
             e.status = str(args["status"]).strip().lower()
-        for flag in ("sensitive", "suppressed"):
+        for flag in ("suppressed",):
             if flag in args:
                 setattr(e, flag, bool(args[flag]))
         for a in (args.get("add_aliases") or []):

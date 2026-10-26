@@ -1,4 +1,4 @@
-"""The opportunities read (H11): tense from dates, a stakes threshold, neutral wording, private marking, background kept apart. No model, no network."""
+"""The opportunities read (H11): tense from dates, a stakes threshold, facts-only wording, background kept apart, only the person's own boundary honoured. No model, no network."""
 from datetime import datetime
 
 import pytest
@@ -38,20 +38,20 @@ async def test_a_future_dated_matter_is_ahead_and_trivia_is_background():
         rows = [_row("Leadership presentation", "2026-10-27", importance=3), _row("Lentil chilli experiment", "2026-10-24", importance=1)]
         out = await opportunities.read(db, WS, OWNER, CTX, ledger_rows=rows)
     assert "Leadership presentation [Tue 27 Oct, tomorrow]" in out["text"]
-    assert "Priya's wedding" in out["text"].split("Background")[0]
-    bg = out["text"].split("Background")[1]
+    assert "Priya's wedding" in out["text"].split("Also held")[0]
+    bg = out["text"].split("Also held")[1]
     assert "Staying up late reading" in bg and "Lentil chilli experiment" in bg
 
 
 @pytest.mark.asyncio
-async def test_private_items_are_marked_and_suppressed_ones_never_appear():
+async def test_a_health_matter_is_just_a_fact_and_only_what_the_person_asked_not_to_raise_is_withheld():
     async with async_session_maker() as db:
-        await _entity(db, "Mum's fall", kind="health", form="happening", occurred_on=datetime(2026, 10, 25), significance=3, sensitive=True)
+        await _entity(db, "Mum's fall", kind="health", form="happening", occurred_on=datetime(2026, 10, 25), significance=3)
         e = await _entity(db, "Do not mention", kind="situation", form="situation", significance=3)
         e.suppressed = True
         await db.commit()
         out = await opportunities.read(db, WS, OWNER, CTX)
-    assert "Mum's fall [Sun 25 Oct, yesterday]  (private: acknowledge lightly, do not probe)" in out["text"]
+    assert "Mum's fall [Sun 25 Oct, yesterday]" in out["text"] and "private" not in out["text"].lower()
     assert "Do not mention" not in out["text"]
 
 
@@ -128,49 +128,17 @@ async def test_three_letter_words_count_and_function_words_do_not():
 
 
 @pytest.mark.asyncio
-async def test_forward_stance_changes_the_wording_but_a_private_item_always_gets_the_gentle_one():
+async def test_a_packet_carries_labels_and_facts_and_no_instruction_or_stance_or_privacy_marking():
     async with async_session_maker() as db:
         await _entity(db, "Leo breaks his leg in rugby", kind="injury", form="happening", occurred_on=datetime(2026, 10, 17), significance=2)
-        await _entity(db, "Mum's fall", kind="health", form="happening", occurred_on=datetime(2026, 10, 25), significance=3, sensitive=True)
+        await _entity(db, "Mum's fall", kind="health", form="happening", occurred_on=datetime(2026, 10, 25), significance=3)
         out = await opportunities.read(db, WS, OWNER, CTX)
-    said = "Leo broke his leg and Mum had a fall"
-    gentle = opportunities.build_packet(out, stage="moment", user_text=said)["text"]
-    forward = opportunities.build_packet(out, stage="moment", user_text=said, stance="forward")
-    assert "naturally ask about or mention" not in gentle and "optional" in gentle
-    t = forward["text"]
-    assert forward["stance"] == "forward" and "naturally ask about or mention" in t.split("Private")[0] and "Leo breaks his leg" in t.split("Private")[0]
-    assert "Private (acknowledge lightly at most; do not probe" in t and "Mum's fall" in t.split("Private")[1] and "Mum's fall" not in t.split("Private")[0]
-
-
-@pytest.mark.asyncio
-async def test_sensitivity_follows_the_matter_into_the_ledger_by_link_and_by_subject():
-    from src.models.known_world import KnownLink
-    async with async_session_maker() as db:
-        e = await _entity(db, "Mum's fall and hospital stay", kind="health", form="situation", significance=3, sensitive=True, summary="mum is in hospital after a fall")
-        linked = _row("Dad's insurance call", "2026-10-26", importance=3)
-        db.add(KnownLink(honcho_workspace_id=WS, owner_peer_id=OWNER, from_entity_id=e.id, relation="concerns", target_kind="ledger", target_ref=linked.situation_key, status="current"))
-        same_subject = _row("Mother's hospital tests", "2026-10-26", importance=3)
-        unrelated = _row("Send the report", "2026-10-26", importance=3)
-        await db.commit()
-        out = await opportunities.read(db, WS, OWNER, CTX, ledger_rows=[linked, same_subject, unrelated])
-    by = {c["text"]: c["private"] for c in out["candidates"]}
-    assert by.get("Dad's insurance call") is True          # linked to a private entity
-    assert by.get("Mother's hospital tests") is True       # no link, but it shares the distinctive word 'hospital' with the private matter
-    assert by.get("Send the report") is False
-
-
-@pytest.mark.asyncio
-async def test_a_forward_opening_says_to_open_with_the_item_but_a_private_opening_never_does():
-    async with async_session_maker() as db:
-        await _entity(db, "Leo breaks his leg in rugby", kind="injury", form="happening", occurred_on=datetime(2026, 10, 17), significance=2)
-        out = await opportunities.read(db, WS, OWNER, CTX)
-    pk = opportunities.build_packet(out, stage="opening", stance="forward")
-    assert pk["text"].startswith("Open with this, lightly and in your own words")
-    async with async_session_maker() as db:
-        await _entity(db, "Mum's fall", kind="health", form="happening", occurred_on=datetime(2026, 10, 25), significance=3, sensitive=True)
-        out2 = await opportunities.read(db, WS, OWNER, CTX)
-    pk2 = opportunities.build_packet(out2, stage="opening", stance="forward")
-    assert pk2["text"].startswith("Private (acknowledge lightly at most") and "Open with this" not in pk2["text"]
+    for pk in (opportunities.build_packet(out, stage="moment", user_text="Leo broke his leg and Mum had a fall"), opportunities.build_packet(out, stage="opening"),
+               opportunities.build_packet(out, stage="survey")):
+        t = pk["text"].lower()
+        assert pk["items"] and not any(w in t for w in ("private", "gentle", "lightly", "do not", "optional", "open with", "probe", "naturally", "if the moment"))
+        assert "stance" not in pk and "usage" not in pk and all("private" not in i for i in pk["items"])
+    assert opportunities.build_packet(out, stage="opening")["text"].startswith("What is on my mind about them right now:")
 
 
 @pytest.mark.asyncio
@@ -182,3 +150,13 @@ async def test_a_packet_says_who_a_named_person_is_so_a_weak_model_cannot_mistak
     pk = opportunities.build_packet(out, stage="opening")
     assert "Who this is:\n- Leo: The person's twelve-year-old nephew." in pk["text"] and pk["who"]
     assert "Who this is" not in opportunities.build_packet(out, stage="moment", user_text="send the invoice")["text"]
+
+
+@pytest.mark.asyncio
+async def test_an_opening_is_her_own_thought_with_tense_from_the_date():
+    async with async_session_maker() as db:
+        await _entity(db, "Leo breaks his leg in rugby", kind="injury", form="happening", occurred_on=datetime(2026, 10, 17), significance=2)
+        out = await opportunities.read(db, WS, OWNER, CTX, ledger_rows=[_row("Leadership presentation", "2026-10-27", importance=3)])
+    t = opportunities.build_packet(out, stage="survey")["text"]
+    assert "- Leo breaks his leg in rugby (Sat 17 Oct, 9 days ago). I want to ask how it has gone." in t
+    assert "- Leadership presentation (Tue 27 Oct, tomorrow). I want to know how they feel about it and whether I can help." in t

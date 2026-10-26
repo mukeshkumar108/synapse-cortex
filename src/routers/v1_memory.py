@@ -236,9 +236,9 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
     ctx = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone)
     base = {"enabled": True, "product": scope.product, "now": ctx.now.isoformat(), "time_zone": ctx.tz, "pending_consolidations": pending}
     if view == "packet":
-        return {**base, **(await _kw.packet(db, scope.workspace, owner, q or "", ctx, cfg.world_sensitive))}
+        return {**base, **(await _kw.packet(db, scope.workspace, owner, q or "", ctx))}
     if view == "overview":
-        text, shown = await _kw.overview_text(db, scope.workspace, owner, ctx, cfg.world_sensitive)
+        text, shown = await _kw.overview_text(db, scope.workspace, owner, ctx)
         return {**base, "text": text, "shown": [{"source": a, "ref": b} for a, b in shown]}
     if view == "entity":
         if depth not in ("snapshot", "connected", "deep"):
@@ -252,7 +252,7 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
 @router.get("/opportunities")
 async def opportunities_view(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, now: Optional[str] = None,
                              time_zone: Optional[str] = None, stage: str = "survey", user_text: Optional[str] = None, task: Optional[bool] = None,
-                             used: Optional[str] = None, stance: str = "gentle", db: AsyncSession = Depends(get_async_session)):
+                             used: Optional[str] = None, db: AsyncSession = Depends(get_async_session)):
     """What may be worth the companion's attention right now: a few optional opportunities ranked by stakes and time, and everything else as background.
     Deterministic, no model. Tense is computed from dates, never from stored words (see services/opportunities.py).
     `packet` is the versioned contract (docs/OPPORTUNITIES_PACKET_CONTRACT.md): stage=opening (one minimal re-entry packet), moment (only items the person's
@@ -268,7 +268,7 @@ async def opportunities_view(request: Request, workspace_id: str, owner: str, co
     out = await _op.read(db, scope.workspace, owner, ctx, world_on=world_on, ledger_rows=rows)
     if stage not in ("opening", "moment", "survey"):
         raise HTTPException(status_code=422, detail="stage must be opening, moment or survey")
-    packet = _op.build_packet(out, stage=stage, user_text=user_text or "", task=task, used=[u for u in (used or "").split(",") if u], stance=stance)
+    packet = _op.build_packet(out, stage=stage, user_text=user_text or "", task=task, used=[u for u in (used or "").split(",") if u])
     return {"enabled": True, "product": scope.product, "world": world_on, **out, "packet": packet}
 
 

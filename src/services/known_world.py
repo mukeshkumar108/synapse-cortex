@@ -436,7 +436,7 @@ async def snapshot_text(db: AsyncSession, ws: str, owner: str, e: KnownEntity, c
     """Self-contained, factual account of one entity read from its authoritative sources. depth: snapshot | connected | deep."""
     links = await _entity_links(db, ws, owner, e, include_superseded=(depth in ("connected", "deep")))
     cur = [l for l in links if l.status == "current"]
-    head = f"{e.name} ({e.kind}{', sensitive' if e.sensitive else ''}){_label(e.basis)}"
+    head = f"{e.name} ({e.kind}){_label(e.basis)}"
     lines = [head + (": " + e.summary.strip().rstrip(".") + "." if e.summary.strip() else ".")]
     # relations to other entities (outbound as written, inbound described from this entity's side)
     rel_lines: List[str] = []
@@ -519,13 +519,13 @@ async def _rank(db: AsyncSession, ws: str, owner: str, ents: List[KnownEntity], 
     for e in ents:
         n_open = await _open_count(db, ws, owner, e)
         age = max(0, (ctx.now.replace(tzinfo=None) - e.last_touched_at.replace(tzinfo=None)).days)
-        score = 3.0 * min(n_open, 4) + max(0.0, 10.0 - age * 0.5) + (2.0 if e.sensitive and is_situation(e) and age <= 14 else 0.0)
+        score = 3.0 * min(n_open, 4) + max(0.0, 10.0 - age * 0.5)
         scored.append((score, e, n_open))
     scored.sort(key=lambda t: (-t[0], t[1].name))
     return scored
 
 
-async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx, sensitive: str = "full") -> Tuple[str, List[Tuple[str, str]]]:
+async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx) -> Tuple[str, List[Tuple[str, str]]]:
     """A compact account of the person's current world, from maintained records only. Selective, not exhaustive."""
     ents = [e for e in await list_all(db, ws, owner, statuses=("active",)) if not e.suppressed and not is_self(e) and not is_companion(e) and not is_record(e)]
     self_e = await _find_self(db, ws, owner)
@@ -557,9 +557,7 @@ async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx, sensiti
     if ss:
         lines = []
         for _, e, _n in ss:
-            tag = " (sensitive)" if e.sensitive else ""
-            body = e.summary.strip().rstrip(".") if (sensitive == "full" or not e.sensitive) else "details available if they raise it"
-            lines.append(f"- {e.name}{tag}: {body}. Last update {_ago(e.last_touched_at, ctx.now)}.")
+            lines.append(f"- {e.name}: {e.summary.strip().rstrip('.')}. Last update {_ago(e.last_touched_at, ctx.now)}.")
             shown.append(("entity", str(e.id)))
         blocks.append("Developing situations:\n" + "\n".join(lines))
     recent = [e for e in await list_all(db, ws, owner, statuses=("active",), limit=300)
@@ -569,7 +567,7 @@ async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx, sensiti
     if recent:
         lines = []
         for e in recent[:2]:
-            lines.append(f"- {e.name} ({_ago(e.occurred_on or e.last_touched_at, ctx.now)})" + ("" if (e.sensitive and sensitive != "full") else f": {e.summary.strip().rstrip('.')}."))
+            lines.append(f"- {e.name} ({_ago(e.occurred_on or e.last_touched_at, ctx.now)})" + f": {e.summary.strip().rstrip('.')}.")
             shown.append(("entity", str(e.id)))
         blocks.append("Recent consequential happenings:\n" + "\n".join(lines))
     if not blocks:
@@ -619,12 +617,10 @@ async def _record_line(db: AsyncSession, ws: str, owner: str, r: KnownEntity, ct
         if o is not None and not is_self(o) and not is_record(o) and o.name not in who:
             who.append(o.name)
     inv = f"; involving {', '.join(who[:3])}" if who else ""
-    sens = ", sensitive" if r.sensitive else ""
-    return f"- {r.name} ({label}{when}{inv}{sens}){_label(r.basis)}: {r.summary.strip().rstrip('.')}."
+    return f"- {r.name} ({label}{when}{inv}){_label(r.basis)}: {r.summary.strip().rstrip('.')}."
 
 
-async def pertinent_text(db: AsyncSession, ws: str, owner: str, text: str, mentioned: Sequence[KnownEntity], ctx: Ctx,
-                         sensitive: str = "full") -> Tuple[str, List[Tuple[str, str]]]:
+async def pertinent_text(db: AsyncSession, ws: str, owner: str, text: str, mentioned: Sequence[KnownEntity], ctx: Ctx) -> Tuple[str, List[Tuple[str, str]]]:
     """A SMALL selection of remembered happenings, dispositions and patterns that bear on what the person just said. Not a dump of everything in
     a domain, and not limited to what is directly linked to someone named: relevance comes from (a) a link to a mentioned entity, (b) a shared
     tag or domain with the mentioned entities, (c) a word of the message matching one of the record's tags. Recency and significance rank
@@ -675,19 +671,16 @@ async def pertinent_text(db: AsyncSession, ws: str, owner: str, text: str, menti
         return "", []
     lines = []
     for r in chosen:
-        if r.sensitive and sensitive != "full":
-            lines.append(f"- {r.name} (sensitive): details available if they raise it.")
-        else:
-            lines.append(await _record_line(db, ws, owner, r, ctx))
+        lines.append(await _record_line(db, ws, owner, r, ctx))
     head = "[REMEMBERED THAT BEARS ON THIS — maintained record, chosen because it connects to what they just said; not everything held is shown]"
     return neutral_user(head + "\n" + "\n".join(lines)), [("entity", str(r.id)) for r in chosen]
 
 
-async def packet(db: AsyncSession, ws: str, owner: str, text: str, ctx: Ctx, sensitive: str = "full") -> Dict[str, Any]:
-    ov, s1 = await overview_text(db, ws, owner, ctx, sensitive)
+async def packet(db: AsyncSession, ws: str, owner: str, text: str, ctx: Ctx) -> Dict[str, Any]:
+    ov, s1 = await overview_text(db, ws, owner, ctx)
     found, _amb = await mentions(db, ws, owner, text or "")
     mt, s2 = await mentions_text(db, ws, owner, text or "", ctx)
-    pt, s3 = await pertinent_text(db, ws, owner, text or "", found, ctx, sensitive)
+    pt, s3 = await pertinent_text(db, ws, owner, text or "", found, ctx)
     return {"overview": ov, "mentions": "\n\n".join(x for x in (mt, pt) if x), "shown": [{"source": a, "ref": b} for a, b in dict.fromkeys(s1 + s2 + s3)]}
 
 
