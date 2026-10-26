@@ -116,3 +116,12 @@ async def test_a_task_withholds_unrelated_relational_items():
         out = await opportunities.read(db, WS, OWNER, CTX)
     pk = opportunities.build_packet(out, stage="moment", user_text="Can you help me tighten this email to my boss? It has to go before ten.")
     assert pk["items"] == [] and pk["purpose"] == "task_support"
+
+
+@pytest.mark.asyncio
+async def test_three_letter_words_count_and_function_words_do_not():
+    async with async_session_maker() as db:
+        await _entity(db, "Leo breaks his leg in rugby", kind="injury", form="happening", occurred_on=datetime(2026, 10, 17), significance=2)
+        out = await opportunities.read(db, WS, OWNER, CTX)
+    assert opportunities.build_packet(out, stage="moment", user_text="How's Leo's leg?")["items"]
+    assert not opportunities.build_packet(out, stage="moment", user_text="Can you tell me with that, the and his")["items"]

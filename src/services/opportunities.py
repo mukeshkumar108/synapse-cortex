@@ -124,9 +124,14 @@ USAGE = ("Optional. Not a script and not an instruction: raise an item lightly, 
 _TASK_WORDS = ("help me", "can you help", "could you", "tighten", "practise", "practice", "make it shorter", "rewrite", "draft", "proofread", "thoughts?")
 
 
+_STOP = frozenset("the and his her for with that this you your are was were but not how did does doing have has had from they them their what when where who why will would "
+                  "can could should about into over just like very really also than then there here out off our its ive im".split())
+
+
 def _stems(text: str) -> set:
+    """Word stems of three letters or more, minus function words, so 'Leo' and 'leg' count and 'the' and 'with' do not."""
     import re
-    return {w[:5] for w in re.findall(r"[a-z]{4,}", (text or "").lower())}
+    return {w[:5] for w in re.findall(r"[a-z]{3,}", (text or "").lower().replace("'", "")) if w not in _STOP}
 
 
 def looks_like_task(text: str) -> bool:
