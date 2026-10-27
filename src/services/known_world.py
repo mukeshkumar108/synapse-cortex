@@ -264,13 +264,15 @@ async def add_alias(db: AsyncSession, ws: str, owner: str, entity_id: UUID, alia
     return a
 
 
-async def touch(db: AsyncSession, e: KnownEntity, session_id: str = "", quote: str = "") -> None:
+async def touch(db: AsyncSession, e: KnownEntity, session_id: str = "", quote: str = "", asked_on: str = "") -> None:
+    """`asked_on` (a date) marks this reference as the person asking not to be prompted about the matter: their own words and the day they said it."""
     e.last_touched_at = _now()
     e.updated_at = _now()
-    if session_id or quote:
+    if session_id or quote or asked_on:
         refs = _refs(e.source_refs_json)
-        if not any(r.get("session") == session_id and r.get("quote") == quote[:300] for r in refs):
-            refs.append({"session": session_id, "quote": quote[:300]})
+        ref = {"session": session_id, "quote": quote[:300], **({"asked": asked_on} if asked_on else {})}
+        if asked_on or not any(r.get("session") == session_id and r.get("quote") == quote[:300] for r in refs):
+            refs.append(ref)
         e.source_refs_json = json.dumps(refs[-12:])
 
 

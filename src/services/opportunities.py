@@ -7,7 +7,8 @@ Rules (each one came from a measured failure, see the Cortex review, "Results so
   * Tense comes from DATES, never from stored words. Summaries and timing text carry relative words ("tomorrow", "this Saturday") written days earlier; they are not shown.
   * A candidate needs real stakes (a significant happening or situation, or a dated ledger matter close in time). Everything else is background.
   * Facts only: what, when, who. How to behave with them (whether to raise one, how lightly, what to leave) is the product's policy, carried by the persona, never by
-    this module. The only boundary honoured here is the person's own: an entity they asked not to be prompted about (`suppressed`) is never surfaced.
+    this module. The person's own boundary is a fact like any other: a matter they asked not to be prompted about stays in the packet with their words and the day
+    they said it ("They asked me on Sat 24 Oct not to bring this up: ..."), and she decides what to do with that.
   * Nothing is ranked on recency alone.
 """
 from __future__ import annotations
@@ -34,6 +35,18 @@ def _day(value: Any, tz) -> Optional[datetime]:
         return d.replace(tzinfo=tz)
     except Exception:  # noqa: BLE001
         return None
+
+
+def _asked(e: Any, tz) -> str:
+    """The person's own boundary about this matter, as a fact: the day they said it and (when we have it) their words. Empty when they have not asked."""
+    if not e.suppressed:
+        return ""
+    refs = [r for r in known_world._refs(e.source_refs_json) if r.get("asked")]
+    ref = refs[-1] if refs else {}
+    day = _day(ref.get("asked") or e.updated_at, tz)
+    on = f" on {day.strftime('%a')} {day.day} {day.strftime('%b')}" if day else ""
+    quote = str(ref.get("quote") or "")[:160]
+    return f"They asked me{on} not to bring this up" + (f": \"{quote}\"" if quote else ".")
 
 
 def relative_time_in(text: str) -> bool:
@@ -64,9 +77,11 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
     if world_on:
         entities = await known_world.list_all(db, ws, owner, statuses=("active",), limit=300)
         for e in entities:
-            if e.suppressed or e.name_key == "the person":
+            if e.name_key == "the person":
                 continue
             if e.kind == "person" and not (e.form or "") and e.name:
+                if e.suppressed:
+                    continue
                 people.append(str(e.name))
                 if (e.summary or "").strip() and not relative_time_in(e.summary):
                     people_notes[str(e.name)] = str(e.summary).strip()
@@ -77,11 +92,14 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
             sig = int(e.significance or 1)
             quotes = [r.get("quote") for r in known_world._refs(e.source_refs_json) if r.get("quote")]
             said = str(quotes[-1])[:160] if quotes else ""
+            asked = _asked(e, tz)
+            if asked:
+                said = ""                                          # their last quoted words ARE the request, shown once below
             within = od is None or -PAST_DAYS <= (od.date() - today).days <= AHEAD_DAYS
             if sig >= 2 and within:
-                cands.append({"id": f"world:{e.id}", "text": str(e.name), "when": relative_label(od, today) if od else "", "said": said, "source": "world", "ref": str(e.id), "score": sig + (1 if od and 0 <= (today - od.date()).days <= PAST_DAYS else 0), "sort": od})
+                cands.append({"id": f"world:{e.id}", "text": str(e.name), "when": relative_label(od, today) if od else "", "said": said, "asked": asked, "source": "world", "ref": str(e.id), "score": sig + (1 if od and 0 <= (today - od.date()).days <= PAST_DAYS else 0), "sort": od})
             else:
-                background.append({"id": f"world:{e.id}", "text": str(e.name), "said": said, "source": "world", "ref": str(e.id)})
+                background.append({"id": f"world:{e.id}", "text": str(e.name), "said": said, "asked": asked, "source": "world", "ref": str(e.id)})
 
     for r in ledger_rows or []:
         if r.status not in ("open", "waiting", "watching"):
@@ -146,47 +164,56 @@ def looks_like_task(text: str) -> bool:
     return any(w in t for w in _TASK_WORDS)
 
 
-def _thought(i: Dict[str, Any]) -> str:
-    """One item as the companion's own thought, in the first person and active voice. Tense comes from the date label, never from stored words."""
-    when = str(i.get("when") or "")
-    line = f"- {i['text']}" + (f" ({when})" if when else "")
-    if when.endswith("ago") or when.endswith("yesterday"):
-        return line + ". I want to ask how it has gone."
-    if when.endswith("today"):
-        return line + ". I have been thinking about it since I woke."
-    if when:
-        return line + ". I want to know how they feel about it and whether I can help."
-    return line + ". I want to know how that is going."
+LEDGER_HEAD = "Things I need to catch up on with them, because they matter to them:"
+WORLD_HEAD = "What is on my mind about them, because it matters to them:"
+
+
+def _fact(i: Dict[str, Any]) -> str:
+    return f"- {i['text']}" + (f" ({i['when']})" if i.get("when") else "")
 
 
 def _render(items: List[Dict[str, Any]], purpose: str) -> str:
-    """The attention packet. At an opening it is the companion's own thought (measured: the same facts read as her thoughts were taken as often or more often than
-    as a list or an instruction, with no restraint rules needed). Mid-conversation it is plain facts. Never a behavioural instruction, never a condition."""
+    """The attention packet. The heading is the companion's own thought and carries the importance ("things I need to catch up on with them, because they matter to
+    them"); the items under it are plain facts, so nothing is rewritten per item (measured: as often taken as per-item first-person lines, and no more nagging).
+    Items the companion is carrying forward (an opening, or a matter not yet raised this sitting) sit under those headings; items the person's own words touch sit under
+    a plain one. Never a behavioural instruction, never a condition."""
     if not items:
         return ""
-    if purpose in ("reconnect", "survey"):
-        body = "What is on my mind about them right now:\n" + "\n".join(_thought(i) for i in items)
-    else:
-        head = {"touched": "Their words bring to mind:", "task_support": "Relevant to what they asked for:"}[purpose]
-        body = head + "\n" + "\n".join(f"- {i['text']}" + (f" [{i['when']}]" if i.get("when") else "") for i in items)
+    carried = [i for i in items if purpose in ("reconnect", "survey") or i.get("pending")]
+    touched = [i for i in items if i not in carried]
+    blocks: List[str] = []
+    if touched:
+        head = {"touched": "Their words bring to mind:", "task_support": "Relevant to what they asked for:"}.get(purpose, "Their words bring to mind:")
+        blocks.append(head + "\n" + "\n".join(_fact(i) for i in touched))
+    for system, head in (("ledger", LEDGER_HEAD), ("world", WORLD_HEAD)):
+        grp = [i for i in carried if (i.get("source") or {}).get("system") == system]
+        if grp:
+            blocks.append(head + "\n" + "\n".join(_fact(i) for i in grp))
     said = [f"- {i['text']}: \"{i['said']}\"" for i in items if i.get("said")]
-    return body + (("\n\nWhat they said about it, in their words:\n" + "\n".join(said)) if said else "")
+    if said:
+        blocks.append("What they said about it, in their words:\n" + "\n".join(said))
+    asked = [f"- {i['text']}: {i['asked']}" for i in items if i.get("asked")]
+    if asked:
+        blocks.append("What they have asked of me:\n" + "\n".join(asked))
+    return "\n\n".join(blocks)
 
 
 def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str = "", task: Optional[bool] = None, used: Optional[List[str]] = None,
-                 valid_minutes: Optional[int] = None) -> Dict[str, Any]:
+                 pending: Optional[List[str]] = None, valid_minutes: Optional[int] = None) -> Dict[str, Any]:
     """Select the small packet for this moment from what `read` found. Deterministic. Empty items means: give the companion nothing.
     stage: opening (re-entry: the single top opportunity), moment (only items the person's own words touch; relational items withheld during a task),
-    survey (everything, the older single-block shape). `used` are item ids already used in this conversation (packet retirement, not matter retirement)."""
+    survey (everything, the older single-block shape). `used` are item ids already used in this conversation (packet retirement, not matter retirement).
+    `pending` are item ids the companion was given earlier this sitting and has not yet raised: while she has not, they ride along on every turn that is not a task
+    (a deferral is not an abandonment); once she has used one it is retired from the packet, never from the matter."""
     from datetime import datetime as _dt, timedelta as _td
     used_set = set(used or [])
     cands = [c for c in out.get("candidates", []) if c["id"] not in used_set]
     bg = [b for b in out.get("background_items", []) if b["id"] not in used_set]
     is_task = looks_like_task(user_text) if task is None else bool(task)
 
-    def item(x: Dict[str, Any], kind: str) -> Dict[str, Any]:
-        return {"id": x["id"], "kind": kind, "text": x["text"], "when": x.get("when", ""), "said": x.get("said", ""),
-                "stakes": int(x.get("score", 1)), "source": {"system": x["source"], "ref": x["ref"]}}
+    def item(x: Dict[str, Any], kind: str, carried: bool = False) -> Dict[str, Any]:
+        return {"id": x["id"], "kind": kind, "text": x["text"], "when": x.get("when", ""), "said": x.get("said", ""), "asked": x.get("asked", ""),
+                "stakes": int(x.get("score", 1)), "source": {"system": x["source"], "ref": x["ref"]}, **({"pending": True} if carried else {})}
 
     if stage == "opening":
         purpose, items = "reconnect", [item(c, "opportunity") for c in cands[:1]]
@@ -195,6 +222,10 @@ def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str 
         pool = [(c, "opportunity") for c in cands] + [(b, "background") for b in bg]
         hits = [(x, k) for x, k in pool if touched & _stems(x["text"])]
         purpose, items = ("task_support" if is_task else "touched"), [item(x, k) for x, k in hits[:2]]
+        if not is_task:
+            have = {i["id"] for i in items}
+            owed = [(x, k) for x, k in pool if x["id"] in set(pending or []) and x["id"] not in have]
+            items += [item(x, k, True) for x, k in owed[:1]]
     else:
         purpose, items = "survey", [item(c, "opportunity") for c in cands] + [item(b, "background") for b in bg]
     who = []

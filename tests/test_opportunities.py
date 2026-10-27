@@ -44,15 +44,33 @@ async def test_a_future_dated_matter_is_ahead_and_trivia_is_background():
 
 
 @pytest.mark.asyncio
-async def test_a_health_matter_is_just_a_fact_and_only_what_the_person_asked_not_to_raise_is_withheld():
+async def test_a_matter_the_person_asked_not_to_raise_stays_with_their_words_and_the_day_they_said_it():
     async with async_session_maker() as db:
-        await _entity(db, "Mum's fall", kind="health", form="happening", occurred_on=datetime(2026, 10, 25), significance=3)
-        e = await _entity(db, "Do not mention", kind="situation", form="situation", significance=3)
+        await _entity(db, "Mum's fall", kind="health", form="happening", occurred_on=datetime(2026, 10, 19), significance=3)
+        e = await _entity(db, "Mum's hospital tests", kind="health", form="happening", occurred_on=datetime(2026, 10, 19), significance=3)
         e.suppressed = True
+        await known_world.touch(db, e, "s1", "please don't bring up mum, I can't talk about it right now", asked_on="2026-10-24")
         await db.commit()
         out = await opportunities.read(db, WS, OWNER, CTX)
-    assert "Mum's fall [Sun 25 Oct, yesterday]" in out["text"] and "private" not in out["text"].lower()
-    assert "Do not mention" not in out["text"]
+    pk = opportunities.build_packet(out, stage="opening")
+    asked = [c for c in out["candidates"] if c.get("asked")]
+    assert asked and asked[0]["asked"] == "They asked me on Sat 24 Oct not to bring this up: \"please don't bring up mum, I can't talk about it right now\""
+    full = opportunities.build_packet(out, stage="survey")["text"]
+    assert "What they have asked of me:\n- Mum's hospital tests: They asked me on Sat 24 Oct not to bring this up" in full and "private" not in full.lower()
+    assert pk["items"]
+
+
+@pytest.mark.asyncio
+async def test_a_pending_matter_rides_along_on_non_task_turns_until_it_is_used():
+    async with async_session_maker() as db:
+        out = await opportunities.read(db, WS, OWNER, CTX, ledger_rows=[_row("Dana's approval of the invoice", "2026-10-23", importance=3)])
+    item = out["candidates"][0]["id"]
+    task = opportunities.build_packet(out, stage="moment", user_text="Quickly, help me tighten this email to my landlord", pending=[item])
+    chat = opportunities.build_packet(out, stage="moment", user_text="Perfect, sending it now. Long day.", pending=[item])
+    used = opportunities.build_packet(out, stage="moment", user_text="Long day.", pending=[item], used=[item])
+    assert task["items"] == [] and used["items"] == []                       # a deferral during a task is not an abandonment, and a used one is retired
+    assert [i["id"] for i in chat["items"]] == [item] and chat["items"][0]["pending"]
+    assert chat["text"].startswith("Things I need to catch up on with them, because they matter to them:\n- Dana's approval of the invoice")
 
 
 @pytest.mark.asyncio
@@ -138,7 +156,7 @@ async def test_a_packet_carries_labels_and_facts_and_no_instruction_or_stance_or
         t = pk["text"].lower()
         assert pk["items"] and not any(w in t for w in ("private", "gentle", "lightly", "do not", "optional", "open with", "probe", "naturally", "if the moment"))
         assert "stance" not in pk and "usage" not in pk and all("private" not in i for i in pk["items"])
-    assert opportunities.build_packet(out, stage="opening")["text"].startswith("What is on my mind about them right now:")
+    assert opportunities.build_packet(out, stage="opening")["text"].startswith("What is on my mind about them, because it matters to them:")
 
 
 @pytest.mark.asyncio
@@ -153,10 +171,11 @@ async def test_a_packet_says_who_a_named_person_is_so_a_weak_model_cannot_mistak
 
 
 @pytest.mark.asyncio
-async def test_an_opening_is_her_own_thought_with_tense_from_the_date():
+async def test_commitments_and_happenings_sit_under_their_own_first_person_headings_as_plain_facts():
     async with async_session_maker() as db:
         await _entity(db, "Leo breaks his leg in rugby", kind="injury", form="happening", occurred_on=datetime(2026, 10, 17), significance=2)
         out = await opportunities.read(db, WS, OWNER, CTX, ledger_rows=[_row("Leadership presentation", "2026-10-27", importance=3)])
     t = opportunities.build_packet(out, stage="survey")["text"]
-    assert "- Leo breaks his leg in rugby (Sat 17 Oct, 9 days ago). I want to ask how it has gone." in t
-    assert "- Leadership presentation (Tue 27 Oct, tomorrow). I want to know how they feel about it and whether I can help." in t
+    assert "Things I need to catch up on with them, because they matter to them:\n- Leadership presentation (Tue 27 Oct, tomorrow)" in t
+    assert "What is on my mind about them, because it matters to them:\n- Leo breaks his leg in rugby (Sat 17 Oct, 9 days ago)" in t
+    assert "I want to" not in t                                           # nothing is rewritten per item

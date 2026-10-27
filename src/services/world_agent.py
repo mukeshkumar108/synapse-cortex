@@ -57,7 +57,7 @@ Names: aliases are the names the person actually uses: a first name, a short for
 
 Relationships: describe them in plain words between two things ("adviser on", "potential pilot for", "worried about"). basis "stated" ONLY if the person said it, and you must give the quote — it is checked against the transcript and downgraded to "inferred" if it is not there. Inferred relations are welcome (they help) but stay labelled; never promote an inference to a fact. A different relation between the same two things can coexist (an adviser can also be a friend). When a relationship CHANGES or is corrected, add the new link and supersede_link the old with the reason, taking the link id from get_entity: only the link that actually changed. If you retire the wrong one, restore_link brings it back. A stated quote may come only from the person's own words (not the assistant's), copied exactly.
 
-Care: if the person says not to bring something up, set suppressed true — the memory is kept, it just stops being raised unprompted. Corrections ("that's not right", a wrong name) fix the entity or merge the duplicate; they are never ignored.
+Care: if the person says not to bring something up, set suppressed true and put their exact words in evidence — the memory is kept, with their words and the day they said it. Corrections ("that's not right", a wrong name) fix the entity or merge the duplicate; they are never ignored.
 
 Method: list_entities first, search before creating, create only what is genuinely new, link what this session connected, then re-read (list_entities or get_entity) after your last change and finish with `considered`: one line saying what you deliberately did NOT record and why (or "nothing notable"). Making no changes is a correct outcome when nothing durable was said."""
 
@@ -261,9 +261,11 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
             e.summary = args["summary"].strip()[:kw.SUMMARY_MAX]
         if "status" in args:
             e.status = str(args["status"]).strip().lower()
+        was_suppressed = bool(e.suppressed)
         for flag in ("suppressed",):
             if flag in args:
                 setattr(e, flag, bool(args[flag]))
+        asked_on = kw._now().date().isoformat() if (e.suppressed and not was_suppressed) else ""
         for a in (args.get("add_aliases") or []):
             if isinstance(a, str):
                 await kw.add_alias(db, ws, owner, e.id, a)
@@ -272,7 +274,7 @@ async def _tool(db: AsyncSession, st: State, name: str, args: Dict[str, Any]) ->
         quote = _quote(str(args.get("evidence") or ""), st)
         if quote and str(args.get("basis") or "").strip().lower() == "stated" and e.basis != "stated":
             e.basis = "stated"                     # the person has now said it themself (verified quote): the entity is no longer a mere inference
-        await kw.touch(db, e, st.session_id, quote)
+        await kw.touch(db, e, st.session_id, quote, asked_on)
         write()
         st.touched.add(str(e.id))
         st.changes["updated"] += 1

@@ -160,6 +160,7 @@ async def test_updates_follow_the_rules_status_boundaries_aliases_and_renames_ke
     await run(o, steps2, seen=seen)
     (e2,) = [x for x in await rows(o, KnownEntity) if x.kind != "self"]
     assert e2.suppressed and e2.name == "Anna's medical tests" and "no result recorded" in e2.summary and e2.status == "active"
+    assert any(r.get("asked") for r in kw._refs(e2.source_refs_json))        # the day they asked is kept with the matter, not just a flag
     async with async_session_maker() as db:
         assert [x.name for x in await kw.find(db, WS, o, "Niece's medical tests")] == ["Anna's medical tests"]      # the old name still resolves
         assert [x.name for x in await kw.find(db, WS, o, "Anna's tests")] == ["Anna's medical tests"]
