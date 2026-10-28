@@ -188,3 +188,22 @@ async def test_what_keeps_coming_up_reaches_the_packet_as_dated_facts_under_its_
     packet = op.build_packet(out, stage="survey")
     assert op.NOTICED_HEAD in packet["text"] and "3 conversations" in packet["text"] and "Mon 7 Sep" in packet["text"]
     assert "should" not in packet["text"].lower() and "ask" not in packet["text"].lower().replace("asked", "")    # facts, never an instruction
+
+
+@pytest.mark.asyncio
+async def test_a_short_check_in_that_says_something_is_not_accepted_as_nothing_until_asked_twice():
+    o = owner()
+    calls = {"n": 0}
+
+    def fn(kind, prompt, max_tokens, models):
+        calls["n"] += kind == "notes"
+        payload = {"notes": []} if calls["n"] == 1 else {"notes": [note(area="mood-low", text="They felt flat, stuck at the desk with the accounts.", quote="stuck at my desk all day")]}
+        return {"text": json.dumps(payload), "model": "fake", "provider": "fake", "usage": {"prompt_tokens": 10, "completion_tokens": 5}, "ms": 1}
+    memory_pipeline.set_model_fn(fn)
+    try:
+        async with async_session_maker() as db:
+            out = await notes.write(db, workspace_id=WS, owner=o, product="sophie", session_id="s", run_id=None, session_day=datetime(2026, 10, 11), weekday="Sunday", person_label="Person",
+                                    companion_name="Bloom", transcript="Person: oh, bit flat really, been stuck at my desk all day with the accounts, one of those days\nBloom: that sounds like a heavy slog")
+    finally:
+        memory_pipeline.set_model_fn(None)
+    assert calls["n"] == 2 and out["notes"] == 1 and out["empty_retry"] == 1 and out["tokens"] == {"in": 20, "out": 10}

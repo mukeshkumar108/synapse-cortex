@@ -35,7 +35,8 @@ AREAS: Dict[str, str] = {
     "body-health": "pain, injury, illness, physio, medical matters (for the person or someone close)",
     "exercise": "running, climbing, walking for fitness, training",
     "food": "meals, cooking, eating",
-    "mood-stress": "feeling low, stressed, anxious, relieved, proud",
+    "mood-low": "feeling low, flat, stressed, anxious or worried",
+    "mood-good": "feeling calm, happy, proud, relieved, a good moment or a simple joy",
     "work-load": "how much work there is, deadlines, long hours, work spilling into other time",
     "work-boundary": "limits on work, leaving on time, protecting evenings, skipping things for work",
     "work-people": "colleagues, manager, clients, conflicts or praise at work",
@@ -57,13 +58,13 @@ AREAS: Dict[str, str] = {
     "other": "none of the above",
 }
 LABELS: Dict[str, str] = {
-    "sleep-energy": "sleep and energy", "body-health": "health and pain", "mood-stress": "mood and stress", "work-load": "work load", "work-boundary": "limits on work",
+    "sleep-energy": "sleep and energy", "body-health": "health and pain", "mood-low": "feeling low or stressed", "mood-good": "good moments", "work-load": "work load", "work-boundary": "limits on work",
     "money": "money", "aspiration": "wishes and daydreams", "nature-outdoors": "time outdoors", "exercise": "exercise", "goals-plans": "plans",
 }
 CERTAINTIES = ("stated", "intention", "hypothetical", "hearsay", "unclear")
 SELF = "the person"
 _SELF_WORDS = {"the person", "person", "the user", "user", "the user themself", "they", "them", "he", "she", "i", "me", "myself", "self"}
-STRAIN = ("sleep-energy", "mood-stress", "work-load", "body-health", "money")     # areas where coming up again and again is worth a gentle question
+STRAIN = ("sleep-energy", "mood-low", "work-load", "body-health", "money")     # areas where coming up again and again is worth a gentle question
 RECURRING_MIN = 3
 MAX_NOTES = 14
 RECENT_DAYS = 45
@@ -191,6 +192,16 @@ async def write(db: AsyncSession, *, workspace_id: str, owner: str, product: str
         return {"status": "no_output", "model": (out or {}).get("model")}
     person_text = _person_lines(transcript, person_label)
     notes, stats = clean(parsed.get("notes"), person_text)
+    usage = [(out or {}).get("usage") or {}]
+    if not notes and len(person_text.strip()) >= 80:
+        # A short check-in still says something about them ("flat today", "keep meaning to go and never do"): ask once more before accepting nothing.
+        again = await mp._generate("notes", prompt + "\n\nYou returned no notes, but the person did say something about themselves, their day, their people or their plans. Write the one to three most useful notes.",
+                                   3500, models())
+        usage.append((again or {}).get("usage") or {})
+        notes, more = clean((_first_json((again or {}).get("text") or "") or {}).get("notes"), person_text)
+        stats["empty_retry"] = 1
+        for k, v in more.items():
+            stats[k] = stats.get(k, 0) + v
     retried = False
     bad = relative_problems(notes)
     if bad:
@@ -199,6 +210,7 @@ async def write(db: AsyncSession, *, workspace_id: str, owner: str, product: str
                                                "(tomorrow, yesterday, last year, this morning, tonight, next week...): use the date or the month instead, and keep everything else. "
                                                'Reply with ONE JSON object: {"fixed": [{"i": 0, "text": "..."}]}\n\n' + json.dumps([{"i": i, "text": notes[i]["text"]} for i in bad])),
                                  1500, models())
+        usage.append((fix or {}).get("usage") or {})
         for f in (_first_json((fix or {}).get("text") or "") or {}).get("fixed") or []:
             try:
                 i = int(f.get("i"))
@@ -226,7 +238,8 @@ async def write(db: AsyncSession, *, workspace_id: str, owner: str, product: str
                 if str(old.id).startswith(n["resolves"]) and old.id != row.id:
                     old.status, old.replaced_by_id = "resolved", row.id
     await db.commit()
-    return {"status": "ok", "model": (out or {}).get("model"), "notes": stored, "retried": retried, **stats}
+    tokens = {"in": sum(int(u.get("prompt_tokens") or u.get("input_tokens") or 0) for u in usage), "out": sum(int(u.get("completion_tokens") or u.get("output_tokens") or 0) for u in usage)}
+    return {"status": "ok", "model": (out or {}).get("model"), "notes": stored, "retried": retried, "tokens": tokens, **stats}
 
 
 # ------------------------------------------------------------------ views ----
