@@ -37,6 +37,7 @@ class ProductMemory:
     attention_enabled: bool = True  # persisted intentions / follow-through review after consolidation
     preparation_label: str = "PREPARED PERSPECTIVE"
     world_enabled: bool = True      # this product uses the connect pass (entities, situations, links) when the deployment flag is on
+    notes_enabled: bool = True      # this product keeps notes (one write per sitting) and serves the views over them when the deployment flag is on
     default_time_zone: str = "UTC"  # used only when the caller supplies no timezone
 
     def seed(self, key: str) -> str:

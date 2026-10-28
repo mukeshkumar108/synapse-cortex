@@ -249,6 +249,38 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
     raise HTTPException(status_code=422, detail="view must be packet, overview, entity or inspect")
 
 
+@router.get("/notes")
+async def notes_view(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, view: str = "recurring", subject: Optional[str] = None,
+                     now: Optional[str] = None, time_zone: Optional[str] = None, db: AsyncSession = Depends(get_async_session)):
+    """Views over the person's notes (see services/notes.py). No model runs here. view: recurring (areas of their own life that keep coming up, with dated lines),
+    asks (things worth asking about, from what they already said), people (everyone and everything they have talked about, one line each), card (q = `subject`:
+    current facts and recent notes), recent (what happened lately, in their world and theirs), inspect (every note with its certainty and quote)."""
+    from src.config import settings as _s
+    from src.services import attention_cycle as _ac, known_world as _kw, notes as _n, product_memory as _pm
+    scope = _scope(request, workspace_id, companion_id)
+    cfg = _pm.get(scope.product)
+    if not (_s.NOTES_ENABLED and cfg.notes_enabled):
+        return {"enabled": False, "product": scope.product}
+    tz = time_zone or await _ac.owner_time_zone(db, workspace_id=scope.workspace, owner=owner, default=None) or cfg.default_time_zone
+    today = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone).today
+    base = {"enabled": True, "product": scope.product, "view": view}
+    if view == "recurring":
+        return {**base, "areas": await _n.recurring(db, scope.workspace, owner, today)}
+    if view == "asks":
+        return {**base, "asks": await _n.asks(db, scope.workspace, owner, today)}
+    if view == "people":
+        return {**base, "people": await _n.people(db, scope.workspace, owner)}
+    if view == "card":
+        if not subject:
+            raise HTTPException(status_code=422, detail="card needs a subject")
+        return {**base, **(await _n.card(db, scope.workspace, owner, subject))}
+    if view == "recent":
+        return {**base, "recent": await _n.recent(db, scope.workspace, owner, today)}
+    if view == "inspect":
+        return {**base, **(await _n.inspect(db, scope.workspace, owner))}
+    raise HTTPException(status_code=422, detail="view must be recurring, asks, people, card, recent or inspect")
+
+
 @router.get("/opportunities")
 async def opportunities_view(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, now: Optional[str] = None,
                              time_zone: Optional[str] = None, stage: str = "survey", user_text: Optional[str] = None, task: Optional[bool] = None,
@@ -265,7 +297,7 @@ async def opportunities_view(request: Request, workspace_id: str, owner: str, co
     ctx = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone)
     world_on = bool(_s.CONNECTED_WORLD_ENABLED and cfg.world_enabled)
     rows = await memory_pipeline.open_ledger(db, scope.workspace, owner, limit=100) if cfg.ledger_enabled else []
-    out = await _op.read(db, scope.workspace, owner, ctx, world_on=world_on, ledger_rows=rows)
+    out = await _op.read(db, scope.workspace, owner, ctx, world_on=world_on, ledger_rows=rows, notes_on=bool(_s.NOTES_ENABLED and cfg.notes_enabled))
     if stage not in ("opening", "moment", "survey"):
         raise HTTPException(status_code=422, detail="stage must be opening, moment or survey")
     packet = _op.build_packet(out, stage=stage, user_text=user_text or "", task=task, used=[u for u in (used or "").split(",") if u], pending=[u for u in (pending or "").split(",") if u])

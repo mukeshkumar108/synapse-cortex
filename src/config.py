@@ -24,7 +24,9 @@ class Settings(BaseSettings):
     # Connected understanding (entities, situations, links, world views). OFF by default: it writes new kinds of personal
     # data, so enabling it for real users is an explicit review decision (docs/IMPLEMENTATION_STATUS.md).
     CONNECTED_WORLD_ENABLED: bool = False
-    
+    # Notes: one dated, area-tagged, certainty-flagged write per sitting, and the views over them (patterns, people, things worth asking).
+    NOTES_ENABLED: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

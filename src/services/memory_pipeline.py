@@ -193,6 +193,20 @@ async def _generate(kind: str, prompt: str, max_tokens: int, models: List[str]) 
     return await nano_adapter.generate_text(system=SYSTEM, prompt=prompt, models=models, max_tokens=max_tokens, title=f"memory-{kind}")
 
 
+async def _write_notes(workspace_id: str, owner: str, cfg: ProductMemory, session_id: str, run_id: Any, transcript: str, clock: Dict[str, Any]) -> Dict[str, Any]:
+    """The notes write, in its own DB session. Fail-open: whatever happens here is reported in the run bundle and never touches the rest of the consolidation."""
+    try:
+        from src.db import async_session_maker
+        from src.services import notes
+        y, m, d = (int(x) for x in str(clock["today"]).split("-"))
+        async with async_session_maker() as ndb:
+            return await notes.write(ndb, workspace_id=workspace_id, owner=owner, product=cfg.name, session_id=session_id, run_id=run_id, transcript=transcript,
+                                     person_label=cfg.user_label, companion_name=cfg.companion_name, session_day=datetime(y, m, d), weekday=clock["weekday"])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[memory] notes failed open: %s", exc)
+        return {"status": "failed", "error": type(exc).__name__}
+
+
 def _fingerprint(*parts: str) -> str:
     h = hashlib.sha256()
     for p in parts:
@@ -1159,6 +1173,13 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         return await finish("replay_noop" if not fresh else "empty", [],
                             {"note": "replay_no_new_messages" if not fresh else "no_findings"})
 
+    # Notes: ONE read of the sitting, while its meaning is visible, in its own session so it cannot disturb this consolidation. It runs beside the ledger chain
+    # and is awaited before attention. Off unless the deployment flag and the product both allow it.
+    from src.config import settings as _notes_settings
+    notes_task = None
+    if _notes_settings.NOTES_ENABLED and cfg.notes_enabled and not independent and len(transcript) >= 60:
+        notes_task = asyncio.create_task(_write_notes(workspace_id, owner, cfg, session_id, run.id, transcript, clock))
+
     sitting_rule = f"\n\n{cfg.independent_rule}" if independent and cfg.independent_rule else ""
     # The notebook edits are model calls that touch nothing else, so they run beside the ledger / connected-world / attention chain (at most two at a
     # time, so the provider is not overloaded) and are applied below, before the preparation reads the pages.
@@ -1305,6 +1326,11 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                                  or not cfg.world_enabled or sitting_kind == "independent" else "transcript too short"}
 
     mark("connect_pass")
+    if notes_task is not None:
+        bundle["notes"] = await notes_task
+    else:
+        bundle["notes"] = {"status": "skipped", "reason": "disabled for this deployment/product/sitting"}
+    mark("notes")
     # End-of-sitting attention: due-scan always (deterministic, cheap); review
     # only when the product uses it and something actually changed.
     from src.services import attention_cycle

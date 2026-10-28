@@ -67,7 +67,7 @@ def relative_label(day: datetime, today) -> str:
     return f"{label}, {n} days ahead" if n > 0 else f"{label}, {-n} days ago"
 
 
-async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *, world_on: bool = True, ledger_rows: Optional[List[Any]] = None) -> Dict[str, Any]:
+async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *, world_on: bool = True, ledger_rows: Optional[List[Any]] = None, notes_on: bool = False) -> Dict[str, Any]:
     now, tz, today = ctx.now, ctx.now.tzinfo, ctx.today
     cands: List[Dict[str, Any]] = []
     background: List[Dict[str, Any]] = []
@@ -111,6 +111,10 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
                           "ref": str(r.situation_key), "score": max(imp, 2) + (1 if abs((ed.date() - today).days) <= 2 else 0), "sort": ed})
         else:
             background.append({"id": f"ledger:{r.situation_key}", "text": str(r.title), "source": "ledger", "ref": str(r.situation_key)})
+
+    if notes_on:                       # what keeps coming up in their own words (counted in code from the notes), with dates: facts, never a question to ask
+        from src.services import notes as _notes
+        cands.extend(await _notes.ask_candidates(db, ws, owner, today))
 
     cands.sort(key=lambda c: (-c["score"], c["sort"] or now))
     seen: set = set()
@@ -166,6 +170,7 @@ def looks_like_task(text: str) -> bool:
 
 LEDGER_HEAD = "Things I need to catch up on with them, because they matter to them:"
 WORLD_HEAD = "What is on my mind about them, because it matters to them:"
+NOTICED_HEAD = "What I have been noticing about them over our conversations:"
 
 
 def _fact(i: Dict[str, Any]) -> str:
@@ -185,7 +190,7 @@ def _render(items: List[Dict[str, Any]], purpose: str) -> str:
     if touched:
         head = {"touched": "Their words bring to mind:", "task_support": "Relevant to what they asked for:"}.get(purpose, "Their words bring to mind:")
         blocks.append(head + "\n" + "\n".join(_fact(i) for i in touched))
-    for system, head in (("ledger", LEDGER_HEAD), ("world", WORLD_HEAD)):
+    for system, head in (("ledger", LEDGER_HEAD), ("world", WORLD_HEAD), ("notes", NOTICED_HEAD)):
         grp = [i for i in carried if (i.get("source") or {}).get("system") == system]
         if grp:
             blocks.append(head + "\n" + "\n".join(_fact(i) for i in grp))

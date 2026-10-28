@@ -183,7 +183,7 @@ async def test_every_route_outside_the_product_list_is_denied_to_product_credent
     assert len(denied) > 80 and set(app.openapi()["paths"]) <= served      # the inventory covers the whole documented surface
     assert sorted(allowed) == sorted([("POST", "/v1/memory/consolidate"), ("GET", "/v1/memory/run/{run_id}"),
                                       ("GET", "/v1/memory/preparation"), ("POST", "/v1/memory/prepare"), ("GET", "/v1/memory/state"),
-                                      ("GET", "/v1/memory/ledger"), ("GET", "/v1/memory/world"), ("POST", "/v1/memory/world/exposure"), ("GET", "/v1/memory/export"), ("POST", "/v1/memory/delete")])
+                                      ("GET", "/v1/memory/ledger"), ("GET", "/v1/memory/world"), ("GET", "/v1/memory/notes"), ("POST", "/v1/memory/world/exposure"), ("GET", "/v1/memory/export"), ("POST", "/v1/memory/delete")])
 
 
 # ------------------------------------------------- identical ids, two products ----
