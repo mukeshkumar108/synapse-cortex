@@ -446,7 +446,7 @@ async def brief(db: AsyncSession, ws: str, owner: str, now: datetime, ledger_row
     sec["noticing"] = [a["text"] for a in await asks(db, ws, owner, today) if a["kind"] in ("recurring", "returning")]
     sec["plans_today"] = [r.text.rstrip(".") for r in rows if r.certainty == "intention" and r.subject_key == SELF and r.when_on is not None and r.when_on.date() == today]
     sec["world"] = [f"{r.subject}: {r.text.rstrip('.')} ({fmt_day(r.sitting_on)})" for r in rows if r.subject_key != SELF and r.certainty in ("stated", "hearsay")
-                    and (d0 - r.sitting_on).days <= 3 and r.area not in ("other", "identity")][-5:]
+                    and (d0 - r.sitting_on).days <= 3 and r.area not in ("other", "identity") and not r.key][-5:]       # a standing fact (who someone is) is not news
     chosen = [(k, sec[k]) for k in PARTS[part] if sec.get(k)]
     text = "\n\n".join(f"{HEADS[k]}{' (' + fmt_day(d0) + ')' if k == 'today' else ''}:\n" + "\n".join(f"- {t}" for t in v) for k, v in chosen)
     text = re.sub(r"\b(T|t)he person\b", lambda m: ("T" if m.group(1) == "T" else "t") + "he user", text)
