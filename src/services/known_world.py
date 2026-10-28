@@ -580,6 +580,7 @@ async def overview_text(db: AsyncSession, ws: str, owner: str, ctx: Ctx) -> Tupl
 
 async def mentions_text(db: AsyncSession, ws: str, owner: str, text: str, ctx: Ctx) -> Tuple[str, List[Tuple[str, str]]]:
     found, ambiguous = await mentions(db, ws, owner, text)
+    found = [e for e in found if str(e.name or "").strip().lower() not in ("sophie", "bloom")]      # naming the companion is addressing her, not asking about someone
     if not found and not ambiguous:
         return "", []
     parts: List[str] = []
