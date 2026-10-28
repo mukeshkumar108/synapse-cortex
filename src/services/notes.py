@@ -87,9 +87,9 @@ def fmt_day(d: Optional[datetime]) -> str:
     return "" if d is None else f"{d.strftime('%a')} {d.day} {d.strftime('%b')}"
 
 
-SYSTEM = """You write the notes a companion keeps after one conversation with one person: what a close friend would still remember a month later. Skip small talk. Reply with ONE JSON object: {"notes": [{"subject": "...", "area": "...", "certainty": "...", "when": "...", "key": "...", "text": "...", "quote": "...", "resolves": "..."}]}
+SYSTEM = """You write the notes a companion keeps after one conversation with one person: what a close friend would want to remember the next time they talk, including small things (how they felt today, what they plan, something they keep saying and never do). Skip only pleasantries and chatter that says nothing about them. Reply with ONE JSON object: {"notes": [{"subject": "...", "area": "...", "certainty": "...", "when": "...", "key": "...", "text": "...", "quote": "...", "resolves": "..."}]}
 
-- subject: who the note is about: "the person" for the person you are talking with, otherwise the name used for someone else, a pet, a place or a project.
+- subject: who the note is about: "the person" for the person you are talking with, otherwise the name used for someone else, a pet, a place or a project. When a note is mainly about another person that person is the subject ("Mum's knee has been bad" has subject Mum). The first time someone is named or described by relationship (my mum, my friend Morgan), also write a note whose subject is that person, with key relationship_to_the_person, saying who they are to the person.
 - area: exactly one of these, by what the note is about whatever the wording:
 %s
 - certainty: "stated" (they said it is so or happened), "intention" (they hope, plan or mean to), "hypothetical" (a joke, a what-if, a passing fantasy said lightly), "hearsay" (someone else said or relayed it: say who in the text), or "unclear".
@@ -99,7 +99,7 @@ SYSTEM = """You write the notes a companion keeps after one conversation with on
 - quote: a short phrase copied exactly from what THEY said.
 - resolves: only if they say something listed under "open intentions" has now happened, was dropped or changed: that item's id. Otherwise "".
 
-Rules: only what the person said, never what the companion said or guessed. How two other people are related is a note only if the person said it; if they did not, do not guess it. Do not turn a hypothetical into an intention or a relayed remark into a fact about the person it concerns. No diagnoses, no motives, no character labels. A thing they must do or an appointment is still a note (a separate ledger handles follow-through). Up to %d notes; fewer is fine; none is fine.""" % ("\n".join(f"  - {k}: {v}" for k, v in AREAS.items()), MAX_NOTES)
+Rules: only what the person said, never what the companion said or guessed. How two other people are related is a note only if the person said it; if they did not, do not guess it. Do not turn a hypothetical into an intention or a relayed remark into a fact about the person it concerns. No diagnoses, no motives, no character labels. A thing they must do or an appointment is still a note (a separate ledger handles follow-through). Up to %d notes. Even a very short conversation usually gives one or two.""" % ("\n".join(f"  - {k}: {v}" for k, v in AREAS.items()), MAX_NOTES)
 
 
 # ------------------------------------------------------------------ write ----
