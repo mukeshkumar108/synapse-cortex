@@ -81,5 +81,7 @@ from src.models.world import AttentionAction, AttentionEvent  # noqa: F401
 from src.models.world import ContinuingArc, LedgerItem, MemoryRun, NotebookPage, SittingPreparation  # noqa: F401
 from src.models.known_world import KnownEntity, KnownEntityAlias, KnownLink, CueExposure  # noqa: F401
 from src.models.note import Note  # noqa: F401
+from src.models.brief import Brief  # noqa: F401
+from src.services import brief_cache  # noqa: F401,E402  (registers the events that mark a cached brief stale when notes or the ledger change)
 
 from src.services.standing_requests import StandingRequest  # noqa: F401  (registered so the table is created)

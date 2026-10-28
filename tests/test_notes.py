@@ -379,3 +379,30 @@ async def test_the_brief_is_the_days_page_from_dates_and_changes_with_the_part_o
         evening = await notes.brief(db, WS, o, datetime(2026, 10, 28, 19, 0), rows_)
     assert morning["part"] == "morning" and "Physio (16:00)" in morning["text"] and "Fri 30 Oct: Mara's birthday is 30 October" in morning["text"]
     assert evening["part"] == "evening" and "They plan to send the invoice today" in evening["text"] and "Coming up this week" not in evening["text"]
+
+
+@pytest.mark.asyncio
+async def test_the_prepared_brief_is_served_from_the_cache_and_rebuilt_the_moment_a_note_or_the_ledger_changes():
+    from src.models.world import LedgerItem
+    from src.services import brief_cache, memory_pipeline as mp
+    o = owner()
+    now = datetime(2026, 10, 28, 8, 30)
+    async with async_session_maker() as db:
+        first = await brief_cache.get(db, WS, o, now, [])
+        again = await brief_cache.get(db, WS, o, now, [])
+    assert first["cached"] is False and first["version"] == 1 and again["cached"] is True and again["version"] == 1
+    async with async_session_maker() as db:                       # the person (or a tool) adds a ledger row: the page is stale at once
+        db.add(LedgerItem(honcho_workspace_id=WS, owner_peer_id=o, kind="appointment", title="Dentist", status="open", situation_key="dentist",
+                          expected_date=datetime(2026, 10, 28), expected_time="15:30"))
+        await db.commit()
+    async with async_session_maker() as db:
+        rows_ = await mp.open_ledger(db, WS, o)
+        changed = await brief_cache.get(db, WS, o, now, rows_)
+    assert changed["cached"] is False and changed["version"] == 2 and changed["reason"] == "changed" and "Dentist (15:30)" in changed["text"]
+    await write(o, {"notes": [note(area="goals-plans", certainty="intention", text="They plan to send the invoice today.", quote="barely slept")]}, datetime(2026, 10, 28))
+    async with async_session_maker() as db:
+        rows_ = await mp.open_ledger(db, WS, o)
+        after_note = await brief_cache.get(db, WS, o, now, rows_)
+        steady = await brief_cache.get(db, WS, o, now, rows_)
+    assert after_note["version"] == 3 and "send the invoice" in after_note["text"] and steady["cached"] is True and steady["version"] == 3
+    assert (await brief_cache.get(db, WS, o, now, rows_, force=True))["version"] == 4                       # a forced rebuild is always possible

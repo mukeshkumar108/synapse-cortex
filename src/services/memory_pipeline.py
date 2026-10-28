@@ -213,6 +213,20 @@ def retired(layer: str) -> bool:
     return layer in {x.strip().lower() for x in str(settings.RETIRED_LAYERS or "").split(",") if x.strip()}
 
 
+async def _prepare_brief(db: AsyncSession, workspace_id: str, owner: str, cfg: ProductMemory, clock: Dict[str, Any], bundle: Dict[str, Any]) -> None:
+    """Have today's brief ready (all three parts) now that this sitting's notes and ledger are written. Fail-open."""
+    from src.config import settings as _s
+    if not (_s.NOTES_ENABLED and cfg.notes_enabled):
+        return
+    try:
+        from src.services import brief_cache
+        rows = await open_ledger(db, workspace_id, owner, limit=100) if cfg.ledger_enabled else []
+        bundle["brief"] = {"rebuilt": await brief_cache.prepare_day(db, workspace_id, owner, clock["local"], rows)}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[memory] brief preparation failed open: %s", exc)
+        bundle["brief"] = {"status": "failed", "error": type(exc).__name__}
+
+
 def _fingerprint(*parts: str) -> str:
     h = hashlib.sha256()
     for p in parts:
@@ -1417,6 +1431,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
 
     if retired("preparation"):
         prep = {"status": "skipped", "reason": "retired", "text": ""}
+        await _prepare_brief(db, workspace_id, owner, cfg, clock, bundle)
     else:
         prep = await prepare(db, workspace_id=workspace_id, owner=owner, now_iso=now_iso, run_id=run.id,
                              companion_id=companion_id, time_zone=clock["tz"])
