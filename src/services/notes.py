@@ -428,7 +428,8 @@ async def brief(db: AsyncSession, ws: str, owner: str, now: datetime, ledger_row
         out = []
         for r in ledger_rows:
             ed = getattr(r, "expected_date", None)
-            if getattr(r, "status", "") in ("open", "waiting", "watching") and ed is not None and ed.date() == day:
+            ed = ed.date() if isinstance(ed, datetime) else ed          # a DATE column returns a date, a DATETIME a datetime
+            if getattr(r, "status", "") in ("open", "waiting", "watching") and ed is not None and ed == day:
                 t = getattr(r, "expected_time", "") or ""
                 out.append((t or "99", f"{r.title}" + (f" ({t})" if t else "")))
         for r in allrows:
