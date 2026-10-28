@@ -361,3 +361,21 @@ async def test_with_the_arc_retired_the_state_serves_the_last_sittings_as_dated_
     async with async_session_maker() as db:
         after = await memory_pipeline.read_state(db, workspace_id=WS, owner=o)
     assert "(that day):" in after["arc"]["text"] and "ran eight miles" in after["arc"]["text"]
+
+
+@pytest.mark.asyncio
+async def test_the_brief_is_the_days_page_from_dates_and_changes_with_the_part_of_the_day():
+    from src.models.world import LedgerItem
+    o = owner()
+    await write(o, {"notes": [note(subject="Mara", area="identity", key="birthday", when="2026-10-30", text="Mara's birthday is 30 October.", quote="barely slept"),
+                              note(area="goals-plans", certainty="intention", text="They plan to ring the plumber today.", quote="barely slept")]}, datetime(2026, 10, 27))
+    await write(o, {"notes": [note(area="goals-plans", certainty="intention", text="They plan to send the invoice today.", quote="barely slept")]}, datetime(2026, 10, 28))
+    async with async_session_maker() as db:
+        db.add(LedgerItem(honcho_workspace_id=WS, owner_peer_id=o, kind="appointment", title="Physio", status="open", situation_key="physio", expected_date=datetime(2026, 10, 28), expected_time="16:00"))
+        await db.commit()
+        from src.services import memory_pipeline as mp
+        rows_ = await mp.open_ledger(db, WS, o)
+        morning = await notes.brief(db, WS, o, datetime(2026, 10, 28, 8, 30), rows_)
+        evening = await notes.brief(db, WS, o, datetime(2026, 10, 28, 19, 0), rows_)
+    assert morning["part"] == "morning" and "Physio (16:00)" in morning["text"] and "Fri 30 Oct: Mara's birthday is 30 October" in morning["text"]
+    assert evening["part"] == "evening" and "They plan to send the invoice today" in evening["text"] and "Coming up this week" not in evening["text"]

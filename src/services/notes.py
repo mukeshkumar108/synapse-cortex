@@ -405,6 +405,54 @@ async def where_we_left_off(db: AsyncSession, ws: str, owner: str, today: date, 
     return re.sub(r"\b(T|t)he person\b", lambda m: ("T" if m.group(1) == "T" else "t") + "he user", "\n\n".join(blocks))
 
 
+PARTS = {"morning": ("today", "coming", "open", "noticing", "world"), "afternoon": ("today", "open", "world"), "evening": ("plans_today", "tomorrow", "noticing")}
+HEADS = {"today": "Today", "coming": "Coming up this week", "open": "Still open from the last few days", "noticing": "What keeps coming up", "world": "In their world lately",
+         "plans_today": "What they said they would do today", "tomorrow": "Tomorrow"}
+
+
+def day_part(hour: int) -> str:
+    return "morning" if hour < 12 else "afternoon" if hour < 17 else "evening"
+
+
+async def brief(db: AsyncSession, ws: str, owner: str, now: datetime, ledger_rows: Sequence[Any] = (), part: Optional[str] = None) -> Dict[str, Any]:
+    """The chief-of-staff page for this part of the day: what is on for today, what is coming, what is still open, what keeps coming up. Deterministic, no model, built from the
+    dated notes and the ledger at the person's clock, so it can be prepared ahead (it is a query over stored records) and one document replaces three separately composed blocks.
+    Annual dates (a birthday) recur on their month and day. Facts and dates only."""
+    part = part if part in PARTS else day_part(now.hour)
+    today = now.date()
+    d0 = datetime(today.year, today.month, today.day)
+    rows = await _current(db, ws, owner, RECENT_DAYS, today)
+    allrows = await _current(db, ws, owner)
+
+    def on(day: date):
+        out = []
+        for r in ledger_rows:
+            ed = getattr(r, "expected_date", None)
+            if getattr(r, "status", "") in ("open", "waiting", "watching") and ed is not None and ed.date() == day:
+                t = getattr(r, "expected_time", "") or ""
+                out.append((t or "99", f"{r.title}" + (f" ({t})" if t else "")))
+        for r in allrows:
+            if r.when_on is not None and r.when_on.date() == day and r.certainty in ("stated", "intention"):
+                out.append(("98", r.text.rstrip(".")))
+        for r in allrows:                       # annual: a birthday falls on its month and day every year
+            if r.when_on is not None and r.key == "birthday" and (r.when_on.month, r.when_on.day) == (day.month, day.day) and r.when_on.date() != day:
+                out.append(("97", r.text.rstrip(".") + " (every year)"))
+        return [t for _, t in sorted(out)]
+    sec: Dict[str, List[str]] = {}
+    sec["today"] = on(today)
+    sec["tomorrow"] = on(today + timedelta(days=1))
+    sec["coming"] = [f"{fmt_day(d0 + timedelta(days=i))}: {t}" for i in range(1, 8) for t in on(today + timedelta(days=i))]
+    sec["open"] = [a["text"] for a in await asks(db, ws, owner, today) if a["kind"] == "plan"]
+    sec["noticing"] = [a["text"] for a in await asks(db, ws, owner, today) if a["kind"] in ("recurring", "returning")]
+    sec["plans_today"] = [r.text.rstrip(".") for r in rows if r.certainty == "intention" and r.sitting_on == d0 and r.subject_key == SELF]
+    sec["world"] = [f"{r.subject}: {r.text.rstrip('.')} ({fmt_day(r.sitting_on)})" for r in rows if r.subject_key != SELF and r.certainty in ("stated", "hearsay")
+                    and (d0 - r.sitting_on).days <= 3 and r.area not in ("other", "identity")][-5:]
+    chosen = [(k, sec[k]) for k in PARTS[part] if sec.get(k)]
+    text = "\n\n".join(f"{HEADS[k]}{' (' + fmt_day(d0) + ')' if k == 'today' else ''}:\n" + "\n".join(f"- {t}" for t in v) for k, v in chosen)
+    text = re.sub(r"\b(T|t)he person\b", lambda m: ("T" if m.group(1) == "T" else "t") + "he user", text)
+    return {"part": part, "date": today.isoformat(), "sections": {k: v for k, v in chosen}, "text": text}
+
+
 ASK_MAX_SHOWN = 2          # an ask is offered at most this many sittings unless new evidence arrives (a new sitting changes its ref)
 
 
