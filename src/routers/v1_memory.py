@@ -269,6 +269,8 @@ async def notes_view(request: Request, workspace_id: str, owner: str, companion_
         rows = await memory_pipeline.open_ledger(db, scope.workspace, owner, limit=100) if cfg.ledger_enabled else []
         from src.services import brief_cache as _bc
         return {**base, **(await _bc.get(db, scope.workspace, owner, _ctx.now, rows, part, force=bool(fresh)))}
+    if view == "profile":
+        return {**base, **(await _n.profile(db, scope.workspace, owner))}
     if view == "recurring":
         return {**base, "areas": await _n.recurring(db, scope.workspace, owner, today)}
     if view == "asks":
@@ -283,7 +285,7 @@ async def notes_view(request: Request, workspace_id: str, owner: str, companion_
         return {**base, "recent": await _n.recent(db, scope.workspace, owner, today)}
     if view == "inspect":
         return {**base, **(await _n.inspect(db, scope.workspace, owner))}
-    raise HTTPException(status_code=422, detail="view must be brief, recurring, asks, people, card, recent or inspect")
+    raise HTTPException(status_code=422, detail="view must be brief, profile, recurring, asks, people, card, recent or inspect")
 
 
 @router.get("/opportunities")

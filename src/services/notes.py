@@ -360,10 +360,9 @@ async def asks(db: AsyncSession, ws: str, owner: str, today: date) -> List[Dict[
             days = sorted({r.sitting_on for r in later} | {h.sitting_on})
             out.append({"kind": "returning", "area": h.area, "sittings": len(days), "ref": f"returning:{str(h.id)[:8]}:{len(days)}", "text": f"{h.text.rstrip('.')} ({fmt_day(h.sitting_on)}) has come back since: "
                         + "; ".join(r.text.rstrip(".") + f" ({fmt_day(r.sitting_on)})" for r in later[-2:])})
-    for r in rows:                      # a plan they mentioned in the last few days and have not said how it went (the evening asks about the morning)
-        age = (datetime(today.year, today.month, today.day) - r.sitting_on).days
-        if r.certainty == "intention" and 0 <= age <= PLAN_DAYS and r.area in ("goals-plans", "exercise", "friends", "family-parents", "nature-outdoors", "work-load", "career-direction"):
-            out.append({"kind": "plan", "area": r.area, "sittings": 1, "ref": f"plan:{str(r.id)[:8]}", "text": f"{r.text.rstrip('.')} (said {fmt_day(r.sitting_on)}); nothing since on how it went"})
+    for r in rows:                      # a plan for a particular day, in the last few days, with nothing since (the evening asks about the morning); a life aim has no day and is not one
+        if r.certainty == "intention" and r.when_on is not None and today - timedelta(days=PLAN_DAYS) <= r.when_on.date() <= today:
+            out.append({"kind": "plan", "area": r.area, "sittings": 1, "ref": f"plan:{str(r.id)[:8]}", "text": f"{r.text.rstrip('.')} (for {fmt_day(r.when_on)}, said {fmt_day(r.sitting_on)}); nothing since on how it went"})
     asked_rows = [r for r in rows if _BOUNDARY.search(f"{r.quote} {r.text}")]
     for o in out:
         o["asked"] = boundary_for(o["text"], asked_rows) if asked_rows else ""
@@ -436,7 +435,7 @@ async def brief(db: AsyncSession, ws: str, owner: str, now: datetime, ledger_row
             if r.when_on is not None and r.when_on.date() == day and r.certainty in ("stated", "intention"):
                 out.append(("98", r.text.rstrip(".")))
         for r in allrows:                       # annual: a birthday falls on its month and day every year
-            if r.when_on is not None and r.key == "birthday" and (r.when_on.month, r.when_on.day) == (day.month, day.day) and r.when_on.date() != day:
+            if r.when_on is not None and r.key in ("birthday", "anniversary") and (r.when_on.month, r.when_on.day) == (day.month, day.day) and r.when_on.date() != day:
                 out.append(("97", r.text.rstrip(".") + " (every year)"))
         return [t for _, t in sorted(out)]
     sec: Dict[str, List[str]] = {}
@@ -445,13 +444,35 @@ async def brief(db: AsyncSession, ws: str, owner: str, now: datetime, ledger_row
     sec["coming"] = [f"{fmt_day(d0 + timedelta(days=i))}: {t}" for i in range(1, 8) for t in on(today + timedelta(days=i))]
     sec["open"] = [a["text"] for a in await asks(db, ws, owner, today) if a["kind"] == "plan"]
     sec["noticing"] = [a["text"] for a in await asks(db, ws, owner, today) if a["kind"] in ("recurring", "returning")]
-    sec["plans_today"] = [r.text.rstrip(".") for r in rows if r.certainty == "intention" and r.sitting_on == d0 and r.subject_key == SELF]
+    sec["plans_today"] = [r.text.rstrip(".") for r in rows if r.certainty == "intention" and r.subject_key == SELF and r.when_on is not None and r.when_on.date() == today]
     sec["world"] = [f"{r.subject}: {r.text.rstrip('.')} ({fmt_day(r.sitting_on)})" for r in rows if r.subject_key != SELF and r.certainty in ("stated", "hearsay")
                     and (d0 - r.sitting_on).days <= 3 and r.area not in ("other", "identity")][-5:]
     chosen = [(k, sec[k]) for k in PARTS[part] if sec.get(k)]
     text = "\n\n".join(f"{HEADS[k]}{' (' + fmt_day(d0) + ')' if k == 'today' else ''}:\n" + "\n".join(f"- {t}" for t in v) for k, v in chosen)
     text = re.sub(r"\b(T|t)he person\b", lambda m: ("T" if m.group(1) == "T" else "t") + "he user", text)
     return {"part": part, "date": today.isoformat(), "sections": {k: v for k, v in chosen}, "text": text}
+
+
+async def profile(db: AsyncSession, ws: str, owner: str, limit: int = 26) -> Dict[str, Any]:
+    """Who they are and who matters to them, as a stable page: the standing facts (latest note per key), then their values, how they like to be talked to and what they are working
+    towards, then the people they have talked about with one line each. Deterministic. This is what a friend simply knows, so it does not wait for a name to be mentioned."""
+    rows = await _current(db, ws, owner)
+    mine = [r for r in rows if r.subject_key == SELF and r.certainty in ("stated", "intention", "hearsay")]
+    keyed = {r.key: r for r in mine if r.key}                       # the latest note per key (rows are in date order)
+    lines = [r.text.rstrip(".") for r in keyed.values()]
+    lines += [r.text.rstrip(".") for r in mine if not r.key and r.area == "identity"][-5:]
+    lines += [r.text.rstrip(".") for r in mine if not r.key and r.area == "preferences"][-6:]
+    lines += [r.text.rstrip(".") for r in mine if not r.key and r.area in ("career-direction", "work-load", "goals-plans", "aspiration", "home")][-6:]
+    seen, about = set(), []
+    for t in lines:
+        if norm(t) not in seen:
+            seen.add(norm(t))
+            about.append(t)
+    about = about[:limit]
+    ppl = [f"{p['name']}: {p['line'].rstrip('.')}" for p in await people(db, ws, owner)]
+    text = "\n\n".join(x for x in (("Who they are:\n" + "\n".join(f"- {t}" for t in about)) if about else "", ("People who matter to them:\n" + "\n".join(f"- {t}" for t in ppl)) if ppl else "") if x)
+    text = re.sub(r"\b(T|t)he person\b", lambda m: ("T" if m.group(1) == "T" else "t") + "he user", text)
+    return {"about": about, "people": ppl, "text": text}
 
 
 ASK_MAX_SHOWN = 2          # an ask is offered at most this many sittings unless new evidence arrives (a new sitting changes its ref)

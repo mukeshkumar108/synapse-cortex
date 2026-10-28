@@ -212,7 +212,7 @@ async def test_a_short_check_in_that_says_something_is_not_accepted_as_nothing_u
 @pytest.mark.asyncio
 async def test_a_plan_from_the_morning_is_a_thing_to_ask_about_until_it_is_closed():
     o = owner()
-    await write(o, {"notes": [note(area="friends", certainty="intention", text="They plan to catch up with Morgan this evening, 2026-10-13.", quote="barely slept")]}, datetime(2026, 10, 13))
+    await write(o, {"notes": [note(area="friends", certainty="intention", when="2026-10-13", text="They plan to catch up with Morgan this evening, 2026-10-13.", quote="barely slept")]}, datetime(2026, 10, 13))
     async with async_session_maker() as db:
         got = [a for a in await notes.asks(db, WS, o, date(2026, 10, 13)) if a["kind"] == "plan"]
         later = [a for a in await notes.asks(db, WS, o, date(2026, 10, 25)) if a["kind"] == "plan"]
@@ -295,7 +295,7 @@ async def test_a_plan_they_asked_us_not_to_raise_keeps_their_words_and_the_day()
     async with async_session_maker() as db:
         # the quote must be in their words for a stated note; reuse a verified phrase and the boundary words in the text
         pass
-    await write(o, {"notes": [note(area="friends", certainty="intention", text="The person is reconsidering going to Callie's wedding.", quote="barely slept")]}, datetime(2026, 10, 4))
+    await write(o, {"notes": [note(area="friends", certainty="intention", when="2026-10-04", text="The person is reconsidering going to Callie's wedding.", quote="barely slept")]}, datetime(2026, 10, 4))
     async with async_session_maker() as db:
         got = [a for a in await notes.ask_candidates(db, WS, o, date(2026, 10, 4)) if "wedding" in a["text"]]
     assert len(got) == 1 and got[0]["asked"].startswith("They asked me on Sat 19 Sep not to bring this up")
@@ -368,8 +368,8 @@ async def test_the_brief_is_the_days_page_from_dates_and_changes_with_the_part_o
     from src.models.world import LedgerItem
     o = owner()
     await write(o, {"notes": [note(subject="Mara", area="identity", key="birthday", when="2026-10-30", text="Mara's birthday is 30 October.", quote="barely slept"),
-                              note(area="goals-plans", certainty="intention", text="They plan to ring the plumber today.", quote="barely slept")]}, datetime(2026, 10, 27))
-    await write(o, {"notes": [note(area="goals-plans", certainty="intention", text="They plan to send the invoice today.", quote="barely slept")]}, datetime(2026, 10, 28))
+                              note(area="goals-plans", certainty="intention", when="2026-10-27", text="They plan to ring the plumber today.", quote="barely slept")]}, datetime(2026, 10, 27))
+    await write(o, {"notes": [note(area="goals-plans", certainty="intention", when="2026-10-28", text="They plan to send the invoice today.", quote="barely slept")]}, datetime(2026, 10, 28))
     async with async_session_maker() as db:
         db.add(LedgerItem(honcho_workspace_id=WS, owner_peer_id=o, kind="appointment", title="Physio", status="open", situation_key="physio", expected_date=datetime(2026, 10, 28), expected_time="16:00"))
         await db.commit()
@@ -399,10 +399,26 @@ async def test_the_prepared_brief_is_served_from_the_cache_and_rebuilt_the_momen
         rows_ = await mp.open_ledger(db, WS, o)
         changed = await brief_cache.get(db, WS, o, now, rows_)
     assert changed["cached"] is False and changed["version"] == 2 and changed["reason"] == "changed" and "Dentist (15:30)" in changed["text"]
-    await write(o, {"notes": [note(area="goals-plans", certainty="intention", text="They plan to send the invoice today.", quote="barely slept")]}, datetime(2026, 10, 28))
+    await write(o, {"notes": [note(area="goals-plans", certainty="intention", when="2026-10-28", text="They plan to send the invoice today.", quote="barely slept")]}, datetime(2026, 10, 28))
     async with async_session_maker() as db:
         rows_ = await mp.open_ledger(db, WS, o)
         after_note = await brief_cache.get(db, WS, o, now, rows_)
         steady = await brief_cache.get(db, WS, o, now, rows_)
     assert after_note["version"] == 3 and "send the invoice" in after_note["text"] and steady["cached"] is True and steady["version"] == 3
     assert (await brief_cache.get(db, WS, o, now, rows_, force=True))["version"] == 4                       # a forced rebuild is always possible
+
+
+@pytest.mark.asyncio
+async def test_a_life_aim_with_no_day_is_not_a_plan_awaiting_follow_up_and_the_profile_serves_who_they_are():
+    o = owner()
+    await write(o, {"notes": [note(subject="the person", area="identity", key="name", text="The person's name is Mukesh.", quote="barely slept"),
+                              note(subject="the person", area="identity", key="residence", text="The person lives in Burwell.", quote="barely slept"),
+                              note(subject="the person", area="preferences", key="interaction_style", text="The person wants a companion with opinions, not an agreeable one.", quote="barely slept"),
+                              note(subject="the person", area="aspiration", certainty="intention", text="The person wants to travel more around Latin America.", quote="barely slept"),
+                              note(subject="Ashley", area="partner", key="relationship_to_the_person", text="Ashley is the person's long-distance girlfriend.", quote="barely slept")]}, datetime(2026, 10, 28))
+    async with async_session_maker() as db:
+        plans = [a for a in await notes.asks(db, WS, o, date(2026, 10, 28)) if a["kind"] == "plan"]
+        prof = await notes.profile(db, WS, o)
+    assert plans == []
+    assert "Who they are:" in prof["text"] and "Mukesh" in prof["text"] and "Burwell" in prof["text"] and "opinions" in prof["text"]
+    assert "People who matter to them:" in prof["text"] and "Ashley: Ashley is the user's long-distance girlfriend" in prof["text"]
