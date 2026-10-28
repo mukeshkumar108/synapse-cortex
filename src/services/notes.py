@@ -527,12 +527,17 @@ async def know_text(db: AsyncSession, ws: str, owner: str, q: str) -> str:
     return await recall(db, ws, owner, q)
 
 
+COMPANION_NAMES = {"sophie", "bloom"}
+
+
 async def mentions_text(db: AsyncSession, ws: str, owner: str, text: str, limit: int = 3) -> str:
     """Whoever they just named, from what they have told me: a person's card appears only when the name does."""
     said = f" {norm(text)} "
     out = []
     for p in await people(db, ws, owner):
         nm = norm(p["name"])
+        if nm in COMPANION_NAMES:       # naming the companion is addressing her, not asking about someone
+            continue
         if len(nm) >= 3 and f" {nm} " in said or (nm.split() and len(nm.split()[0]) >= 3 and f" {nm.split()[0]} " in said):
             c = await card(db, ws, owner, p["name"])
             if c["notes"]:
