@@ -46,3 +46,6 @@ Retiring a packet (its items were used, or the conversation moved on) is NOT ret
 ## Five events to record separately (only the last two exist today)
 
 available (Cortex holds it) -> eligible (it fits this moment) -> selected (the runtime chose it) -> shown (the companion was given it; `world/exposure`) -> used (the companion acted on it; engagement).
+
+## Notes as a source (2026-10-28)
+With `NOTES_ENABLED`, candidates may carry `source.system = "notes"`: what keeps coming up in the person's own words (a strain area in 3+ sittings, a light wish that came back, a plan from the last few days with nothing since). They render under "What I have been noticing about them over our conversations:" as dated facts, never as an instruction or a question.
