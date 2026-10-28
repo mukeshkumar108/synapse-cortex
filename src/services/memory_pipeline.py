@@ -873,6 +873,19 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
     else:
         ledger = await open_ledger(db, workspace_id, owner, limit=50)
     arc = await get_arc(db, workspace_id, owner, cfg)
+    arc_text = arc.text
+    if retired("arc"):
+        # The model-written narrative is retired: "where we left off" is the last couple of sittings as dated notes (the stored arc is the fallback until there are notes).
+        from zoneinfo import ZoneInfo
+        from src.config import settings as _s
+        if _s.NOTES_ENABLED and cfg.notes_enabled:
+            from src.services import attention_cycle as _ac, notes as _notes
+            tz = await _ac.owner_time_zone(db, workspace_id=workspace_id, owner=owner, default=None) or cfg.default_time_zone
+            try:
+                today_local = datetime.now(ZoneInfo(tz)).date()
+            except Exception:
+                today_local = datetime.now(timezone.utc).date()
+            arc_text = (await _notes.where_we_left_off(db, workspace_id, owner, today_local)) or arc.text
     prep = await get_preparation(db, workspace_id=workspace_id, owner=owner, companion_id=companion_id)
     return {
         "product": cfg.name,
@@ -887,7 +900,7 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
                     "created_at": i.created_at.isoformat() if i.created_at else None,
                     "linked": (json.loads(i.linked_keys_json) if (i.linked_keys_json or "").startswith("[") else [])}
                    for i in ledger],
-        "arc": {"version": arc.version, "text": arc.text},
+        "arc": {"version": arc.version, "text": arc_text},
         "preparation": prep,
         "attention": {
             "pending": await _attn.pending_attention(db, workspace_id=workspace_id, owner=owner),

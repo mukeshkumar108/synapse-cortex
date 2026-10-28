@@ -347,3 +347,17 @@ async def test_where_we_left_off_is_the_last_two_sittings_dated_with_their_certa
         text = await notes.where_we_left_off(db, WS, o, date(2026, 9, 15))
     assert text.startswith("Mon 14 Sep (yesterday):") and "Sat 12 Sep (3 days ago):" in text and "Thu 10 Sep" not in text
     assert "(a plan)" in text and "(said lightly)" in text and "(relayed by someone else)" in text and "the user" in text.lower() and "the person" not in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_with_the_arc_retired_the_state_serves_the_last_sittings_as_dated_notes_and_falls_back_to_the_stored_arc(monkeypatch):
+    monkeypatch.setattr(settings, "NOTES_ENABLED", True)
+    monkeypatch.setattr(settings, "RETIRED_LAYERS", "arc")
+    o = owner()
+    async with async_session_maker() as db:
+        before = await memory_pipeline.read_state(db, workspace_id=WS, owner=o)
+    assert before["arc"]["text"] == memory_pipeline.SOPHIE.arc_seed                      # no notes yet: the stored arc
+    await write(o, {"notes": [note(area="exercise", text="The person ran eight miles.")]}, datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
+    async with async_session_maker() as db:
+        after = await memory_pipeline.read_state(db, workspace_id=WS, owner=o)
+    assert "(that day):" in after["arc"]["text"] and "ran eight miles" in after["arc"]["text"]
