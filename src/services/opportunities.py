@@ -225,7 +225,7 @@ def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str 
     elif stage == "moment":
         touched = _stems(user_text)
         pool = [(c, "opportunity") for c in cands] + [(b, "background") for b in bg]
-        hits = [(x, k) for x, k in pool if touched & _stems(x["text"])]
+        hits = [(x, k) for x, k in pool if touched & _stems(x["text"] + " " + x.get("match", ""))]      # a note ask also answers to the words of its area ("tired" meets sleep and energy)
         purpose, items = ("task_support" if is_task else "touched"), [item(x, k) for x, k in hits[:2]]
         if not is_task:
             have = {i["id"] for i in items}

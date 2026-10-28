@@ -246,3 +246,41 @@ async def test_a_light_product_reads_the_sitting_once_into_notes_and_runs_nothin
         memory_pipeline.set_model_fn(None)
     assert out["status"] == "consolidated" and kinds == ["notes"] and pages == []
     assert [r.text for r in await rows(o)] == ["They saw deer on the hill at sunset."]
+
+
+@pytest.mark.asyncio
+async def test_an_ask_is_offered_twice_then_stays_quiet_until_there_is_new_evidence():
+    from src.models.known_world import CueExposure
+    from src.services import known_world as kw
+    o = owner()
+    for d in (7, 8, 10):
+        await write(o, {"notes": [note(text=f"They barely slept (night of {d} Sep).")]}, datetime(2026, 9, d))
+    today = date(2026, 9, 12)
+    async with async_session_maker() as db:
+        first = await notes.ask_candidates(db, WS, o, today)
+        ref = first[0]["ref"]
+        for _ in range(2):                                           # offered at two openings (a new sitting-sized window each time)
+            x = (await db.execute(select(CueExposure).where(CueExposure.owner_peer_id == o, CueExposure.ref == ref))).scalars().first()
+            if x is None:
+                db.add(CueExposure(honcho_workspace_id=WS, owner_peer_id=o, source="notes", ref=ref, shown_count=1))
+            else:
+                x.shown_count += 1
+            await db.commit()
+        assert await notes.ask_candidates(db, WS, o, today) == []
+    await write(o, {"notes": [note(text="They barely slept again (night of 11 Sep).")]}, datetime(2026, 9, 11))
+    async with async_session_maker() as db:
+        again = await notes.ask_candidates(db, WS, o, today)
+    assert len(again) == 1 and again[0]["ref"] != ref                 # a fourth sitting is new evidence: a new ask
+
+
+@pytest.mark.asyncio
+async def test_saying_they_are_tired_meets_the_sleep_pattern_in_the_moment_even_though_the_word_is_not_in_it():
+    from src.services import known_world as kw, opportunities as op
+    o = owner()
+    for d in (7, 8, 10):
+        await write(o, {"notes": [note(text=f"They barely slept (night of {d} Sep).")]}, datetime(2026, 9, d))
+    ctx = kw.Ctx(datetime(2026, 9, 12, 9, 0), "Europe/London")
+    async with async_session_maker() as db:
+        out = await op.read(db, WS, o, ctx, world_on=False, ledger_rows=[], notes_on=True)
+    assert op.build_packet(out, stage="moment", user_text="not much, bit tired again today")["items"][0]["source"]["system"] == "notes"
+    assert op.build_packet(out, stage="moment", user_text="the weather is nice")["items"] == []

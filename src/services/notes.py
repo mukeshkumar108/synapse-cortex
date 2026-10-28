@@ -91,7 +91,7 @@ def fmt_day(d: Optional[datetime]) -> str:
 
 SYSTEM = """You write the notes a companion keeps after one conversation with one person: what a close friend would want to remember the next time they talk, including small things (how they felt today, what they plan, something they keep saying and never do). Skip only pleasantries and chatter that says nothing about them. Reply with ONE JSON object: {"notes": [{"subject": "...", "area": "...", "certainty": "...", "when": "...", "key": "...", "text": "...", "quote": "...", "resolves": "..."}]}
 
-- subject: who the note is about: "the person" for the person you are talking with, otherwise the name used for someone else, a pet, a place or a project. When a note is mainly about another person that person is the subject ("Mum's knee has been bad" has subject Mum). The first time someone is named or described by relationship (my mum, my friend Morgan), also write a note whose subject is that person, with key relationship_to_the_person, saying who they are to the person.
+- subject: who the note is about: "the person" for the person you are talking with, otherwise the name used for someone else, a pet, a place or a project. When a note is mainly about another person that person is the subject ("Mum's knee has been bad" has subject Mum). The first time someone is named or described by relationship (my mum, Dad, my friend Morgan), ALSO write a note whose subject is that person, with key relationship_to_the_person, saying who they are to the person and anything said about them, even when your other notes from that moment are about the person's own feelings or routine. Example: {"subject": "Mum", "area": "family-parents", "certainty": "stated", "key": "relationship_to_the_person", "text": "Mum is the person's mother; she died three years ago in March.", "quote": "..."}.
 - area: exactly one of these, by what the note is about whatever the wording:
 %s
 - certainty: "stated" (they said it is so or happened), "intention" (they hope, plan or mean to), "hypothetical" (a joke, a what-if, a passing fantasy said lightly), "hearsay" (someone else said or relayed it: say who in the text), or "unclear".
@@ -101,7 +101,7 @@ SYSTEM = """You write the notes a companion keeps after one conversation with on
 - quote: a short phrase copied exactly from what THEY said.
 - resolves: only if they say something listed under "open intentions" has now happened, was dropped or changed: that item's id. Otherwise "".
 
-Rules: only what the person said, never what the companion said or guessed. How two other people are related is a note only if the person said it; if they did not, do not guess it. Do not turn a hypothetical into an intention or a relayed remark into a fact about the person it concerns. No diagnoses, no motives, no character labels. A thing they must do or an appointment is still a note (a separate ledger handles follow-through). Up to %d notes. Even a very short conversation usually gives one or two.""" % ("\n".join(f"  - {k}: {v}" for k, v in AREAS.items()), MAX_NOTES)
+Rules: only what the person said, never what the companion said or guessed. How two other people are related is a note only if the person said it; if they did not, do not guess it. The same goes for how someone is related to the person: if they did not say, write that it is not stated. Do not turn a hypothetical into an intention or a relayed remark into a fact about the person it concerns. No diagnoses, no motives, no character labels. A thing they must do or an appointment is still a note (a separate ledger handles follow-through). Up to %d notes. Even a very short conversation usually gives one or two.""" % ("\n".join(f"  - {k}: {v}" for k, v in AREAS.items()), MAX_NOTES)
 
 
 # ------------------------------------------------------------------ write ----
@@ -336,19 +336,19 @@ async def asks(db: AsyncSession, ws: str, owner: str, today: date) -> List[Dict[
     out: List[Dict[str, Any]] = []
     for r in await recurring(db, ws, owner, today):
         if r["area"] in STRAIN:
-            out.append({"kind": "recurring", "area": r["area"], "sittings": r["sittings"], "text": f"{r['label'].capitalize()} has come up in {r['sittings']} conversations since {r['since']}: "
+            out.append({"kind": "recurring", "area": r["area"], "sittings": r["sittings"], "ref": f"recurring:{r['area']}:{r['sittings']}", "text": f"{r['label'].capitalize()} has come up in {r['sittings']} conversations since {r['since']}: "
                         + "; ".join(l["text"].rstrip(".") + f" ({l['date']})" for l in r["lines"][-3:])})
     hypo = [r for r in rows if r.certainty == "hypothetical" and r.area in ("aspiration", "goals-plans", "career-direction", "home", "reading-culture")]
     for h in hypo:
         later = [r for r in rows if r.sitting_on > h.sitting_on and r.id != h.id and r.certainty in ("stated", "intention", "hypothetical") and _meet(_stems(h.text), _stems(r.text))]
         if later:
             days = sorted({r.sitting_on for r in later} | {h.sitting_on})
-            out.append({"kind": "returning", "area": h.area, "sittings": len(days), "text": f"{h.text.rstrip('.')} ({fmt_day(h.sitting_on)}) has come back since: "
+            out.append({"kind": "returning", "area": h.area, "sittings": len(days), "ref": f"returning:{str(h.id)[:8]}:{len(days)}", "text": f"{h.text.rstrip('.')} ({fmt_day(h.sitting_on)}) has come back since: "
                         + "; ".join(r.text.rstrip(".") + f" ({fmt_day(r.sitting_on)})" for r in later[-2:])})
     for r in rows:                      # a plan they mentioned in the last few days and have not said how it went (the evening asks about the morning)
         age = (datetime(today.year, today.month, today.day) - r.sitting_on).days
         if r.certainty == "intention" and 0 <= age <= PLAN_DAYS and r.area in ("goals-plans", "exercise", "friends", "family-parents", "nature-outdoors", "work-load", "career-direction"):
-            out.append({"kind": "plan", "area": r.area, "sittings": 1, "text": f"{r.text.rstrip('.')} (said {fmt_day(r.sitting_on)}); nothing since on how it went"})
+            out.append({"kind": "plan", "area": r.area, "sittings": 1, "ref": f"plan:{str(r.id)[:8]}", "text": f"{r.text.rstrip('.')} (said {fmt_day(r.sitting_on)}); nothing since on how it went"})
     seen: set = set()
     uniq = []
     for o in out:
@@ -370,10 +370,20 @@ async def inspect(db: AsyncSession, ws: str, owner: str) -> Dict[str, Any]:
                        "key": r.key, "status": r.status, "quote_verified": r.quote_verified, "text": r.text, "quote": r.quote, "source": r.source} for r in rows]}
 
 
+ASK_MAX_SHOWN = 2          # an ask is offered at most this many sittings unless new evidence arrives (a new sitting changes its ref)
+
+
 async def ask_candidates(db: AsyncSession, ws: str, owner: str, today: date) -> List[Dict[str, Any]]:
-    """The same asks as packet candidates (opportunities.py): plain facts about what keeps coming up, with their dates."""
+    """The same asks as packet candidates (opportunities.py): plain facts about what keeps coming up, with their dates. An ask already offered ASK_MAX_SHOWN times
+    stays quiet until there is new evidence (its ref carries the evidence count), so the same thing is never raised at every opening."""
+    from src.models.known_world import CueExposure
+    shown = {x.ref: x.shown_count for x in (await db.execute(select(CueExposure).where(CueExposure.honcho_workspace_id == ws, CueExposure.owner_peer_id == owner,
+                                                                                       CueExposure.source == "notes"))).scalars().all()}
     out = []
     for a in await asks(db, ws, owner, today):
-        out.append({"id": f"notes:{a['kind']}:{a['area']}", "text": a["text"], "when": "", "said": "", "asked": "", "source": "notes", "ref": a["area"],
+        ref = f"notes:{a['ref']}"
+        if shown.get(ref, 0) >= ASK_MAX_SHOWN:
+            continue
+        out.append({"id": ref, "text": a["text"], "when": "", "said": "", "asked": "", "source": "notes", "ref": ref, "match": AREAS.get(a["area"], ""),
                     "score": 2 + (1 if a["sittings"] >= 5 else 0), "sort": None})
     return out

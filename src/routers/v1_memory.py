@@ -301,6 +301,11 @@ async def opportunities_view(request: Request, workspace_id: str, owner: str, co
     if stage not in ("opening", "moment", "survey"):
         raise HTTPException(status_code=422, detail="stage must be opening, moment or survey")
     packet = _op.build_packet(out, stage=stage, user_text=user_text or "", task=task, used=[u for u in (used or "").split(",") if u], pending=[u for u in (pending or "").split(",") if u])
+    if stage == "opening":                   # what a sitting opens with counts as offered once (per sitting-sized window), so an ask is not repeated at every opening
+        offered = [{"source": "notes", "ref": i["source"]["ref"]} for i in packet.get("items", []) if (i.get("source") or {}).get("system") == "notes"]
+        if offered:
+            await _kw.record_exposure(db, scope.workspace, owner, offered)
+            await db.commit()
     return {"enabled": True, "product": scope.product, "world": world_on, **out, "packet": packet}
 
 
