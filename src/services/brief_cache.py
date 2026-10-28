@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Sequence
 
-from sqlalchemy import event, update
+from sqlalchemy import event, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -45,6 +45,12 @@ async def get(db: AsyncSession, ws: str, owner: str, now: datetime, ledger_rows:
     part = part if part in notes.PARTS else notes.day_part(now.hour)
     day = now.date().isoformat()
     row = (await db.execute(select(Brief).where(Brief.honcho_workspace_id == ws, Brief.owner_peer_id == owner, Brief.day == day, Brief.part == part))).scalars().first()
+    if row is not None and not row.dirty and not force:
+        # Belt and braces for a writer that bypasses the ORM events (a bulk SQL update): anything stamped after this page was built makes it stale.
+        newest = [(await db.execute(select(func.max(LedgerItem.updated_at)).where(LedgerItem.honcho_workspace_id == ws, LedgerItem.owner_peer_id == owner))).scalar(),
+                  (await db.execute(select(func.max(Note.created_at)).where(Note.honcho_workspace_id == ws, Note.owner_peer_id == owner))).scalar()]
+        if any(t is not None and t > row.built_at for t in newest):
+            row.dirty = True
     if row is not None and not force and not row.dirty and (utc_now() - row.built_at) < EXPIRES_AFTER:
         return _payload(row, True)
     reason = "forced" if force else "first" if row is None else "changed" if row.dirty else "expired"
