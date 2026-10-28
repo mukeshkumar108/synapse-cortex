@@ -207,6 +207,9 @@ async def _write_notes(workspace_id: str, owner: str, cfg: ProductMemory, sessio
         return {"status": "failed", "error": type(exc).__name__}
 
 
+STATE_RENDER_REV = 2      # bump when how the state is written changes, so Runtimes holding an older rendering refresh it
+
+
 def retired(layer: str) -> bool:
     """True when this deployment has retired an older layer (settings.RETIRED_LAYERS): the notes and their views replace it."""
     from src.config import settings
@@ -237,7 +240,7 @@ async def state_version(db: AsyncSession, workspace_id: str, owner: str) -> str:
     a = (await db.execute(select(ContinuingArc.version, ContinuingArc.updated_at).where(ContinuingArc.honcho_workspace_id == workspace_id, ContinuingArc.owner_peer_id == owner)
                           .order_by(ContinuingArc.version.desc()).limit(1))).first()
     pg = (await db.execute(select(func.max(NotebookPage.version), func.max(NotebookPage.updated_at)).where(NotebookPage.honcho_workspace_id == workspace_id, NotebookPage.owner_peer_id == owner))).first()
-    return hashlib.sha1("|".join(str(x) for x in (*n, *l, *(a or ()), *pg)).encode()).hexdigest()[:16]
+    return hashlib.sha1("|".join(str(x) for x in (STATE_RENDER_REV, *n, *l, *(a or ()), *pg)).encode()).hexdigest()[:16]
 
 
 def _fingerprint(*parts: str) -> str:
