@@ -442,7 +442,7 @@ async def test_the_state_carries_a_small_user_block_a_version_stamp_and_what_she
     async with async_session_maker() as db:
         after = await memory_pipeline.read_state(db, workspace_id=WS, owner=o)
     u = before["user"]
-    assert "[USER]" in u and "Mukesh" in u and "43" in u and "Ashley (the user's long-distance girlfriend)" in u and "opinions" in u and "know(" in u and "Ashley" in u.split("know(")[1]
+    assert "[USER]" in u and "Mukesh" in u and "43" in u and len(u.split("[HOW")[0]) < 700 and "opinions" in u and "know(" in u and "Ashley" in u.split("know(")[1]
     assert after["version"] != before["version"] and after["holding"] == "- Why running feels different on wet pavement: Still turning it over: the sound changes."
 
 
@@ -455,8 +455,8 @@ async def test_a_name_or_a_topic_finds_what_is_noted_and_a_dateless_aim_stays_ou
     async with async_session_maker() as db:
         assert "long-distance girlfriend" in await notes.know_text(db, WS, o, "Ashley")
         assert "boxed" in await notes.know_text(db, WS, o, "boxing")
-        assert (await notes.mentions_text(db, WS, o, "Ashley called me today")).startswith("[WHO OR WHAT THEY MEAN")
-        assert await notes.mentions_text(db, WS, o, "I went for a walk") == ""
+        assert (await notes.mentions_text(db, WS, o, "Ashley called me today"))[0].startswith("[WHO OR WHAT THEY MEAN")
+        assert (await notes.mentions_text(db, WS, o, "I went for a walk"))[0] == ""
         db.add(LedgerItem(honcho_workspace_id=WS, owner_peer_id=o, kind="aspiration", title="Travel more", status="open", situation_key="travel"))
         db.add(LedgerItem(honcho_workspace_id=WS, owner_peer_id=o, kind="commitment", title="Send the invoice", status="open", situation_key="inv"))
         await db.commit()
@@ -465,3 +465,25 @@ async def test_a_name_or_a_topic_finds_what_is_noted_and_a_dateless_aim_stays_ou
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
         r = await c.get("/v1/memory/ledger", params={"workspace_id": WS, "owner": o, "view": "awareness", "now": "2026-10-28T09:00:00+00:00", "time_zone": "Europe/London"})
     assert r.status_code == 200 and "Send the invoice" in r.json()["text"] and "Travel more" not in r.json()["text"]
+
+
+@pytest.mark.asyncio
+async def test_lookup_resolves_kin_and_relations_flags_ambiguity_and_creates_nothing():
+    from sqlmodel import select
+    from src.models.note import Note
+    o = owner()
+    await write(o, {"notes": [note(subject="Mum", area="family-parents", key="relationship_to_the_person", text="Mum is the person's mother.", quote="barely slept"),
+                              note(subject="Ashley", area="partner", key="relationship_to_the_person", text="Ashley is the person's long-distance girlfriend.", quote="barely slept"),
+                              note(subject="Alex Ray", area="friends", key="relationship_to_the_person", text="Alex Ray is a friend.", quote="barely slept"),
+                              note(subject="Alex Kim", area="friends", key="relationship_to_the_person", text="Alex Kim is a colleague.", quote="barely slept")]}, datetime(2026, 10, 28))
+    async with async_session_maker() as db:
+        before = len((await db.execute(select(Note))).scalars().all())
+        assert (await notes.lookup(db, WS, o, "my mother rang"))["found"] == ["Mum"]
+        assert (await notes.lookup(db, WS, o, "my girlfriend is tired"))["found"] == ["Ashley"]
+        amb = await notes.lookup(db, WS, o, "Alex said hi")
+        assert amb["found"] == [] and amb["ambiguous"][0][0] == "alex"
+        assert await notes.lookup(db, WS, o, "Zorblax said hi") == {"found": [], "ambiguous": []}
+        assert (await notes.lookup(db, WS, o, "hey sophie"))["found"] == []
+        text, now = await notes.mentions_text(db, WS, o, "she is just exhausted", carry=["Ashley"])
+        assert now == [] and "Ashley" in text
+        assert len((await db.execute(select(Note))).scalars().all()) == before

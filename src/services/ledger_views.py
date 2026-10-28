@@ -192,7 +192,7 @@ def compute(rows: Iterable[Dict[str, Any]], now: datetime, time_zone: str, defau
         it = to_item(r, zone)
         if it.status in OPEN:
             bands[classify(it, now, today)].append(it)
-        elif it.status in CLOSED and it.updated is not None and (today - it.updated).days <= CLOSED_VISIBLE_DAYS:
+        elif it.status in CLOSED and it.status != "cancelled" and it.updated is not None and (today - it.updated).days <= CLOSED_VISIBLE_DAYS:
             closed.append(it)
     for k, v in bands.items():
         v.sort(key=lambda x: _sort_key(x, now))

@@ -219,7 +219,7 @@ def _world_ctx_args(now: Optional[str]):
 
 @router.get("/world")
 async def world_view(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, view: str = "packet",
-                     q: Optional[str] = None, depth: str = "connected", now: Optional[str] = None, time_zone: Optional[str] = None,
+                     q: Optional[str] = None, depth: str = "connected", now: Optional[str] = None, time_zone: Optional[str] = None, carry: Optional[str] = None,
                      db: AsyncSession = Depends(get_async_session)):
     """The connected world, read deterministically from maintained records (no model). view: packet (the foreground's overview +
     snapshots of whoever/whatever `q` mentions), overview, entity (q = a name; depth snapshot|connected|deep), inspect (everything,
@@ -240,9 +240,8 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
         pk = await _kw.packet(db, scope.workspace, owner, q or "", ctx)
         if _s.NOTES_ENABLED and cfg.notes_enabled and q:
             from src.services import notes as _n
-            named = await _n.mentions_text(db, scope.workspace, owner, q)      # whoever they just named, from what they have told me, replaces the entity snapshot
-            if named:
-                pk = {**pk, "mentions": named}
+            named, now_names = await _n.mentions_text(db, scope.workspace, owner, q, carry=[c.strip() for c in (carry or "").split("|") if c.strip()])      # whoever they just named or are still on, from what they have told me, replaces the entity snapshot
+            pk = {**pk, "named_now": now_names, **({"mentions": named} if named else {})}
         return {**base, **pk}
     if view == "overview":
         text, shown = await _kw.overview_text(db, scope.workspace, owner, ctx)

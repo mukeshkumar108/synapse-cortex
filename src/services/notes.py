@@ -528,23 +528,59 @@ async def know_text(db: AsyncSession, ws: str, owner: str, q: str) -> str:
 
 
 COMPANION_NAMES = {"sophie", "bloom"}
+_KIN = {"mom": "mum", "mother": "mum", "mummy": "mum", "mam": "mum", "father": "dad", "daddy": "dad"}
+_RELATIONS = ("mother", "father", "brother", "sister", "daughter", "son", "girlfriend", "boyfriend", "partner", "wife", "husband", "boss", "friend")
 
 
-async def mentions_text(db: AsyncSession, ws: str, owner: str, text: str, limit: int = 3) -> str:
-    """Whoever they just named, from what they have told me: a person's card appears only when the name does."""
-    said = f" {norm(text)} "
+def _said_norm(text: str) -> str:
+    return " ".join(_KIN.get(w, w) for w in norm(text).split())
+
+
+async def lookup(db: AsyncSession, ws: str, owner: str, text: str) -> Dict[str, Any]:
+    """Who in what they just said, from the people they have told me about. Read-only: a name nobody has told me about finds nothing and creates nothing.
+    Returns {found: [names], ambiguous: [(said, [names])]}. "Mum", "my mother" and a real name meet the same person; "my girlfriend" meets the one person described so."""
+    said = f" {_said_norm(text)} "
+    ppl = [p for p in await people(db, ws, owner) if norm(p["name"]) not in COMPANION_NAMES]
+    by_first: Dict[str, List[str]] = {}
+    found: List[str] = []
+    for p in ppl:
+        nm = _said_norm(p["name"])
+        parts = nm.split()
+        if len(nm) >= 3 and f" {nm} " in said:
+            found.append(p["name"])
+        elif parts and len(parts[0]) >= 3:
+            by_first.setdefault(parts[0], []).append(p["name"])
+    ambiguous: List[tuple] = []
+    for first, names in by_first.items():
+        if f" {first} " in said and not any(n in found for n in names):
+            if len(names) == 1:
+                found.append(names[0])
+            else:
+                ambiguous.append((first, names))
+    for rel in _RELATIONS:
+        if re.search(rf"\b(my|his|her) {rel}\b", said) and not any(rel in _said_norm(p["line"]) and p["name"] in found for p in ppl):
+            hits = [p["name"] for p in ppl if re.search(rf"\b(user s|the user s|their) {rel}\b|\b{rel}\b", _said_norm(p["line"])) and "children" not in p["line"]]
+            if len(hits) == 1 and hits[0] not in found:
+                found.append(hits[0])
+            elif len(hits) > 1:
+                ambiguous.append((rel, hits))
+    return {"found": list(dict.fromkeys(found)), "ambiguous": ambiguous}
+
+
+async def mentions_text(db: AsyncSession, ws: str, owner: str, text: str, limit: int = 3, carry: Optional[List[str]] = None) -> tuple:
+    """Whoever they just named (or are still talking about: `carry`, names the Runtime kept from earlier in the sitting) from what they have told me: a person's card
+    appears only when they are the subject. Returns (text, names named in THIS message)."""
+    got = await lookup(db, ws, owner, text)
+    now_names = got["found"]
+    kept = [n for n in (carry or []) if n not in now_names]
     out = []
-    for p in await people(db, ws, owner):
-        nm = norm(p["name"])
-        if nm in COMPANION_NAMES:       # naming the companion is addressing her, not asking about someone
-            continue
-        if len(nm) >= 3 and f" {nm} " in said or (nm.split() and len(nm.split()[0]) >= 3 and f" {nm.split()[0]} " in said):
-            c = await card(db, ws, owner, p["name"])
-            if c["notes"]:
-                out.append(f"{p['name']}:\n" + card_text(c))
-        if len(out) >= limit:
-            break
-    return _neutral("[WHO OR WHAT THEY MEAN — from what they have told me]\n" + "\n\n".join(out)) if out else ""
+    for name in (now_names + kept)[:limit]:
+        c = await card(db, ws, owner, name)
+        if c["notes"]:
+            out.append(f"{name}:\n" + card_text(c))
+    for said_as, names in got["ambiguous"][:2]:
+        out.append(f"\"{said_as}\" could mean " + " or ".join(names) + ". Which one is meant has not been established.")
+    return (_neutral("[WHO OR WHAT THEY MEAN — from what they have told me]\n" + "\n\n".join(out)) if out else ""), now_names
 
 
 async def user_block(db: AsyncSession, ws: str, owner: str, limit: int = 8) -> str:
@@ -555,20 +591,16 @@ async def user_block(db: AsyncSession, ws: str, owner: str, limit: int = 8) -> s
     if not mine:
         return ""
     keyed = {r.key: r for r in mine if r.key}
-    lines = [keyed[k].text for k in ("name", "age", "ethnicity", "residence", "living_situation", "faith", "occupation", "employer") if k in keyed]
-    lines += [r.text for r in mine if not r.key and r.area in ("identity", "home")][:2]
-    lines += [r.text for r in mine if not r.key and r.area in ("career-direction", "work-load")][:2]
-    lines += [keyed[k].text for k in ("current_exercise_routine",) if k in keyed]
+    lines = [keyed[k].text for k in ("name", "age", "residence", "living_situation", "occupation") if k in keyed]     # who they are, in a few lines; the rest is looked up when it comes up
+    lines += [r.text for r in mine if not r.key and r.area in ("career-direction", "work-load")][:1]
     seen, about = set(), []
     for t in lines:
         if norm(t) not in seen:
             seen.add(norm(t))
-            about.append(t.rstrip("."))
-    about = about[:limit]
+            about.append(t.rstrip(".")[:120])
+    about = about[:min(limit, 4)]
     related = {r.subject_key for r in rows if r.key == "relationship_to_the_person"}
     ppl = [p for p in await people(db, ws, owner) if norm(p["name"]) in related or norm(p["name"]).split()[0] in related]
-    if ppl:
-        about.append("People: " + ", ".join(f"{p['name']} ({_clause(p['line'])})" for p in ppl[:10]))
     how = [keyed[k].text.rstrip(".") for k in ("interaction_style", "memory_expectations") if k in keyed]
     parts = []
     if about:

@@ -476,7 +476,7 @@ async def snapshot_text(db: AsyncSession, ws: str, owner: str, e: KnownEntity, c
     keys = [l.target_ref for l in cur if l.target_kind == "ledger"]
     rows = await _ledger_rows(db, ws, owner, keys)
     open_rows = [r for r in rows if r["status"] in ledger_views.OPEN]
-    closed_rows = [r for r in rows if r["status"] in ledger_views.CLOSED]
+    closed_rows = [r for r in rows if r["status"] in ledger_views.CLOSED and r["status"] != "cancelled"]
     if open_rows:
         lines.append("Open matters:\n" + "\n".join(_ledger_line(r, ctx) for r in sorted(open_rows, key=lambda r: (r["expected_date"] or "9999", r["title"]))[:8]))
     if depth in ("connected", "deep") and closed_rows:
