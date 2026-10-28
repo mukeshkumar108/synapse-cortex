@@ -284,3 +284,66 @@ async def test_saying_they_are_tired_meets_the_sleep_pattern_in_the_moment_even_
         out = await op.read(db, WS, o, ctx, world_on=False, ledger_rows=[], notes_on=True)
     assert op.build_packet(out, stage="moment", user_text="not much, bit tired again today")["items"][0]["source"]["system"] == "notes"
     assert op.build_packet(out, stage="moment", user_text="the weather is nice")["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_plan_they_asked_us_not_to_raise_keeps_their_words_and_the_day():
+    from src.services import known_world as kw, opportunities as op
+    o = owner()
+    await write(o, {"notes": [note(area="preferences", text="The person asked the companion not to bring up Callie's wedding.", quote="barely slept")]}, datetime(2026, 9, 19),
+                transcript="Him: don't bring the callie thing up, i'm not ready, i barely slept")
+    async with async_session_maker() as db:
+        # the quote must be in their words for a stated note; reuse a verified phrase and the boundary words in the text
+        pass
+    await write(o, {"notes": [note(area="friends", certainty="intention", text="The person is reconsidering going to Callie's wedding.", quote="barely slept")]}, datetime(2026, 10, 4))
+    async with async_session_maker() as db:
+        got = [a for a in await notes.ask_candidates(db, WS, o, date(2026, 10, 4)) if "wedding" in a["text"]]
+    assert len(got) == 1 and got[0]["asked"].startswith("They asked me on Sat 19 Sep not to bring this up")
+    packet = op.build_packet({"candidates": got, "background_items": [], "now": "2026-10-04T09:00:00+01:00", "people_notes": {}}, stage="survey")
+    assert "What they have asked of me:" in packet["text"] and "Sat 19 Sep" in packet["text"]
+
+
+@pytest.mark.asyncio
+async def test_retired_layers_do_not_run_and_the_rest_of_the_consolidation_is_unchanged(monkeypatch):
+    from src.models.world import NotebookPage, SittingPreparation
+    from tests.test_memory_pipeline import _fake_model
+    monkeypatch.setattr(settings, "NOTES_ENABLED", True)
+    monkeypatch.setattr(settings, "RETIRED_LAYERS", "attention,preparation,pages")
+    o = owner()
+    kinds = []
+
+    def fn(kind, prompt, max_tokens, models):
+        kinds.append(kind)
+        if kind.startswith("edit:") or kind == "preparation" or "attention" in kind:
+            raise AssertionError(f"a retired layer must not run: {kind}")
+        if kind == "notes":
+            return {"text": json.dumps({"notes": [note(area="exercise", text="They walk about five miles most evenings.", quote="five miles")]}), "model": "fake", "provider": "fake", "usage": {}, "ms": 1}
+        return _fake_model(kind, prompt, max_tokens, models)
+    memory_pipeline.set_model_fn(fn)
+    try:
+        async with async_session_maker() as db:
+            out = await memory_pipeline._consolidate(db, workspace_id=WS, owner=o, conversation_id="c", session_id="s", cfg=memory_pipeline.SOPHIE, companion_id="sophie",
+                                                     session_time="2026-10-15T20:30:00+01:00", time_zone="Europe/London", sitting_kind="user",
+                                                     messages=[{"id": "m1", "speaker": "user", "text": "i walk about five miles most evenings and it keeps me steady"},
+                                                               {"id": "m2", "speaker": "assistant", "text": "that sounds like a good habit to keep"}])
+        async with async_session_maker() as db:
+            preps = (await db.execute(select(SittingPreparation).where(SittingPreparation.owner_peer_id == o))).scalars().all()
+    finally:
+        memory_pipeline.set_model_fn(None)
+    assert out["status"] == "consolidated" and preps == []
+    assert {"discovery", "handoff", "notes", "arc"} <= set(kinds) and not any(k.startswith("edit:") for k in kinds)
+    assert len(await rows(o)) == 1
+
+
+@pytest.mark.asyncio
+async def test_where_we_left_off_is_the_last_two_sittings_dated_with_their_certainty_and_no_carried_mood():
+    o = owner()
+    await write(o, {"notes": [note(area="mood-low", text="The person felt low and flat.")]}, datetime(2026, 9, 10))
+    await write(o, {"notes": [note(area="sleep-energy", text="The person slept badly.")]}, datetime(2026, 9, 12))
+    await write(o, {"notes": [note(area="goals-plans", certainty="intention", text="The person means to register for the half in November."),
+                              note(area="aspiration", certainty="hypothetical", text="The person daydreams about a boat."),
+                              note(subject="Dad", area="family-parents", certainty="hearsay", text="Nell says Dad may sell the house.")]}, datetime(2026, 9, 14))
+    async with async_session_maker() as db:
+        text = await notes.where_we_left_off(db, WS, o, date(2026, 9, 15))
+    assert text.startswith("Mon 14 Sep (yesterday):") and "Sat 12 Sep (3 days ago):" in text and "Thu 10 Sep" not in text
+    assert "(a plan)" in text and "(said lightly)" in text and "(relayed by someone else)" in text and "the user" in text.lower() and "the person" not in text.lower()

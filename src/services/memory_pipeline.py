@@ -207,6 +207,12 @@ async def _write_notes(workspace_id: str, owner: str, cfg: ProductMemory, sessio
         return {"status": "failed", "error": type(exc).__name__}
 
 
+def retired(layer: str) -> bool:
+    """True when this deployment has retired an older layer (settings.RETIRED_LAYERS): the notes and their views replace it."""
+    from src.config import settings
+    return layer in {x.strip().lower() for x in str(settings.RETIRED_LAYERS or "").split(",") if x.strip()}
+
+
 def _fingerprint(*parts: str) -> str:
     h = hashlib.sha256()
     for p in parts:
@@ -1189,6 +1195,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
     from src.config import settings as _notes_settings
     notes_task = None
     if _notes_settings.NOTES_ENABLED and cfg.notes_enabled and not independent and len(transcript) >= 60:
+        await db.commit()                         # the run row is durable before the isolated session writes
         notes_task = asyncio.create_task(_write_notes(workspace_id, owner, cfg, session_id, run.id, transcript, clock))
 
     sitting_rule = f"\n\n{cfg.independent_rule}" if independent and cfg.independent_rule else ""
@@ -1203,7 +1210,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                                    f"{cfg.editor_prompt}\n\n{cfg.page_scopes[key]}{subject}{sitting_rule}\n\n--- page: {cfg.page_titles[key]} ---\n{pages[key].text}\n\n--- new findings ---\n{findings or handoff_text}",
                                    1500, _models("MEMORY_EDITOR_MODELS", "qwen/qwen3.8-27b"))
 
-    edit_tasks = {key: asyncio.create_task(_edit_call(key)) for key in cfg.pages}
+    edit_tasks = {key: asyncio.create_task(_edit_call(key)) for key in cfg.pages if independent or not retired("pages")}
 
     # ------------------------------------------------ operational ledger ----
     # The ledger holds the person's actionable matters. A companion's own
@@ -1309,7 +1316,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
     # Connected understanding: who and what this person's world is about, and how it connects. A separate pass AFTER the ledger so a
     # failure here can never affect operational records. Off unless the deployment flag is set (it writes new kinds of personal data).
     from src.config import settings as _settings
-    if _settings.CONNECTED_WORLD_ENABLED and cfg.world_enabled and sitting_kind != "independent" and len(transcript) >= 120:
+    if _settings.CONNECTED_WORLD_ENABLED and cfg.world_enabled and sitting_kind != "independent" and len(transcript) >= 120 and not retired("connect"):
         try:
             from src.db import async_session_maker
             from src.services import world_agent
@@ -1350,7 +1357,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
             db, workspace_id=workspace_id, owner=owner)
         ledger_touched = bool(witness) or any(
             (counts or {}).get(k, 0) for k in ("added", "updated", "closed")) or bool((bundle.get("world_agent") or {}).get("wrote"))
-        if cfg.attention_enabled and ledger_on and ledger_touched:
+        if cfg.attention_enabled and ledger_on and ledger_touched and not retired("attention"):
             review = await attention_cycle.run_attention_review(
                 db, workspace_id=workspace_id, owner=owner, today_utc=today, time_zone=clock["tz"],
                 weekday=clock["weekday"], reason="end-of-sitting", findings=findings or handoff_text,
@@ -1381,6 +1388,8 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         # The shared continuing arc belongs to the user-facing relationship;
         # an independent sitting leaves it alone (continuity lives on exploring).
         bundle["arc_edit"] = {"skipped": "independent_sitting"}
+    elif retired("arc"):
+        bundle["arc_edit"] = {"skipped": "retired"}
     else:
         arc_edit = await _generate("arc",
                                    f"{cfg.arc_prompt}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
@@ -1393,8 +1402,11 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
     bundle["arc_after"] = arc.text
     mark("arc")
 
-    prep = await prepare(db, workspace_id=workspace_id, owner=owner, now_iso=now_iso, run_id=run.id,
-                         companion_id=companion_id, time_zone=clock["tz"])
+    if retired("preparation"):
+        prep = {"status": "skipped", "reason": "retired", "text": ""}
+    else:
+        prep = await prepare(db, workspace_id=workspace_id, owner=owner, now_iso=now_iso, run_id=run.id,
+                             companion_id=companion_id, time_zone=clock["tz"])
     mark("preparation")
     bundle["preparation"] = {k: v for k, v in prep.items() if k != "text"}
     bundle["preparation_text"] = prep.get("text", "")

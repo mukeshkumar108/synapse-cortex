@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     NOTES_ENABLED: bool = False
     # Products (comma list, e.g. "bloom") that run light: a sitting is read once into notes and nothing else runs. A deployment decision, not a code one.
     NOTES_ONLY_PRODUCTS: str = ""
+    # Older memory layers that the notes and their views have replaced, as a comma list: attention (the follow-up review), preparation (the prepared perspective), pages (the notebook
+    # page edits for user sittings), arc, connect (the connected-world pass). Empty = all still run. One setting, so what is retired is stated in one place and undone by editing it.
+    RETIRED_LAYERS: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

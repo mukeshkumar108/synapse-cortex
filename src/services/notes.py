@@ -319,6 +319,21 @@ async def recurring(db: AsyncSession, ws: str, owner: str, today: date, minimum:
     return out
 
 
+_BOUNDARY = re.compile(r"(don'?t|do not|not to|never) (bring|mention|raise|ask|talk)|rather not|not ready|leave (it|that|this) (alone|be)|stop (asking|mentioning)|asked (the companion |me |her |him )?not to", re.I)
+_BOUNDARY_NOISE = {"asked", "companion", "bring", "matter", "mention", "raise", "talk", "talking", "person", "ready", "about", "again", "thing", "things"}
+
+
+def boundary_for(text: str, rows: Sequence[Note]) -> str:
+    """The person's own request not to raise something, as a dated fact, when a note they asked about shares its subject with `text`. Their words and the day: what to do with it
+    is the persona's call, exactly as for the world records."""
+    mine = _stems(text) - _BOUNDARY_NOISE
+    for r in reversed(list(rows)):
+        if r.certainty == "stated" and _BOUNDARY.search(f"{r.quote} {r.text}") and _meet(mine, _stems(f"{r.text} {r.quote}") - _BOUNDARY_NOISE):
+            q = f": \"{r.quote[:160]}\"" if r.quote else "."
+            return f"They asked me on {fmt_day(r.sitting_on)} not to bring this up{q}"
+    return ""
+
+
 def _stems(text: str) -> set:
     stop = {"the", "and", "for", "with", "that", "this", "they", "their", "them", "have", "has", "had", "was", "were", "about", "would", "could", "person", "when", "than", "then", "also", "from", "into"}
     return {w for w in norm(text).split() if len(w) >= 4 and w not in stop}
@@ -349,6 +364,9 @@ async def asks(db: AsyncSession, ws: str, owner: str, today: date) -> List[Dict[
         age = (datetime(today.year, today.month, today.day) - r.sitting_on).days
         if r.certainty == "intention" and 0 <= age <= PLAN_DAYS and r.area in ("goals-plans", "exercise", "friends", "family-parents", "nature-outdoors", "work-load", "career-direction"):
             out.append({"kind": "plan", "area": r.area, "sittings": 1, "ref": f"plan:{str(r.id)[:8]}", "text": f"{r.text.rstrip('.')} (said {fmt_day(r.sitting_on)}); nothing since on how it went"})
+    asked_rows = [r for r in rows if _BOUNDARY.search(f"{r.quote} {r.text}")]
+    for o in out:
+        o["asked"] = boundary_for(o["text"], asked_rows) if asked_rows else ""
     seen: set = set()
     uniq = []
     for o in out:
@@ -370,6 +388,23 @@ async def inspect(db: AsyncSession, ws: str, owner: str) -> Dict[str, Any]:
                        "key": r.key, "status": r.status, "quote_verified": r.quote_verified, "text": r.text, "quote": r.quote, "source": r.source} for r in rows]}
 
 
+async def where_we_left_off(db: AsyncSession, ws: str, owner: str, today: date, sittings: int = 2, max_lines: int = 12) -> str:
+    """The last couple of sittings as dated notes, each marked when it was a plan, a light remark or something relayed. Replaces a model-written narrative: nothing is merged,
+    mood is not carried forward, and a stored word can never be read as "now" because every line sits under its sitting's date and age."""
+    rows = [r for r in await _current(db, ws, owner) if r.certainty in ("stated", "intention", "hypothetical", "hearsay") and r.area not in ("other",)]
+    days = sorted({r.sitting_on for r in rows})[-sittings:]
+    if not days:
+        return ""
+    mark = {"intention": " (a plan)", "hypothetical": " (said lightly)", "hearsay": " (relayed by someone else)"}
+    blocks: List[str] = []
+    for d in reversed(days):
+        age = (datetime(today.year, today.month, today.day) - d).days
+        head = f"{fmt_day(d)} ({'that day' if age <= 0 else 'yesterday' if age == 1 else f'{age} days ago'}):"
+        lines = [f"- {r.text.rstrip('.')}{mark.get(r.certainty, '')}" for r in rows if r.sitting_on == d][:max_lines]
+        blocks.append(head + "\n" + "\n".join(lines))
+    return re.sub(r"\b(T|t)he person\b", lambda m: ("T" if m.group(1) == "T" else "t") + "he user", "\n\n".join(blocks))
+
+
 ASK_MAX_SHOWN = 2          # an ask is offered at most this many sittings unless new evidence arrives (a new sitting changes its ref)
 
 
@@ -384,6 +419,6 @@ async def ask_candidates(db: AsyncSession, ws: str, owner: str, today: date) -> 
         ref = f"notes:{a['ref']}"
         if shown.get(ref, 0) >= ASK_MAX_SHOWN:
             continue
-        out.append({"id": ref, "text": a["text"], "when": "", "said": "", "asked": "", "source": "notes", "ref": ref, "match": AREAS.get(a["area"], ""),
+        out.append({"id": ref, "text": a["text"], "when": "", "said": "", "asked": a.get("asked", ""), "source": "notes", "ref": ref, "match": AREAS.get(a["area"], ""),
                     "score": 2 + (1 if a["sittings"] >= 5 else 0), "sort": None})
     return out
