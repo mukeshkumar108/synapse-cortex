@@ -422,3 +422,46 @@ async def test_a_life_aim_with_no_day_is_not_a_plan_awaiting_follow_up_and_the_p
     assert plans == []
     assert "Who they are:" in prof["text"] and "Mukesh" in prof["text"] and "Burwell" in prof["text"] and "opinions" in prof["text"]
     assert "People who matter to them:" in prof["text"] and "Ashley: Ashley is the user's long-distance girlfriend" in prof["text"]
+
+
+@pytest.mark.asyncio
+async def test_the_state_carries_a_small_user_block_a_version_stamp_and_what_she_is_still_holding(monkeypatch):
+    monkeypatch.setattr(settings, "NOTES_ENABLED", True)
+    o = owner()
+    await write(o, {"notes": [note(area="identity", key="name", text="The person's name is Mukesh.", quote="barely slept"), note(area="identity", key="age", text="The person is 43 years old.", quote="barely slept"),
+                              note(area="preferences", key="interaction_style", text="The person wants a companion with opinions, not an agreeable one.", quote="barely slept"),
+                              note(subject="Ashley", area="partner", key="relationship_to_the_person", text="Ashley is the person's long-distance girlfriend.", quote="barely slept"),
+                              note(area="exercise", text="The person boxed two or three days a week.", quote="barely slept")]}, datetime(2026, 10, 28))
+    async with async_session_maker() as db:
+        before = await memory_pipeline.read_state(db, workspace_id=WS, owner=o)
+        # her exploring page: one closed thread, one open one
+        from src.models.world import NotebookPage
+        db.add(NotebookPage(honcho_workspace_id=WS, owner_peer_id=o, page_key="exploring", product="sophie", version=99,
+                            text="# Things\n\n**Old metaphor**\n*   It is resolved and retired.\n\n**Why running feels different on wet pavement**\n*   Still turning it over: the sound changes."))
+        await db.commit()
+    async with async_session_maker() as db:
+        after = await memory_pipeline.read_state(db, workspace_id=WS, owner=o)
+    u = before["user"]
+    assert "[USER]" in u and "Mukesh" in u and "43" in u and "Ashley (the user's long-distance girlfriend)" in u and "opinions" in u and "know(" in u and "Ashley" in u.split("know(")[1]
+    assert after["version"] != before["version"] and after["holding"] == "- Why running feels different on wet pavement: Still turning it over: the sound changes."
+
+
+@pytest.mark.asyncio
+async def test_a_name_or_a_topic_finds_what_is_noted_and_a_dateless_aim_stays_out_of_the_operational_picture(monkeypatch):
+    from src.models.world import LedgerItem
+    o = owner()
+    await write(o, {"notes": [note(subject="Ashley", area="partner", key="relationship_to_the_person", text="Ashley is the person's long-distance girlfriend.", quote="barely slept"),
+                              note(area="exercise", text="The person boxed two or three days a week and loved it.", quote="barely slept")]}, datetime(2026, 10, 28))
+    async with async_session_maker() as db:
+        assert "long-distance girlfriend" in await notes.know_text(db, WS, o, "Ashley")
+        assert "boxed" in await notes.know_text(db, WS, o, "boxing")
+        assert (await notes.mentions_text(db, WS, o, "Ashley called me today")).startswith("[WHO OR WHAT THEY MEAN")
+        assert await notes.mentions_text(db, WS, o, "I went for a walk") == ""
+        db.add(LedgerItem(honcho_workspace_id=WS, owner_peer_id=o, kind="aspiration", title="Travel more", status="open", situation_key="travel"))
+        db.add(LedgerItem(honcho_workspace_id=WS, owner_peer_id=o, kind="commitment", title="Send the invoice", status="open", situation_key="inv"))
+        await db.commit()
+    from httpx import ASGITransport, AsyncClient
+    from src.main import app
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
+        r = await c.get("/v1/memory/ledger", params={"workspace_id": WS, "owner": o, "view": "awareness", "now": "2026-10-28T09:00:00+00:00", "time_zone": "Europe/London"})
+    assert r.status_code == 200 and "Send the invoice" in r.json()["text"] and "Travel more" not in r.json()["text"]

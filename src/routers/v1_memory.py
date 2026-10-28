@@ -181,7 +181,8 @@ async def ledger_view(request: Request, workspace_id: str, owner: str, companion
              "waiting_on": i.waiting_on, "question": i.question_text, "detail": i.detail,
              "updated_at": i.updated_at.isoformat() if i.updated_at else None,
              "created_at": i.created_at.isoformat() if i.created_at else None} for i in rows]
-    v = _lv.compute(data, clock_now, tz, cfg.default_time_zone)
+    # A life aim ("travel more") is remembered, not owed: it stays in the ledger but is not part of the operational picture (awareness, needs_detail).
+    v = _lv.compute([d for d in data if d["kind"] != "aspiration"] if view in ("awareness", "needs_detail") else data, clock_now, tz, cfg.default_time_zone)
     base = {"product": scope.product, "now": v["now"].isoformat(), "time_zone": v["zone"].key,
             "pending_consolidations": await memory_pipeline.pending_runs(db, scope.workspace, owner)}
     if view == "awareness":
@@ -236,17 +237,35 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
     ctx = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone)
     base = {"enabled": True, "product": scope.product, "now": ctx.now.isoformat(), "time_zone": ctx.tz, "pending_consolidations": pending}
     if view == "packet":
-        return {**base, **(await _kw.packet(db, scope.workspace, owner, q or "", ctx))}
+        pk = await _kw.packet(db, scope.workspace, owner, q or "", ctx)
+        if _s.NOTES_ENABLED and cfg.notes_enabled and q:
+            from src.services import notes as _n
+            named = await _n.mentions_text(db, scope.workspace, owner, q)      # whoever they just named, from what they have told me, replaces the entity snapshot
+            if named:
+                pk = {**pk, "mentions": named}
+        return {**base, **pk}
     if view == "overview":
         text, shown = await _kw.overview_text(db, scope.workspace, owner, ctx)
         return {**base, "text": text, "shown": [{"source": a, "ref": b} for a, b in shown]}
     if view == "entity":
         if depth not in ("snapshot", "connected", "deep"):
             raise HTTPException(status_code=422, detail="depth must be snapshot, connected or deep")
+        if _s.NOTES_ENABLED and cfg.notes_enabled and q:
+            from src.services import notes as _n
+            got = await _n.know_text(db, scope.workspace, owner, q)
+            if got:
+                return {**base, "found": True, "entity": {"name": q}, "text": got}
         return {**base, **(await _kw.entity_view(db, scope.workspace, owner, q or "", ctx, depth))}
     if view == "inspect":
         return {**base, **(await _kw.inspect(db, scope.workspace, owner))}
     raise HTTPException(status_code=422, detail="view must be packet, overview, entity or inspect")
+
+
+@router.get("/version")
+async def state_version_view(request: Request, workspace_id: str, owner: str, companion_id: Optional[str] = None, db: AsyncSession = Depends(get_async_session)):
+    """A stamp that changes whenever the person's notes, ledger or arc change: the Runtime compares it each turn and refreshes its cached context only when it differs."""
+    scope = _scope(request, workspace_id, companion_id)
+    return {"version": await memory_pipeline.state_version(db, scope.workspace, owner)}
 
 
 @router.get("/notes")
@@ -303,7 +322,7 @@ async def opportunities_view(request: Request, workspace_id: str, owner: str, co
     tz = time_zone or await _ac.owner_time_zone(db, workspace_id=scope.workspace, owner=owner, default=None) or cfg.default_time_zone
     ctx = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone)
     world_on = bool(_s.CONNECTED_WORLD_ENABLED and cfg.world_enabled)
-    rows = await memory_pipeline.open_ledger(db, scope.workspace, owner, limit=100) if cfg.ledger_enabled else []
+    rows = [r for r in (await memory_pipeline.open_ledger(db, scope.workspace, owner, limit=100) if cfg.ledger_enabled else []) if r.kind != "aspiration"]
     out = await _op.read(db, scope.workspace, owner, ctx, world_on=world_on, ledger_rows=rows, notes_on=bool(_s.NOTES_ENABLED and cfg.notes_enabled))
     if stage not in ("opening", "moment", "survey"):
         raise HTTPException(status_code=422, detail="stage must be opening, moment or survey")

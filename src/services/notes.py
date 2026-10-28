@@ -475,6 +475,121 @@ async def profile(db: AsyncSession, ws: str, owner: str, limit: int = 26) -> Dic
     return {"about": about, "people": ppl, "text": text}
 
 
+def _neutral(text: str) -> str:
+    return re.sub(r"\b(T|t)he person\b", lambda m: ("T" if m.group(1) == "T" else "t") + "he user", text)
+
+
+def _clause(line: str) -> str:
+    """'Ashley is the person's long-distance girlfriend' -> "the person's long-distance girlfriend" (the first clause, for a one-line mention)."""
+    m = re.search(r" is (.+)$", line.strip().rstrip("."))
+    return re.split(r"[;,]", (m.group(1) if m else line))[0][:55].strip()
+
+
+def card_text(c: Dict[str, Any]) -> str:
+    lines = [f"- {v['text'].rstrip('.')} ({v['date']})" for v in c.get("current_facts", {}).values()]
+    for ls in c.get("by_area", {}).values():
+        for l in ls[-2:]:
+            t = f"- {l['text'].rstrip('.')} ({l['date']})"
+            if t not in lines:
+                lines.append(t)
+    return "\n".join(lines[:12])
+
+
+async def recall(db: AsyncSession, ws: str, owner: str, q: str, limit: int = 8) -> str:
+    """Notes about a topic, found by the words of the question (a stem of 4+ letters meets a stem of the note): 'boxing' finds the exercise history. Nothing is ranked by guess."""
+    def root(w: str) -> str:
+        for suf in ("ing", "ed", "es", "s"):
+            if w.endswith(suf) and len(w) - len(suf) >= 3:
+                w = w[: -len(suf)]
+                break
+        return w[:-1] if len(w) > 3 and w[-1] == w[-2] else w          # running -> run, boxing -> box
+    want = {root(w) for w in _stems(q) - _BOUNDARY_NOISE}
+    if not want:
+        return ""
+    hits = []
+    for r in await _current(db, ws, owner):
+        have = {root(w) for w in _stems(f"{r.text} {r.subject}")}
+        score = sum(1 for w in want if w in have)
+        if score:
+            hits.append((score, r.sitting_on, r))
+    hits = sorted(hits, key=lambda t: (t[0], t[1]), reverse=True)[:limit]
+    if not hits:
+        return ""
+    mark = {"intention": " (a plan)", "hypothetical": " (said lightly)", "hearsay": " (relayed)"}
+    return _neutral(f"Noted about \"{q}\":\n" + "\n".join(f"- {r.text.rstrip('.')}{mark.get(r.certainty, '')} ({fmt_day(r.sitting_on)})" for _, _, r in hits))
+
+
+async def know_text(db: AsyncSession, ws: str, owner: str, q: str) -> str:
+    """What is noted about a name (their card) or, failing that, about a topic."""
+    c = await card(db, ws, owner, q)
+    if c["notes"]:
+        return _neutral(f"What is noted about {q}:\n" + card_text(c))
+    return await recall(db, ws, owner, q)
+
+
+async def mentions_text(db: AsyncSession, ws: str, owner: str, text: str, limit: int = 3) -> str:
+    """Whoever they just named, from what they have told me: a person's card appears only when the name does."""
+    said = f" {norm(text)} "
+    out = []
+    for p in await people(db, ws, owner):
+        nm = norm(p["name"])
+        if len(nm) >= 3 and f" {nm} " in said or (nm.split() and len(nm.split()[0]) >= 3 and f" {nm.split()[0]} " in said):
+            c = await card(db, ws, owner, p["name"])
+            if c["notes"]:
+                out.append(f"{p['name']}:\n" + card_text(c))
+        if len(out) >= limit:
+            break
+    return _neutral("[WHO OR WHAT THEY MEAN — from what they have told me]\n" + "\n\n".join(out)) if out else ""
+
+
+async def user_block(db: AsyncSession, ws: str, owner: str, limit: int = 8) -> str:
+    """The small, stable picture of who they are, how they want me to be with them, and where to look for more. Not a biography: a handful of lines. Deeper detail is fetched
+    (know) only when something they say calls for it."""
+    rows = await _current(db, ws, owner)
+    mine = [r for r in rows if r.subject_key == SELF and r.certainty in ("stated", "intention")]
+    if not mine:
+        return ""
+    keyed = {r.key: r for r in mine if r.key}
+    lines = [keyed[k].text for k in ("name", "age", "ethnicity", "residence", "living_situation", "faith", "occupation", "employer") if k in keyed]
+    lines += [r.text for r in mine if not r.key and r.area in ("identity", "home")][:2]
+    lines += [r.text for r in mine if not r.key and r.area in ("career-direction", "work-load")][:2]
+    lines += [keyed[k].text for k in ("current_exercise_routine",) if k in keyed]
+    seen, about = set(), []
+    for t in lines:
+        if norm(t) not in seen:
+            seen.add(norm(t))
+            about.append(t.rstrip("."))
+    about = about[:limit]
+    related = {r.subject_key for r in rows if r.key == "relationship_to_the_person"}
+    ppl = [p for p in await people(db, ws, owner) if norm(p["name"]) in related or norm(p["name"]).split()[0] in related]
+    if ppl:
+        about.append("People: " + ", ".join(f"{p['name']} ({_clause(p['line'])})" for p in ppl[:10]))
+    how = [keyed[k].text.rstrip(".") for k in ("interaction_style", "memory_expectations") if k in keyed]
+    parts = []
+    if about:
+        parts.append("[USER]\n" + "\n".join(f"- {t}" for t in about))
+    if how:
+        parts.append("[HOW THEY WANT ME TO BE WITH THEM]\n" + "\n".join(f"- {t}" for t in how))
+    if ppl:
+        parts.append("[WHAT I CAN LOOK UP — know(a name or a topic) returns what is noted about it, from what they have told me. Names I hold: " + ", ".join(p["name"] for p in ppl[:12]) + ".]")
+    return _neutral("\n\n".join(parts))
+
+
+_CLOSED = re.compile(r"resolved|retired|closed|shelved|dead end|dead for|genuinely dead|abandon", re.I)
+
+
+def holding_lines(page_text: str, limit: int = 3) -> List[str]:
+    """What she is still turning over, from her own exploring page: a section counts only when nothing in it says it is closed. An empty answer is a true one."""
+    out = []
+    for sec in re.split(r"\n(?=\*\*)", page_text or ""):
+        m = re.match(r"\*\*(.+?)\*\*", sec.strip())
+        if not m or _CLOSED.search(sec):
+            continue
+        first = next((re.sub(r"^[\s*\-]+", "", l).replace("**", "").strip() for l in sec.splitlines()[1:] if re.sub(r"[\s*\-]", "", l)), "")
+        out.append(f"- {m.group(1).strip()}" + (f": {first[:140]}" if first else ""))
+    return out[:limit]
+
+
 ASK_MAX_SHOWN = 2          # an ask is offered at most this many sittings unless new evidence arrives (a new sitting changes its ref)
 
 

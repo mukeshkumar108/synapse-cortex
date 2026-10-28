@@ -227,6 +227,19 @@ async def _prepare_brief(db: AsyncSession, workspace_id: str, owner: str, cfg: P
         bundle["brief"] = {"status": "failed", "error": type(exc).__name__}
 
 
+async def state_version(db: AsyncSession, workspace_id: str, owner: str) -> str:
+    """A cheap stamp of everything the Runtime caches about this person (notes, ledger, arc). It changes when any of them changes, so the caller can refresh on change instead of on
+    a timer. Four small aggregate queries, no rows read."""
+    from sqlalchemy import func
+    from src.models.note import Note
+    n = (await db.execute(select(func.max(Note.created_at), func.count(Note.id)).where(Note.honcho_workspace_id == workspace_id, Note.owner_peer_id == owner, Note.status == "current"))).first()
+    l = (await db.execute(select(func.max(LedgerItem.updated_at), func.count(LedgerItem.id)).where(LedgerItem.honcho_workspace_id == workspace_id, LedgerItem.owner_peer_id == owner))).first()
+    a = (await db.execute(select(ContinuingArc.version, ContinuingArc.updated_at).where(ContinuingArc.honcho_workspace_id == workspace_id, ContinuingArc.owner_peer_id == owner)
+                          .order_by(ContinuingArc.version.desc()).limit(1))).first()
+    pg = (await db.execute(select(func.max(NotebookPage.version), func.max(NotebookPage.updated_at)).where(NotebookPage.honcho_workspace_id == workspace_id, NotebookPage.owner_peer_id == owner))).first()
+    return hashlib.sha1("|".join(str(x) for x in (*n, *l, *(a or ()), *pg)).encode()).hexdigest()[:16]
+
+
 def _fingerprint(*parts: str) -> str:
     h = hashlib.sha256()
     for p in parts:
@@ -901,8 +914,17 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
                 today_local = datetime.now(timezone.utc).date()
             arc_text = (await _notes.where_we_left_off(db, workspace_id, owner, today_local)) or arc.text
     prep = await get_preparation(db, workspace_id=workspace_id, owner=owner, companion_id=companion_id)
+    user_text = holding_text = ""
+    from src.config import settings as _s
+    if _s.NOTES_ENABLED and cfg.notes_enabled:
+        from src.services import notes as _notes
+        user_text = await _notes.user_block(db, workspace_id, owner)
+        holding_text = "\n".join(_notes.holding_lines(pages["exploring"].text)) if "exploring" in pages else ""
     return {
         "product": cfg.name,
+        "version": await state_version(db, workspace_id, owner),
+        "user": user_text,
+        "holding": holding_text,
         "notebook": {k: {"title": cfg.page_titles[k], "version": p.version, "text": p.text} for k, p in pages.items()},
         "ledger": [{"id": str(i.id), "key": i.situation_key, "kind": i.kind, "title": i.title,
                     "status": i.status, "confidence": i.confidence, "detail": i.detail,
