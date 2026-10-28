@@ -217,3 +217,32 @@ async def test_a_plan_from_the_morning_is_a_thing_to_ask_about_until_it_is_close
         got = [a for a in await notes.asks(db, WS, o, date(2026, 10, 13)) if a["kind"] == "plan"]
         later = [a for a in await notes.asks(db, WS, o, date(2026, 10, 25)) if a["kind"] == "plan"]
     assert len(got) == 1 and "Morgan" in got[0]["text"] and "Tue 13 Oct" in got[0]["text"] and later == []       # old plans fall away; they are not nagged about for ever
+
+
+@pytest.mark.asyncio
+async def test_a_light_product_reads_the_sitting_once_into_notes_and_runs_nothing_else(monkeypatch):
+    from src.models.world import NotebookPage
+    from src.services import bloom_memory
+    monkeypatch.setattr(settings, "NOTES_ENABLED", True)
+    monkeypatch.setattr(settings, "NOTES_ONLY_PRODUCTS", "bloom")
+    o = owner()
+    kinds = []
+
+    def fn(kind, prompt, max_tokens, models):
+        kinds.append(kind)
+        if kind != "notes":
+            raise AssertionError(f"a light product must not run {kind}")
+        return {"text": json.dumps({"notes": [note(area="nature-outdoors", text="They saw deer on the hill at sunset.", quote="deer on the hill")]}), "model": "fake", "provider": "fake", "usage": {}, "ms": 1}
+    memory_pipeline.set_model_fn(fn)
+    try:
+        async with async_session_maker() as db:
+            out = await memory_pipeline._consolidate(db, workspace_id=WS, owner=o, conversation_id="c", session_id="s", cfg=bloom_memory.BLOOM, companion_id="bloom",
+                                                     session_time="2026-10-15T20:30:00+01:00", time_zone="Europe/London", sitting_kind="user",
+                                                     messages=[{"id": "m1", "speaker": "user", "text": "i watched the deer on the hill at sunset, best bit of my week"},
+                                                               {"id": "m2", "speaker": "assistant", "text": "that sounds lovely"}])
+        async with async_session_maker() as db:
+            pages = (await db.execute(select(NotebookPage).where(NotebookPage.owner_peer_id == o))).scalars().all()
+    finally:
+        memory_pipeline.set_model_fn(None)
+    assert out["status"] == "consolidated" and kinds == ["notes"] and pages == []
+    assert [r.text for r in await rows(o)] == ["They saw deer on the hill at sunset."]

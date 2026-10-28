@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     CONNECTED_WORLD_ENABLED: bool = False
     # Notes: one dated, area-tagged, certainty-flagged write per sitting, and the views over them (patterns, people, things worth asking).
     NOTES_ENABLED: bool = False
+    # Products (comma list, e.g. "bloom") that run light: a sitting is read once into notes and nothing else runs. A deployment decision, not a code one.
+    NOTES_ONLY_PRODUCTS: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1151,6 +1151,17 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         # Every message was already consolidated (possibly arriving by another route with other ids): nothing to learn, no model calls.
         return await finish("replay_noop", [], {"note": "replay_no_new_messages"})
 
+    from src.config import settings as _lite_settings
+    if cfg.notes_only or cfg.name in {x.strip().lower() for x in str(_lite_settings.NOTES_ONLY_PRODUCTS or "").split(",") if x.strip()}:
+        # A light product: this sitting is read once, into notes, and nothing else runs.
+        if _lite_settings.NOTES_ENABLED and cfg.notes_enabled and sitting_kind != "independent" and len(transcript) >= 60:
+            await db.commit()                         # the run row is durable before the isolated session writes
+            bundle["notes"] = await _write_notes(workspace_id, owner, cfg, session_id, run.id, transcript, clock)
+        else:
+            bundle["notes"] = {"status": "skipped", "reason": "disabled for this deployment/product/sitting"}
+        mark("notes")
+        return await finish("consolidated", ([str(m.get("id")) for m in fresh if str(m.get("id") or "")] or [f"fp:{_fingerprint(transcript)}"]) + fresh_fps)
+
     pages = await live_pages(db, workspace_id, owner, cfg)
     arc = await get_arc(db, workspace_id, owner, cfg)
     ledger = await open_ledger(db, workspace_id, owner)

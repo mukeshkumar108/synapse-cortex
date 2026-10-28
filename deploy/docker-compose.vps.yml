@@ -51,6 +51,7 @@ services:
       MAINTENANCE_FALLBACK_MODEL: ${MAINTENANCE_FALLBACK_MODEL:-openrouter:qwen/qwen3.7-flash}
       WORLD_AGENT_FALLBACK_MODEL: ${WORLD_AGENT_FALLBACK_MODEL:-openrouter:qwen/qwen3.7-flash}
       CONNECTED_WORLD_ENABLED: ${CONNECTED_WORLD_ENABLED:-false}      # connected understanding (entities, relationships, situations)
+      NOTES_ONLY_PRODUCTS: ${NOTES_ONLY_PRODUCTS:-}                    # products that run light: one read per sitting into notes, nothing else (e.g. bloom)
       NOTES_ENABLED: ${NOTES_ENABLED:-false}                          # notes: one write per sitting + views (patterns, people, things worth asking)
       HONCHO_BASE_URL: ${HONCHO_BASE_URL:-http://honcho-api:8000}
       HONCHO_API_KEY: ${HONCHO_API_KEY:-}
