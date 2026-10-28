@@ -69,6 +69,7 @@ RECURRING_MIN = 3
 MAX_NOTES = 14
 RECENT_DAYS = 45
 INTENTION_LINES = 12
+PLAN_DAYS = 5
 
 
 def models() -> List[str]:
@@ -344,6 +345,10 @@ async def asks(db: AsyncSession, ws: str, owner: str, today: date) -> List[Dict[
             days = sorted({r.sitting_on for r in later} | {h.sitting_on})
             out.append({"kind": "returning", "area": h.area, "sittings": len(days), "text": f"{h.text.rstrip('.')} ({fmt_day(h.sitting_on)}) has come back since: "
                         + "; ".join(r.text.rstrip(".") + f" ({fmt_day(r.sitting_on)})" for r in later[-2:])})
+    for r in rows:                      # a plan they mentioned in the last few days and have not said how it went (the evening asks about the morning)
+        age = (datetime(today.year, today.month, today.day) - r.sitting_on).days
+        if r.certainty == "intention" and 0 <= age <= PLAN_DAYS and r.area in ("goals-plans", "exercise", "friends", "family-parents", "nature-outdoors", "work-load", "career-direction"):
+            out.append({"kind": "plan", "area": r.area, "sittings": 1, "text": f"{r.text.rstrip('.')} (said {fmt_day(r.sitting_on)}); nothing since on how it went"})
     seen: set = set()
     uniq = []
     for o in out:

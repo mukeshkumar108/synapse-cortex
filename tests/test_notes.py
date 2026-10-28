@@ -207,3 +207,13 @@ async def test_a_short_check_in_that_says_something_is_not_accepted_as_nothing_u
     finally:
         memory_pipeline.set_model_fn(None)
     assert calls["n"] == 2 and out["notes"] == 1 and out["empty_retry"] == 1 and out["tokens"] == {"in": 20, "out": 10}
+
+
+@pytest.mark.asyncio
+async def test_a_plan_from_the_morning_is_a_thing_to_ask_about_until_it_is_closed():
+    o = owner()
+    await write(o, {"notes": [note(area="friends", certainty="intention", text="They plan to catch up with Morgan this evening, 2026-10-13.", quote="barely slept")]}, datetime(2026, 10, 13))
+    async with async_session_maker() as db:
+        got = [a for a in await notes.asks(db, WS, o, date(2026, 10, 13)) if a["kind"] == "plan"]
+        later = [a for a in await notes.asks(db, WS, o, date(2026, 10, 25)) if a["kind"] == "plan"]
+    assert len(got) == 1 and "Morgan" in got[0]["text"] and "Tue 13 Oct" in got[0]["text"] and later == []       # old plans fall away; they are not nagged about for ever
