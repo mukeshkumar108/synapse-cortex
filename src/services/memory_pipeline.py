@@ -34,6 +34,8 @@ from src.services.product_memory import ProductMemory
 logger = logging.getLogger(__name__)
 
 MAX_TRANSCRIPT_MESSAGES = int(os.getenv("MEMORY_MAX_MESSAGES", "400"))
+CONTEXT_MESSAGES = int(os.getenv("MEMORY_CONTEXT_MESSAGES", "6"))     # earlier messages shown for reference only, ahead of the new ones
+CONTEXT_MARK = "--- the lines above are context, already recorded; report only what happened in the new messages below ---"
 
 PAGES = ("routines", "projects", "people", "perspective", "exploring")
 PAGE_TITLES = {
@@ -87,7 +89,7 @@ Return ONLY the revised page as Markdown, no commentary."""
 
 ARC_UPDATE_PROMPT = """You maintain a short continuing account of where recent conversations between a person and their companion Sophie have arrived. Below is the current account and a 2-3 sentence handoff from the session that just ended.
 
-Revise the account: what happened, what changed between them, what was clarified or resolved, what remains unfinished or worth carrying forward. Describe events and developments, including repairs and unresolved substance.
+Revise the account: add what happened (what the person said or did, what was decided, what Sophie asked or suggested), keep what is still true from before, and drop what has been overtaken. Say who said what. Write only what the summary states: no commentary on what it means, how significant it was, whether anything is resolved or unresolved, or what is left unexplored. Mention an unfinished matter only when a person explicitly said they would do something or come back to it, and say who said so. Do not mention the summary itself.
 
 Rules: never turn one difficult exchange into a lasting verdict about Sophie, the person, or the relationship. Never carry the last session's mood into the next one as a standing state. Significant ongoing circumstances may stay relevant without claiming the person feels a particular way now.
 
@@ -95,7 +97,7 @@ Keep apart what the person said and what Sophie asked or guessed. A question or 
 
 Resolution: preserve what remains relevant. When an ordinary disagreement has been explicitly repaired, do not carry its emotional framing forward merely because it happened — drop the argument, its emotional interpretation and its supposed relationship implications from the active account. The archived evidence keeps the full history; this account keeps only what still matters. Exceptions: repeated serious patterns, unresolved safety concerns, or an explicit wish to remember.
 
-Return ONLY the revised account as short plain prose, no commentary. If there was no previous account, write one from the handoff alone."""
+Return ONLY the revised account as short plain prose, no commentary. If there was no previous account, write one from the summary alone."""
 
 SITUATIONS_PROMPT = """Read this conversation transcript and note what is unfolding in this person's life that has real-world follow-through. You are a witness, not a clerk: notice things, don't file them. A separate deterministic step structures what you notice, so NEVER worry about JSON, formatting, keys or exactness — plain tagged lines only, one observation per line.
 
@@ -1190,9 +1192,18 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
     fresh_idx = [i for i, m in enumerate(trimmed) if not ((str(m.get("id") or "") in already) or fps[i] in already)]
     fresh = [trimmed[i] for i in fresh_idx]
     fresh_fps = [fps[i] for i in fresh_idx]
-    transcript = format_transcript(trimmed[:MAX_TRANSCRIPT_MESSAGES], cfg)
-    bundle.update(message_count=len(trimmed), new_message_count=len(fresh),
-                  truncated=len(trimmed) > MAX_TRANSCRIPT_MESSAGES)
+    # Every writer reads what is NEW, with a few earlier messages for context only. Reading the whole chat each time re-summarised events already recorded (a six-message
+    # sitting was read as thirty) and let one earlier slip be restated by every later pass.
+    first_new = min(fresh_idx) if fresh_idx else 0
+    context_from = max(0, first_new - CONTEXT_MESSAGES)
+    scoped = trimmed[context_from:][:MAX_TRANSCRIPT_MESSAGES]
+    if first_new > context_from:
+        cut = first_new - context_from
+        transcript = format_transcript(scoped[:cut], cfg) + "\n" + CONTEXT_MARK + "\n" + format_transcript(scoped[cut:], cfg)
+    else:
+        transcript = format_transcript(scoped, cfg)
+    bundle.update(message_count=len(trimmed), new_message_count=len(fresh), context_messages=first_new - context_from,
+                  truncated=len(trimmed) - context_from > MAX_TRANSCRIPT_MESSAGES)
 
     async def finish(status: str, covered: List[str], extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         run.status = status
