@@ -493,3 +493,11 @@ async def test_the_same_stretch_arriving_by_another_route_with_other_ids_is_not_
     c = await async_client.post("/v1/memory/consolidate", json={**BASE, "session_id": "route-later", "messages": grown})
     third = await _wait_run(async_client, c.json()["run_id"])
     assert third["status"] == "consolidated" and third["covered_ids"] == ["other-new"]      # only what is new is counted
+
+
+def test_someone_still_awake_after_midnight_has_the_day_they_will_wake_into_as_tomorrow():
+    late = memory_pipeline.resolve_clock("2026-10-29T00:50:00+00:00", "Europe/London")
+    assert late["today"] == "2026-10-28" and late["weekday"] == "Wednesday"
+    assert 'by "tomorrow" they mean Thursday 2026-10-29' in late["day_note"]
+    day = memory_pipeline.resolve_clock("2026-10-29T09:00:00+00:00", "Europe/London")
+    assert day["today"] == "2026-10-29" and day["day_note"] == ""

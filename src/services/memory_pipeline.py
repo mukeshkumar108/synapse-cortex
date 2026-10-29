@@ -19,7 +19,7 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 from uuid import UUID
 
@@ -207,7 +207,7 @@ async def _write_notes(workspace_id: str, owner: str, cfg: ProductMemory, sessio
         y, m, d = (int(x) for x in str(clock["today"]).split("-"))
         async with async_session_maker() as ndb:
             return await notes.write(ndb, workspace_id=workspace_id, owner=owner, product=cfg.name, session_id=session_id, run_id=run_id, transcript=transcript,
-                                     person_label=cfg.user_label, companion_name=cfg.companion_name, session_day=datetime(y, m, d), weekday=clock["weekday"])
+                                     person_label=cfg.user_label, companion_name=cfg.companion_name, session_day=datetime(y, m, d), weekday=clock["weekday"], day_note=clock.get("day_note", ""))
     except Exception as exc:  # noqa: BLE001
         logger.warning("[memory] notes failed open: %s", exc)
         return {"status": "failed", "error": type(exc).__name__}
@@ -956,6 +956,9 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
 
 # ---------------------------------------------------------------- time ----
 
+PERSON_DAY_START_HOUR = 5
+
+
 def resolve_clock(session_time: Optional[str], time_zone: Optional[str]) -> Dict[str, Any]:
     """The person's local moment for a session. Relative language ("tomorrow",
     "Friday") is resolved against when the person SPOKE, in THEIR timezone —
@@ -979,8 +982,16 @@ def resolve_clock(session_time: Optional[str], time_zone: Optional[str]) -> Dict
     if dt is None:
         dt = datetime.now(timezone.utc)
     local = dt.astimezone(zi)
+    # The person's day starts at 05:00 (as in the Runtime's chronology): someone still awake at 00:50 who says "tomorrow" means the day they will wake into, which is the
+    # calendar date they are already in. So `today` here is the person's day, and the writers are told when the two differ.
+    mine = local - timedelta(days=1) if local.hour < PERSON_DAY_START_HOUR else local
+    note = ""
+    if mine.date() != local.date():
+        nxt = mine + timedelta(days=1)
+        note = (f"It is {local.strftime('%H:%M')} on {local.strftime('%A')} {local.date().isoformat()} and the person has not slept yet, so their day is still {mine.strftime('%A')} "
+                f"{mine.date().isoformat()}: by \"tomorrow\" they mean {nxt.strftime('%A')} {nxt.date().isoformat()}, and \"tonight\" is the night now under way.")
     return {"tz": tzname, "event_utc": dt.astimezone(timezone.utc), "local": local,
-            "today": local.date().isoformat(), "weekday": local.strftime("%A")}
+            "today": mine.date().isoformat(), "weekday": mine.strftime("%A"), "day_note": note}
 
 
 def _annotate_timing(timing: str, today: Any) -> str:
@@ -1297,7 +1308,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
             for i in ledger) or "(none open)"
 
         def _extract_prompt() -> str:
-            return (SITUATIONS_PROMPT.replace("{open_items}", open_lines).replace("{today}", f"{clock['weekday']} {today}")
+            return (SITUATIONS_PROMPT.replace("{open_items}", open_lines).replace("{today}", f"{clock['weekday']} {today}" + (f". {clock['day_note']}" if clock.get("day_note") else ""))
                     .replace("{tz}", clock["tz"]).replace("{transcript}", transcript)
                     .replace("{findings}", findings or handoff_text))
 
@@ -1325,7 +1336,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
     # ledger in, investigated updates out. Deterministic skip when nothing observed.
     if ledger_on and witness:
         from src.services import maintenance_agent
-        today_date = clock["local"].date()
+        today_date = datetime.fromisoformat(today).date() if not isinstance(today, datetime) else today.date()
         obs_text, n_obs = build_observations(witness, today_date)
         before = {(str(i.situation_key), i.status, str(i.updated_at))
                   for i in await open_ledger(db, workspace_id, owner, limit=200)}

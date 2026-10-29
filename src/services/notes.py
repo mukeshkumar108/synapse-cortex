@@ -180,12 +180,12 @@ async def known_block(db: AsyncSession, ws: str, owner: str) -> Tuple[Dict[str, 
 
 
 async def write(db: AsyncSession, *, workspace_id: str, owner: str, product: str, session_id: str, run_id: Optional[UUID], transcript: str,
-                person_label: str, companion_name: str, session_day: datetime, weekday: str, source: str = "session") -> Dict[str, Any]:
+                person_label: str, companion_name: str, session_day: datetime, weekday: str, source: str = "session", day_note: str = "") -> Dict[str, Any]:
     """Read one sitting once and store its notes. Fail-open for the caller (a failure here never costs the session its other results)."""
     from src.services import memory_pipeline as mp
     from src.services.world_agent import _person_lines
     keys, opens = await known_block(db, workspace_id, owner)
-    prompt = (f"{SYSTEM}\n\nToday is {session_day.date().isoformat()} ({weekday}).\nThe person's lines begin with \"{person_label}:\" and the companion's ({companion_name}) with \"{companion_name}:\".\n"
+    prompt = (f"{SYSTEM}\n\nToday is {session_day.date().isoformat()} ({weekday}).{(' ' + day_note) if day_note else ''}\nThe person's lines begin with \"{person_label}:\" and the companion's ({companion_name}) with \"{companion_name}:\".\n"
               f"Known so far (subject: keys): {json.dumps(keys, separators=(',', ':'))}\nOpen intentions: {json.dumps(opens, separators=(',', ':'))}\n\n--- conversation ---\n{transcript}")
     out = await mp._generate("notes", prompt, 3500, models())
     parsed = _first_json((out or {}).get("text") or "")
