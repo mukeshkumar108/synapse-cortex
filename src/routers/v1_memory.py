@@ -236,15 +236,16 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
     tz = time_zone or await _ac.owner_time_zone(db, workspace_id=scope.workspace, owner=owner, default=None) or cfg.default_time_zone
     ctx = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone)
     base = {"enabled": True, "product": scope.product, "now": ctx.now.isoformat(), "time_zone": ctx.tz, "pending_consolidations": pending}
+    entities_on = not memory_pipeline.retired("connect")      # with the connect pass retired its entities are neither written nor read: whoever they name comes from the notes alone
     if view == "packet":
-        pk = await _kw.packet(db, scope.workspace, owner, q or "", ctx)
+        pk = await _kw.packet(db, scope.workspace, owner, q or "", ctx) if entities_on else {"overview": "", "mentions": "", "shown": []}
         if _s.NOTES_ENABLED and cfg.notes_enabled and q:
             from src.services import notes as _n
             named, now_names = await _n.mentions_text(db, scope.workspace, owner, q, carry=[c.strip() for c in (carry or "").split("|") if c.strip()])      # whoever they just named or are still on, from what they have told me, replaces the entity snapshot
             pk = {**pk, "named_now": now_names, **({"mentions": named} if named else {})}
         return {**base, **pk}
     if view == "overview":
-        text, shown = await _kw.overview_text(db, scope.workspace, owner, ctx)
+        text, shown = await _kw.overview_text(db, scope.workspace, owner, ctx) if entities_on else ("", [])
         return {**base, "text": text, "shown": [{"source": a, "ref": b} for a, b in shown]}
     if view == "entity":
         if depth not in ("snapshot", "connected", "deep"):
@@ -254,6 +255,8 @@ async def world_view(request: Request, workspace_id: str, owner: str, companion_
             got = await _n.know_text(db, scope.workspace, owner, q)
             if got:
                 return {**base, "found": True, "entity": {"name": q}, "text": got}
+        if not entities_on:
+            return {**base, "found": False, "text": f"Nothing is recorded under \"{q or ''}\"."}
         return {**base, **(await _kw.entity_view(db, scope.workspace, owner, q or "", ctx, depth))}
     if view == "inspect":
         return {**base, **(await _kw.inspect(db, scope.workspace, owner))}
@@ -320,7 +323,7 @@ async def opportunities_view(request: Request, workspace_id: str, owner: str, co
     cfg = _pm.get(scope.product)
     tz = time_zone or await _ac.owner_time_zone(db, workspace_id=scope.workspace, owner=owner, default=None) or cfg.default_time_zone
     ctx = _kw.Ctx(_world_ctx_args(now), tz, cfg.default_time_zone)
-    world_on = bool(_s.CONNECTED_WORLD_ENABLED and cfg.world_enabled)
+    world_on = bool(_s.CONNECTED_WORLD_ENABLED and cfg.world_enabled and not memory_pipeline.retired("connect"))
     rows = [r for r in (await memory_pipeline.open_ledger(db, scope.workspace, owner, limit=100) if cfg.ledger_enabled else []) if r.kind != "aspiration"]
     out = await _op.read(db, scope.workspace, owner, ctx, world_on=world_on, ledger_rows=rows, notes_on=bool(_s.NOTES_ENABLED and cfg.notes_enabled))
     if stage not in ("opening", "moment", "survey"):

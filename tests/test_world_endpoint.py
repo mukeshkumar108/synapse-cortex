@@ -136,3 +136,23 @@ async def test_callers_are_told_when_a_consolidation_for_this_person_is_still_ru
         await db.commit()
     assert (await async_client.get("/v1/memory/world", params=params, headers=H("legacy"))).json()["pending_consolidations"] == 1
     assert (await async_client.get("/v1/memory/ledger", params=params, headers=H("legacy"))).json()["pending_consolidations"] == 1
+
+
+@pytest.mark.asyncio
+async def test_with_the_connect_pass_retired_the_old_entities_reach_neither_the_world_views_nor_the_opportunities(async_client, monkeypatch):
+    o = f"u-{uuid.uuid4().hex[:6]}"
+    await seed("wsE", o, "Morgan")
+    P = {"workspace_id": "wsE", "owner": o, **Q}
+    before = (await async_client.get("/v1/memory/world", params={**P, "q": "I spoke to Morgan today"}, headers=H("legacy"))).json()
+    assert "THEIR WORLD RIGHT NOW" in before["overview"]
+    monkeypatch.setattr(settings, "RETIRED_LAYERS", "connect", raising=False)
+    p = (await async_client.get("/v1/memory/world", params={**P, "q": "I spoke to Morgan today"}, headers=H("legacy"))).json()
+    assert p["enabled"] and p["overview"] == "" and p["mentions"] == "" and p["shown"] == []
+    ent = (await async_client.get("/v1/memory/world", params={**P, "view": "entity", "q": "Morgan"}, headers=H("legacy"))).json()
+    assert ent["found"] is False
+    ov = (await async_client.get("/v1/memory/world", params={**P, "view": "overview"}, headers=H("legacy"))).json()
+    assert ov["text"] == "" and ov["shown"] == []
+    op = (await async_client.get("/v1/memory/opportunities", params={**P, "stage": "survey"}, headers=H("legacy"))).json()
+    assert op["world"] is False
+    ins = (await async_client.get("/v1/memory/world", params={"workspace_id": "wsE", "owner": o, "view": "inspect"}, headers=H("legacy"))).json()
+    assert {e["name"] for e in ins["entities"]} >= {"Morgan"}          # kept for inspection, no longer served
