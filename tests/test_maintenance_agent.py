@@ -212,3 +212,9 @@ def test_evidence_split_verified_vs_reported():
     assert "flourish" in r
     v2, r2 = _evidence_spans("Completely invented resolution narrative here", "user: nothing yet.")
     assert v2 == [] and "invented" in r2
+
+
+def test_what_the_companion_promised_the_person_is_shared_not_only_theirs():
+    """29 Oct: 'I'll fire off the list before you sit down with him' was filed as the person's own task (party user) in both lab runs, so the ledger told them to do what she had offered to do."""
+    prompt = next(v for k, v in vars(maintenance_agent).items() if isinstance(v, str) and "party: whose matter it is" in v)
+    assert "offered or agreed to do for the person" in prompt and "never recorded as only the person's task" in prompt
