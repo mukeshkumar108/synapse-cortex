@@ -120,7 +120,7 @@ Write tagged lines, one per line. Tags (use only these):
 - PERSON: someone connected (who + how: owes, waits on, invited by, promised to)
 - BLOCKED-BY: what stands in the way, if anything
 - WAITING-ON: who/what is awaited, if anything
-- QUESTION: a question the person themselves said is open (they do not know, or have not decided), if any. Never a detail you notice is missing (a time, a name, a place they did not give).
+- QUESTION: unresolved question or missing info, if any
 - MATTERS-BECAUSE: why this deserves attention, in one line
 - EVIDENCE: short quote from the transcript
 - CONFIDENCE: observed (they said it happened) / reported (they relayed it) / inferred (your read — mark honestly)
