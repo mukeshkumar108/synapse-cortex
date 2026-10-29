@@ -89,7 +89,7 @@ Return ONLY the revised page as Markdown, no commentary."""
 
 ARC_UPDATE_PROMPT = """You maintain a short continuing account of where recent conversations between a person and their companion Sophie have arrived. Below is the current account and a 2-3 sentence handoff from the session that just ended.
 
-Revise the account: add what happened (what the person said or did, what was decided, what Sophie asked or suggested), keep what is still true from before, and drop what has been overtaken. Say who said what. Write only what the summary states: no commentary on what it means, how significant it was, whether anything is resolved or unresolved, or what is left unexplored. Mention an unfinished matter only when a person explicitly said they would do something or come back to it, and say who said so. Do not mention the summary itself. Write days as dates ("Thursday 29 October"), never as today, tomorrow, tonight or yesterday: the account is read on later days. Work them out from the date given below.
+Revise the account: add what happened (what the person said or did, what was decided, what Sophie asked or suggested), keep what is still true from before, and drop what has been overtaken. Say who said what. Write only what the summary states: no commentary on what it means, how significant it was, whether anything is resolved or unresolved, or what is left unexplored. Mention an unfinished matter only when a person explicitly said they would do something or come back to it, and say who said so. Do not mention the summary itself.
 
 Rules: never turn one difficult exchange into a lasting verdict about Sophie, the person, or the relationship. Never carry the last session's mood into the next one as a standing state. Significant ongoing circumstances may stay relevant without claiming the person feels a particular way now.
 
@@ -989,7 +989,7 @@ def resolve_clock(session_time: Optional[str], time_zone: Optional[str]) -> Dict
     if mine.date() != local.date():
         nxt = mine + timedelta(days=1)
         note = (f"It is {local.strftime('%H:%M')} on {local.strftime('%A')} {local.date().isoformat()} and the person has not slept yet, so their day is still {mine.strftime('%A')} "
-                f"{mine.date().isoformat()}: by \"tomorrow\" they mean {nxt.strftime('%A')} {nxt.date().isoformat()}, and \"tonight\" is the night now under way.")
+                f"{mine.date().isoformat()}: by \"tomorrow\" they mean {nxt.strftime('%A')} {nxt.date().isoformat()}, and \"tonight\" is the night now under way. A clock time after midnight is on the calendar date {local.date().isoformat()}.")
     return {"tz": tzname, "event_utc": dt.astimezone(timezone.utc), "local": local,
             "today": mine.date().isoformat(), "weekday": mine.strftime("%A"), "day_note": note}
 
@@ -1435,7 +1435,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
             logger.warning("[memory] connect pass failed open: %s", exc)
             bundle["world_agent"] = {"status": "failed", "error": type(exc).__name__}
     else:
-        bundle["world_agent"] = {"status": "skipped", "reason": "disabled for this deployment/product/sitting" if not _settings.CONNECTED_WORLD_ENABLED
+        bundle["world_agent"] = {"status": "skipped", "reason": "retired" if retired("connect") else "disabled for this deployment/product/sitting" if not _settings.CONNECTED_WORLD_ENABLED
                                  or not cfg.world_enabled or sitting_kind == "independent" else "transcript too short"}
 
     mark("connect_pass")
@@ -1487,8 +1487,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         bundle["arc_edit"] = {"skipped": "retired"}
     else:
         arc_edit = await _generate("arc",
-                                   f"{cfg.arc_prompt}\n\n--- date of the session that just ended ---\n{clock['weekday']} {today}." + (f" {clock['day_note']}" if clock.get("day_note") else "")
-                                   + f"\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
+                                   f"{cfg.arc_prompt}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
                                    500, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
         bundle["arc_edit"] = arc_edit or {"skipped": True}
         new_arc = absolute_days(str((arc_edit or {}).get("text") or "").strip(), today)
