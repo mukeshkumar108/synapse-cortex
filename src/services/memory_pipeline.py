@@ -89,7 +89,7 @@ Return ONLY the revised page as Markdown, no commentary."""
 
 ARC_UPDATE_PROMPT = """You maintain a short continuing account of where recent conversations between a person and their companion Sophie have arrived. Below is the current account and a 2-3 sentence handoff from the session that just ended.
 
-Revise the account: add what happened (what the person said or did, what was decided, what Sophie asked or suggested), keep what is still true from before, and drop what has been overtaken. Say who said what. Write only what the summary states: no commentary on what it means, how significant it was, whether anything is resolved or unresolved, or what is left unexplored. Mention an unfinished matter only when a person explicitly said they would do something or come back to it, and say who said so. Do not mention the summary itself.
+Revise the account: add what happened (what the person said or did, what was decided, what Sophie asked or suggested), keep what is still true from before, and drop what has been overtaken. Say who said what. Write only what the summary states: no commentary on what it means, how significant it was, whether anything is resolved or unresolved, or what is left unexplored. Mention an unfinished matter only when a person explicitly said they would do something or come back to it, and say who said so. Do not mention the summary itself. Write days as dates ("Thursday 29 October"), never as today, tomorrow, tonight or yesterday: the account is read on later days. Work them out from the date given below.
 
 Rules: never turn one difficult exchange into a lasting verdict about Sophie, the person, or the relationship. Never carry the last session's mood into the next one as a standing state. Significant ongoing circumstances may stay relevant without claiming the person feels a particular way now.
 
@@ -120,7 +120,7 @@ Write tagged lines, one per line. Tags (use only these):
 - PERSON: someone connected (who + how: owes, waits on, invited by, promised to)
 - BLOCKED-BY: what stands in the way, if anything
 - WAITING-ON: who/what is awaited, if anything
-- QUESTION: unresolved question or missing info, if any
+- QUESTION: a question the person themselves said is open (they do not know, or have not decided), if any. Never a detail you notice is missing (a time, a name, a place they did not give).
 - MATTERS-BECAUSE: why this deserves attention, in one line
 - EVIDENCE: short quote from the transcript
 - CONFIDENCE: observed (they said it happened) / reported (they relayed it) / inferred (your read — mark honestly)
@@ -994,6 +994,23 @@ def resolve_clock(session_time: Optional[str], time_zone: Optional[str]) -> Dict
             "today": mine.date().isoformat(), "weekday": mine.strftime("%A"), "day_note": note}
 
 
+def absolute_days(text: str, person_today: str) -> str:
+    """Stored accounts are read on later days, so today / tomorrow / tonight / yesterday become the actual date, worked out from the person's day (never by a model)."""
+    import re as _re
+    from datetime import date as _date
+
+    base = _date.fromisoformat(person_today)
+
+    def name(offset: int) -> str:
+        d = base + timedelta(days=offset)
+        return f"{d.strftime('%A')} {d.day} {d.strftime('%B')}"
+    out = _re.sub(r"\btomorrow\b", lambda m: name(1), str(text or ""), flags=_re.I)
+    out = _re.sub(r"\byesterday\b", lambda m: name(-1), out, flags=_re.I)
+    out = _re.sub(r"\btonight\b", lambda m: ("The" if m.group(0)[0].isupper() else "the") + f" night of {name(0)}", out, flags=_re.I)
+    out = _re.sub(r"\btoday\b", lambda m: name(0), out, flags=_re.I)
+    return out
+
+
 def _annotate_timing(timing: str, today: Any) -> str:
     """Deterministically attach ISO dates to weekday/tomorrow mentions so the
     agent copies exact dates instead of doing weekday arithmetic. A weekday
@@ -1470,10 +1487,11 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         bundle["arc_edit"] = {"skipped": "retired"}
     else:
         arc_edit = await _generate("arc",
-                                   f"{cfg.arc_prompt}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
+                                   f"{cfg.arc_prompt}\n\n--- date of the session that just ended ---\n{clock['weekday']} {today}." + (f" {clock['day_note']}" if clock.get("day_note") else "")
+                                   + f"\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
                                    500, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
         bundle["arc_edit"] = arc_edit or {"skipped": True}
-        new_arc = str((arc_edit or {}).get("text") or "").strip()
+        new_arc = absolute_days(str((arc_edit or {}).get("text") or "").strip(), today)
         if new_arc and new_arc != arc.text.strip():
             arc.text, arc.version, arc.run_id = new_arc, arc.version + 1, run.id
             arc.updated_at = utc_now()

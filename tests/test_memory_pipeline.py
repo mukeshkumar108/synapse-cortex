@@ -501,3 +501,8 @@ def test_someone_still_awake_after_midnight_has_the_day_they_will_wake_into_as_t
     assert 'by "tomorrow" they mean Thursday 2026-10-29' in late["day_note"]
     day = memory_pipeline.resolve_clock("2026-10-29T09:00:00+00:00", "Europe/London")
     assert day["today"] == "2026-10-29" and day["day_note"] == ""
+
+
+def test_stored_account_days_become_dates_from_the_persons_day():
+    out = memory_pipeline.absolute_days("He reminded her that tomorrow he has the dentist. Tonight he sleeps; yesterday he walked.", "2026-10-28")
+    assert out == "He reminded her that Thursday 29 October he has the dentist. The night of Wednesday 28 October he sleeps; Tuesday 27 October he walked."
