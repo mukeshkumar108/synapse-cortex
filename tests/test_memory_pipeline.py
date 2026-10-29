@@ -66,6 +66,8 @@ async def test_baseline_prompts_verbatim():
     assert "Structure" not in LISTENING_PROMPT
     blob = (memory_pipeline.NOTEBOOK_EDITOR_PROMPT + memory_pipeline.ARC_UPDATE_PROMPT
             + memory_pipeline.SITUATIONS_PROMPT + memory_pipeline.PREPARATION_PROMPT)
+    assert "Say who said what." in HANDOFF_PROMPT and "is not evasion" in HANDOFF_PROMPT
+    assert "stays hers" in memory_pipeline.ARC_UPDATE_PROMPT
     for guard in ("Do not carry the mood", "never turn one difficult exchange into a lasting verdict",
                   "aspiration is not a task and never ends by silence", "honest about what you don't know",
                   "ENDED only on evidence", "An invitation is not an accepted commitment",

@@ -69,7 +69,9 @@ Provenance matters. What the person said or did is evidence about them. What Sop
 
 HANDOFF_PROMPT = """You are a transcript summary. Deliver no more than 2-3 sentences at most.
 
-Read this transcript and bring me up to speed: What just went down, what's actually changed between them, and what do we need to remember going into the next scene?"""
+Read this transcript and carry what is needed to pick the conversation up naturally: what was talked about, what the person said or decided, and anything they left open.
+
+Say who said what. What the person said is evidence about them. What Sophie said is only that: she asked, she suggested, she guessed. Never turn her question or guess into a fact or a concern about the person, and if a question went unanswered say it was not answered. Do not give a reason for what someone did unless they gave it; an interruption, a transcription slip or a short answer is not evasion. A reading of the person is allowed only when marked as a reading ("possibly...", "Sophie's reading..."). Keep it plain, not dramatic."""
 
 NOTEBOOK_EDITOR_PROMPT = """You maintain a small living notebook about a person and their shared history with their companion Sophie. Below is one notebook page and a set of new findings from a just-finished conversation.
 
@@ -88,6 +90,8 @@ ARC_UPDATE_PROMPT = """You maintain a short continuing account of where recent c
 Revise the account: what happened, what changed between them, what was clarified or resolved, what remains unfinished or worth carrying forward. Describe events and developments, including repairs and unresolved substance.
 
 Rules: never turn one difficult exchange into a lasting verdict about Sophie, the person, or the relationship. Never carry the last session's mood into the next one as a standing state. Significant ongoing circumstances may stay relevant without claiming the person feels a particular way now.
+
+Keep apart what the person said and what Sophie asked or guessed. A question or guess that only Sophie raised stays hers ("Sophie asked about...") and is not an open matter about the person unless they engaged with it, said it was unresolved, or it was plainly left open. Carry an unfinished matter forward while there is evidence it still matters (the person raised it, engaged with it, or it was explicitly left open) and let it go when newer information settles or changes it. Never write what Sophie is "watching", "pushing" or "pressing" for: she is not a source about the person's feelings or motives. A reading of the person's motives is allowed only when marked as a reading.
 
 Resolution: preserve what remains relevant. When an ordinary disagreement has been explicitly repaired, do not carry its emotional framing forward merely because it happened — drop the argument, its emotional interpretation and its supposed relationship implications from the active account. The archived evidence keeps the full history; this account keeps only what still matters. Exceptions: repeated serious patterns, unresolved safety concerns, or an explicit wish to remember.
 
