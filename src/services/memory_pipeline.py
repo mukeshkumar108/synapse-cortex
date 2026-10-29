@@ -99,7 +99,7 @@ Resolution: preserve what remains relevant. When an ordinary disagreement has be
 
 Return ONLY the revised account as short plain prose, no commentary. If there was no previous account, write one from the summary alone."""
 
-SITUATIONS_PROMPT = """Read this conversation transcript and note what is unfolding in this person's life that has real-world follow-through. You are a witness, not a clerk: notice things, don't file them. A separate deterministic step structures what you notice, so NEVER worry about JSON, formatting, keys or exactness — plain tagged lines only, one observation per line.
+SITUATIONS_PROMPT = """Read this conversation transcript and note what is unfolding in this person's life that has real-world follow-through. That includes what the companion herself offered or promised the person to do ("I'll put the questions together before you sit down with him"): note it as an item too, with the companion as the PERSON who owes it, so a promise she made survives the sitting. You are a witness, not a clerk: notice things, don't file them. A separate deterministic step structures what you notice, so NEVER worry about JSON, formatting, keys or exactness — plain tagged lines only, one observation per line.
 
 Today is {today} (the person's local date; timezone {tz}). Use it to understand relative dates ("tomorrow", "Friday"), but always quote the person's own words for timing too.
 

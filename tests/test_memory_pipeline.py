@@ -506,3 +506,8 @@ def test_someone_still_awake_after_midnight_has_the_day_they_will_wake_into_as_t
 def test_stored_account_days_become_dates_from_the_persons_day():
     out = memory_pipeline.absolute_days("He reminded her that tomorrow he has the dentist. Tonight he sleeps; yesterday he walked.", "2026-10-28")
     assert out == "He reminded her that Thursday 29 October he has the dentist. The night of Wednesday 28 October he sleeps; Tuesday 27 October he walked."
+
+
+def test_the_witness_is_told_to_note_what_the_companion_promised():
+    """29 Oct: 'I'll fire off the list before you sit down with him' reached neither the real ledger nor one of four lab ledgers."""
+    assert "offered or promised the person to do" in memory_pipeline.SITUATIONS_PROMPT
