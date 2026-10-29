@@ -82,6 +82,18 @@ async def consolidate(req: ConsolidateRequest, request: Request, db: AsyncSessio
     return {"status": "accepted", "run_id": run_id}
 
 
+@router.get("/thread")
+async def thread_checkpoint(request: Request, workspace_id: str, owner: str, conversation_id: str, companion_id: Optional[str] = None,
+                            db: AsyncSession = Depends(get_async_session)):
+    """What has developed in this chat across its sittings (a view of the chat, not of the person), for when it is reopened. Pure read, no model."""
+    scope = _scope(request, workspace_id, companion_id)
+    row = await memory_pipeline.get_thread(db, scope.workspace, owner, conversation_id)
+    if row is None or not (row.text or "").strip():
+        return {"found": False}
+    return {"found": True, "text": row.text, "version": row.version, "sittings": row.sittings,
+            "through": row.through.isoformat() if row.through else None, "updated_at": row.updated_at.isoformat() if row.updated_at else None}
+
+
 @router.get("/run/{run_id}")
 async def run_status(run_id: str, request: Request, db: AsyncSession = Depends(get_async_session)):
     row = await memory_pipeline.get_run(db, run_id)
@@ -182,7 +194,8 @@ async def ledger_view(request: Request, workspace_id: str, owner: str, companion
              "updated_at": i.updated_at.isoformat() if i.updated_at else None,
              "created_at": i.created_at.isoformat() if i.created_at else None} for i in rows]
     # A life aim ("travel more") is remembered, not owed: it stays in the ledger but is not part of the operational picture (awareness, needs_detail).
-    v = _lv.compute([d for d in data if d["kind"] != "aspiration"] if view in ("awareness", "needs_detail") else data, clock_now, tz, cfg.default_time_zone)
+    v = _lv.compute([d for d in data if d["kind"] != "aspiration"] if view in ("awareness", "needs_detail") else data, clock_now, tz, cfg.default_time_zone,
+                    companion_name=str(scope.product or "").title())
     base = {"product": scope.product, "now": v["now"].isoformat(), "time_zone": v["zone"].key,
             "pending_consolidations": await memory_pipeline.pending_runs(db, scope.workspace, owner)}
     if view == "awareness":

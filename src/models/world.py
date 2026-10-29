@@ -298,6 +298,26 @@ class SittingPreparation(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
+class ThreadCheckpoint(SQLModel, table=True):
+    """What has developed in ONE chat across all its sittings: subjects discussed, decisions, what was left open, dated. A view of the chat, kept up by the same call that writes
+    the sitting's handoff; never a source of truth about the person (notes, ledger and arc stay that). Served when the chat is reopened, however many other conversations came between."""
+    __tablename__ = "thread_checkpoints"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    honcho_workspace_id: str = Field(index=True, nullable=False)
+    owner_peer_id: str = Field(index=True, nullable=False)
+    product: str = Field(default="sophie", index=True, nullable=False)
+    conversation_id: str = Field(index=True, nullable=False)
+    text: str = Field(default="", nullable=False)
+    version: int = Field(default=1, nullable=False)
+    sittings: int = Field(default=1, nullable=False)
+    through: Optional[datetime] = Field(default=None)                  # when the newest sitting it holds took place
+    session_ids_json: str = Field(default="[]")                        # sittings already merged: a replay does not merge twice
+    run_id: Optional[UUID] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
 class ContinuingArc(SQLModel, table=True):
     """Where recent conversations have arrived: what happened, what changed,
     what was clarified or resolved, what remains unfinished. Events and

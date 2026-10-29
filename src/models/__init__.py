@@ -78,7 +78,7 @@ _register_direction_stamping()
 
 from src.models.world import ContinuationBrief, ProducerRun, RelationshipDimension, RowProvenance, TrajectoryNote, WorldEvent, WorldLink, WorldObjective
 from src.models.world import AttentionAction, AttentionEvent  # noqa: F401
-from src.models.world import ContinuingArc, LedgerItem, MemoryRun, NotebookPage, SittingPreparation  # noqa: F401
+from src.models.world import ContinuingArc, LedgerItem, MemoryRun, NotebookPage, SittingPreparation, ThreadCheckpoint  # noqa: F401
 from src.models.known_world import KnownEntity, KnownEntityAlias, KnownLink, CueExposure  # noqa: F401
 from src.models.note import Note  # noqa: F401
 from src.models.brief import Brief  # noqa: F401

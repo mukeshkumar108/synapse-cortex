@@ -172,3 +172,52 @@ def test_a_companions_own_matters_never_appear_on_the_persons_plate():
     view = lv.compute([mine, theirs, row("legacy", "Old row with no party recorded")], datetime(2026, 10, 20, 12, tzinfo=LON), "Europe/London")
     text = lv.render(view)
     assert "Dentist" in text and "Old row with no party recorded" in text and "See photos" not in text      # unknown party is treated as the person's
+
+
+# --- the companion's own commitments reach her, as hers ---------------------------------------------------------------------------------------------------------------
+
+def hers_rows():
+    promise = row("sophie-questions", "Sophie to prepare questions for Josh", "2026-10-29", "", "deadline", status="waiting", waiting_on="Sophie")
+    promise["party"] = "shared"
+    walk = row("walk", "Morning walk", "2026-10-29", "", "happens")
+    walk["party"] = "shared"                                    # something they do together: his plate, nobody's debt
+    wish = row("owl", "See the owl photos", None, "", "")
+    wish["party"], wish["kind"] = "companion", "curiosity"      # a private wish: nobody's plate, nobody's promise
+    own = row("list", "Send Mukesh the reading list", "2026-10-30", "", "")
+    own["party"], own["kind"] = "companion", "commitment"       # hers alone, but a promise to him
+    lunch = row("lunch", "Lunch with friend in Cambridge", "2026-10-29", "", "happens")
+    return [promise, walk, wish, own, lunch]
+
+
+def test_a_promise_the_companion_made_is_shown_to_her_as_hers_and_not_as_the_persons_to_do():
+    text = lv.render(lv.compute(hers_rows(), at(11, day=29), "Europe/London", companion_name="Sophie"))
+    persons_part, hers_part = text.split("Yours (", 1)
+    assert "Sophie to prepare questions for Josh" not in persons_part and "Send Mukesh the reading list" not in persons_part
+    assert "Morning walk" in persons_part and "Lunch with friend" in persons_part
+    assert "Sophie to prepare questions for Josh: today" in hers_part and "Send Mukesh the reading list: tomorrow" in hers_part
+    assert "waiting on Sophie" not in hers_part, "she is not told she is waiting on herself"
+    assert "owl" not in text, "a private wish stays private"
+
+
+def test_without_a_companion_the_view_is_what_it_was():
+    text = lv.render(lv.compute(hers_rows(), at(11, day=29), "Europe/London"))
+    assert "Yours (" not in text and "Sophie to prepare questions for Josh" in text and "owl" not in text
+
+
+def test_a_promise_whose_day_has_passed_is_history_not_an_overdue_debt():
+    text = lv.render(lv.compute(hers_rows(), at(9, day=30), "Europe/London", companion_name="Sophie"))
+    hers_part = text.split("Yours (", 1)[1]
+    assert "Sophie to prepare questions for Josh: was for yesterday (Thu 29 Oct); not recorded as done" in hers_part
+    assert "overdue" not in hers_part.lower() and "was due" not in hers_part
+
+
+def test_an_old_promise_leaves_the_picture_like_anything_else_and_a_done_one_never_shows():
+    old = hers_rows()
+    done = [dict(r, status="done") for r in old]
+    assert "Yours (" not in lv.render(lv.compute(done, at(11, day=29), "Europe/London", companion_name="Sophie"))
+    assert "Sophie to prepare questions for Josh" not in lv.render(lv.compute(old, at(11, day=5, tz=LON).replace(month=11), "Europe/London", companion_name="Sophie"))
+
+
+def test_the_schedule_never_shows_the_companions_private_rows():
+    out = lv.render_range(hers_rows(), date(2026, 10, 29), date(2026, 10, 31), at(11, day=29), "Europe/London")
+    assert "owl" not in out["text"] and "reading list" not in out["text"]

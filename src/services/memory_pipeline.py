@@ -26,7 +26,7 @@ from uuid import UUID
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.world import ContinuingArc, LedgerItem, MemoryRun, NotebookPage, SittingPreparation, utc_now
+from src.models.world import ContinuingArc, LedgerItem, MemoryRun, NotebookPage, SittingPreparation, ThreadCheckpoint, utc_now
 from src.services import nano_adapter
 from src.services import product_memory, product_scope
 from src.services.product_memory import ProductMemory
@@ -74,6 +74,15 @@ HANDOFF_PROMPT = """You are a transcript summary. Deliver no more than 2-3 sente
 Read this transcript and carry what is needed to pick the conversation up naturally: what was talked about, what the person said or decided, and anything they left open.
 
 Say who said what. What the person said is evidence about them. What Sophie said is only that: she asked, she suggested, she guessed. Never turn her question or guess into a fact or a concern about the person, and if a question went unanswered say it was not answered. Do not give a reason for what someone did unless they gave it; an interruption, a transcription slip or a short answer is not evasion. A reading of the person is allowed only when marked as a reading ("possibly...", "Sophie's reading..."). Keep it plain, not dramatic."""
+
+THREAD_MARK = "===THREAD==="
+THREAD_ADDENDUM = """After the summary, write a line containing only ===THREAD=== and below it the running account of THIS CHAT, updated with this sitting. The companion reads it when the person comes back to this chat after other conversations, so it must let her pick the chat up where it really stands.
+- Start from the account below ("this chat so far") and keep what is still true; add this sitting: what was discussed, what was decided, what was left open, dated ({day}).
+- If the chat has covered several subjects, write one short paragraph per subject, each with its own dates. Do not merge subjects that only share a conversation.
+- Say who said what: what the person decided is theirs, what {companion} suggested is hers. Never turn a question or a guess into a fact. Do not write conclusions about the person or their feelings; this is a record of the chat.
+- Drop only what is settled and no longer matters to picking the chat up. About 200 words at most, plain prose.
+If there is nothing to add, repeat the account unchanged."""
+THREAD_FALLBACK_CHARS = 3000
 
 NOTEBOOK_EDITOR_PROMPT = """You maintain a small living notebook about a person and their shared history with their companion Sophie. Below is one notebook page and a set of new findings from a just-finished conversation.
 
@@ -197,6 +206,51 @@ async def _generate(kind: str, prompt: str, max_tokens: int, models: List[str]) 
             logger.warning("memory model fn failed open: %s", exc)
             return None
     return await nano_adapter.generate_text(system=SYSTEM, prompt=prompt, models=models, max_tokens=max_tokens, title=f"memory-{kind}")
+
+
+def split_thread(text: str) -> tuple:
+    """The handoff call answers with the sitting's summary, then ===THREAD===, then the chat's running account. Returns (summary, account); account is '' when the model left it out."""
+    raw = str(text or "")
+    if THREAD_MARK not in raw:
+        return raw.strip(), ""
+    head, _, tail = raw.partition(THREAD_MARK)
+    return head.strip(), tail.strip()
+
+
+def fold_into_thread(previous: str, summary: str, day_label: str) -> str:
+    """No model needed: when the call gave no usable account, the sitting's summary is added to what the chat already held, dated. The oldest paragraphs go first if it grows."""
+    entry = f"{day_label}: {summary.strip()}"
+    text = (previous.strip() + "\n\n" + entry) if previous.strip() else entry
+    while len(text) > THREAD_FALLBACK_CHARS and "\n\n" in text:
+        text = text.split("\n\n", 1)[1]
+    return text
+
+
+async def get_thread(db: AsyncSession, workspace_id: str, owner: str, conversation_id: str) -> Optional[ThreadCheckpoint]:
+    return (await db.execute(select(ThreadCheckpoint).where(
+        ThreadCheckpoint.honcho_workspace_id == workspace_id, ThreadCheckpoint.owner_peer_id == owner,
+        ThreadCheckpoint.conversation_id == conversation_id).order_by(ThreadCheckpoint.version.desc()).limit(1))).scalars().first()
+
+
+async def save_thread(db: AsyncSession, *, workspace_id: str, owner: str, product: str, conversation_id: str, session_id: str, text: str,
+                      through: Optional[datetime], run_id: Any) -> Dict[str, Any]:
+    """Keep the chat's account. One row per chat, revised in place; a sitting already merged is not merged again."""
+    row = await get_thread(db, workspace_id, owner, conversation_id)
+    if row is not None and session_id in json.loads(row.session_ids_json or "[]"):
+        return {"status": "already_merged", "version": row.version}
+    if row is None:
+        row = ThreadCheckpoint(honcho_workspace_id=workspace_id, owner_peer_id=owner, product=product, conversation_id=conversation_id, text=text, sittings=1,
+                               through=through, session_ids_json=json.dumps([session_id]), run_id=run_id if isinstance(run_id, UUID) else None)
+        db.add(row)
+    else:
+        row.text, row.version, row.sittings = text, row.version + 1, row.sittings + 1
+        row.through = max(row.through, through) if (row.through and through) else (through or row.through)
+        row.session_ids_json = json.dumps((json.loads(row.session_ids_json or "[]") + [session_id])[-200:])
+        row.updated_at = utc_now()
+        if isinstance(run_id, UUID):
+            row.run_id = run_id
+    await db.flush()
+    return {"status": "saved", "version": row.version, "sittings": row.sittings, "chars": len(text)}
 
 
 async def _write_notes(workspace_id: str, owner: str, cfg: ProductMemory, session_id: str, run_id: Any, transcript: str, clock: Dict[str, Any]) -> Dict[str, Any]:
@@ -1271,12 +1325,25 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
 
     independent = sitting_kind == "independent" and cfg.independent_listening_prompt is not None
     listen = cfg.independent_listening_prompt if independent else cfg.listening_prompt
+    # The chat's running account is the second output of the SAME handoff call (no extra pass): it is handed the account so far and returns it updated.
+    thread_on = (not independent) and os.getenv("MEMORY_THREAD_CHECKPOINT", "1") != "0"
+    day_label = f"{clock['weekday'][:3]} {int(str(clock['today'])[8:10])} {datetime(2000, int(str(clock['today'])[5:7]), 1).strftime('%b')} {str(clock['today'])[:4]}"
+    thread_before = ""
+    if thread_on:
+        prior_thread = await get_thread(db, workspace_id, owner, conversation_id)
+        thread_before = prior_thread.text if prior_thread is not None else ""
+    handoff_prompt = f"{cfg.handoff_prompt}\n\n--- transcript ---\n{transcript}"
+    if thread_on:
+        handoff_prompt = (f"{cfg.handoff_prompt}\n\n{THREAD_ADDENDUM.replace('{day}', day_label).replace('{companion}', cfg.companion_name)}\n\n--- this chat so far ---\n"
+                          f"{thread_before or '(nothing yet: this is the first sitting of this chat)'}\n\n--- transcript ---\n{transcript}")
     discovery, handoff = await asyncio.gather(
         _generate("discovery", f"{listen}\n\n--- conversation ---\n{transcript}", 2000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b")),
-        _generate("handoff", f"{cfg.handoff_prompt}\n\n--- transcript ---\n{transcript}", 300, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash")))
+        _generate("handoff", handoff_prompt, 1100 if thread_on else 300, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash")))
     mark("discovery_handoff")
     findings = str((discovery or {}).get("text") or "")
-    handoff_text = str((handoff or {}).get("text") or "")
+    handoff_text, thread_text = split_thread(str((handoff or {}).get("text") or ""))
+    if handoff:
+        handoff = {**handoff, "text": handoff_text, **({"thread": thread_text} if thread_text else {})}
     bundle["discovery"] = discovery or {"skipped": True}
     bundle["handoff"] = handoff or {"skipped": True}
     bundle["findings"] = findings
@@ -1284,6 +1351,16 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
     if not fresh or not (findings.strip() or handoff_text.strip()):
         return await finish("replay_noop" if not fresh else "empty", [],
                             {"note": "replay_no_new_messages" if not fresh else "no_findings"})
+
+    if thread_on and handoff_text.strip():
+        try:
+            account = thread_text if len(thread_text) >= 40 else fold_into_thread(thread_before, handoff_text, day_label)
+            bundle["thread"] = {**await save_thread(db, workspace_id=workspace_id, owner=owner, product=cfg.name, conversation_id=conversation_id, session_id=session_id,
+                                                    text=account, through=clock["event_utc"].replace(tzinfo=None), run_id=run.id),
+                                "from": "model" if len(thread_text) >= 40 else "fallback"}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[memory] thread checkpoint failed open: %s", exc)
+            bundle["thread"] = {"status": "failed", "error": type(exc).__name__}
 
     # Notes: ONE read of the sitting, while its meaning is visible, in its own session so it cannot disturb this consolidation. It runs beside the ledger chain
     # and is awaited before attention. Off unless the deployment flag and the product both allow it.

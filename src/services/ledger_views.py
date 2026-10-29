@@ -180,13 +180,33 @@ def _sort_key(it: Item, now: datetime) -> Tuple:
     return (it.day or date.max, inst or datetime.max.replace(tzinfo=timezone.utc), -it.importance, it.created)
 
 
-def compute(rows: Iterable[Dict[str, Any]], now: datetime, time_zone: str, default_zone: str = "UTC") -> Dict[str, Any]:
+HER_KINDS = ("commitment", "reminder")      # what the companion owes, as against what she wishes or wonders about
+
+
+def is_hers(row: Dict[str, Any], companion_name: str) -> bool:
+    """A record where the outstanding part is the companion's: she promised the person something (hers alone, or shared with the part that is hers named in `waiting_on`).
+    The person's plate is theirs; her promises are not their to-dos, and her private wishes are neither."""
+    if not companion_name:
+        return False
+    party = str(row.get("party") or "")
+    if party == "companion":
+        return str(row.get("kind") or "") in HER_KINDS
+    return party == "shared" and companion_name.lower() in str(row.get("waiting_on") or "").lower()
+
+
+def compute(rows: Iterable[Dict[str, Any]], now: datetime, time_zone: str, default_zone: str = "UTC", companion_name: str = "") -> Dict[str, Any]:
     zone = _zone(time_zone, default_zone)
     now = now.astimezone(zone) if now.tzinfo else now.replace(tzinfo=zone)
     today = now.date()
     bands: Dict[str, List[Item]] = {k: [] for k in ("imminent", "today", "overdue", "check_up_on", "waiting", "week", "later", "undated", "older")}
     closed: List[Item] = []
+    hers: List[Item] = []
     for r in rows:
+        if is_hers(r, companion_name):
+            it = to_item(r, zone)
+            if it.status in OPEN:
+                hers.append(it)
+            continue                    # presented to her as hers, never on the person's plate
         if str(r.get("party") or "") == "companion":
             continue                    # the companion's own wishes and reflections are not the person's plate
         it = to_item(r, zone)
@@ -196,7 +216,8 @@ def compute(rows: Iterable[Dict[str, Any]], now: datetime, time_zone: str, defau
             closed.append(it)
     for k, v in bands.items():
         v.sort(key=lambda x: _sort_key(x, now))
-    return {"now": now, "today": today, "zone": zone, "bands": bands, "closed": closed}
+    hers.sort(key=lambda x: _sort_key(x, now))
+    return {"now": now, "today": today, "zone": zone, "bands": bands, "closed": closed, "hers": hers, "companion": companion_name}
 
 
 def cues(view: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -229,6 +250,26 @@ def _clock_label(now: datetime) -> str:
     return f"{now.strftime('%A %-d %B %Y, %-I:%M%p').replace('AM', 'am').replace('PM', 'pm')} ({now.tzinfo.key if hasattr(now.tzinfo, 'key') else now.tzname()})"
 
 
+def hers_lines(view: Dict[str, Any]) -> List[str]:
+    """What the companion said she would do, still open. A day that has passed stays what it was (the day it was for, not recorded as done): it is never turned into an
+    overdue debt, and it leaves the picture when it is old, as anything else does."""
+    today, now = view["today"], view["now"]
+    out: List[str] = []
+    for it in view.get("hers", []):
+        band = classify(it, now, today)
+        if band == "older":
+            continue
+        when = when_text(it, today)
+        flags = _flags(it).replace(f"; waiting on {it.waiting_on}", "") if it.waiting_on else _flags(it)      # "waiting on Sophie" is what these are, said to Sophie
+        if band in ("overdue", "check_up_on"):
+            out.append(f"- {it.title}: was for {when}; not recorded as done{flags}")
+        elif it.day is None:
+            out.append(f"- {it.title}{flags}")
+        else:
+            out.append(f"- {it.title}: {when}{flags}")
+    return out[:SECTION_CAP]
+
+
 def render(view: Dict[str, Any]) -> str:
     """The operational picture as plain, factual headings. No suggestions, no instructions."""
     today, now = view["today"], view["now"]
@@ -242,6 +283,9 @@ def render(view: Dict[str, Any]) -> str:
         if len(items) > len(shown):
             body.append(f"- +{len(items) - len(shown)} more")
         blocks.append(f"{title.format(h=IMMINENT_HOURS)}:\n" + "\n".join(body))
+    mine = hers_lines(view)
+    if mine:
+        blocks.append("Yours (you offered or promised these; they are not the person's to-dos):\n" + "\n".join(mine))
     older = view["bands"]["older"]
     if older:
         blocks.append(f"Older, still open and unresolved: {len(older)} item(s).")
@@ -283,6 +327,8 @@ def render_range(rows: Iterable[Dict[str, Any]], start: date, end: date, now: da
     inside: List[Item] = []
     earlier: List[Tuple[str, Item]] = []
     for r in rows:
+        if str(r.get("party") or "") == "companion":
+            continue                    # her private wishes and promises are not the person's schedule
         it = to_item(r, zone)
         is_open = it.status in OPEN
         if not is_open and not (include_closed and it.status in CLOSED):
