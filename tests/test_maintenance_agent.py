@@ -223,3 +223,13 @@ def test_what_the_companion_promised_the_person_is_shared_not_only_theirs():
 def test_a_day_nobody_gave_is_not_made_up():
     prompt = next(v for k, v in vars(maintenance_agent).items() if isinstance(v, str) and "party: whose matter it is" in v)
     assert "something nobody gave a day for stays undated" in prompt
+
+
+def test_the_ledger_prompts_keep_what_was_asked_apart_from_what_was_promised_and_never_turn_a_missing_field_into_a_question():
+    from src.services import memory_pipeline
+    c = maintenance_agent.CONTRACT
+    assert "Something someone asked of the person that they have not said yes to" in c and "create no commitment" in c      # a request is not an obligation
+    assert "A wish" in c and "aspiration" in c and "only raised by the companion" not in c and "only the companion raised is hers" in c
+    assert "never a restatement of a missing field" in c.replace("Never a question the companion asked, and never", "never") or "restatement of a missing field" in c
+    w = memory_pipeline.SITUATIONS_PROMPT
+    assert "Never a question the companion asked" in w and "not an item at all" in w and "what time" not in w.lower().split("question:")[1].split("\n")[0]

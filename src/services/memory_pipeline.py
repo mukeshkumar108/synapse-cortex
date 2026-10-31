@@ -129,7 +129,7 @@ Write tagged lines, one per line. Tags (use only these):
 - PERSON: someone connected (who + how: owes, waits on, invited by, promised to)
 - BLOCKED-BY: what stands in the way, if anything
 - WAITING-ON: who/what is awaited, if anything
-- QUESTION: unresolved question or missing info, if any
+- QUESTION: only something the PERSON said is unknown or undecided, in their words ("I haven't figured out ..."). Never a question the companion asked, and not a missing time or place (say that in DETAIL)
 - MATTERS-BECAUSE: why this deserves attention, in one line
 - EVIDENCE: short quote from the transcript
 - CONFIDENCE: observed (they said it happened) / reported (they relayed it) / inferred (your read — mark honestly)
@@ -142,7 +142,7 @@ Rules, no exceptions:
 - Answering a question, confirming or fixing a time, or moving a date/time is CHANGED, never ENDED. A moved review, meeting or deadline changes that matter; it does not end any other matter.
 - Only things with real-world follow-through are items: commitments and promises, appointments and events, deadlines, things awaited from others, reminders the person asked for, agreed experiments or exercises, and aspirations the person voices. Ideas, metaphors, questions about oneself, feelings, explorations and discoveries are NOT items — the notebook keeps those. If nothing qualifies, say NONE.
 - An aspiration is not a task and never ends by silence.
-- An invitation is not an accepted commitment; a provisional invitation stays provisional.
+- An invitation is not an accepted commitment; a provisional invitation stays provisional. Something someone asked of the person that they have not said yes to is not an item at all (the notebook keeps it); once they say they will, it is a commitment. A wish ("I want to get fitter") is an aspiration. A question or suggestion only the companion raised belongs to the companion, not to the person's matter.
 - Inferred is not observed. A hypothesis is not a fact.
 - An unresolved question isn't a task.
 - ENDED only on evidence: the transcript must show the matter ended, with the proving quote.
