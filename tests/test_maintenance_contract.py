@@ -365,7 +365,7 @@ async def test_structured_time_is_validated_stamped_with_the_persons_zone_and_cl
 def test_contract_teaches_structured_time_and_missing_details():
     c = ma.CONTRACT
     for must in ('time_role: set "happens"', '"deadline"', 'clear the old time with expected_time ""',
-                 "An appointment with an unknown time or place is still an appointment", "put what is missing in question_text",
+                 "An appointment with an unknown time or place is still an appointment", "say in detail what is not known", "never a restatement of a missing field",
                  "The person's own words, what you inferred, and what is still unresolved must all stay visible"):
         assert must in c, must
 
