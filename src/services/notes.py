@@ -291,12 +291,12 @@ async def people(db: AsyncSession, ws: str, owner: str) -> List[Dict[str, Any]]:
 
 
 def _mentioned(rows: Sequence[Note], names: Sequence[str], direct_ids: set) -> List[Note]:
-    """Notes about something else that name `names` in their own words (whole words, in the person's text): they mention it, which is all this says. Not who took part, not
-    that two notes are one event: a shared day orders them, it never joins them."""
+    """Notes about something else that name `names` (whole words) in the note or in the person's own words it was taken from: they mention it, which is all this says. Not who
+    took part, not that two notes are one event: a shared day orders them, it never joins them."""
     wanted = [n for n in {norm(x) for x in names} if n and n != SELF]
     if not wanted:
         return []
-    out = [r for r in rows if r.id not in direct_ids and any(f" {w} " in f" {norm(r.text)} " for w in wanted)]
+    out = [r for r in rows if r.id not in direct_ids and any(f" {w} " in f" {norm(r.text)} {norm(r.quote)} " for w in wanted)]
     return sorted(out, key=lambda r: (r.when_on or r.sitting_on, r.sitting_on))
 
 

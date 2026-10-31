@@ -493,6 +493,23 @@ async def test_a_lookup_returns_what_is_about_it_and_what_names_it_in_date_order
 
 
 @pytest.mark.asyncio
+async def test_a_note_that_does_not_name_the_thing_is_still_found_when_the_persons_own_words_do():
+    o = owner()
+    t1 = "Him: an old uni friend of mine, Priya, is opening a bakery called Rye & Co\nHim: the opening has slipped. not mid-November now, early December, because the oven delivery is late"
+    t2 = "Him: Priya's opening is now fixed for Saturday the 5th of December\nHim: rang mum this afternoon"
+    await write(o, {"notes": [note(subject="Priya", area="friends", text="Priya is an old university friend of the person.", quote="an old uni friend of mine, Priya"),
+                              note(area="other", when="2026-10-11", text="The opening of Rye & Co has slipped to early December because the oven delivery is late.", quote="the opening has slipped. not mid-November now, early December, because the oven delivery is late")]}, datetime(2026, 10, 11), transcript=t1)
+    await write(o, {"notes": [note(area="other", when="2026-12-05", text="The bakery opening is scheduled for 2026-12-05.", quote="Priya's opening is now fixed for Saturday the 5th of December"),
+                              note(area="family-parents", when="2026-10-24", text="The person phoned their mum in the afternoon.", quote="rang mum this afternoon")]}, datetime(2026, 10, 24), transcript=t2)
+    async with async_session_maker() as db:
+        priya = await notes.know_text(db, WS, o, "Priya")
+        shop = await notes.know_text(db, WS, o, "Rye & Co")
+    assert "bakery opening is scheduled" in priya and "mum" not in priya                    # the date, named only in the person's words, is found; the unrelated note is not
+    assert "oven delivery" in shop and "bakery opening is scheduled" not in shop            # a name only the note carries still works; the quote does not name Rye & Co
+    assert priya.index("old university friend") < priya.index("Also mentioned")
+
+
+@pytest.mark.asyncio
 async def test_a_long_history_shows_the_latest_mentions_and_says_how_many_earlier_ones_are_not_shown():
     o = owner()
     await write(o, {"notes": [note(subject="Josh", area="friends", text="Josh is an old school friend.", quote="barely slept")]}, datetime(2026, 9, 1))
