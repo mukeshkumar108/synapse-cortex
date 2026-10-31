@@ -141,8 +141,9 @@ Rules, no exceptions:
 - First job: compare this session against the open situations above. If the transcript changes or ends any of them, say so (CHANGED or ENDED, on that situation's title) — even if the session contains nothing else new. Checking open items is primary, not an afterthought.
 - Answering a question, confirming or fixing a time, or moving a date/time is CHANGED, never ENDED. A moved review, meeting or deadline changes that matter; it does not end any other matter.
 - Only things with real-world follow-through are items: commitments and promises, appointments and events, deadlines, things awaited from others, reminders the person asked for, agreed experiments or exercises, and aspirations the person voices. Ideas, metaphors, questions about oneself, feelings, explorations and discoveries are NOT items — the notebook keeps those. If nothing qualifies, say NONE.
+- A request made to the person is not an item until they take it on: "Priya asked me to make a playlist" (no yes from them) is NOT an item, whatever the tag; write nothing for it (the notebook keeps what was asked). "I'll do it" / "I said yes" / "I promised" makes it a commitment.
 - An aspiration is not a task and never ends by silence.
-- An invitation is not an accepted commitment; a provisional invitation stays provisional. Something someone asked of the person that they have not said yes to is not an item at all (the notebook keeps it); once they say they will, it is a commitment. A wish ("I want to get fitter") is an aspiration. A question or suggestion only the companion raised belongs to the companion, not to the person's matter.
+- An invitation is not an accepted commitment; a provisional invitation stays provisional. A wish ("I want to get fitter") is an aspiration. A question or suggestion only the companion raised belongs to the companion, not to the person's matter.
 - Inferred is not observed. A hypothesis is not a fact.
 - An unresolved question isn't a task.
 - ENDED only on evidence: the transcript must show the matter ended, with the proving quote.

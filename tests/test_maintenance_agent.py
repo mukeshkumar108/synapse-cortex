@@ -228,8 +228,8 @@ def test_a_day_nobody_gave_is_not_made_up():
 def test_the_ledger_prompts_keep_what_was_asked_apart_from_what_was_promised_and_never_turn_a_missing_field_into_a_question():
     from src.services import memory_pipeline
     c = maintenance_agent.CONTRACT
-    assert "Something someone asked of the person that they have not said yes to" in c and "create no commitment" in c      # a request is not an obligation
+    assert "Something someone asked of the person that they have not said yes to" in c and "request, not accepted" in c      # a request is not an obligation
     assert "A wish" in c and "aspiration" in c and "only raised by the companion" not in c and "only the companion raised is hers" in c
     assert "never a restatement of a missing field" in c.replace("Never a question the companion asked, and never", "never") or "restatement of a missing field" in c
     w = memory_pipeline.SITUATIONS_PROMPT
-    assert "Never a question the companion asked" in w and "not an item at all" in w and "what time" not in w.lower().split("question:")[1].split("\n")[0]
+    assert "Never a question the companion asked" in w and "is NOT an item" in w and "what time" not in w.lower().split("question:")[1].split("\n")[0]
