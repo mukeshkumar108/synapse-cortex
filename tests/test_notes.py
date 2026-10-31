@@ -468,6 +468,42 @@ async def test_a_name_or_a_topic_finds_what_is_noted_and_a_dateless_aim_stays_ou
 
 
 @pytest.mark.asyncio
+async def test_a_lookup_returns_what_is_about_it_and_what_names_it_in_date_order_and_never_joins_notes_by_a_shared_day():
+    o = owner()
+    await write(o, {"notes": [note(subject="Josh", area="friends", key="relationship_to_the_person", text="Josh is an old school friend who used to be the person's best friend.", quote="barely slept"),
+                              note(subject="Josh", area="other", text="Josh is starting a Korean skincare brand with a single SKU.", quote="barely slept")]}, datetime(2026, 10, 29))
+    await write(o, {"notes": [note(area="food", when="2026-10-29", text="The person ate Ichimaru Udon on Petty Cury in Cambridge with Josh.", quote="barely slept"),
+                              note(area="nature-outdoors", when="2026-10-29", text="The person went for a walk with Josh after lunch and took photos.", quote="barely slept"),
+                              note(area="family-parents", when="2026-10-29", text="The person phoned their mum in the afternoon.", quote="barely slept"),
+                              note(area="food", when="2026-10-29", text="The person made iced coffee in the morning.", quote="barely slept")]}, datetime(2026, 10, 30))
+    async with async_session_maker() as db:
+        josh = await notes.know_text(db, WS, o, "Josh")
+        place = await notes.know_text(db, WS, o, "Ichimaru Udon")
+        city = await notes.know_text(db, WS, o, "Cambridge")
+        card = await notes.card(db, WS, o, "Josh")
+    assert "old school friend" in josh and "Korean skincare" in josh                       # what is about him
+    assert "Also mentioned in other notes" in josh and "Ichimaru Udon" in josh and "took photos" in josh      # what names him
+    assert josh.index("old school friend") < josh.index("Also mentioned") < josh.index("Ichimaru")           # direct first, mentions kept apart
+    assert "mum" not in josh and "iced coffee" not in josh                                 # the same day is not the same event
+    assert card["notes"] == 2 and ["Ichimaru" in m["text"] for m in card["mentioned_in"]] == [True, False] and all("walk" in card["mentioned_in"][1]["text"] for _ in [0]) and all(m["id"] for m in card["mentioned_in"])
+    assert "Ichimaru Udon" in place and "mum" not in place                                 # a place with no notes of its own is found by name
+    assert "Ichimaru Udon" in city and "mum" not in city and "iced coffee" not in city
+    async with async_session_maker() as db:
+        assert (await notes.know_text(db, WS, o, "Zanzibar")) == ""                       # nothing mentions it: still nothing, and nothing is made up
+
+
+@pytest.mark.asyncio
+async def test_a_long_history_shows_the_latest_mentions_and_says_how_many_earlier_ones_are_not_shown():
+    o = owner()
+    await write(o, {"notes": [note(subject="Josh", area="friends", text="Josh is an old school friend.", quote="barely slept")]}, datetime(2026, 9, 1))
+    for d in range(2, 10):
+        await write(o, {"notes": [note(area="food", when=f"2026-09-{d:02d}", text=f"The person had lunch number {d} with Josh.", quote="barely slept")]}, datetime(2026, 9, d))
+    async with async_session_maker() as db:
+        t = await notes.know_text(db, WS, o, "Josh")
+    assert "(2 earlier not shown)" in t and "lunch number 9" in t and "lunch number 2 " not in t
+
+
+@pytest.mark.asyncio
 async def test_lookup_resolves_kin_and_relations_flags_ambiguity_and_creates_nothing():
     from sqlmodel import select
     from src.models.note import Note

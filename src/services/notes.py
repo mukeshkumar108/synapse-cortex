@@ -290,6 +290,16 @@ async def people(db: AsyncSession, ws: str, owner: str) -> List[Dict[str, Any]]:
     return out
 
 
+def _mentioned(rows: Sequence[Note], names: Sequence[str], direct_ids: set) -> List[Note]:
+    """Notes about something else that name `names` in their own words (whole words, in the person's text): they mention it, which is all this says. Not who took part, not
+    that two notes are one event: a shared day orders them, it never joins them."""
+    wanted = [n for n in {norm(x) for x in names} if n and n != SELF]
+    if not wanted:
+        return []
+    out = [r for r in rows if r.id not in direct_ids and any(f" {w} " in f" {norm(r.text)} " for w in wanted)]
+    return sorted(out, key=lambda r: (r.when_on or r.sitting_on, r.sitting_on))
+
+
 async def card(db: AsyncSession, ws: str, owner: str, subject: str) -> Dict[str, Any]:
     rows = await _current(db, ws, owner)
     canon = canon_subjects(rows)
@@ -300,8 +310,10 @@ async def card(db: AsyncSession, ws: str, owner: str, subject: str) -> Dict[str,
     by_area: Dict[str, List[Dict[str, Any]]] = {}
     for r in rs:
         by_area.setdefault(r.area, []).append(_line(r))
+    related = _mentioned(rows, [want] + [r.subject_key for r in rs], {r.id for r in rs})
     return {"subject": subject, "notes": len(rs), "current_facts": facts, "by_area": {a: l[-4:] for a, l in sorted(by_area.items())},
-            "open_intentions": [_line(r) for r in rs if r.certainty == "intention"][-6:]}
+            "open_intentions": [_line(r) for r in rs if r.certainty == "intention"][-6:],
+            "mentioned_in": [{**_line(r), "id": str(r.id)[:8], "subject": r.subject, "on": fmt_day(r.when_on or r.sitting_on)} for r in related]}
 
 
 async def recurring(db: AsyncSession, ws: str, owner: str, today: date, minimum: int = RECURRING_MIN) -> List[Dict[str, Any]]:
@@ -485,6 +497,9 @@ def _clause(line: str) -> str:
     return re.split(r"[;,]", (m.group(1) if m else line))[0][:55].strip()
 
 
+MENTION_LINES = 6
+
+
 def card_text(c: Dict[str, Any]) -> str:
     lines = [f"- {v['text'].rstrip('.')} ({v['date']})" for v in c.get("current_facts", {}).values()]
     for ls in c.get("by_area", {}).values():
@@ -492,7 +507,13 @@ def card_text(c: Dict[str, Any]) -> str:
             t = f"- {l['text'].rstrip('.')} ({l['date']})"
             if t not in lines:
                 lines.append(t)
-    return "\n".join(lines[:12])
+    out = "\n".join(lines[:12])
+    men = c.get("mentioned_in") or []
+    if men:
+        shown = men[-MENTION_LINES:]
+        head = "Also mentioned in other notes" + (f" ({len(men) - len(shown)} earlier not shown)" if len(men) > len(shown) else "") + ":"
+        out += ("\n" if out else "") + head + "\n" + "\n".join(f"- {m['text'].rstrip('.')} ({m['on']})" for m in shown)
+    return out
 
 
 async def recall(db: AsyncSession, ws: str, owner: str, q: str, limit: int = 8) -> str:
@@ -522,7 +543,7 @@ async def recall(db: AsyncSession, ws: str, owner: str, q: str, limit: int = 8) 
 async def know_text(db: AsyncSession, ws: str, owner: str, q: str) -> str:
     """What is noted about a name (their card) or, failing that, about a topic."""
     c = await card(db, ws, owner, q)
-    if c["notes"]:
+    if c["notes"] or c["mentioned_in"]:
         return _neutral(f"What is noted about {q}:\n" + card_text(c))
     return await recall(db, ws, owner, q)
 
