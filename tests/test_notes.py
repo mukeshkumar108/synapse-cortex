@@ -637,3 +637,30 @@ def test_reported_view_sets_source_beside_what_they_said():
     josh = next(x for x in r if x["subject"] == "Josh skincare launch")
     assert "January" in josh["they_said"]["text"] and josh["source"] == "email" and josh["source_conf"] == "firm"
     assert next(x for x in r if x["subject"] == "Someone else").get("they_said") is None
+
+
+def test_revoking_email_also_sets_aside_what_was_noted_from_hearing_it_read_out_but_never_what_they_stated():
+    o = owner()
+    _said(o)
+    _run_source([_src()], o)
+
+    async def seed():
+        async with async_session_maker() as db:
+            db.add(Note(honcho_workspace_id=WS, owner_peer_id=o, product="sophie", session_id="s2", sitting_on=datetime(2026, 11, 1), subject="Josh skincare launch", subject_key="josh_skincare_launch", area="work-load",
+                        certainty="hearsay", key="", text="Priya flagged in an email that a production delay is pushing the launch to February.", quote="", quote_verified=False, source="chat"))
+            db.add(Note(honcho_workspace_id=WS, owner_peer_id=o, product="sophie", session_id="s2", sitting_on=datetime(2026, 11, 1), subject="Josh", subject_key="josh", area="work-load",
+                        certainty="stated", key="", text="I emailed Josh the packaging notes.", quote="", quote_verified=False, source="chat"))
+            await db.commit()
+    asyncio.run(seed())
+
+    async def revoke():
+        async with async_session_maker() as db:
+            return await notes.withdraw_source(db, workspace_id=WS, owner=o, source_kind="email")
+    r = asyncio.run(revoke())
+    assert r["withdrawn"] == 1 and r["echoes_set_aside"] == 1
+
+    async def left():
+        async with async_session_maker() as db:
+            return [x.text for x in (await db.execute(select(Note).where(Note.owner_peer_id == o, Note.status == "current"))).scalars().all()]
+    cur = asyncio.run(left())
+    assert any("emailed Josh" in t for t in cur) and not any("production delay" in t for t in cur)

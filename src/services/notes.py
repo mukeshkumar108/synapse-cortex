@@ -310,14 +310,31 @@ async def reported(db: AsyncSession, ws: str, owner: str, since: Optional[dateti
     return out[:limit]
 
 
+_EMAIL_WORDS = re.compile(r"\be-?mail(?:s|ed)?\b", re.IGNORECASE)
+
+
 async def withdraw_source(db: AsyncSession, *, workspace_id: str, owner: str, source_kind: str) -> Dict[str, Any]:
-    """The connection or the product's grant was revoked: everything that source reported stops surfacing. Rows stay (status withdrawn) so it can be undone or inspected."""
-    rows = list((await db.execute(select(Note).where(Note.honcho_workspace_id == workspace_id, Note.owner_peer_id == owner, Note.source_kind == norm(source_kind).replace(" ", "_")[:24],
+    """The connection or the product's grant was revoked: everything that source reported stops surfacing. Rows stay (status withdrawn) so it can be undone or inspected.
+
+    What was said ABOUT that source in conversation afterwards is the same material coming back by the side door (the companion read an email out, the sitting was noted): for email,
+    a note of uncertain standing (hearsay or unclear, never one they stated) that names an email and was written after the source's first note is set aside with it. A heuristic, kept
+    narrow on purpose: it never touches what they stated."""
+    kind = norm(source_kind).replace(" ", "_")[:24]
+    rows = list((await db.execute(select(Note).where(Note.honcho_workspace_id == workspace_id, Note.owner_peer_id == owner, Note.source_kind == kind,
                                                      Note.status.in_(("current", "superseded"))))).scalars().all())
     for r in rows:
         r.status = "withdrawn"
+    echoed = 0
+    if rows and kind == "email":
+        first = min(r.created_at for r in rows if r.created_at)
+        later = list((await db.execute(select(Note).where(Note.honcho_workspace_id == workspace_id, Note.owner_peer_id == owner, Note.source_kind == "", Note.status == "current",
+                                                          Note.certainty.in_(("hearsay", "unclear")), Note.created_at >= first))).scalars().all())
+        for r in later:
+            if _EMAIL_WORDS.search(r.text or ""):
+                r.status = "withdrawn"
+                echoed += 1
     await db.commit()
-    return {"withdrawn": len(rows)}
+    return {"withdrawn": len(rows), "echoes_set_aside": echoed}
 
 
 # ------------------------------------------------------------------ views ----
