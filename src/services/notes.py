@@ -243,11 +243,91 @@ async def write(db: AsyncSession, *, workspace_id: str, owner: str, product: str
     return {"status": "ok", "model": (out or {}).get("model"), "notes": stored, "retried": retried, "tokens": tokens, **stats}
 
 
+# ------------------------------------------------------------ connected sources ----
+# A connected source (a mailbox) can report a development about something already in the notes. It is stored as an ordinary note with its provenance, never as
+# something the person said: certainty is hearsay (firm) or unclear (provisional / speculative), `source_kind` is set, and the views word it separately. No model runs here;
+# the worker that read the source did the interpreting. Revoking the source withdraws these rows (kept, not shown), it never deletes them.
+
+SOURCE_CONF = ("firm", "provisional", "speculative")
+
+
+async def add_source(db: AsyncSession, *, workspace_id: str, owner: str, product: str, source_kind: str, items: Sequence[Dict[str, Any]], now: datetime) -> Dict[str, Any]:
+    kind = norm(source_kind).replace(" ", "_")[:24]
+    if not kind:
+        return {"stored": 0, "skipped": [{"why": "no_source_kind"}]}
+    existing = list((await db.execute(select(Note).where(Note.honcho_workspace_id == workspace_id, Note.owner_peer_id == owner, Note.status.in_(("current", "superseded", "withdrawn"))))).scalars().all())
+    canon = canon_subjects([r for r in existing if not r.source_kind])
+    known = {r.subject_key for r in existing if r.subject_key}
+    stored, skipped, out = 0, [], []
+    for it in list(items)[:20]:
+        text = " ".join(str(it.get("text") or "").split())[:300]
+        subject = " ".join(str(it.get("subject") or "").split())[:80]
+        ref = str(it.get("source_ref") or "")[:200]
+        conf = str(it.get("confidence") or "").lower()
+        if not text or not subject or not ref or conf not in SOURCE_CONF:
+            skipped.append({"ref": ref, "why": "incomplete"})
+            continue
+        at = _parse_day(it.get("source_at")) or now
+        sk = subject_key(subject)
+        sk = canon.get(sk, sk)
+        key = re.sub(r"[^a-z0-9_]+", "_", str(it.get("key") or "").lower()).strip("_")[:40]
+        if any(r.source_kind == kind and r.source_ref == ref and r.subject_key == sk and r.key == key for r in existing):
+            skipped.append({"ref": ref, "why": "duplicate"})
+            continue
+        row = Note(honcho_workspace_id=workspace_id, owner_peer_id=owner, product=product, session_id=f"source:{kind}", sitting_on=at, subject=subject, subject_key=sk,
+                   area=str(it.get("area") or "other") if str(it.get("area") or "other") in AREAS else "other", certainty="hearsay" if conf == "firm" else "unclear",
+                   when_on=_parse_day(it.get("when")), key=key, text=text, quote=" ".join(str(it.get("quote") or "").split())[:240], quote_verified=False,
+                   source="import", source_kind=kind, source_ref=ref, source_at=at, source_conf=conf)
+        newer = None
+        if key:
+            same = [r for r in existing if r.source_kind and r.subject_key == sk and r.key == key and r.status == "current"]
+            newer = next((r for r in same if r.source_at and r.source_at > at), None)
+            if newer is None:
+                for old in same:
+                    old.status, old.replaced_by_id = "superseded", row.id
+        if newer is not None:
+            row.status, row.replaced_by_id = "superseded", newer.id
+        db.add(row)
+        await db.flush()
+        existing.append(row)
+        stored += 1
+        out.append({"id": str(row.id)[:8], "ref": ref, "subject": subject, "matched_existing": sk in known, "status": row.status, "stale": newer is not None})
+    await db.commit()
+    return {"stored": stored, "skipped": skipped, "notes": out}
+
+
+async def reported(db: AsyncSession, ws: str, owner: str, since: Optional[datetime] = None, limit: int = 20) -> List[Dict[str, Any]]:
+    """What connected sources have reported (newest first), each beside what the person themself said about the same thing (same subject and key) when there is one."""
+    rows = await _current(db, ws, owner, with_sources=True)
+    said = {(r.subject_key, r.key): r for r in rows if not r.source_kind and r.key and r.certainty in ("stated", "intention")}
+    out = []
+    for r in sorted((r for r in rows if r.source_kind), key=lambda r: r.source_at or r.created_at, reverse=True):
+        if since and (r.source_at or r.created_at) < since:
+            continue
+        mine = said.get((r.subject_key, r.key)) if r.key else None
+        out.append({**_line(r), "id": str(r.id)[:8], "subject": r.subject, "source_ref": r.source_ref, "key": r.key, "source_at": (r.source_at or r.created_at).isoformat(),
+                    **({"they_said": {"text": mine.text, "date": fmt_day(mine.sitting_on)}} if mine else {})})
+    return out[:limit]
+
+
+async def withdraw_source(db: AsyncSession, *, workspace_id: str, owner: str, source_kind: str) -> Dict[str, Any]:
+    """The connection or the product's grant was revoked: everything that source reported stops surfacing. Rows stay (status withdrawn) so it can be undone or inspected."""
+    rows = list((await db.execute(select(Note).where(Note.honcho_workspace_id == workspace_id, Note.owner_peer_id == owner, Note.source_kind == norm(source_kind).replace(" ", "_")[:24],
+                                                     Note.status.in_(("current", "superseded"))))).scalars().all())
+    for r in rows:
+        r.status = "withdrawn"
+    await db.commit()
+    return {"withdrawn": len(rows)}
+
+
 # ------------------------------------------------------------------ views ----
 # Read-only. No model runs here. Every note shown carries the date of its sitting, so a stored word can never be read as "now".
 
-async def _current(db: AsyncSession, ws: str, owner: str, days: Optional[int] = None, today: Optional[date] = None) -> List[Note]:
+async def _current(db: AsyncSession, ws: str, owner: str, days: Optional[int] = None, today: Optional[date] = None, with_sources: bool = False) -> List[Note]:
+    """The person's own current notes. What a connected source reported is only included when asked for (card, recall): patterns, asks and profile are about what THEY said."""
     q = select(Note).where(Note.honcho_workspace_id == ws, Note.owner_peer_id == owner, Note.status == "current")
+    if not with_sources:
+        q = q.where(Note.source_kind == "")
     if days and today:
         q = q.where(Note.sitting_on >= datetime(today.year, today.month, today.day) - timedelta(days=days))
     return list((await db.execute(q.order_by(Note.sitting_on, Note.created_at))).scalars().all())
@@ -268,7 +348,8 @@ def canon_subjects(rows: Sequence[Note]) -> Dict[str, str]:
 
 def _line(r: Note) -> Dict[str, Any]:
     return {"date": fmt_day(r.sitting_on), "text": r.text, "certainty": r.certainty, "area": r.area, **({"about": fmt_day(r.when_on)} if r.when_on else {}),
-            **({"quote": r.quote} if r.quote else {})}
+            **({"quote": r.quote} if r.quote else {}),
+            **({"source": r.source_kind, "source_on": fmt_day(r.source_at), "source_conf": r.source_conf} if r.source_kind else {})}
 
 
 async def people(db: AsyncSession, ws: str, owner: str) -> List[Dict[str, Any]]:
@@ -301,7 +382,7 @@ def _mentioned(rows: Sequence[Note], names: Sequence[str], direct_ids: set) -> L
 
 
 async def card(db: AsyncSession, ws: str, owner: str, subject: str) -> Dict[str, Any]:
-    rows = await _current(db, ws, owner)
+    rows = await _current(db, ws, owner, with_sources=True)
     canon = canon_subjects(rows)
     want = subject_key(subject)
     want = canon.get(want, want)
@@ -309,9 +390,11 @@ async def card(db: AsyncSession, ws: str, owner: str, subject: str) -> Dict[str,
     facts = {r.key: _line(r) for r in rs if r.key and r.certainty in ("stated", "intention")}
     by_area: Dict[str, List[Dict[str, Any]]] = {}
     for r in rs:
-        by_area.setdefault(r.area, []).append(_line(r))
-    related = _mentioned(rows, [want] + [r.subject_key for r in rs], {r.id for r in rs})
-    return {"subject": subject, "notes": len(rs), "current_facts": facts, "by_area": {a: l[-4:] for a, l in sorted(by_area.items())},
+        if not r.source_kind:
+            by_area.setdefault(r.area, []).append(_line(r))
+    reported = [_line(r) for r in rs if r.source_kind]
+    related = [r for r in _mentioned(rows, [want] + [r.subject_key for r in rs], {r.id for r in rs}) if not r.source_kind]
+    return {"subject": subject, "notes": len(rs), "current_facts": facts, "by_area": {a: l[-4:] for a, l in sorted(by_area.items())}, "reported": reported[-6:],
             "open_intentions": [_line(r) for r in rs if r.certainty == "intention"][-6:],
             "mentioned_in": [{**_line(r), "id": str(r.id)[:8], "subject": r.subject, "on": fmt_day(r.when_on or r.sitting_on)} for r in related]}
 
@@ -396,7 +479,8 @@ async def recent(db: AsyncSession, ws: str, owner: str, today: date, days: int =
 async def inspect(db: AsyncSession, ws: str, owner: str) -> Dict[str, Any]:
     rows = list((await db.execute(select(Note).where(Note.honcho_workspace_id == ws, Note.owner_peer_id == owner).order_by(Note.sitting_on, Note.created_at))).scalars().all())
     return {"notes": [{"id": str(r.id)[:8], "sitting": r.sitting_on.date().isoformat(), "subject": r.subject, "area": r.area, "certainty": r.certainty, "when": r.when_on.date().isoformat() if r.when_on else "",
-                       "key": r.key, "status": r.status, "quote_verified": r.quote_verified, "text": r.text, "quote": r.quote, "source": r.source} for r in rows]}
+                       "key": r.key, "status": r.status, "quote_verified": r.quote_verified, "text": r.text, "quote": r.quote, "source": r.source,
+                       **({"source_kind": r.source_kind, "source_ref": r.source_ref, "source_at": r.source_at.isoformat() if r.source_at else "", "source_conf": r.source_conf} if r.source_kind else {})} for r in rows]}
 
 
 async def where_we_left_off(db: AsyncSession, ws: str, owner: str, today: date, sittings: int = 2, max_lines: int = 12) -> str:
@@ -500,6 +584,15 @@ def _clause(line: str) -> str:
 MENTION_LINES = 6
 
 
+_CONF_WORDS = {"firm": "stated as settled", "provisional": "provisional", "speculative": "tentative"}
+
+
+def source_line(l: Dict[str, Any]) -> str:
+    """One source-derived line with where it came from and how the source itself put it: it is never worded as something the person said."""
+    how = _CONF_WORDS.get(l.get("source_conf") or "", "")
+    return f"{l['text'].rstrip('.')} (from {l.get('source') or 'a connected source'}, {l.get('source_on') or l.get('date')}{', ' + how if how else ''})"
+
+
 def card_text(c: Dict[str, Any]) -> str:
     lines = [f"- {v['text'].rstrip('.')} ({v['date']})" for v in c.get("current_facts", {}).values()]
     for ls in c.get("by_area", {}).values():
@@ -508,6 +601,9 @@ def card_text(c: Dict[str, Any]) -> str:
             if t not in lines:
                 lines.append(t)
     out = "\n".join(lines[:12])
+    rep = c.get("reported") or []
+    if rep:
+        out += ("\n" if out else "") + "Reported by connected sources (not confirmed by them, may have moved on):\n" + "\n".join(f"- {source_line(l)}" for l in rep)
     men = c.get("mentioned_in") or []
     if men:
         shown = men[-MENTION_LINES:]
@@ -528,7 +624,7 @@ async def recall(db: AsyncSession, ws: str, owner: str, q: str, limit: int = 8) 
     if not want:
         return ""
     hits = []
-    for r in await _current(db, ws, owner):
+    for r in await _current(db, ws, owner, with_sources=True):
         have = {root(w) for w in _stems(f"{r.text} {r.subject}")}
         score = sum(1 for w in want if w in have)
         if score:
@@ -537,7 +633,9 @@ async def recall(db: AsyncSession, ws: str, owner: str, q: str, limit: int = 8) 
     if not hits:
         return ""
     mark = {"intention": " (a plan)", "hypothetical": " (said lightly)", "hearsay": " (relayed)"}
-    return _neutral(f"Noted about \"{q}\":\n" + "\n".join(f"- {r.text.rstrip('.')}{mark.get(r.certainty, '')} ({fmt_day(r.sitting_on)})" for _, _, r in hits))
+    def one(r: Note) -> str:
+        return f"- {source_line(_line(r))}" if r.source_kind else f"- {r.text.rstrip('.')}{mark.get(r.certainty, '')} ({fmt_day(r.sitting_on)})"
+    return _neutral(f"Noted about \"{q}\":\n" + "\n".join(one(r) for _, _, r in hits))
 
 
 async def know_text(db: AsyncSession, ws: str, owner: str, q: str) -> str:

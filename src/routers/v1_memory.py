@@ -317,9 +317,50 @@ async def notes_view(request: Request, workspace_id: str, owner: str, companion_
         return {**base, **(await _n.card(db, scope.workspace, owner, subject))}
     if view == "recent":
         return {**base, "recent": await _n.recent(db, scope.workspace, owner, today)}
+    if view == "reported":
+        from datetime import datetime as _dt
+        since = _dt.fromisoformat(part.replace("Z", "+00:00")).replace(tzinfo=None) if part else None       # `part` carries an optional ISO lower bound here
+        return {**base, "reported": await _n.reported(db, scope.workspace, owner, since)}
     if view == "inspect":
         return {**base, **(await _n.inspect(db, scope.workspace, owner))}
-    raise HTTPException(status_code=422, detail="view must be brief, profile, recurring, asks, people, card, recent or inspect")
+    raise HTTPException(status_code=422, detail="view must be brief, profile, recurring, asks, people, card, recent, reported or inspect")
+
+
+class SourceNotesRequest(BaseModel):
+    workspace_id: str
+    owner: str
+    companion_id: Optional[str] = None
+    source_kind: str                        # email | calendar | ...
+    items: List[Dict[str, Any]]             # {subject, text, source_ref, source_at?, confidence: firm|provisional|speculative, key?, area?, when?, quote?}
+    now: Optional[str] = None
+
+
+class SourceWithdrawRequest(BaseModel):
+    workspace_id: str
+    owner: str
+    companion_id: Optional[str] = None
+    source_kind: str
+
+
+@router.post("/source-notes")
+async def source_notes_add(request: Request, req: SourceNotesRequest, db: AsyncSession = Depends(get_async_session)):
+    """Developments a connected source reported (already interpreted by the worker that read it). Stored as notes carrying their provenance, never as what the person said.
+    Deterministic: duplicates (same source id) are skipped, a later report on the same key supersedes an earlier one, a late-arriving older report is stored as already superseded."""
+    from datetime import datetime as _dt
+    from src.services import notes as _n, product_memory as _pm
+    scope = _scope(request, req.workspace_id, req.companion_id)
+    if not _pm.get(scope.product).notes_enabled:
+        return {"enabled": False, "stored": 0}
+    now = _dt.fromisoformat(req.now.replace("Z", "+00:00")).replace(tzinfo=None) if req.now else _dt.utcnow()
+    return {"enabled": True, **(await _n.add_source(db, workspace_id=scope.workspace, owner=req.owner, product=scope.product, source_kind=req.source_kind, items=req.items, now=now))}
+
+
+@router.post("/source-notes/withdraw")
+async def source_notes_withdraw(request: Request, req: SourceWithdrawRequest, db: AsyncSession = Depends(get_async_session)):
+    """A source connection or product grant was revoked: what it reported stops surfacing (rows kept, status withdrawn)."""
+    from src.services import notes as _n
+    scope = _scope(request, req.workspace_id, req.companion_id)
+    return await _n.withdraw_source(db, workspace_id=scope.workspace, owner=req.owner, source_kind=req.source_kind)
 
 
 @router.get("/opportunities")

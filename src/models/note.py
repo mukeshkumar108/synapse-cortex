@@ -34,6 +34,10 @@ class Note(SQLModel, table=True):
     quote: str = Field(default="")                                          # the person's own words, copied exactly
     quote_verified: bool = Field(default=False)                             # the quote was found in the person's own lines
     source: str = Field(default="session")                                  # session | import
-    status: str = Field(default="current", index=True, nullable=False)      # current | superseded | resolved
+    source_kind: str = Field(default="", index=True, nullable=False)       # "" = said in a sitting; otherwise a connected source that reported it (email, calendar, ...). Never a user-confirmed fact
+    source_ref: str = Field(default="", index=True, nullable=False)         # the source's own id (message id), for dedupe and for looking it up again
+    source_at: Optional[datetime] = Field(default=None)                     # when the source said it (message date), not when we read it
+    source_conf: str = Field(default="", nullable=False)                    # firm | provisional | speculative: how the source itself put it
+    status: str = Field(default="current", index=True, nullable=False)      # current | superseded | resolved | withdrawn (the source or the person's grant was revoked)
     replaced_by_id: Optional[UUID] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)

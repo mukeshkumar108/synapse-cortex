@@ -540,3 +540,100 @@ async def test_lookup_resolves_kin_and_relations_flags_ambiguity_and_creates_not
         text, now = await notes.mentions_text(db, WS, o, "she is just exhausted", carry=["Ashley"])
         assert now == [] and "Ashley" in text
         assert len((await db.execute(select(Note))).scalars().all()) == before
+
+
+# ------------------------------------------------------- connected sources ----
+
+def _src(**kw):
+    base = {"subject": "Josh skincare launch", "text": "Production is delayed, so the launch moves to February.", "source_ref": "m1", "source_at": "2026-10-30T09:00:00",
+            "confidence": "firm", "key": "launch_date"}
+    base.update(kw)
+    return base
+
+
+def _run_source(items, o, kind="email"):
+    async def go():
+        async with async_session_maker() as db:
+            return await notes.add_source(db, workspace_id=WS, owner=o, product="sophie", source_kind=kind, items=items, now=datetime(2026, 10, 31, 8, 0))
+    return asyncio.run(go())
+
+
+def _said(o):
+    async def go():
+        async with async_session_maker() as db:
+            db.add(Note(honcho_workspace_id=WS, owner_peer_id=o, product="sophie", session_id="s", sitting_on=datetime(2026, 10, 20), subject="Josh skincare launch",
+                        subject_key="josh skincare launch", area="work", certainty="stated", key="launch_date", text="Josh's skincare launch is in January.", source="session"))
+            await db.commit()
+    asyncio.run(go())
+
+
+def _card(o, q="Josh skincare launch"):
+    async def go():
+        async with async_session_maker() as db:
+            return await notes.know_text(db, WS, o, q)
+    return asyncio.run(go())
+
+
+def test_source_development_is_kept_apart_from_what_they_said():
+    o = owner()
+    _said(o)
+    r = _run_source([_src()], o)
+    assert r["stored"] == 1 and r["notes"][0]["matched_existing"] is True
+    text = _card(o)
+    assert "launch is in January" in text and "Reported by connected sources" in text
+    assert "from email" in text and "stated as settled" in text and "not confirmed by them" in text
+    # the stated fact still stands as the current fact; the email never replaced it
+    async def facts():
+        async with async_session_maker() as db:
+            return (await notes.card(db, WS, o, "Josh skincare launch"))["current_facts"]
+    assert "January" in asyncio.run(facts())["launch_date"]["text"]
+
+
+def test_duplicate_stale_and_provisional():
+    o = owner()
+    assert _run_source([_src()], o)["stored"] == 1
+    assert _run_source([_src()], o)["skipped"][0]["why"] == "duplicate"
+    later = _run_source([_src(source_ref="m2", source_at="2026-10-31T07:00:00", confidence="provisional", text="Might slip to March if the supplier does not deliver.")], o)
+    assert later["notes"][0]["status"] == "current"
+    stale = _run_source([_src(source_ref="m0", source_at="2026-10-01T07:00:00", text="Launch is on track for January.")], o)
+    assert stale["notes"][0]["stale"] is True and stale["notes"][0]["status"] == "superseded"
+    text = _card(o)
+    assert "March" in text and "provisional" in text and "on track for January" not in text and "February" not in text
+
+
+def test_irrelevant_or_incomplete_items_are_not_stored():
+    o = owner()
+    r = _run_source([_src(confidence="maybe"), _src(source_ref=""), _src(text="")], o)
+    assert r["stored"] == 0 and len(r["skipped"]) == 3
+
+
+def test_revoking_a_source_stops_it_surfacing_and_it_never_leaks_into_patterns():
+    o = owner()
+    _run_source([_src()], o)
+    assert "February" in _card(o)
+
+    async def patterns():
+        async with async_session_maker() as db:
+            return await notes.recent(db, WS, o, date(2026, 10, 31)), await notes.people(db, WS, o)
+    recent, people = asyncio.run(patterns())
+    assert recent == [] and people == []                      # source rows never appear as things the person said
+
+    async def revoke():
+        async with async_session_maker() as db:
+            return await notes.withdraw_source(db, workspace_id=WS, owner=o, source_kind="email")
+    assert asyncio.run(revoke())["withdrawn"] == 1
+    assert _card(o) == ""
+
+
+def test_reported_view_sets_source_beside_what_they_said():
+    o = owner()
+    _said(o)
+    _run_source([_src(), _src(subject="Someone else", key="", source_ref="m9", text="Wants to meet in November.", confidence="provisional")], o)
+
+    async def go():
+        async with async_session_maker() as db:
+            return await notes.reported(db, WS, o)
+    r = asyncio.run(go())
+    josh = next(x for x in r if x["subject"] == "Josh skincare launch")
+    assert "January" in josh["they_said"]["text"] and josh["source"] == "email" and josh["source_conf"] == "firm"
+    assert next(x for x in r if x["subject"] == "Someone else").get("they_said") is None

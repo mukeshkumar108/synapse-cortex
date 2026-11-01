@@ -48,6 +48,10 @@ async_session_maker = sessionmaker(
 
 
 _ADDITIVE_COLUMNS = (
+    ("notes", "source_kind", "VARCHAR DEFAULT ''"),
+    ("notes", "source_ref", "VARCHAR DEFAULT ''"),
+    ("notes", "source_at", "TIMESTAMP"),
+    ("notes", "source_conf", "VARCHAR DEFAULT ''"),
     ("world_objectives", "durability", "VARCHAR DEFAULT 'unknown'"),
     ("relationship_dimensions", "durability", "VARCHAR DEFAULT 'unknown'"),
     ("producer_runs", "detail_json", "TEXT DEFAULT '{}'"),
