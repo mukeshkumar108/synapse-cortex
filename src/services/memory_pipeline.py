@@ -804,6 +804,9 @@ async def apply_situations(db: AsyncSession, *, workspace_id: str, owner: str, r
     return counts
 
 
+RELAYED_MARK = "relayed from their"
+
+
 def format_transcript(messages: List[Dict[str, Any]], cfg: Optional[ProductMemory] = None) -> str:
     cfg = cfg or SOPHIE
     lines = []
@@ -813,6 +816,9 @@ def format_transcript(messages: List[Dict[str, Any]], cfg: Optional[ProductMemor
             label = cfg.user_label if str(m.get("speaker") or "") in ("user", "him") else cfg.companion_name
         text = str(m.get("text") or "").strip()
         if text:
+            src = [str(k) for k in (m.get("relayed_from") or []) if str(k).strip()][:4]
+            if src:       # the companion repeated what a connected source reported: the person only heard it
+                text = f"[{RELAYED_MARK} {', '.join(src)}: what the source reported, not the person's words] {text}"
             lines.append(f"{label}: {text}")
     return "\n".join(lines)
 

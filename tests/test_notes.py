@@ -664,3 +664,12 @@ def test_revoking_email_also_sets_aside_what_was_noted_from_hearing_it_read_out_
             return [x.text for x in (await db.execute(select(Note).where(Note.owner_peer_id == o, Note.status == "current"))).scalars().all()]
     cur = asyncio.run(left())
     assert any("emailed Josh" in t for t in cur) and not any("production delay" in t for t in cur)
+
+
+def test_a_line_the_companion_relayed_from_a_source_is_marked_in_the_transcript_every_writer_reads():
+    from src.services.memory_pipeline import format_transcript
+    t = format_transcript([{"id": "1", "speaker": "assistant", "text": "Priya's email says February.", "relayed_from": ["email"]},
+                           {"id": "2", "speaker": "user", "text": "No, it's still January."}])
+    assert t.splitlines()[0].startswith("Sophie: [relayed from their email:") and "not the person's words" in t.splitlines()[0]
+    assert t.splitlines()[1] == "Him: No, it's still January."
+    assert "relayed from" in notes.SYSTEM and "NO note from the relayed text" in notes.SYSTEM
