@@ -13,7 +13,7 @@ taxonomy: a new product supplies a ProductMemory and registers it.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -40,6 +40,7 @@ class ProductMemory:
     notes_only: bool = False        # a light product: a sitting is read once into notes and nothing else runs (no notebook pages, ledger, connect pass, arc or preparation)
     notes_enabled: bool = True      # this product keeps notes (one write per sitting) and serves the views over them when the deployment flag is on
     default_time_zone: str = "UTC"  # used only when the caller supplies no timezone
+    notes_profile: Optional[Any] = None   # a story-world product writes its notes with its own instructions (services.notes.NotesProfile); None = the standard personal notes
 
     def seed(self, key: str) -> str:
         return f"# {self.page_titles[key]}\n\nNothing established yet.\n"

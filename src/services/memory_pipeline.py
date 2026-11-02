@@ -175,6 +175,7 @@ SOPHIE = ProductMemory(
     preparation_label="SOPHIE PREPARED PERSPECTIVE", default_time_zone="Europe/London")
 product_memory.register(SOPHIE)
 from src.services import bloom_memory  # noqa: E402,F401  (registers the Bloom product)
+from src.services import rpd2_memory  # noqa: E402,F401  (registers the RPD2 story-world product)
 
 
 def _ledger_models() -> List[str]:
@@ -262,7 +263,7 @@ async def _write_notes(workspace_id: str, owner: str, cfg: ProductMemory, sessio
         y, m, d = (int(x) for x in str(clock["today"]).split("-"))
         async with async_session_maker() as ndb:
             return await notes.write(ndb, workspace_id=workspace_id, owner=owner, product=cfg.name, session_id=session_id, run_id=run_id, transcript=transcript,
-                                     person_label=cfg.user_label, companion_name=cfg.companion_name, session_day=datetime(y, m, d), weekday=clock["weekday"], day_note=clock.get("day_note", ""))
+                                     person_label=cfg.user_label, companion_name=cfg.companion_name, session_day=datetime(y, m, d), weekday=clock["weekday"], day_note=clock.get("day_note", ""), profile=cfg.notes_profile)
     except Exception as exc:  # noqa: BLE001
         logger.warning("[memory] notes failed open: %s", exc)
         return {"status": "failed", "error": type(exc).__name__}

@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
@@ -62,6 +63,21 @@ LABELS: Dict[str, str] = {
     "money": "money", "aspiration": "wishes and daydreams", "nature-outdoors": "time outdoors", "exercise": "exercise", "goals-plans": "plans",
 }
 CERTAINTIES = ("stated", "intention", "hypothetical", "hearsay", "unclear")
+
+
+@dataclass(frozen=True)
+class NotesProfile:
+    """A product whose notes are not about a real person's life (a story world). `system` is the whole instruction text with one `%s` for the area list and one `%d` for the
+    note cap, in that order. `evidence="all"`: a quote may come from either side of the conversation, because in a story both sides' lines are canon. `relative_time=False`:
+    story time is not the calendar, so the relative-word rewrite is not run. None of this applies to a product without a profile: the default write is unchanged."""
+    system: str
+    areas: Dict[str, str]
+    evidence: str = "person"
+    max_notes: int = 14
+    max_tokens: int = 3500
+    relative_time: bool = True
+
+
 SELF = "the person"
 _SELF_WORDS = {"the person", "person", "the user", "user", "the user themself", "they", "them", "he", "she", "i", "me", "myself", "self"}
 STRAIN = ("sleep-energy", "mood-low", "work-load", "body-health", "money")     # areas where coming up again and again is worth a gentle question
@@ -125,13 +141,14 @@ def _parse_day(v: Any) -> Optional[datetime]:
         return None
 
 
-def clean(raw: Any, person_text: str) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+def clean(raw: Any, person_text: str, areas: Optional[Dict[str, str]] = None, max_notes: int = MAX_NOTES) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
     """Validate what the model wrote. Nothing is repaired or guessed: a note either passes with its flags set or is dropped (and counted)."""
+    areas = areas or AREAS
     stats = {"dropped": 0, "downgraded": 0, "unverified_quotes": 0}
     out: List[Dict[str, Any]] = []
     hay = norm(person_text)
     seen: set = set()
-    for n in (raw if isinstance(raw, list) else [])[:MAX_NOTES * 2]:
+    for n in (raw if isinstance(raw, list) else [])[:max_notes * 2]:
         if not isinstance(n, dict) or not str(n.get("text") or "").strip():
             stats["dropped"] += 1
             continue
@@ -154,10 +171,10 @@ def clean(raw: Any, person_text: str) -> Tuple[List[Dict[str, Any]], Dict[str, i
             stats["downgraded"] += 1
         subject = str(n.get("subject") or "").strip()[:80] or SELF
         out.append({"subject": SELF if subject_key(subject) == SELF else subject, "subject_key": subject_key(subject),
-                    "area": area if area in AREAS else "other", "certainty": certainty, "when_on": _parse_day(n.get("when")),
+                    "area": area if area in areas else "other", "certainty": certainty, "when_on": _parse_day(n.get("when")),
                     "key": re.sub(r"[^a-z0-9_]+", "_", str(n.get("key") or "").strip().lower()).strip("_")[:40],
                     "text": text, "quote": quote, "quote_verified": verified, "resolves": str(n.get("resolves") or "").strip()[:12]})
-        if len(out) >= MAX_NOTES:
+        if len(out) >= max_notes:
             break
     return out, stats
 
@@ -180,31 +197,33 @@ async def known_block(db: AsyncSession, ws: str, owner: str) -> Tuple[Dict[str, 
 
 
 async def write(db: AsyncSession, *, workspace_id: str, owner: str, product: str, session_id: str, run_id: Optional[UUID], transcript: str,
-                person_label: str, companion_name: str, session_day: datetime, weekday: str, source: str = "session", day_note: str = "") -> Dict[str, Any]:
+                person_label: str, companion_name: str, session_day: datetime, weekday: str, source: str = "session", day_note: str = "", profile: Optional["NotesProfile"] = None) -> Dict[str, Any]:
     """Read one sitting once and store its notes. Fail-open for the caller (a failure here never costs the session its other results)."""
     from src.services import memory_pipeline as mp
     from src.services.world_agent import _person_lines
     keys, opens = await known_block(db, workspace_id, owner)
-    prompt = (f"{SYSTEM}\n\nToday is {session_day.date().isoformat()} ({weekday}).{(' ' + day_note) if day_note else ''}\nThe person's lines begin with \"{person_label}:\" and the companion's ({companion_name}) with \"{companion_name}:\".\n"
+    system = (profile.system % ("\n".join(f"  - {k}: {v}" for k, v in profile.areas.items()), profile.max_notes)) if profile else SYSTEM
+    prompt = (f"{system}\n\nToday is {session_day.date().isoformat()} ({weekday}).{(' ' + day_note) if day_note else ''}\nThe person's lines begin with \"{person_label}:\" and the companion's ({companion_name}) with \"{companion_name}:\".\n"
               f"Known so far (subject: keys): {json.dumps(keys, separators=(',', ':'))}\nOpen intentions: {json.dumps(opens, separators=(',', ':'))}\n\n--- conversation ---\n{transcript}")
-    out = await mp._generate("notes", prompt, 3500, models())
+    out = await mp._generate("notes", prompt, profile.max_tokens if profile else 3500, models())
     parsed = _first_json((out or {}).get("text") or "")
     if parsed is None:
         return {"status": "no_output", "model": (out or {}).get("model")}
-    person_text = _person_lines(transcript, person_label)
-    notes, stats = clean(parsed.get("notes"), person_text)
+    person_text = transcript if (profile and profile.evidence == "all") else _person_lines(transcript, person_label)
+    areas, cap = (profile.areas, profile.max_notes) if profile else (AREAS, MAX_NOTES)
+    notes, stats = clean(parsed.get("notes"), person_text, areas, cap)
     usage = [(out or {}).get("usage") or {}]
     if not notes and len(person_text.strip()) >= 80:
         # A short check-in still says something about them ("flat today", "keep meaning to go and never do"): ask once more before accepting nothing.
         again = await mp._generate("notes", prompt + "\n\nYou returned no notes, but the person did say something about themselves, their day, their people or their plans. Write the one to three most useful notes.",
                                    3500, models())
         usage.append((again or {}).get("usage") or {})
-        notes, more = clean((_first_json((again or {}).get("text") or "") or {}).get("notes"), person_text)
+        notes, more = clean((_first_json((again or {}).get("text") or "") or {}).get("notes"), person_text, areas, cap)
         stats["empty_retry"] = 1
         for k, v in more.items():
             stats[k] = stats.get(k, 0) + v
     retried = False
-    bad = relative_problems(notes)
+    bad = relative_problems(notes) if (profile is None or profile.relative_time) else []
     if bad:
         retried = True
         fix = await mp._generate("notes-fix", (f"Today is {session_day.date().isoformat()} ({weekday}). Rewrite ONLY the text of these notes so none uses a relative time word "
