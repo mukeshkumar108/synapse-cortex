@@ -76,9 +76,12 @@ class NotesProfile:
     max_notes: int = 14
     max_tokens: int = 3500
     relative_time: bool = True
+    require_quote: bool = True                 # False: a "stated" note keeps its certainty when its quote is not word-for-word (a story's events are canon, not claims to verify)
+    story_subjects: Tuple[str, ...] = ()       # subjects that are not names ("the story"): never treated as a person to look up; a cast note filed under one is re-filed under the name it begins with
 
 
 SELF = "the person"
+NOT_NAMES = {"the story", "the relationship"}          # subjects a story world files events under: never a person to look up (their first word would match every sentence)
 _SELF_WORDS = {"the person", "person", "the user", "user", "the user themself", "they", "them", "he", "she", "i", "me", "myself", "self"}
 STRAIN = ("sleep-energy", "mood-low", "work-load", "body-health", "money")     # areas where coming up again and again is worth a gentle question
 RECURRING_MIN = 3
@@ -141,7 +144,7 @@ def _parse_day(v: Any) -> Optional[datetime]:
         return None
 
 
-def clean(raw: Any, person_text: str, areas: Optional[Dict[str, str]] = None, max_notes: int = MAX_NOTES) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+def clean(raw: Any, person_text: str, areas: Optional[Dict[str, str]] = None, max_notes: int = MAX_NOTES, profile: Optional["NotesProfile"] = None) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
     """Validate what the model wrote. Nothing is repaired or guessed: a note either passes with its flags set or is dropped (and counted)."""
     areas = areas or AREAS
     stats = {"dropped": 0, "downgraded": 0, "unverified_quotes": 0}
@@ -166,10 +169,14 @@ def clean(raw: Any, person_text: str, areas: Optional[Dict[str, str]] = None, ma
         if quote and not verified:
             stats["unverified_quotes"] += 1
             quote = ""
-        if certainty == "stated" and not verified:
+        if certainty == "stated" and not verified and (profile is None or profile.require_quote):
             certainty = "unclear"                                  # a stated note needs the person's own words behind it
             stats["downgraded"] += 1
         subject = str(n.get("subject") or "").strip()[:80] or SELF
+        if profile and profile.story_subjects and area == "cast" and norm(subject) in profile.story_subjects:
+            named = re.match(r"^([A-Z][\w'\u2019-]+(?: [A-Z][\w'\u2019-]+)?) (?:is|was|are|works|worked)\b", text)
+            if named:
+                subject = named.group(1)                           # "Marcus is a security guard..." filed under "the story" is about Marcus
         out.append({"subject": SELF if subject_key(subject) == SELF else subject, "subject_key": subject_key(subject),
                     "area": area if area in areas else "other", "certainty": certainty, "when_on": _parse_day(n.get("when")),
                     "key": re.sub(r"[^a-z0-9_]+", "_", str(n.get("key") or "").strip().lower()).strip("_")[:40],
@@ -211,14 +218,14 @@ async def write(db: AsyncSession, *, workspace_id: str, owner: str, product: str
         return {"status": "no_output", "model": (out or {}).get("model")}
     person_text = transcript if (profile and profile.evidence == "all") else _person_lines(transcript, person_label)
     areas, cap = (profile.areas, profile.max_notes) if profile else (AREAS, MAX_NOTES)
-    notes, stats = clean(parsed.get("notes"), person_text, areas, cap)
+    notes, stats = clean(parsed.get("notes"), person_text, areas, cap, profile)
     usage = [(out or {}).get("usage") or {}]
     if not notes and len(person_text.strip()) >= 80:
         # A short check-in still says something about them ("flat today", "keep meaning to go and never do"): ask once more before accepting nothing.
         again = await mp._generate("notes", prompt + "\n\nYou returned no notes, but the person did say something about themselves, their day, their people or their plans. Write the one to three most useful notes.",
                                    3500, models())
         usage.append((again or {}).get("usage") or {})
-        notes, more = clean((_first_json((again or {}).get("text") or "") or {}).get("notes"), person_text, areas, cap)
+        notes, more = clean((_first_json((again or {}).get("text") or "") or {}).get("notes"), person_text, areas, cap, profile)
         stats["empty_retry"] = 1
         for k, v in more.items():
             stats[k] = stats.get(k, 0) + v
@@ -393,7 +400,7 @@ async def people(db: AsyncSession, ws: str, owner: str) -> List[Dict[str, Any]]:
     canon = canon_subjects(rows)
     by: Dict[str, List[Note]] = {}
     for r in rows:
-        if r.subject_key and r.subject_key != SELF:
+        if r.subject_key and r.subject_key != SELF and r.subject_key not in NOT_NAMES:
             by.setdefault(canon.get(r.subject_key, r.subject_key), []).append(r)
     out = []
     for k, rs in by.items():
@@ -430,7 +437,7 @@ async def card(db: AsyncSession, ws: str, owner: str, subject: str) -> Dict[str,
             by_area.setdefault(r.area, []).append(_line(r))
     reported = [_line(r) for r in rs if r.source_kind]
     related = [r for r in _mentioned(rows, [want] + [r.subject_key for r in rs], {r.id for r in rs}) if not r.source_kind]
-    return {"subject": subject, "notes": len(rs), "current_facts": facts, "by_area": {a: l[-4:] for a, l in sorted(by_area.items())}, "reported": reported[-6:],
+    return {"subject": subject, "notes": len(rs), "mention_limit": MENTION_LIMITS.get(rows[0].product, MENTION_LINES) if rows else MENTION_LINES, "current_facts": facts, "by_area": {a: l[-4:] for a, l in sorted(by_area.items())}, "reported": reported[-6:],
             "open_intentions": [_line(r) for r in rs if r.certainty == "intention"][-6:],
             "mentioned_in": [{**_line(r), "id": str(r.id)[:8], "subject": r.subject, "on": fmt_day(r.when_on or r.sitting_on)} for r in related]}
 
@@ -618,6 +625,7 @@ def _clause(line: str) -> str:
 
 
 MENTION_LINES = 6
+MENTION_LIMITS = {"rpd2": 14}      # a story's cast are in many events; the standard six lines would show only the latest few and hide how it began
 
 
 _CONF_WORDS = {"firm": "stated as settled", "provisional": "provisional", "speculative": "tentative"}
@@ -642,7 +650,8 @@ def card_text(c: Dict[str, Any]) -> str:
         out += ("\n" if out else "") + "Reported by connected sources (not confirmed by them, may have moved on):\n" + "\n".join(f"- {source_line(l)}" for l in rep)
     men = c.get("mentioned_in") or []
     if men:
-        shown = men[-MENTION_LINES:]
+        limit = int(c.get("mention_limit") or MENTION_LINES)
+        shown = men[-limit:]
         head = "Also mentioned in other notes" + (f" ({len(men) - len(shown)} earlier not shown)" if len(men) > len(shown) else "") + ":"
         out += ("\n" if out else "") + head + "\n" + "\n".join(f"- {m['text'].rstrip('.')} ({m['on']})" for m in shown)
     return out

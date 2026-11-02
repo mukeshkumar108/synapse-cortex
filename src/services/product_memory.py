@@ -40,6 +40,9 @@ class ProductMemory:
     notes_only: bool = False        # a light product: a sitting is read once into notes and nothing else runs (no notebook pages, ledger, connect pass, arc or preparation)
     notes_enabled: bool = True      # this product keeps notes (one write per sitting) and serves the views over them when the deployment flag is on
     default_time_zone: str = "UTC"  # used only when the caller supplies no timezone
+    handoff_models: Tuple[str, ...] = ()   # a product whose transcripts the default small handoff model cannot read (it returns empty text on a long story) names its own
+    handoff_max_tokens: int = 0            # 0 = the default (1100 with the chat thread)
+    arc_max_tokens: int = 500        # the continuing account is written in one short call; a story world keeps every event and needs more room
     notes_profile: Optional[Any] = None   # a story-world product writes its notes with its own instructions (services.notes.NotesProfile); None = the standard personal notes
 
     def seed(self, key: str) -> str:

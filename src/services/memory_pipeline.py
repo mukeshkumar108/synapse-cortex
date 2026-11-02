@@ -1346,7 +1346,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                           f"{thread_before or '(nothing yet: this is the first sitting of this chat)'}\n\n--- transcript ---\n{transcript}")
     discovery, handoff = await asyncio.gather(
         _generate("discovery", f"{listen}\n\n--- conversation ---\n{transcript}", 2000, _models("MEMORY_DISCOVERY_MODELS", "qwen/qwen3.8-27b")),
-        _generate("handoff", handoff_prompt, 1100 if thread_on else 300, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash")))
+        _generate("handoff", handoff_prompt, (cfg.handoff_max_tokens or 1100) if thread_on else 300, list(cfg.handoff_models) or _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash")))
     mark("discovery_handoff")
     findings = str((discovery or {}).get("text") or "")
     handoff_text, thread_text = split_thread(str((handoff or {}).get("text") or ""))
@@ -1573,7 +1573,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
     else:
         arc_edit = await _generate("arc",
                                    f"{cfg.arc_prompt}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
-                                   500, _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
+                                   cfg.arc_max_tokens, list(cfg.handoff_models) or _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
         bundle["arc_edit"] = arc_edit or {"skipped": True}
         new_arc = absolute_days(str((arc_edit or {}).get("text") or "").strip(), today)
         if new_arc and new_arc != arc.text.strip():

@@ -88,3 +88,37 @@ async def test_a_story_sitting_is_kept_event_by_event_and_naming_marcus_brings_t
     assert all(r.certainty == "stated" and r.quote_verified for r in stored)
     assert named == ["Marcus"]
     assert "kissed Isa on Kai's bed" in text and "took Marcus back" not in text and "back to her house" in text
+
+
+def test_a_cast_note_filed_under_the_story_is_refiled_under_the_person_it_describes():
+    p = rpd2_memory.PROFILE
+    out, _ = notes.clean([story_note(subject="the story", area="cast", key="role", text="Marcus is a security guard at the club who walked Isa home.", quote="marcus the security guard"),
+                          story_note(subject="the story", area="event", text="Marcus is mentioned in an event note and stays under the story.")], TRANSCRIPT, p.areas, p.max_notes, p)
+    assert [n["subject"] for n in out] == ["Marcus", "the story"]
+
+
+def test_an_event_whose_quote_is_not_word_for_word_is_still_stated_in_a_story_but_not_in_personal_notes():
+    p = rpd2_memory.PROFILE
+    raw = [story_note(text="Isa took the ring off.", quote="she took the ring off, he thought")]
+    assert notes.clean(raw, TRANSCRIPT, p.areas, p.max_notes, p)[0][0]["certainty"] == "stated"
+    assert notes.clean(raw, TRANSCRIPT)[0][0]["certainty"] == "unclear"        # the default path is unchanged
+
+
+@pytest.mark.asyncio
+async def test_the_story_and_the_relationship_are_never_looked_up_as_people_and_a_cast_gets_a_long_mention_list():
+    o = owner()
+    ev = [story_note(text=f"Marcus did thing number {i} with Isa.", quote="Back to mine.") for i in range(12)]
+    payload = {"notes": [story_note(subject="Marcus", area="cast", key="role", text="Marcus is a security guard at the club.", quote="marcus the security guard"), *ev,
+                         story_note(subject="the relationship", area="bond", text="Kai and Isa are engaged.", quote="engagement ring")]}
+    memory_pipeline.set_model_fn(fake(payload))
+    try:
+        async with async_session_maker() as db:
+            await notes.write(db, workspace_id=WS, owner=o, product="rpd2", session_id="s1", run_id=None, transcript=TRANSCRIPT, person_label="Player",
+                              companion_name="Character", session_day=datetime(2026, 11, 2), weekday="Monday", profile=rpd2_memory.PROFILE)
+    finally:
+        memory_pipeline.set_model_fn(None)
+    async with async_session_maker() as db:
+        names = [p["name"] for p in await notes.people(db, WS, o)]
+        text, named = await notes.mentions_text(db, WS, o, "the story so far, what did marcus do")
+    assert names == ["Marcus"] and named == ["Marcus"] and "could mean" not in text
+    assert text.count("Marcus did thing number") == 12             # not cut to the standard six

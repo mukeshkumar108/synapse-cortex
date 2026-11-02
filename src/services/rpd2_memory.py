@@ -24,7 +24,7 @@ AREAS = {
 
 NOTES_SYSTEM = """You keep the story notes for a roleplay between a human player and an AI character. Both sides' lines are canon: what the character did, said and felt, what the player's character did, and what the player narrates as happening (text in ** ** or * * is narration of events). The notes exist so the character never forgets, merges or contradicts what has happened, and never invents a past the story did not establish. Reply with ONE JSON object: {"notes": [{"subject": "...", "area": "...", "certainty": "...", "when": "", "key": "...", "text": "...", "quote": "...", "resolves": "..."}]}
 
-- subject: for an event, a secret, a commitment or the state of the relationship use "the story" (or "the relationship"). NEVER use the names of the two main characters as a subject. For a third party or a place or an object use their name ("Marcus", "Mariana", "the ring"). The first time any third party appears, ALSO write a note with area cast, that person as the subject and key role, saying who they are in the story and how they came to be there (or "not established" if the story did not say).
+- subject: for an event, a secret, a commitment or the state of the relationship use "the story" (or "the relationship"). NEVER use the names of the two main characters as a subject. For a third party or a place or an object use their name ("Marcus", "Mariana", "the ring"). The first time any third party appears, ALSO write a note with area cast, that person AS THE SUBJECT (subject: "Marcus", not "the story") and key role, saying who they are in the story and how they came to be there (or "not established" if the story did not say). Example: {"subject": "Marcus", "area": "cast", "certainty": "stated", "when": "", "key": "role", "text": "Marcus is a security guard at the club who walked Isa home.", "quote": "marcus the security guard", "resolves": ""}.
 - area: exactly one of these, by what the note is about:
 %s
 - certainty: "stated" (it happened or was said in the story), "intention" (a plan, promise, threat or hope), "hypothetical" (a dream, a fantasy, a what-if), "hearsay" (someone told someone, and it may not be true: say who told whom), "unclear".
@@ -36,7 +36,8 @@ NOTES_SYSTEM = """You keep the story notes for a roleplay between a human player
 
 Rules: record what the transcript shows, in order, and cover the whole sitting, including the start: do not let the most recent scene crowd out earlier ones. Never merge two similar events. Never write a motive or a verdict; write what was done and said. If the story never established something (where two characters met, how long they have known each other) do not write it; say "not established" in a cast note if it matters. A scene change ("a week later", "3 weeks later", a time skip) is itself an event worth one note. Up to %d notes. A long sitting needs many: prefer more specific notes to fewer vague ones."""
 
-PROFILE = NotesProfile(system=NOTES_SYSTEM, areas=AREAS, evidence="all", max_notes=40, max_tokens=7000, relative_time=False)
+PROFILE = NotesProfile(system=NOTES_SYSTEM, areas=AREAS, evidence="all", max_notes=40, max_tokens=6000, relative_time=False, require_quote=False,
+                       story_subjects=("the story", "the relationship"))
 
 PAGES = ("story",)
 TITLES = {"story": "The Story So Far"}
@@ -48,7 +49,7 @@ HANDOFF = """You are keeping the running account of one roleplay chat so the cha
 
 EDITOR = """Update the story page: keep everything still true, add what is new, correct what the new events change. Plain factual lines, in order, naming everyone. Return ONLY the revised page as Markdown."""
 
-ARC = """Keep a short continuing account of this roleplay: the main events in order, the cast, where the relationship stands. Describe what happened, not verdicts. Return ONLY the revised account."""
+ARC = """You keep the continuing account of one roleplay chat; the character reads it before every reply so she never forgets, merges or contradicts what has happened. Below is the current account and the handoff from the sitting that just ended. Revise the account: keep EVERY distinct event, in order, with everyone involved named (including third parties, places and objects such as a ring and where it is now); compress the wording, never drop an event or merge two similar ones. Then one short paragraph on where things stand: who knows what, what has been promised or hidden, what is unresolved. State only what the transcript showed; if the story never established something, say it was not established. No verdicts about anyone's character. No more than 450 words: when it grows, compress the oldest events harder and keep the newest in full. Return ONLY the revised account."""
 
 PREPARATION = """Write 3-6 short plain lines for the character: where the story stands, what is unresolved, and what must not be contradicted. Return ONLY the notes."""
 
@@ -68,6 +69,9 @@ RPD2 = ProductMemory(
     ledger_enabled=False,        # no operational commitments from a fiction
     attention_enabled=False,
     preparation_label="STORY NOTES",
+    handoff_models=("qwen/qwen3.8-27b",),     # measured 2 Nov: the default handoff model returns empty text on a long story transcript; this one reads it
+    handoff_max_tokens=2600,
+    arc_max_tokens=1400,
     notes_profile=PROFILE,
 )
 register(RPD2)
