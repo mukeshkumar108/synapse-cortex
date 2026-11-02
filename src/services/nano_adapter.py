@@ -21,7 +21,7 @@ BASE_URL = os.getenv("NANO_BASE_URL", "https://nano-gpt.com/api/v1")
 DEFAULT_CHAIN = [m.strip() for m in os.getenv("AGENCY_MODELS", "z-ai/glm-5.3-flash,qwen/qwen3.8-27b,moonshotai/kimi-k2.6,deepseek/deepseek-v4-flash").split(",") if m.strip()]
 ATTEMPTS_PER_MODEL = int(os.getenv("AGENCY_ATTEMPTS_PER_MODEL", "2"))
 TIMEOUT = float(os.getenv("AGENCY_TIMEOUT_SECONDS", "150"))
-HARD_MAX_OUTPUT_TOKENS = int(os.getenv("AGENCY_HARD_MAX_OUTPUT_TOKENS", "4000"))
+HARD_MAX_OUTPUT_TOKENS = int(os.getenv("AGENCY_HARD_MAX_OUTPUT_TOKENS", "8000"))
 DAILY_OUTPUT_TOKEN_BUDGET = int(os.getenv("AGENCY_DAILY_OUTPUT_TOKEN_BUDGET", "600000"))     # flat-rate still has fair use, and a runaway loop would only waste it
 _usage = {"day": "", "out": 0, "calls": 0, "failures": 0, "by_model": {}}
 
