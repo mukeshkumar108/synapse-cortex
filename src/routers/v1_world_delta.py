@@ -185,6 +185,7 @@ class RewindRequest(BaseModel):
     session_ids: List[str]                  # the conversation's sitting-state sessions (picture + anchors)
     since: str                              # ISO time of the first discarded exchange
     deleted: List[Dict[str, str]] = []      # [{id?, speaker: user|assistant, text}] the messages that left the active timeline
+    product: str = ""                       # set by products that run the memory pipeline (rpd2): their notes, arc and thread are retracted too
 
 
 @router.post("/rewind")
@@ -194,7 +195,7 @@ async def rewind_world(req: RewindRequest, db: AsyncSession = Depends(get_async_
     from src.services import world_rewind
     try:
         since = _dt.fromisoformat(req.since.replace("Z", "+00:00"))
-        return await world_rewind.rewind(db, workspace_id=req.workspace_id, owner=req.owner, session_ids=req.session_ids, since=since, deleted=req.deleted)
+        return await world_rewind.rewind(db, workspace_id=req.workspace_id, owner=req.owner, session_ids=req.session_ids, since=since, deleted=req.deleted, product=req.product)
     except Exception as exc:
         await db.rollback()
         logger.exception("rewind failed")

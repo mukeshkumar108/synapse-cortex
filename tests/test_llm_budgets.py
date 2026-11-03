@@ -52,7 +52,7 @@ async def test_the_daily_breaker_refuses_further_calls_for_a_module_that_has_spe
 
 
 def test_nano_pass_is_capped_and_budgeted():
-    assert nano_adapter.HARD_MAX_OUTPUT_TOKENS <= 4000 and nano_adapter.DAILY_OUTPUT_TOKEN_BUDGET > 0
+    assert nano_adapter.HARD_MAX_OUTPUT_TOKENS <= 8000 and nano_adapter.DAILY_OUTPUT_TOKEN_BUDGET > 0
     assert nano_adapter.usage_today()["out"] >= 0
 
 

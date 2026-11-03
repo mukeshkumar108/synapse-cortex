@@ -142,7 +142,59 @@ async def reset_sitting(db: AsyncSession, *, workspace_id: str, session_ids: Lis
     return {"anchors_dropped": dropped, "anchors_kept": kept}
 
 
-async def rewind(db: AsyncSession, *, workspace_id: str, owner: str, session_ids: List[str], since: datetime, deleted: List[Dict[str, str]]) -> Dict[str, Any]:
+async def retract_memory(db: AsyncSession, *, workspace_id: str, owner: str, product: str, deleted: List[Dict[str, str]]) -> Dict[str, Any]:
+    """The product-memory pipeline (story notes, arc, thread), for products that run it. A consolidation that read a discarded message, and every one after it (they were
+    written with the ghost in the arc and the thread), is retracted: its notes go (what they superseded is current again), its thread checkpoint goes, the arc returns to what
+    it was before the first of them, and the run stops counting as covered, so the surviving history is handed over again. Runs before the first are untouched.
+    A rewind that no consolidation has read (a regenerated last reply, the usual case) changes nothing."""
+    import json
+    from src.models.note import Note
+    from src.models.world import ContinuingArc, MemoryRun, ThreadCheckpoint
+    ids = {str(d.get("id")) for d in deleted if d.get("id")}
+    if not ids:
+        return {"memory_runs_retracted": 0}
+    runs = (await db.execute(select(MemoryRun).where(MemoryRun.honcho_workspace_id == workspace_id, MemoryRun.owner_peer_id == owner,
+                                                     MemoryRun.status.in_(["consolidated", "replay_noop"])))).scalars().all()
+    runs = sorted(runs, key=lambda r: (_made_at(r), str(r.id)))
+    first = next((i for i, r in enumerate(runs) if ids & set(json.loads(r.covered_ids_json or "[]"))), None)
+    if first is None:
+        return {"memory_runs_retracted": 0}
+    hit = runs[first:]
+    hit_ids = [r.id for r in hit]
+    try:
+        arc_before = str((json.loads(hit[0].bundle_json or "{}")).get("arc_before") or "")
+    except ValueError:
+        arc_before = ""
+    made = (await db.execute(select(Note).where(Note.honcho_workspace_id == workspace_id, Note.owner_peer_id == owner, Note.run_id.in_(hit_ids)))).scalars().all()
+    gone = [n.id for n in made]
+    notes_restored = 0
+    if gone:
+        restored = (await db.execute(select(Note).where(Note.replaced_by_id.in_(gone)))).scalars().all()
+        for n in restored:
+            n.status, n.replaced_by_id = "current", None
+            db.add(n)
+        notes_restored = len(restored)
+        await db.execute(delete(Note).where(Note.id.in_(gone)))
+    threads = (await db.execute(select(ThreadCheckpoint).where(ThreadCheckpoint.honcho_workspace_id == workspace_id, ThreadCheckpoint.owner_peer_id == owner,
+                                                               ThreadCheckpoint.run_id.in_(hit_ids)))).scalars().all()
+    for t in threads:
+        await db.delete(t)
+    arcs = (await db.execute(select(ContinuingArc).where(ContinuingArc.honcho_workspace_id == workspace_id, ContinuingArc.owner_peer_id == owner,
+                                                         ContinuingArc.product == product))).scalars().all()
+    for a in arcs:
+        a.text, a.updated_at = arc_before, datetime.utcnow()
+        db.add(a)
+    for r in hit:
+        r.status = "retracted"
+        db.add(r)
+    await db.commit()
+    return {"memory_runs_retracted": len(hit), "notes_removed": len(gone), "notes_restored": notes_restored, "threads_removed": len(threads), "arc_restored_chars": len(arc_before)}
+
+
+async def rewind(db: AsyncSession, *, workspace_id: str, owner: str, session_ids: List[str], since: datetime, deleted: List[Dict[str, str]], product: str = "") -> Dict[str, Any]:
     since_naive = _naive_utc(since) or datetime.utcnow()
-    return {**await retract_runs(db, workspace_id=workspace_id, owner=owner, deleted=deleted, since=since_naive),
-            **await reset_sitting(db, workspace_id=workspace_id, session_ids=session_ids, since=since_naive)}
+    out = {**await retract_runs(db, workspace_id=workspace_id, owner=owner, deleted=deleted, since=since_naive),
+           **await reset_sitting(db, workspace_id=workspace_id, session_ids=session_ids, since=since_naive)}
+    if product:         # only products that run the memory pipeline say so; every other caller is exactly as before
+        out.update(await retract_memory(db, workspace_id=workspace_id, owner=owner, product=product, deleted=deleted))
+    return out
