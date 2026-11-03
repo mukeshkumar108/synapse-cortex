@@ -984,7 +984,6 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
             except Exception:
                 today_local = datetime.now(timezone.utc).date()
             arc_text = (await _notes.where_we_left_off(db, workspace_id, owner, today_local)) or arc.text
-    arc_text = tidy_arc(arc_text) if arc_text and arc_text != cfg.arc_seed else arc_text           # a question is never served as a debt, including in accounts written before this rule
     from zoneinfo import ZoneInfo as _ZI
     from src.services import attention_cycle as _ac2
     _tz = await _ac2.owner_time_zone(db, workspace_id=workspace_id, owner=owner, default=None) or cfg.default_time_zone
@@ -1069,29 +1068,6 @@ def resolve_clock(session_time: Optional[str], time_zone: Optional[str]) -> Dict
                 f"{mine.date().isoformat()}: by \"tomorrow\" they mean {nxt.strftime('%A')} {nxt.date().isoformat()}, and \"tonight\" is the night now under way. A clock time after midnight is on the calendar date {local.date().isoformat()}.")
     return {"tz": tzname, "event_utc": dt.astimezone(timezone.utc), "local": local,
             "today": mine.date().isoformat(), "weekday": mine.strftime("%A"), "day_note": note}
-
-
-_UNANSWERED = re.compile(r"\b(?:did not|didn't|didn’t|does not|doesn't|has not|hasn't|hasn’t|have not|haven't|had not|hadn't|never|not yet|yet to)\s+(?:yet\s+|really\s+|actually\s+)?(?:answer(?:ed)?|respond(?:ed)?|repl(?:y|ied)|address(?:ed)?|get back|say)\b|\bunanswered\b|\bleft (?:it |them |both |that )?(?:open|hanging)\b|\bwithout (?:an? )?(?:answer|response|reply)\b|\bno (?:answer|response|reply)\b|\bowes? (?:her|sophie|a reply|an answer)\b", re.I)
-_CONNECTOR = re.compile(r",?\s+(?:but|and|while|though|although|yet)\s+|;\s+")
-
-
-def tidy_arc(text: str) -> str:
-    """The account never carries a question as a debt. A clause saying the person did not answer something is cut; a sentence that is only a question Sophie asked and its non-answer
-    is dropped. Deterministic, so it holds whatever the writing model did and for accounts already stored."""
-    out = []
-    for sent in re.split(r"(?<=[.!?])\s+", str(text or "").strip()):
-        if not sent:
-            continue
-        m = _UNANSWERED.search(sent)
-        if not m:
-            out.append(sent)
-            continue
-        head = sent[:m.start()]
-        cut = [c for c in _CONNECTOR.finditer(head)]
-        keep = head[:cut[-1].start()].rstrip(" ,;") if cut else ""
-        if keep and not re.match(r"\s*Sophie\s+(?:asked|wondered|wanted to know|raised)\b", keep):
-            out.append(keep + ".")
-    return " ".join(out).strip()
 
 
 def _day_name(iso_day: str) -> str:
@@ -1619,7 +1595,7 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
                                    f"{cfg.arc_prompt}\n\n--- the day of the session that just finished ---\n{_day_name(today)}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
                                    cfg.arc_max_tokens, list(cfg.handoff_models) or _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
         bundle["arc_edit"] = arc_edit or {"skipped": True}
-        new_arc = tidy_arc(absolute_days(str((arc_edit or {}).get("text") or "").strip(), today))
+        new_arc = absolute_days(str((arc_edit or {}).get("text") or "").strip(), today)
         if new_arc and new_arc != arc.text.strip():
             arc.text, arc.version, arc.run_id = new_arc, arc.version + 1, run.id
             arc.updated_at = utc_now()
