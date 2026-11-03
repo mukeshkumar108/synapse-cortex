@@ -73,9 +73,9 @@ RPD2 = ProductMemory(
     ledger_enabled=False,        # no operational commitments from a fiction
     attention_enabled=False,
     preparation_label="STORY NOTES",
-    handoff_models=("qwen/qwen3.8-27b",),     # measured 2 Nov: the default handoff model returns empty text on a long story transcript; this one reads it
+    handoff_models=("z-ai/glm-5.2", "qwen/qwen3.8-27b"),     # measured 2-3 Nov: the default handoff model returns empty text on a long story transcript; glm-5.2 kept the agreement and every rule faithfully (qwen3.8-27b garbled the consequence rule)
     handoff_max_tokens=2600,
-    arc_max_tokens=1400,
+    arc_max_tokens=2600,
     notes_profile=PROFILE,
 )
 register(RPD2)
