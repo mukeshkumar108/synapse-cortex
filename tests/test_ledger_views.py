@@ -102,7 +102,7 @@ def test_importance_orders_within_a_band_only_and_time_still_leads():
 def test_render_is_factual_and_never_instructs():
     txt = lv.render(lv.compute(LEDGER, at(12), "Europe/London"))
     for must in ("[OPERATIONAL AWARENESS — Tuesday 20 October 2026, 12:00pm (Europe/London)", "Right now (next 3 hours):", "Today:", "Overdue:",
-                 "Things to check up on:", "Waiting on:", "This week:", "was scheduled for yesterday (Mon 19 Oct), 2:00pm; outcome not recorded",
+                 "Scheduled for a day that has passed (no outcome on record):", "Waiting on:", "This week:", "was scheduled for yesterday (Mon 19 Oct), 2:00pm; outcome not recorded",
                  "was due Sun 18 Oct; not marked done", "waiting on Ana", "open question: what time?", "Recently closed: James's invoice approval."):
         assert must in txt, must
     low = txt.lower()
@@ -221,3 +221,15 @@ def test_an_old_promise_leaves_the_picture_like_anything_else_and_a_done_one_nev
 def test_the_schedule_never_shows_the_companions_private_rows():
     out = lv.render_range(hers_rows(), date(2026, 10, 29), date(2026, 10, 31), at(11, day=29), "Europe/London")
     assert "owl" not in out["text"] and "reading list" not in out["text"]
+
+
+def test_a_routine_is_never_a_thing_to_check_up_on():
+    """The person's daily walk was typed a routine and carried the date it was last mentioned: the picture said "scheduled for yesterday; outcome not recorded" every day, and she audited a habit
+    the person keeps. A routine is a standing fact; an event with a passed date is still an event."""
+    walk = dict(row("walk", "Daily walk", "2026-10-19", "", "happens"), kind="routine")
+    visit = row("visit", "Visit to the garage", "2026-10-19", "", "happens")
+    b, v = bands(at(10), rows=[walk, visit])
+    assert b["undated"] == ["walk"] and b["check_up_on"] == ["visit"]
+    text = lv.render(v)
+    assert "- Daily walk\n" in text + "\n" and "Daily walk: was scheduled" not in text
+    assert "- Visit to the garage: was scheduled for yesterday" in text

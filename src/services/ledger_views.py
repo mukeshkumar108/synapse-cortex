@@ -7,9 +7,10 @@ write time (`time_role`: does the thing HAPPEN at that time, or is it DUE by it?
 
 Distinctions it keeps (they are different facts):
 - a scheduled thing whose time has passed is NOT overdue: we know it was scheduled, not what happened
-  ("Things to check up on"). An obligation whose deadline passed while still open IS overdue.
+  ("Scheduled for a day that has passed"). An obligation whose deadline passed while still open IS overdue.
 - precision is explicit: date-only, exact time, and unknown are different knowledge; nothing is invented.
 - time passing never completes, cancels or abandons anything.
+- a routine (kind=routine) is a standing fact about how the person lives, not a dated event: a past date on it never makes it a thing to check up on.
 - a cue is a presentation of existing state, not a second source of truth.
 
 The same module serves every product: it takes rows, a clock and a zone.
@@ -210,6 +211,8 @@ def compute(rows: Iterable[Dict[str, Any]], now: datetime, time_zone: str, defau
         if str(r.get("party") or "") == "companion":
             continue                    # the companion's own wishes and reflections are not the person's plate
         it = to_item(r, zone)
+        if it.kind == "routine" and it.day is not None and it.day < today:
+            it.day, it.clock = None, None       # a routine recurs: the day it was last dated is not an occurrence whose outcome is owed, so it stays a plain standing fact
         if it.status in OPEN:
             bands[classify(it, now, today)].append(it)
         elif it.status in CLOSED and it.status != "cancelled" and it.updated is not None and (today - it.updated).days <= CLOSED_VISIBLE_DAYS:
@@ -238,7 +241,7 @@ _SECTIONS = (
     ("imminent", "Right now (next {h} hours)"),
     ("today", "Today"),
     ("overdue", "Overdue"),
-    ("check_up_on", "Things to check up on"),
+    ("check_up_on", "Scheduled for a day that has passed (no outcome on record)"),
     ("waiting", "Waiting on"),
     ("week", "This week"),
     ("later", "Later"),
