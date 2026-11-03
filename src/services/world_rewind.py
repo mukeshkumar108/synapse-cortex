@@ -193,10 +193,31 @@ async def retract_memory(db: AsyncSession, *, workspace_id: str, owner: str, pro
     return {"memory_runs_retracted": len(hit), "notes_removed": len(gone), "notes_restored": notes_restored, "threads_removed": len(threads), "arc_restored_chars": len(arc_before)}
 
 
+async def reset_live_scene(db: AsyncSession, *, workspace_id: str, owner: str, session_ids: List[str], since: datetime) -> Dict[str, Any]:
+    """What the live scene was told at or after the rewind point (where they are, what they are doing, who is present) was said in a branch that is gone. A field written
+    since then is dropped (the earlier value it overwrote is not kept, so the scene is simply re-read from the surviving story); fields set before it stay."""
+    from src.models.scene import CurrentScene
+    dropped = 0
+    sessions = list(dict.fromkeys([s for s in session_ids if s] + [f"real_{owner}"]))
+    for row in (await db.execute(select(CurrentScene).where(CurrentScene.honcho_workspace_id == workspace_id, CurrentScene.honcho_session_id.in_(sessions)))).scalars().all():
+        try:
+            fields = json.loads(row.fields_json or "{}")
+        except ValueError:
+            continue
+        kept = {k: v for k, v in fields.items() if not (isinstance(v, dict) and (_naive_utc(v.get("updated_at")) or datetime.min) >= since)}
+        if len(kept) != len(fields):
+            dropped += len(fields) - len(kept)
+            row.fields_json = json.dumps(kept, ensure_ascii=False)
+            db.add(row)
+    await db.commit()
+    return {"scene_fields_dropped": dropped}
+
+
 async def rewind(db: AsyncSession, *, workspace_id: str, owner: str, session_ids: List[str], since: datetime, deleted: List[Dict[str, str]], product: str = "") -> Dict[str, Any]:
     since_naive = _naive_utc(since) or datetime.utcnow()
     out = {**await retract_runs(db, workspace_id=workspace_id, owner=owner, deleted=deleted, since=since_naive),
            **await reset_sitting(db, workspace_id=workspace_id, session_ids=session_ids, since=since_naive)}
     if product:         # only products that run the memory pipeline say so; every other caller is exactly as before
         out.update(await retract_memory(db, workspace_id=workspace_id, owner=owner, product=product, deleted=deleted))
+        out.update(await reset_live_scene(db, workspace_id=workspace_id, owner=owner, session_ids=session_ids, since=since_naive))
     return out

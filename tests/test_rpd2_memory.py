@@ -157,3 +157,23 @@ async def test_a_rewind_retracts_the_story_memory_a_discarded_message_fed_and_le
 
         other = await world_rewind.rewind(db, workspace_id="w-rw-mem", owner=OWNER, session_ids=[], since=t0, deleted=[{"id": "t1-u", "speaker": "user", "text": "x"}])
         assert "memory_runs_retracted" not in other                                           # callers that do not say they run the pipeline are exactly as before
+
+
+@pytest.mark.asyncio
+async def test_a_rewind_takes_back_what_the_live_scene_was_told_after_the_cut():
+    import json
+    from datetime import datetime, timedelta
+    from sqlmodel import select
+    from src.db import async_session_maker
+    from src.models.scene import CurrentScene
+    from src.services import world_rewind
+    WS, OWNER, t0 = "w-rw-scene", "world:rpd2:u1:isa:c8", datetime.utcnow() - timedelta(hours=3)
+    f = lambda v, m: {"value": v, "updated_at": (t0 + timedelta(minutes=m)).isoformat()}
+    async with async_session_maker() as db:
+        db.add_all([CurrentScene(honcho_workspace_id=WS, honcho_session_id="chat_c8", fields_json=json.dumps({"location": f("in bed", 5), "activity": f("having sex", 70)})),
+                    CurrentScene(honcho_workspace_id=WS, honcho_session_id=f"real_{OWNER}", fields_json=json.dumps({"activity": f("driving a Mercedes", 80)}))])
+        await db.commit()
+        out = await world_rewind.rewind(db, workspace_id=WS, owner=OWNER, session_ids=["chat_c8"], since=t0 + timedelta(minutes=60), deleted=[], product="rpd2")
+        assert out["scene_fields_dropped"] == 2
+        rows = {r.honcho_session_id: json.loads(r.fields_json) for r in (await db.execute(select(CurrentScene).where(CurrentScene.honcho_workspace_id == WS))).scalars().all()}
+        assert list(rows["chat_c8"]) == ["location"] and rows[f"real_{OWNER}"] == {}
