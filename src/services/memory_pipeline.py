@@ -98,11 +98,11 @@ Return ONLY the revised page as Markdown, no commentary."""
 
 ARC_UPDATE_PROMPT = """You maintain a short continuing account of where recent conversations between a person and their companion Sophie have arrived. Below is the current account and a 2-3 sentence handoff from the session that just ended.
 
-Revise the account: add what happened (what the person said or did, what was decided, what Sophie asked or suggested), keep what is still true from before, and drop what has been overtaken. Say who said what. Write only what the summary states: no commentary on what it means, how significant it was, whether anything is resolved or unresolved, or what is left unexplored. Mention an unfinished matter only when a person explicitly said they would do something or come back to it, and say who said so. Do not mention the summary itself.
+Revise the account: add what happened (what the person said or did, what was decided), keep what is still true from before, and drop what has been overtaken. Say who said what. The account is read on LATER days, so give every event the day it happened (the session's day is given below): write "On Friday 30 October they had lunch...", never "today", "just", "recently" or a bare event that could be read as happening now. Keep standing facts (who someone is, what they are working on) apart from events, and state them as facts, not as news. Write only what the summary states: no commentary on what it means, how significant it was, whether anything is resolved or unresolved, or what is left unexplored. Mention an unfinished matter only when a person explicitly said they would do something or come back to it, and say who said so. Do not mention the summary itself.
 
 Rules: never turn one difficult exchange into a lasting verdict about Sophie, the person, or the relationship. Never carry the last session's mood into the next one as a standing state. Significant ongoing circumstances may stay relevant without claiming the person feels a particular way now.
 
-Keep apart what the person said and what Sophie asked or guessed. A question or guess that only Sophie raised stays hers ("Sophie asked about...") and is not an open matter about the person unless they engaged with it, said it was unresolved, or it was plainly left open. Carry an unfinished matter forward while there is evidence it still matters (the person raised it, engaged with it, or it was explicitly left open) and let it go when newer information settles or changes it. Never write what Sophie is "watching", "pushing" or "pressing" for: she is not a source about the person's feelings or motives. A reading of the person's motives is allowed only when marked as a reading.
+Keep apart what the person said and what Sophie asked or guessed. A question or guess that only Sophie raised is left out of the account entirely: a question that was not answered is not a fact about the person and not a debt, so NEVER write that someone "didn't answer", "hasn't said", left something "unanswered" or "owes" a reply. A question appears only when the person took it up or plainly said it was still open. Carry an unfinished matter forward while there is evidence it still matters (the person raised it, engaged with it, or it was explicitly left open) and let it go when newer information settles or changes it. Never write what Sophie is "watching", "pushing" or "pressing" for: she is not a source about the person's feelings or motives. A reading of the person's motives is allowed only when marked as a reading.
 
 Resolution: preserve what remains relevant. When an ordinary disagreement has been explicitly repaired, do not carry its emotional framing forward merely because it happened — drop the argument, its emotional interpretation and its supposed relationship implications from the active account. The archived evidence keeps the full history; this account keeps only what still matters. Exceptions: repeated serious patterns, unresolved safety concerns, or an explicit wish to remember.
 
@@ -984,6 +984,21 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
             except Exception:
                 today_local = datetime.now(timezone.utc).date()
             arc_text = (await _notes.where_we_left_off(db, workspace_id, owner, today_local)) or arc.text
+    arc_text = tidy_arc(arc_text) if arc_text and arc_text != cfg.arc_seed else arc_text           # a question is never served as a debt, including in accounts written before this rule
+    from zoneinfo import ZoneInfo as _ZI
+    from src.services import attention_cycle as _ac2
+    _tz = await _ac2.owner_time_zone(db, workspace_id=workspace_id, owner=owner, default=None) or cfg.default_time_zone
+    try:
+        _now_local = datetime.now(_ZI(_tz))
+    except Exception:
+        _now_local = datetime.now(timezone.utc)
+    _upd = arc.updated_at or arc.created_at
+    arc_as_of = ""
+    arc_age = None
+    if _upd is not None:
+        _upd_local = _upd.replace(tzinfo=timezone.utc).astimezone(_now_local.tzinfo)                 # stored naive UTC
+        arc_as_of = _upd_local.date().isoformat()
+        arc_age = max(0, (_now_local.date() - _upd_local.date()).days)
     prep = await get_preparation(db, workspace_id=workspace_id, owner=owner, companion_id=companion_id)
     user_text = holding_text = ""
     from src.config import settings as _s
@@ -1007,7 +1022,7 @@ async def read_state(db: AsyncSession, *, workspace_id: str, owner: str,
                     "created_at": i.created_at.isoformat() if i.created_at else None,
                     "linked": (json.loads(i.linked_keys_json) if (i.linked_keys_json or "").startswith("[") else [])}
                    for i in ledger],
-        "arc": {"version": arc.version, "text": arc_text},
+        "arc": {"version": arc.version, "text": arc_text, "as_of": arc_as_of, "age_days": arc_age},
         "preparation": prep,
         "attention": {
             "pending": await _attn.pending_attention(db, workspace_id=workspace_id, owner=owner),
@@ -1054,6 +1069,35 @@ def resolve_clock(session_time: Optional[str], time_zone: Optional[str]) -> Dict
                 f"{mine.date().isoformat()}: by \"tomorrow\" they mean {nxt.strftime('%A')} {nxt.date().isoformat()}, and \"tonight\" is the night now under way. A clock time after midnight is on the calendar date {local.date().isoformat()}.")
     return {"tz": tzname, "event_utc": dt.astimezone(timezone.utc), "local": local,
             "today": mine.date().isoformat(), "weekday": mine.strftime("%A"), "day_note": note}
+
+
+_UNANSWERED = re.compile(r"\b(?:did not|didn't|didn’t|does not|doesn't|has not|hasn't|hasn’t|have not|haven't|had not|hadn't|never|not yet|yet to)\s+(?:yet\s+|really\s+|actually\s+)?(?:answer(?:ed)?|respond(?:ed)?|repl(?:y|ied)|address(?:ed)?|get back|say)\b|\bunanswered\b|\bleft (?:it |them |both |that )?(?:open|hanging)\b|\bwithout (?:an? )?(?:answer|response|reply)\b|\bno (?:answer|response|reply)\b|\bowes? (?:her|sophie|a reply|an answer)\b", re.I)
+_CONNECTOR = re.compile(r",?\s+(?:but|and|while|though|although|yet)\s+|;\s+")
+
+
+def tidy_arc(text: str) -> str:
+    """The account never carries a question as a debt. A clause saying the person did not answer something is cut; a sentence that is only a question Sophie asked and its non-answer
+    is dropped. Deterministic, so it holds whatever the writing model did and for accounts already stored."""
+    out = []
+    for sent in re.split(r"(?<=[.!?])\s+", str(text or "").strip()):
+        if not sent:
+            continue
+        m = _UNANSWERED.search(sent)
+        if not m:
+            out.append(sent)
+            continue
+        head = sent[:m.start()]
+        cut = [c for c in _CONNECTOR.finditer(head)]
+        keep = head[:cut[-1].start()].rstrip(" ,;") if cut else ""
+        if keep and not re.match(r"\s*Sophie\s+(?:asked|wondered|wanted to know|raised)\b", keep):
+            out.append(keep + ".")
+    return " ".join(out).strip()
+
+
+def _day_name(iso_day: str) -> str:
+    from datetime import date as _d
+    d = _d.fromisoformat(str(iso_day)[:10])
+    return f"{d.strftime('%A')} {d.day} {d.strftime('%B %Y')}"
 
 
 def absolute_days(text: str, person_today: str) -> str:
@@ -1572,10 +1616,10 @@ async def _consolidate(db: AsyncSession, *, workspace_id: str, owner: str, conve
         bundle["arc_edit"] = {"skipped": "retired"}
     else:
         arc_edit = await _generate("arc",
-                                   f"{cfg.arc_prompt}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
+                                   f"{cfg.arc_prompt}\n\n--- the day of the session that just finished ---\n{_day_name(today)}\n\n--- current account ---\n{arc.text}\n\n--- just-finished session ---\n{handoff_text or findings}",
                                    cfg.arc_max_tokens, list(cfg.handoff_models) or _models("MEMORY_HANDOFF_MODELS", "inclusionai/ling-3.0-flash"))
         bundle["arc_edit"] = arc_edit or {"skipped": True}
-        new_arc = absolute_days(str((arc_edit or {}).get("text") or "").strip(), today)
+        new_arc = tidy_arc(absolute_days(str((arc_edit or {}).get("text") or "").strip(), today))
         if new_arc and new_arc != arc.text.strip():
             arc.text, arc.version, arc.run_id = new_arc, arc.version + 1, run.id
             arc.updated_at = utc_now()

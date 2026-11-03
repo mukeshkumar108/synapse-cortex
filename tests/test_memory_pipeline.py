@@ -67,7 +67,7 @@ async def test_baseline_prompts_verbatim():
     blob = (memory_pipeline.NOTEBOOK_EDITOR_PROMPT + memory_pipeline.ARC_UPDATE_PROMPT
             + memory_pipeline.SITUATIONS_PROMPT + memory_pipeline.PREPARATION_PROMPT)
     assert "Say who said what." in HANDOFF_PROMPT and "is not evasion" in HANDOFF_PROMPT
-    assert "stays hers" in memory_pipeline.ARC_UPDATE_PROMPT
+    assert "left out of the account entirely" in memory_pipeline.ARC_UPDATE_PROMPT           # Sophie's own questions are not carried (was: kept as hers)
     for guard in ("Do not carry the mood", "never turn one difficult exchange into a lasting verdict",
                   "aspiration is not a task and never ends by silence", "honest about what you don't know",
                   "ENDED only on evidence", "An invitation is not an accepted commitment",
@@ -92,6 +92,7 @@ async def test_consolidate_preparation_state_roundtrip(async_client):
     assert state["notebook"]["routines"]["version"] == 2
     assert any(i["title"] == "Deliver the render by Thursday" for i in state["ledger"])
     assert "open idea" in state["arc"]["text"]
+    assert state["arc"]["as_of"] and state["arc"]["age_days"] == 0                        # the account says when it was last written
     # page scopes hold: routines page carries no infrastructure material
     assert "database" not in state["notebook"]["routines"]["text"].lower()
 
