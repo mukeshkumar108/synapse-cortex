@@ -133,7 +133,7 @@ async def test_a_rewind_retracts_the_story_memory_a_discarded_message_fed_and_le
     from src.models.note import Note
     from src.models.world import ContinuingArc, MemoryRun
     from src.services import world_rewind
-    WS, OWNER, t0 = "w-rw-mem", "world:rpd2:u1:isa:c9", datetime.utcnow() - timedelta(hours=2)
+    WS, OWNER, t0 = "rpd2::w-rw-mem", "world:rpd2:u1:isa:c9", datetime.utcnow() - timedelta(hours=2)
     async with async_session_maker() as db:
         r1 = MemoryRun(honcho_workspace_id=WS, owner_peer_id=OWNER, conversation_id="c9", session_id="s1", status="consolidated", created_at=t0,
                        covered_ids_json=json.dumps(["t1-u", "t1-a"]), bundle_json=json.dumps({"arc_before": ""}))
@@ -144,10 +144,10 @@ async def test_a_rewind_retracts_the_story_memory_a_discarded_message_fed_and_le
         ghost = Note(honcho_workspace_id=WS, owner_peer_id=OWNER, product="rpd2", run_id=r2.id, sitting_on=t0, subject="Marco", text="Marco came over.")
         db.add_all([kept, ghost, ContinuingArc(honcho_workspace_id=WS, owner_peer_id=OWNER, product="rpd2", text="They made a pact. Marco came over.")]); await db.commit()
 
-        none = await world_rewind.rewind(db, workspace_id=WS, owner=OWNER, session_ids=[], since=t0, deleted=[{"id": "t9-u", "speaker": "user", "text": "x"}], product="rpd2")
+        none = await world_rewind.rewind(db, workspace_id="w-rw-mem", owner=OWNER, session_ids=[], since=t0, deleted=[{"id": "t9-u", "speaker": "user", "text": "x"}], product="rpd2")
         assert none["memory_runs_retracted"] == 0                                             # nothing consolidated has read it: a regenerated last reply costs nothing
 
-        out = await world_rewind.rewind(db, workspace_id=WS, owner=OWNER, session_ids=[], since=t0, deleted=[{"id": "t2-u", "speaker": "user", "text": "x"}], product="rpd2")
+        out = await world_rewind.rewind(db, workspace_id="w-rw-mem", owner=OWNER, session_ids=[], since=t0, deleted=[{"id": "t2-u", "speaker": "user", "text": "x"}], product="rpd2")
         assert out["memory_runs_retracted"] == 1 and out["notes_removed"] == 1
         texts = [n.text for n in (await db.execute(select(Note).where(Note.honcho_workspace_id == WS))).scalars().all()]
         assert texts == ["They made a pact."]
@@ -155,5 +155,5 @@ async def test_a_rewind_retracts_the_story_memory_a_discarded_message_fed_and_le
         assert arc.text == "They made a pact."                                               # back to before the run that read the ghost
         assert (await db.get(MemoryRun, r2.id)).status == "retracted" and (await db.get(MemoryRun, r1.id)).status == "consolidated"
 
-        other = await world_rewind.rewind(db, workspace_id=WS, owner=OWNER, session_ids=[], since=t0, deleted=[{"id": "t1-u", "speaker": "user", "text": "x"}])
+        other = await world_rewind.rewind(db, workspace_id="w-rw-mem", owner=OWNER, session_ids=[], since=t0, deleted=[{"id": "t1-u", "speaker": "user", "text": "x"}])
         assert "memory_runs_retracted" not in other                                           # callers that do not say they run the pipeline are exactly as before

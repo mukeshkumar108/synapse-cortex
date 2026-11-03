@@ -150,6 +150,8 @@ async def retract_memory(db: AsyncSession, *, workspace_id: str, owner: str, pro
     import json
     from src.models.note import Note
     from src.models.world import ContinuingArc, MemoryRun, ThreadCheckpoint
+    from src.services.product_scope import SEP
+    workspace_id = workspace_id if SEP in workspace_id else f"{product}{SEP}{workspace_id}"        # a product's memory lives in its own workspace (product_scope)
     ids = {str(d.get("id")) for d in deleted if d.get("id")}
     if not ids:
         return {"memory_runs_retracted": 0}
