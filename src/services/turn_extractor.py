@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def extractor_config_status() -> Dict[str, Any]:
     """Report extractor mode so a silently-degraded config is explicit."""
     provider = os.getenv("SYNAPSE_EXTRACTOR_PROVIDER", "model").lower()
-    effective_provider = "model" if provider in ("llm", "model") else provider
+    effective_provider = "model"      # the only provider; any other setting is ignored, never honoured with a keyword reader
     model = os.getenv("SYNAPSE_EXTRACTOR_MODEL") or "gpt-4o-mini"
     fallback_models = [
         candidate.strip()
@@ -29,6 +29,9 @@ def extractor_config_status() -> Dict[str, Any]:
     url_overridden = bool(os.getenv("SYNAPSE_MODEL_URL"))
     degraded = False
     reason = None
+    if provider not in ("llm", "model"):
+        degraded = True
+        reason = f"SYNAPSE_EXTRACTOR_PROVIDER={provider!r} is no longer supported and is ignored; extraction is model-led"
     if effective_provider == "model":
         if not key_present:
             degraded = True
@@ -149,7 +152,7 @@ def loads_lenient(content: str) -> Any:
 
 
 class BaseExtractorProvider:
-    """Interface for turn extraction providers (LLM or Rule-based)."""
+    """Interface for turn extraction providers. The only production provider is model-led: nothing here reads meaning from words."""
     def extract(self, text: str, peer_id: Optional[str] = None,
                 prior_state: Optional[Dict[str, Any]] = None) -> List[ExtractionCandidate]:
         raise NotImplementedError
@@ -170,351 +173,14 @@ class BaseExtractorProvider:
         return narrowed
 
 
-class RuleBasedExtractorProvider(BaseExtractorProvider):
-    """
-    High-precision deterministic rule-based extractor.
-    Produces typed ExtractionCandidate instances with source spans, candidate keys, and V4 layer hints.
-    """
-
-    INTENT_PATTERNS = [
-        (r"\b(i'm not going to|i am not going to|i won't|i'm not planning to|not going to)\s+([^.,!?;\n]+)", "user_intention", True, False, False),
-        (r"\b(i'm going to|i am going to|i'll|i will|gonna|planning to|plan to)\s+([^.,!?;\n]+)", "user_intention", False, False, False),
-        (r"\b(i have to|i need to|i must)\s+([^.,!?;\n]+)", "user_commitment", False, False, False),
-        (r"\b(i have a|i've got a|appointment|meeting|flight|dentist)\s+([^.,!?;\n]+)", "planned_event", False, False, False),
-        (r"\b(remind me to|ask me|follow up on)\s+([^.,!\?;\n]+)", "followup_invitation", False, False, False),
-        (r"\b(waiting for|depends on|said (he|she|they)'ll|said (he|she|they) would|said)\s+([^.,!\?;\n]+)", "external_dependency", False, False, True),
-        (r"\b(call|contact|email|message|reach out to|send)\s+([^.,!\?;\n]+)", "user_intention", False, False, False),
-        (r"\b(might|could|maybe)\s+([^.,!\?;\n]+)", "user_intention", False, True, False),
-        (r"\b(?:the\s+[\w\s-]+|it)\s+(?:should|is expected to|will)\s+(?:finish|complete|arrive|happen)\b([^.,!\?;\n]*)", "expected_outcome", False, False, False),
-    ]
-
-    TEMPORAL_PATTERNS = [
-        r"\b(by\s+\d{1,2}(:\d{2})?\s*(am|pm)(\s+(on\s+)?\w+)?)\b",
-        r"\b(now|today|tonight|this evening|tomorrow(\s+(morning|afternoon|evening))?)\b",
-        r"\b(next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month))\b",
-        r"\b(this\s+week|for\s+a\s+few\s+days|until\s+tomorrow|until\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b",
-        r"\b(this\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|evening|afternoon))\b",
-        r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
-        r"\b(after\s+the\s+[^.,!\?;\n]+|when\s+[^.,!\?;\n]+\s+(gets back|finishes|arrives)|once\s+[^.,!\?;\n]+)\b",
-    ]
-
-    def extract(self, text: str, peer_id: Optional[str] = None,
-                prior_state: Optional[Dict[str, Any]] = None) -> List[ExtractionCandidate]:
-        candidates: List[ExtractionCandidate] = []
-        if not text or not text.strip():
-            return candidates
-
-        clauses = self._split_clauses(text)
-
-        for clause_text, clause_start in clauses:
-            cand = self._extract_candidate_from_clause(clause_text, clause_start, peer_id, text)
-            if cand:
-                candidates.append(cand)
-
-        return candidates
-
-    def _split_clauses(self, text: str) -> List[tuple[str, int]]:
-        clauses = []
-        delimiters = r"(;\s*|\.\s+|\n+|,\s+but\s+|\b\s+and\s+\b)"
-        parts = re.split(delimiters, text, flags=re.IGNORECASE)
-        
-        current_offset = 0
-        for part in parts:
-            if not part:
-                continue
-            if re.match(r"^;\s*$|^\.\s*$|^\n+$|^,\s+but\s+$|^\s+and\s+$", part, re.IGNORECASE):
-                current_offset += len(part)
-                continue
-            
-            clause_str = part.strip()
-            start_idx = text.find(clause_str, current_offset)
-            if start_idx != -1:
-                current_offset = start_idx + len(clause_str)
-            else:
-                start_idx = current_offset
-                current_offset += len(part)
-
-            clauses.append((clause_str, start_idx))
-
-        return clauses
-
-    def _extract_candidate_from_clause(
-        self, clause: str, clause_start: int, peer_id: Optional[str], full_text: str
-    ) -> Optional[ExtractionCandidate]:
-        lower_clause = clause.lower().strip()
-
-        # Check for quoted speech
-        is_quoted = bool(re.search(r'["\'].*?\b(i\'ll|i will|going to)\b.*?["\']', clause, re.IGNORECASE))
-
-        # Check for negation e.g. "don't", "not", "won't"
-        is_negated = bool(re.search(r"(n't|\bnot\b|\bnever\b|\bno longer\b)", lower_clause))
-
-        # Check for hypothetical
-        is_hypothetical = bool(re.search(r"\b(if\s+i|in case|maybe\s+i|might|could)\b", lower_clause)) and not is_negated
-        is_sarcastic = "🙄" in clause or bool(re.search(r"\b(yeah right|as if)\b", lower_clause))
-
-        # Discussion of one's earlier words is evidence about speech, not a fresh intention.
-        discusses_prior_speech = bool(re.search(
-            r"\b(i\s+(?:told|said)|i was wrong when i said)\b", lower_clause
-        ))
-        if discusses_prior_speech:
-            is_quoted = True
-
-        # Check for reported speech
-        is_reported = bool(re.search(
-            r"\b(?:said\s+(?:he|she|they)|told\s+me|reported\s+that)\b",
-            lower_clause,
-        )) or ("said" in lower_clause and "he'll" in lower_clause)
-
-        # 1. Check for Suppression patterns: e.g. "Don't ask me about Ashley until next week", "stop asking me", "leave this alone"
-        suppression_hint = None
-        reopen_match = re.search(
-            r"\b(?:actually\s+)?(?:we can (?:talk about|discuss|mention)|"
-            r"you can ask me about)\s+(.+?)\s+now\b",
-            lower_clause,
-        )
-        suppression_match = re.search(
-            r"\b(?:don't\s+ask\s+me\s+about|stop\s+asking\s+me\s+about|"
-            r"don't\s+mention|don't\s+bring)\s+(.+?)(?=\s+(?:until|unless|today|tonight|tomorrow|this\s+week|next\s+week|for\s+(?:now|a\s+few\s+days))\b|$)",
-            lower_clause,
-        )
-        bring_up_match = re.search(r"\b(?:don't|never)\s+bring\s+(.+?)\s+up\b", lower_clause)
-        if reopen_match:
-            suppression_hint = {
-                "action": "reopen",
-                "target_type": "topic",
-                "topic_or_entity": reopen_match.group(1).strip(),
-                "reason": "user_explicit_reopen",
-                "direction": "allow",
-            }
-        elif suppression_match or bring_up_match:
-            topic_target = re.sub(
-                r"\s+up$", "", (suppression_match or bring_up_match).group(1).strip()
-            )
-            suppression_hint = {
-                "target_type": "topic",
-                "topic_or_entity": topic_target,
-                "reason": f"User requested suppression: {clause}",
-                "direction": "refuse",
-                "raw_temporal_phrase": self._extract_temporal_phrase(lower_clause),
-                "reopen_condition": (
-                    "user_mentions_topic" if re.search(r"\b(?:until i bring it up|unless i mention it)\b", lower_clause)
-                    else "indefinite" if re.search(r"\bnever\b", lower_clause)
-                    else None
-                ),
-            }
-        elif re.search(r"\b(not now|leave (?:this|that|it) alone|drop it)\b", lower_clause):
-            suppression_hint = {
-                "target_type": "topic",
-                "topic_or_entity": None,
-                "reason": f"User requested suppression: {clause}",
-                "ambiguous_target": True,
-            }
-
-        # 2. Check for Resolutions / Outcome Updates e.g. "Actually I'm not doing that tonight", "James sent it", "James replied"
-        resolution_hint = None
-        reschedule = re.search(
-            r"\b(?:actually|sorry|instead|still).*?\b(?:now|tomorrow|today|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|evening)\b.*?\b(?:not\s+(?:tomorrow|today|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday))?",
-            lower_clause,
-        )
-        changed_not_abandoned = re.search(r"\bstill\s+(?:doing|going|sending|calling).*?\bjust\s+not\b", lower_clause)
-        correction_date = re.search(r"\b(?:sorry,?\s*)?(friday|saturday|sunday|monday|tuesday|wednesday|thursday),?\s+not\s+(friday|saturday|sunday|monday|tuesday|wednesday|thursday)\b", lower_clause)
-        if changed_not_abandoned or correction_date or (reschedule and re.search(r"\b(?:i'll|i will|i'm testing|i am testing|do it|make it|appointment)\b", lower_clause)):
-            resolution_hint = {
-                "action": "reschedule",
-                "wrong_value": correction_date.group(2) if correction_date else None,
-                "correct_value": correction_date.group(1) if correction_date else self._extract_temporal_phrase(lower_clause),
-                "target_text": clause,
-                "evidence": clause,
-            }
-        elif re.search(
-            r"\b(?:actually|change of plan)\b.*?\b(?:not doing|cancelling|postponing)\b|"
-            r"\b(?:scratch that|forget (?:that|the (?:first|second|third) one)|"
-            r"changed my mind|no longer relevant)\b",
-            lower_clause,
-        ):
-            resolution_hint = {
-                "action": "cancel",
-                "evidence": clause,
-            }
-        elif re.search(r"\b(\w+)\s+(sent it|replied|finished|done|submitted|completed)\b", lower_clause):
-            m_res = re.search(r"\b(\w+)\s+(sent it|replied|finished|done|submitted|completed)\b", lower_clause)
-            resolution_hint = {
-                "action": "fulfill",
-                "actor": m_res.group(1) if m_res else peer_id,
-                "evidence": clause,
-            }
-        elif re.fullmatch(r"\s*(done|that's sorted|it happened)\s*[.!]?\s*", lower_clause):
-            resolution_hint = {"action": "fulfill", "evidence": clause}
-        elif re.search(
-            r"\b(?:looks like|turns out)\s+i(?:'ll| will| am going to)\s+"
-            r"(?:be\s+)?starting\s+(?:there|with them)\b",
-            lower_clause,
-        ):
-            # A natural indirect acceptance update (for example, starting at a
-            # new job) resolves a single outstanding outcome without requiring
-            # the user to repeat the earlier wording.
-            resolution_hint = {"action": "fulfill", "evidence": clause}
-        elif re.search(r"\b(never happened|never called|didn't happen)\b", lower_clause):
-            resolution_hint = {"action": "cancel", "evidence": clause}
-        elif re.search(r"\bactually\s+i\s+said\s+(\w+),\s*not\s+(\w+)\b", lower_clause):
-            m_corr = re.search(r"\bactually\s+i\s+said\s+(\w+),\s*not\s+(\w+)\b", lower_clause)
-            resolution_hint = {
-                "action": "correct",
-                "correct_value": m_corr.group(1) if m_corr else None,
-                "wrong_value": m_corr.group(2) if m_corr else None,
-                "evidence": clause,
-            }
-
-        # 3. Check for Open Loop hints e.g. "ask me tomorrow how the appointment went", "report back"
-        open_loop_hint = None
-        if re.search(r"\b(ask me|follow up|remind me)\b", lower_clause):
-            open_loop_hint = f"Follow-up on: {clause}"
-
-        # 4. Check Epistemic Attribution e.g. "I think Ashley might be stressed because of work"
-        epistemic_provenance = None
-        actor_peer_id = peer_id
-        target_peer_id = None
-
-        epistemic_claim = None
-        nested_ep = re.search(r"\b(\w+)\s+thinks\s+(\w+)\s+believes\s+(?:she|he|they)\s*(?:is|are)?\s*([^.,!?;\n]+)", lower_clause)
-        third_ep = re.search(r"\b(\w+)\s+thinks\s+(\w+)\s+(?:is|are)\s+([^.,!?;\n]+)", lower_clause)
-        ep_match = re.search(r"\b(i think|i believe|seems like|reckon)\s+(\w+)\s+(might|could|is)\s+([^.,!?;\n]+)", lower_clause)
-        if nested_ep:
-            epistemic_provenance = "attributed_belief"
-            actor_peer_id, target_peer_id = nested_ep.group(1), nested_ep.group(2)
-            epistemic_claim = {"perspective": actor_peer_id, "target": target_peer_id, "claim": f"believes they are {nested_ep.group(3)}", "nested": True}
-        elif third_ep:
-            epistemic_provenance = "attributed_belief"
-            actor_peer_id, target_peer_id = third_ep.group(1), third_ep.group(2)
-            epistemic_claim = {"perspective": actor_peer_id, "target": target_peer_id, "claim": third_ep.group(3), "nested": False}
-        elif ep_match:
-            epistemic_provenance = "attributed_belief"
-            target_peer_id = ep_match.group(2)
-            epistemic_claim = {"perspective": peer_id or "user", "target": target_peer_id, "claim": ep_match.group(4), "nested": False}
-        elif is_reported:
-            epistemic_provenance = "reported_statement"
-            reported_actor = re.search(
-                r"\b([a-zA-Z]+)\s+(?:said|told|reported)\b", clause
-            )
-            if reported_actor and reported_actor.group(1).lower() not in ("i", "he", "she", "they"):
-                actor_peer_id = reported_actor.group(1)
-        elif re.search(r"\b(i'm going to|i will|i have to|i must)\b", lower_clause):
-            epistemic_provenance = "direct_statement"
-
-        # 5. Check Domain & Category Tags
-        domain_tag = None
-        category_tag = None
-        if "work" in lower_clause or "report" in lower_clause or "deploy" in lower_clause:
-            domain_tag = "work"
-        elif any(name in lower_clause for name in ["ashley", "james", "morgan", "family"]):
-            domain_tag = "relationship"
-
-        if re.search(r"\b(stressed|anxious|worried|fear)\b", lower_clause):
-            category_tag = "struggle"
-        elif re.search(r"\b(excited|win|won|accomplished)\b", lower_clause):
-            category_tag = "win"
-
-        # Match intent patterns
-        matched_intent = None
-        matched_type_hint = None
-        for pattern, type_hint, is_neg, is_hyp, is_rep in self.INTENT_PATTERNS:
-            m = re.search(pattern, lower_clause, re.IGNORECASE)
-            if m:
-                matched_intent = m.group(0)
-                matched_type_hint = type_hint
-                if is_neg:
-                    is_negated = True
-                if is_hyp:
-                    is_hypothetical = True
-                if is_rep:
-                    is_reported = True
-                break
-
-        if not matched_intent and not is_reported and not suppression_hint and not resolution_hint and not epistemic_provenance and not ("appointment" in lower_clause or "meeting" in lower_clause):
-            return None
-
-        # Check for temporal phrase
-        temporal_phrase = self._extract_temporal_phrase(lower_clause)
-
-        key_raw = f"{clause_start}:{clause_start+len(clause)}:{clause}"
-        candidate_key = f"c_{hashlib.md5(key_raw.encode('utf-8')).hexdigest()[:10]}"
-
-        confidence = 0.9
-        if is_hypothetical or is_negated or is_quoted or is_sarcastic:
-            confidence = 0.3
-
-        return ExtractionCandidate(
-            candidate_key=candidate_key,
-            source_start=clause_start,
-            source_end=clause_start + len(clause),
-            observation=clause,
-            actor_peer_id=actor_peer_id,
-            subject_peer_id=target_peer_id or peer_id,
-            semantic_type="expectation_candidate",
-            expectation_type_hint=matched_type_hint,
-            temporal_phrase=temporal_phrase,
-            confidence=confidence,
-            is_negated=is_negated,
-            is_hypothetical=is_hypothetical,
-            is_reported_speech=is_reported,
-            is_quoted=is_quoted,
-            is_sarcastic=is_sarcastic,
-            open_loop_hint=open_loop_hint,
-            suppression_hint=suppression_hint,
-            epistemic_provenance=epistemic_provenance,
-            domain_tag=domain_tag,
-            category_tag=category_tag,
-            resolution_hint=resolution_hint,
-            epistemic_claim=epistemic_claim,
-        )
-
-    def _extract_temporal_phrase(self, lower_clause: str) -> Optional[str]:
-        for t_pat in self.TEMPORAL_PATTERNS:
-            t_m = re.search(t_pat, lower_clause, re.IGNORECASE)
-            if t_m:
-                return t_m.group(0)
-        return None
-
-
 class RecurrenceSemantics:
-    """Deterministic recurrence semantics (Workstream 1).
+    """Validation of the model's own recurrence classification.
 
-    Model interpretation may propose; this guard owns durable cadence truth.
-    Distinguishes: recurring action, recurring ritual, adherence action,
-    durable measurable goal, ordinary repeated behaviour (observed pattern),
-    and one-off objectives incorrectly shaped as recurrences.
+    The model states what kind of recurrence this is (recurring_action, recurring_ritual, adherence_action,
+    measurable_goal, observed_pattern; the extraction prompt defines each, including that the frequency of a
+    problem is not a routine and that a hedged or mutual description is an observed pattern). This checks the
+    field against the allowed set and the structured target fields. It never reads the person's words.
     """
-
-    # Cadence evidence that describes frequency of a PROBLEM, not of the
-    # user's practice ("the bug has been happening every single day").
-    _PROBLEM_FREQUENCY = re.compile(
-        r"\b(?:been|keeps?|it'?s)\s+happening\b"
-        r"|\bkeeps? happening\b|\bevery single time\b|\bkeeps? (?:occurring|coming back|breaking|failing|crashing|erroring)\b",
-        re.IGNORECASE,
-    )
-    # Mutual/observed joint behaviour ("we talk everyday obviously") — an
-    # observed pattern, not a commitment the user is making for the future.
-    _MUTUAL_PATTERN = re.compile(
-        r"\bwe (?:talk|speak|chat|see each other|meet|catch up)\b", re.IGNORECASE
-    )
-    # Hedged self-description ("I try to walk most mornings") — possibly a
-    # habit, never automatically a commitment.
-    _HEDGED = re.compile(
-        r"\b(?:i(?:'m| am)?\s+try(?:ing)? to|most (?:mornings|evenings|days|weeks)|"
-        r"usually|tend to|more often than not)\b",
-        re.IGNORECASE,
-    )
-    _RITUAL = re.compile(
-        r"\b(?:prayer|prayers|pray|meditat(?:e|ion)|gratitude|devotional|"
-        r"scripture|japa|puja|mass|rosary|shabbat|sabbath)\b",
-        re.IGNORECASE,
-    )
-    _ADHERENCE = re.compile(
-        r"\b(?:medication|meds|tablet|tablets|pill|pills|dose|insulin|"
-        r"physio(?:therapy)?|inhaler|supplement|vitamin)s?\b",
-        re.IGNORECASE,
-    )
 
     _VALID = {
         "recurring_action", "recurring_ritual", "adherence_action",
@@ -522,61 +188,25 @@ class RecurrenceSemantics:
     }
 
     @classmethod
-    def apply(cls, raw: Dict[str, Any], kind: str, normalized_text: str,
-              evidence_lower: str) -> List[str]:
-        """Validate/assign recurrence semantics in-place on `raw`. Returns
-        validation notes. `kind` is the (possibly already demoted) operational
-        kind; the guard may further demote or annotate."""
+    def apply(cls, raw: Dict[str, Any], kind: str, normalized_text: str = "",
+              evidence_lower: str = "") -> List[str]:
+        """Validate/assign the recurrence classification in-place on `raw`. Returns validation notes."""
         notes: List[str] = []
         if kind != "recurring_intention":
             return notes
-
-        cadence_evidence = str(
-            raw.get("cadence_evidence_text") or evidence_lower or ""
-        ).lower()
-
-        # 1. Problem-frequency cadence is not a user practice: "it's been
-        #    happening every single day" describes the bug, not a routine.
-        #    One-off objective + (maybe) a reminder request.
-        if cls._PROBLEM_FREQUENCY.search(cadence_evidence):
-            raw["operational_kind"] = "durable_objective"
-            raw["cadence"] = None
-            raw["interval_days"] = None
-            raw["days_of_week"] = []
-            raw["recurrence_semantic_type"] = None
-            raw["confidence"] = min(float(raw.get("confidence") or 0), 0.7)
-            notes.append("demoted_problem_frequency_recurrence_to_objective")
-            return notes
-
         proposed = raw.get("recurrence_semantic_type")
         if proposed not in cls._VALID:
             if proposed is not None:
                 notes.append("discarded_invalid_recurrence_semantic_type")
             proposed = None
-
-        # 2. Deterministic classification from evidence shape.
-        if cls._MUTUAL_PATTERN.search(cadence_evidence) or cls._MUTUAL_PATTERN.search(evidence_lower):
-            semantic = "observed_pattern"
-            notes.append("classified_mutual_observed_pattern")
-        elif cls._HEDGED.search(evidence_lower):
-            # "I try to walk most mornings" — possibly a habit, not a commitment.
-            semantic = "observed_pattern"
-            raw["confidence"] = min(float(raw.get("confidence") or 0), 0.75)
-            notes.append("classified_hedged_cadence_as_observed_pattern")
-        elif proposed:
+        if proposed:
             semantic = proposed
         elif raw.get("target_amount") is not None and raw.get("target_unit"):
             semantic = "measurable_goal"
             notes.append("classified_target_bearing_recurrence_as_measurable_goal")
-        elif cls._ADHERENCE.search(evidence_lower) or cls._ADHERENCE.search(normalized_text):
-            semantic = "adherence_action"
-            notes.append("classified_adherence_recurrence")
-        elif cls._RITUAL.search(evidence_lower) or cls._RITUAL.search(normalized_text):
-            semantic = "recurring_ritual"
-            notes.append("classified_ritual_recurrence")
         else:
             semantic = "recurring_action"
-
+            notes.append("recurrence_type_not_stated_defaulted_to_action")
         raw["recurrence_semantic_type"] = semantic
         return notes
 
@@ -587,7 +217,6 @@ class LLMExtractorProvider(BaseExtractorProvider):
     def __init__(
         self, api_url: Optional[str] = None, api_key: Optional[str] = None,
         model: Optional[str] = None, models: Optional[List[str]] = None,
-        fallback_on_error: bool = False,
     ):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("XAI_API_KEY") or ""
         default_url = ("https://openrouter.ai/api/v1/chat/completions"
@@ -608,7 +237,6 @@ class LLMExtractorProvider(BaseExtractorProvider):
             ]
         self.models = [self.model, *models]
         self.fallback_models = list(models)
-        self.fallback_on_error = fallback_on_error
         self.last_backend = "unavailable"
         self.last_observations: List[LooseObservation] = []
         self.last_failure: Optional[str] = None
@@ -953,6 +581,9 @@ open_loop_hint and expiry_phrase. Suppressions include suppression_hint with tar
 topic_or_entity, action_scope, raw_temporal_phrase, and direction (REQUIRED: refuse
 when the turn asks for LESS of something, allow when it grants or invites MORE).
 Missing direction fails the write; an invitation must never become a suppression.
+A suppression is a request not to be asked about, reminded of or contacted about a topic, person or action. How the
+companion should sound or behave (tone, style, manner), and which of two things currently interests the person more, are
+preferences, not suppressions: file them semantic_only.
 If the same turn both refuses AND invites the same topic, or direction is genuinely
 uncertain, set review_note explaining the conflict (a worklist signal for lifecycle
 review — it never blocks or retires anything by itself).
@@ -1064,23 +695,6 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     }:
                         hint["action_scope"] = "all_surfaces"
                         validation_notes.append("normalized_invalid_suppression_action_scope")
-                if kind == "suppression":
-                    fold_back = text.replace("’", "'")
-                    reopen = re.search(
-                        r"\b(?:we can (?:talk about|discuss|mention)|"
-                        r"you can (?:ask me about|mention)|fine to (?:talk about|bring up|ask about)|"
-                        r"okay to (?:talk about|bring up|ask about)|nice to talk about)\s+(.+?)(?:\s+now)?[\s.]*$",
-                        fold_back,
-                        re.IGNORECASE,
-                    )
-                    if reopen:
-                        raw["suppression_hint"] = {
-                            "action": "reopen",
-                            "target_type": "topic",
-                            "topic_or_entity": reopen.group(1).strip().strip("."),
-                            "reason": "user_explicit_reopen",
-                        }
-                        validation_notes.append("normalized_reopen_language")
                 for enum_key, allowed in (
                     ("domain_tag", _VALID_DOMAIN_TAGS),
                     ("category_tag", _VALID_CATEGORY_TAGS),
@@ -1107,12 +721,6 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     raw["evidence_class"] = None
                 evidence_lower = obs.evidence_text.lower().replace("’", "'")
                 normalized_text = text.replace("’", "'")
-                explicit_daily = bool(re.search(r"\b(?:every day|daily|each day)\b", text, re.IGNORECASE))
-                unestablished = bool(re.search(
-                    r"\b(?:haven't|have not|isn't|is not|not)\b.+\b(?:habit|routine|established)\b",
-                    normalized_text,
-                    re.IGNORECASE,
-                ))
                 semantic_recurrence_proposal = (
                     raw.get("recurrence_semantic_type") in RecurrenceSemantics._VALID
                     and bool(raw.get("cadence") or raw.get("interval_days") or raw.get("days_of_week"))
@@ -1157,64 +765,29 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                     # subject. Character peers keep their explicit ids.
                     raw["actor_peer_id"] = None
                     validation_notes.append("normalized_generic_user_actor")
-                if kind is None and semantic_recurrence_proposal and not unestablished:
+                if kind is None and semantic_recurrence_proposal:
                     raw["operational_kind"] = "recurring_intention"
                     raw["expectation_type_hint"] = None
                     kind = "recurring_intention"
                     validation_notes.append("promoted_structured_recurrence_proposal")
-                elif kind in {"expectation", "durable_objective"} and explicit_daily and not unestablished:
-                    raw["operational_kind"] = "recurring_intention"
-                    raw["cadence"] = "daily"
-                    raw["expectation_type_hint"] = None
-                    kind = "recurring_intention"
-                    validation_notes.append("promoted_explicit_daily_recurrence")
-                elif kind == "recurring_intention" and unestablished:
-                    raw["operational_kind"] = "durable_objective"
-                    raw["cadence"] = None
-                    raw["interval_days"] = None
-                    raw["days_of_week"] = []
-                    raw["confidence"] = min(float(raw.get("confidence") or 0), 0.75)
-                    kind = "durable_objective"
-                    validation_notes.append("demoted_unestablished_recurrence_to_objective")
                 elif kind == "recurring_intention" and not (
                     raw.get("cadence") or raw.get("interval_days")
                     or raw.get("days_of_week")
-                    or re.search(
-                        r"\b(every|daily|weekly|each (?:day|morning|evening|week)|"
-                        r"mondays|tuesdays|wednesdays|thursdays|fridays|"
-                        r"saturdays|sundays|on (?:weekdays|weekends))\b",
-                        evidence_lower,
-                    )
                 ):
-                    # Deterministic guard: no cadence evidence anywhere in the
-                    # evidence text means a one-off objective, however the
-                    # model shaped it.
+                    # Structural guard on the model's own fields: a recurrence with no cadence, interval or
+                    # weekdays has nothing to schedule. This reads the model's output, not the person's words.
                     raw["operational_kind"] = "durable_objective"
                     raw["cadence"] = None
                     raw["interval_days"] = None
                     raw["days_of_week"] = []
                     raw["confidence"] = min(float(raw.get("confidence") or 0), 0.7)
                     kind = "durable_objective"
-                    validation_notes.append("demoted_recurrence_without_cadence_evidence")
+                    validation_notes.append("demoted_recurrence_without_structured_cadence")
                 validation_notes.extend(
                     RecurrenceSemantics.apply(raw, kind, normalized_text, evidence_lower)
                 )
                 if kind == "recurring_intention" and raw.get("operational_kind") != kind:
                     kind = raw["operational_kind"]
-                if kind == "suppression" and re.search(
-                    r"\bdon't want (?:it|the .+?) to (?:feel|look|sound|be)\b", evidence_lower
-                ):
-                    raw["operational_kind"] = "semantic_only"
-                    raw["suppression_hint"] = None
-                    kind = "semantic_only"
-                    validation_notes.append("demoted_product_preference_from_suppression")
-                if kind == "progress" and not re.search(
-                    r"\b(?:sent|submitted|completed|finished|did|made|built|wrote|applied|managed)\b|\b\d+\b",
-                    evidence_lower,
-                ):
-                    raw["operational_kind"] = "durable_objective"
-                    kind = "durable_objective"
-                    validation_notes.append("demoted_non_accomplishment_from_progress")
                 if kind == "durable_objective" and not raw.get("expectation_type_hint"):
                     raw["expectation_type_hint"] = "user_commitment"
                     validation_notes.append("defaulted_durable_objective_expectation_type")
@@ -1230,34 +803,12 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                 if kind == "open_loop" and not raw.get("open_loop_hint"):
                     raw["open_loop_hint"] = raw.get("canonical_title") or obs.description
                     validation_notes.append("defaulted_open_loop_hint")
-                if kind == "durable_objective" and re.search(
-                    r"\b(?:is|are|feels?) more (?:interesting|important|fun|appealing)\b",
-                    evidence_lower,
-                ) and not re.search(r"\b(?:still need|need to|have to|must)\b", evidence_lower):
-                    raw["operational_kind"] = "semantic_only"
-                    kind = "semantic_only"
-                    validation_notes.append("demoted_comparative_preference_from_objective")
-                if kind == "durable_objective" and re.search(
-                    r"\b(?:haven't|have not|isn't|is not|not)\b.+\b(?:habit|routine|established)\b",
-                    normalized_text,
-                    re.IGNORECASE,
-                ):
-                    raw["confidence"] = min(float(raw.get("confidence") or 0), 0.75)
-                    validation_notes.append("reduced_confidence_for_unestablished_routine")
                 if kind == "cancellation" and not raw.get("resolution_hint"):
                     raw["resolution_hint"] = {"action": "cancel", "target_text": raw.get("canonical_title")}
                     validation_notes.append("defaulted_cancellation_resolution_hint")
                 if kind == "completion" and not raw.get("resolution_hint"):
                     raw["resolution_hint"] = {"action": "fulfill", "target_text": raw.get("canonical_title")}
                     validation_notes.append("defaulted_completion_resolution_hint")
-                if kind == "durable_objective" and re.search(
-                    r"\b(?:i(?:'m| am)\s+)?working on\b.+\bbecause\b.+\b(?:want|hope) to (?:create|build|make)\b",
-                    normalized_text,
-                    re.IGNORECASE,
-                ):
-                    raw["operational_kind"] = "semantic_only"
-                    kind = "semantic_only"
-                    validation_notes.append("demoted_project_purpose_without_operational_transition")
                 # Stable across retries. Parallel task projections include
                 # their canonical action identity so one observation can
                 # safely produce several completable actions.
@@ -1331,9 +882,8 @@ OBSERVATIONS: {json.dumps([o.model_dump() for o in observations], default=str)}"
                 err.kind if isinstance(err, model_retry.ModelCallError) else model_retry.UNKNOWN
             )
 
-        if self.fallback_on_error:
-            self.last_backend = "rules_fallback_explicit"
-            return RuleBasedExtractorProvider().extract(text, peer_id=peer_id)
+        # A failed extraction is recoverable (the source turn is kept and the failure is traced for a retry);
+        # a keyword reader quietly manufacturing an interpretation is not. Nothing is substituted.
         return []
 
     def extract_self_owned(
@@ -1414,17 +964,11 @@ class TurnExtractor:
     """
     Coordinator for loose turn extraction.
     Consumes raw turn text and emits a list of typed `ExtractionCandidate` contracts.
-    Switches between RuleBased and LLM providers via environment configuration.
+    The provider is model-led. A test or lab may inject its own; there is no keyword provider to select.
     """
 
     def __init__(self, provider: Optional[BaseExtractorProvider] = None):
-        provider_type = os.getenv("SYNAPSE_EXTRACTOR_PROVIDER", "model").lower()
-        if provider:
-            self.provider = provider
-        elif provider_type in ("llm", "model"):
-            self.provider = LLMExtractorProvider()
-        else:
-            self.provider = RuleBasedExtractorProvider()
+        self.provider = provider or LLMExtractorProvider()
 
     def extract_candidates(
         self, text: str, peer_id: Optional[str] = None,
@@ -1454,7 +998,7 @@ class TurnExtractor:
         return ExtractionResult(
             candidates=candidates,
             observations=getattr(self.provider, "last_observations", []),
-            backend=getattr(self.provider, "last_backend", "rules"),
+            backend=getattr(self.provider, "last_backend", "model"),
             model=getattr(self.provider, "model", None),
             failure=getattr(self.provider, "last_failure", None),
             frame=getattr(self.provider, "last_frame", None),

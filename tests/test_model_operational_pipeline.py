@@ -43,7 +43,7 @@ def test_loose_semantic_observation_does_not_require_verbatim_description():
 
 
 def test_model_failure_is_observable_and_does_not_silently_use_rules():
-    provider = LLMExtractorProvider(api_key="", fallback_on_error=False)
+    provider = LLMExtractorProvider(api_key="")
     assert provider.extract("I need to call the dentist tomorrow") == []
     assert provider.last_backend == "failed"
     assert provider.last_failure == "credentials_unavailable"

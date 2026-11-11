@@ -274,11 +274,10 @@ def test_extractor_config_degraded_without_credentials(monkeypatch):
     assert status["degraded"] is True
 
 
-def test_extractor_config_not_degraded_on_rules(monkeypatch):
+def test_extractor_config_flags_an_unsupported_provider_and_never_uses_a_keyword_reader(monkeypatch):
     monkeypatch.setenv("SYNAPSE_EXTRACTOR_PROVIDER", "rules")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
     status = extractor_config_status()
-    assert status["provider"] == "rules"
-    assert status["degraded"] is False
+    assert status["provider"] == "model"
+    assert status["degraded"] is True
+    assert "no longer supported" in status["reason"]

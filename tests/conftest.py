@@ -1,6 +1,5 @@
 import os
 import os
-os.environ["SYNAPSE_EXTRACTOR_PROVIDER"] = "rules"
 # Tests must NEVER touch a configured store (Neon/production). pydantic
 # settings give real env vars precedence over .env, so forcing this here
 # guarantees a throwaway database regardless of the developer environment.
@@ -61,3 +60,29 @@ async def async_client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
+
+# There is no keyword extractor. Tests of everything downstream of extraction get a scripted provider
+# (tests/support/scripted_extractor.py); tests that exercise the model provider build it themselves.
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _scripted_default_extractor(monkeypatch):
+    from src.services import turn_extractor as _te
+    from tests.support.scripted_extractor import ScriptedExtractor
+
+    real_init = _te.TurnExtractor.__init__
+
+    def _init(self, provider=None):
+        real_init(self, provider or ScriptedExtractor())
+        if provider is None:
+            self.provider = ScriptedExtractor()
+
+    monkeypatch.setattr(_te.TurnExtractor, "__init__", _init)
+    try:
+        from src.routers import v1_events
+        monkeypatch.setattr(v1_events.turn_extractor, "provider", ScriptedExtractor(), raising=False)
+    except Exception:
+        pass
+    yield

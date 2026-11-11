@@ -2,7 +2,8 @@ from src.services.turn_extractor import TurnExtractor
 from src.services.expectation_shaper import ExpectationShaper
 from src.models.expectation import ExpectationType
 
-extractor = TurnExtractor()
+from tests.support.scripted_extractor import ScriptedExtractor
+extractor = TurnExtractor(ScriptedExtractor())
 shaper = ExpectationShaper()
 
 

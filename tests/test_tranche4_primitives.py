@@ -235,22 +235,28 @@ async def test_pending_clarification_surfaces_as_curiosity(async_client):
 # ── Suppression reopen ──────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_explicit_reopen_from_model_shape_stage():
+async def test_a_reopen_the_model_states_is_kept_and_never_inferred_from_the_wording():
     text = "we can talk about Ashley now"
     evidence = "we can talk about Ashley now"
-    provider = StubTwoStage([
-        {"observations": [{"description": "Ashley topic reopened", "evidence_text": evidence,
-            "confidence": .9, "actor_peer_id": "user", "subject_refs": [], "temporal_language": None}]},
-        {"candidates": [{"loose_observation_id": _obs_id(evidence),
-            "operational_kind": "suppression", "observation": "Reopen Ashley topic",
-            "canonical_title": "Ashley", "confidence": .9, "suppression_hint": None}]},
-    ])
-    candidates = provider.extract(text, peer_id="user")
-    assert len(candidates) == 1
-    hint = candidates[0].suppression_hint
-    assert hint is not None and hint["action"] == "reopen"
-    assert "ashley" in (hint.get("topic_or_entity") or "").lower()
-    assert any("normalized_reopen_language" in note for note in candidates[0].validation_notes)
+
+    def run(hint):
+        provider = StubTwoStage([
+            {"observations": [{"description": "Ashley topic reopened", "evidence_text": evidence,
+                "confidence": .9, "actor_peer_id": "user", "subject_refs": [], "temporal_language": None}]},
+            {"candidates": [{"loose_observation_id": _obs_id(evidence),
+                "operational_kind": "suppression", "observation": "Reopen Ashley topic",
+                "canonical_title": "Ashley", "confidence": .9, "suppression_hint": hint}]},
+        ])
+        return provider.extract(text, peer_id="user")
+
+    stated = run({"target_type": "topic", "topic_or_entity": "Ashley", "action_scope": "all_surfaces",
+                  "direction": "allow", "action": "reopen"})
+    assert len(stated) == 1
+    assert stated[0].suppression_hint["action"] == "reopen"
+    assert stated[0].suppression_hint["topic_or_entity"] == "Ashley"
+    # The wording is no longer read: a hint the model did not give is not manufactured from the same sentence.
+    unstated = run(None)
+    assert all((c.suppression_hint or {}).get("action") != "reopen" for c in unstated)
 
 
 @pytest.mark.asyncio
