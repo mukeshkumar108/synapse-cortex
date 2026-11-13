@@ -65,7 +65,7 @@ async def test_a_pending_matter_rides_along_on_non_task_turns_until_it_is_used()
     async with async_session_maker() as db:
         out = await opportunities.read(db, WS, OWNER, CTX, ledger_rows=[_row("Dana's approval of the invoice", "2026-10-23", importance=3)])
     item = out["candidates"][0]["id"]
-    task = opportunities.build_packet(out, stage="moment", user_text="Quickly, help me tighten this email to my landlord", pending=[item])
+    task = opportunities.build_packet(out, stage="moment", user_text="Quickly, help me tighten this email to my landlord", task=True, pending=[item])
     chat = opportunities.build_packet(out, stage="moment", user_text="Perfect, sending it now. Long day.", pending=[item])
     used = opportunities.build_packet(out, stage="moment", user_text="Long day.", pending=[item], used=[item])
     assert task["items"] == [] and used["items"] == []                       # a deferral during a task is not an abandonment, and a used one is retired
@@ -132,7 +132,7 @@ async def test_a_task_withholds_unrelated_relational_items():
     async with async_session_maker() as db:
         await _seed_packet_world(db)
         out = await opportunities.read(db, WS, OWNER, CTX)
-    pk = opportunities.build_packet(out, stage="moment", user_text="Can you help me tighten this email to my boss? It has to go before ten.")
+    pk = opportunities.build_packet(out, stage="moment", user_text="Can you help me tighten this email to my boss? It has to go before ten.", task=True)      # the caller (Jev's reading) says it is a task
     assert pk["items"] == [] and pk["purpose"] == "task_support"
 
 

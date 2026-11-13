@@ -150,7 +150,6 @@ async def read(db: AsyncSession, ws: str, owner: str, ctx: "known_world.Ctx", *,
 # cycle belongs to the ledger and the world records, not to exposure.
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------
 PACKET_VERSION = 1
-_TASK_WORDS = ("help me", "can you help", "could you", "tighten", "practise", "practice", "make it shorter", "rewrite", "draft", "proofread", "thoughts?")
 
 
 _STOP = frozenset("the and his her for with that this you your are was were but not how did does doing have has had from they them their what when where who why will would "
@@ -161,11 +160,6 @@ def _stems(text: str) -> set:
     """Word stems of three letters or more, minus function words, so 'Leo' and 'leg' count and 'the' and 'with' do not."""
     import re
     return {w[:5] for w in re.findall(r"[a-z]{3,}", (text or "").lower().replace("'", "")) if w not in _STOP}
-
-
-def looks_like_task(text: str) -> bool:
-    t = (text or "").lower()
-    return any(w in t for w in _TASK_WORDS)
 
 
 LEDGER_HEAD = "Things I need to catch up on with them, because they matter to them:"
@@ -214,7 +208,7 @@ def build_packet(out: Dict[str, Any], *, stage: str = "opening", user_text: str 
     used_set = set(used or [])
     cands = [c for c in out.get("candidates", []) if c["id"] not in used_set]
     bg = [b for b in out.get("background_items", []) if b["id"] not in used_set]
-    is_task = looks_like_task(user_text) if task is None else bool(task)
+    is_task = bool(task)       # the caller (the Runtime, from Jev's reading of the turn) says whether they are asking for help with a piece of work; no word list guesses it
 
     def item(x: Dict[str, Any], kind: str, carried: bool = False) -> Dict[str, Any]:
         return {"id": x["id"], "kind": kind, "text": x["text"], "when": x.get("when", ""), "said": x.get("said", ""), "asked": x.get("asked", ""),
