@@ -299,3 +299,15 @@ def test_the_sophie_workspace_is_unchanged_so_no_existing_row_is_migrated():
     assert product_scope.scoped_workspace("bloom", "llm-test-agent") == "bloom::llm-test-agent"
     assert product_scope.product_of_workspace("llm-test-agent") == "sophie"
     assert product_scope.product_of_workspace("bloom::llm-test-agent") == "bloom"
+
+
+@pytest.mark.asyncio
+async def test_during_a_rotation_both_tokens_work_and_a_retired_one_does_not(async_client, monkeypatch):
+    params = {"workspace_id": W, "owner": "u"}
+    monkeypatch.setattr(settings, "SYNAPSE_CORTEX_API_TOKEN", "new-token", raising=False)
+    monkeypatch.setattr(settings, "SYNAPSE_CORTEX_API_TOKEN_PREVIOUS", "old-token", raising=False)
+    for tok in ("new-token", "old-token"):
+        assert (await async_client.get("/v1/memory/state", params=params, headers=H(tok))).status_code != 401
+    monkeypatch.setattr(settings, "SYNAPSE_CORTEX_API_TOKEN_PREVIOUS", "", raising=False)
+    assert (await async_client.get("/v1/memory/state", params=params, headers=H("old-token"))).status_code == 401
+    assert (await async_client.get("/v1/memory/state", params=params, headers=H("new-token"))).status_code != 401

@@ -101,8 +101,8 @@ async def require_service_token(request: Request, call_next):
                 return JSONResponse({"detail": "forbidden_for_product_credential"}, status_code=403)
             request.state.product = product
         elif token:
-            expected = f"Bearer {token}"
-            if not hmac.compare_digest(supplied, expected):
+            accepted = [f"Bearer {t}" for t in (token, settings.SYNAPSE_CORTEX_API_TOKEN_PREVIOUS.strip()) if t]
+            if not any(hmac.compare_digest(supplied, a) for a in accepted):
                 return JSONResponse({"detail": "Unauthorized"}, status_code=401)
     return await call_next(request)
 
