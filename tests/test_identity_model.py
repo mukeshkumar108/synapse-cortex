@@ -81,35 +81,16 @@ async def test_non_latin_and_lowercase_named_referents_provision_as_provisional_
 
 
 @pytest.mark.asyncio
-async def test_late_naming_enriches_same_entity():
+async def test_a_name_in_later_text_is_never_attached_by_reading_the_words():
     from src.db import async_session_maker
     async with async_session_maker() as db:
-        brother, status = await entity_service.resolve_mention(
+        brother, _ = await entity_service.resolve_mention(
             db, workspace_id=WS, session_id="s1", mention="my brother",
             frame="creator_direct", message_id="m1")
-        assert status == "provisioned"
-        named = await entity_service.apply_naming_assertion(
-            db, workspace_id=WS, session_id="s1",
-            text="his name is Leo", message_id="m2")
-        assert named is not None and named.id == brother.id
-        leo, status2 = await entity_service.resolve_mention(
-            db, workspace_id=WS, session_id="s1", mention="Leo",
-            frame="creator_direct", message_id="m3")
-        assert status2 == "linked" and leo.id == brother.id
-
-
-@pytest.mark.asyncio
-async def test_naming_without_role_context_stays_separate():
-    from src.db import async_session_maker
-    async with async_session_maker() as db:
-        named = await entity_service.apply_naming_assertion(
-            db, workspace_id=WS, session_id="s1",
-            text="his name is Leo", message_id="m1")
-        assert named is None
         leo, status = await entity_service.resolve_mention(
             db, workspace_id=WS, session_id="s1", mention="Leo",
-            frame="creator_direct", message_id="m2")
-        assert status == "provisioned"
+            frame="creator_direct", message_id="m3")
+        assert status == "provisioned" and leo.id != brother.id          # no sentence-pattern guess ("his name is Leo") joins them
 
 
 @pytest.mark.asyncio
@@ -306,10 +287,9 @@ async def test_entity_edge_fact_chain_resolves_later_reference():
         brother, _ = await entity_service.resolve_mention(
             db, workspace_id=WS, session_id="s1", mention="my brother",
             frame="creator_direct", message_id="m1")
-        named = await entity_service.apply_naming_assertion(
-            db, workspace_id=WS, session_id="s1",
-            text="his name is Leo", message_id="m2")
-        assert named is not None and named.id == brother.id
+        from src.models.identity import EntityAlias        # the name arrives as a structured alias (from a model's entity link), never by reading "his name is ..."
+        db.add(EntityAlias(entity_id=brother.id, alias=entity_service.normalize_alias("Leo"), provenance_message_id="m2"))
+        await db.commit()
         user, _ = await entity_service.resolve_mention(
             db, workspace_id=WS, session_id="s1", mention="Kai",
             frame="creator_direct", message_id="m1")

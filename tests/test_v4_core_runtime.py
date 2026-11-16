@@ -187,9 +187,8 @@ async def test_v4_runtime_scenarios(async_client):
     assert hs["daypart"] == "night"
     assert "avoid_surface" in hs
 
-    route_resp = await async_client.post("/v1/cortex/route", json={"query": "What was I supposed to follow up on?"})
-    assert route_resp.status_code == 200
-    assert route_resp.json()["route"] == "SYNAPSE_STATE"
+    # The query router (a regex that guessed where to look from the words of a question) is gone: the caller's Jev reading decides what to retrieve.
+    assert (await async_client.post("/v1/cortex/route", json={"query": "What was I supposed to follow up on?"})).status_code == 404
 
 
 @pytest.mark.asyncio

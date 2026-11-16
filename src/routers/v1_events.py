@@ -499,13 +499,6 @@ async def _ingest_turn_event_locked(
     # Naming assertions attach before per-row resolution ("his name is Leo"):
     # the name becomes an alias of the recent role entity.
     turn_frame = extraction_result.frame
-    try:
-        await entity_service.apply_naming_assertion(
-            db, workspace_id=payload.workspace_id, session_id=payload.session_id,
-            text=payload.text, message_id=payload.honcho_message_id)
-    except Exception as err:
-        logger.warning("Naming assertion failed: %s", err)
-
     for cand in candidates:
         row_owner = resolve_owner(payload.peer_id, cand.actor_peer_id, evidence_peer_ids)
 

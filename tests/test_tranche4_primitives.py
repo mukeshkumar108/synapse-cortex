@@ -259,58 +259,62 @@ async def test_a_reopen_the_model_states_is_kept_and_never_inferred_from_the_wor
     assert all((c.suppression_hint or {}).get("action") != "reopen" for c in unstated)
 
 
-@pytest.mark.asyncio
-async def test_condition_based_reopen_consumes_user_mention():
-    async with async_session_maker() as db:
-        service = LifecycleService()
-        suppression = Suppression(honcho_workspace_id="ws_re", honcho_session_id="s_re",
-            honcho_message_id="m1", candidate_key="supp", target_type="topic",
-            topic_or_entity="ashley", reason="user_explicit_suppression",
-            reopen_condition="user_mentions_topic", status=SuppressionStatus.ACTIVE)
-        db.add(suppression)
-        await db.commit()
+class _TopicJudge:
+    """Stands in for the semantic judge: says whether the LATER text brings up the EARLIER topic (the verdict is scripted by the test, as a model's would be)."""
+    def __init__(self, brings_up):
+        self.brings_up = brings_up
+        self.calls = []
 
-        reopened = await service.apply_reopen_conditions(
-            db, workspace_id="ws_re", session_id="s_re", text="I fixed the printer today"
-        )
-        assert reopened == []
-        row = (await db.execute(select(Suppression))).scalar_one()
-        assert row.status == SuppressionStatus.ACTIVE
+    async def generate_structured(self, *, system, prompt, model_id, **kw):
+        later = prompt.split("LATER:\n", 1)[1].split("\n\nRules:")[0].strip()
+        self.calls.append(later)
+        yes = self.brings_up(later)
+        return {"verdict": "yes" if yes else "no", "confidence": 0.9, "evidence_span": later[:20] if yes else "", "rationale": "test"}
 
-        reopened = await service.apply_reopen_conditions(
-            db, workspace_id="ws_re", session_id="s_re", text="Ashley and I talked today"
-        )
-        assert len(reopened) == 1
-        row = (await db.execute(select(Suppression))).scalar_one()
-        assert row.status == SuppressionStatus.REOPENED
+
+def _suppress(topic, ws, condition="user_mentions_topic"):
+    return Suppression(honcho_workspace_id=ws, honcho_session_id="s_" + ws, honcho_message_id="m1", candidate_key="supp", target_type="topic",
+                       topic_or_entity=topic, reason="user_explicit_suppression", reopen_condition=condition, status=SuppressionStatus.ACTIVE)
 
 
 @pytest.mark.asyncio
-async def test_reopen_matches_whole_tokens_only():
-    # "work" must not reopen via "workshop"/"networking" substring matches.
+async def test_a_suppression_reopens_when_the_judge_says_the_topic_is_raised_and_not_otherwise(monkeypatch):
+    from src.services import semantic_judge
+    judge = _TopicJudge(lambda later: "ashley" in later.lower())          # a stand-in for the model's reading
+    monkeypatch.setattr(semantic_judge, "_adapter", lambda: judge)
     async with async_session_maker() as db:
         service = LifecycleService()
-        suppression = Suppression(honcho_workspace_id="ws_wb", honcho_session_id="s_wb",
-            honcho_message_id="m1", candidate_key="supp", target_type="topic",
-            topic_or_entity="work", reason="user_explicit_suppression",
-            reopen_condition="user_mentions_topic", status=SuppressionStatus.ACTIVE)
-        db.add(suppression)
+        db.add(_suppress("ashley", "ws_re"))
         await db.commit()
+        assert await service.apply_reopen_conditions(db, workspace_id="ws_re", session_id="s_ws_re", text="I fixed the printer today") == []
+        assert (await db.execute(select(Suppression))).scalar_one().status == SuppressionStatus.ACTIVE
+        assert len(await service.apply_reopen_conditions(db, workspace_id="ws_re", session_id="s_ws_re", text="Ashley and I talked today")) == 1
+        assert (await db.execute(select(Suppression))).scalar_one().status == SuppressionStatus.REOPENED
 
-        reopened = await service.apply_reopen_conditions(
-            db, workspace_id="ws_wb", session_id="s_wb",
-            text="my networking workshop went great today"
-        )
-        assert reopened == []
-        row = (await db.execute(select(Suppression))).scalar_one()
-        assert row.status == SuppressionStatus.ACTIVE
 
-        reopened = await service.apply_reopen_conditions(
-            db, workspace_id="ws_wb", session_id="s_wb", text="work is going well"
-        )
-        assert len(reopened) == 1
-        row = (await db.execute(select(Suppression))).scalar_one()
-        assert row.status == SuppressionStatus.REOPENED
+@pytest.mark.asyncio
+async def test_a_refusal_that_names_the_topic_does_not_reopen_it_because_the_judge_reads_meaning(monkeypatch):
+    from src.services import semantic_judge
+    judge = _TopicJudge(lambda later: False)                              # the model reads "I still don't want to talk about work" as a refusal, not a mention
+    monkeypatch.setattr(semantic_judge, "_adapter", lambda: judge)
+    async with async_session_maker() as db:
+        service = LifecycleService()
+        db.add(_suppress("work", "ws_wb"))
+        await db.commit()
+        assert await service.apply_reopen_conditions(db, workspace_id="ws_wb", session_id="s_ws_wb", text="I still don't want to talk about work") == []
+        assert judge.calls == ["I still don't want to talk about work"]
+        assert (await db.execute(select(Suppression))).scalar_one().status == SuppressionStatus.ACTIVE
+
+
+@pytest.mark.asyncio
+async def test_without_a_judge_nothing_reopens_and_nothing_is_guessed_from_the_words(monkeypatch):
+    from src.services import semantic_judge
+    monkeypatch.setattr(semantic_judge, "_adapter", lambda: None)
+    async with async_session_maker() as db:
+        service = LifecycleService()
+        db.add(_suppress("ashley", "ws_nj"))
+        await db.commit()
+        assert await service.apply_reopen_conditions(db, workspace_id="ws_nj", session_id="s_ws_nj", text="Ashley called") == []
 
 
 @pytest.mark.asyncio

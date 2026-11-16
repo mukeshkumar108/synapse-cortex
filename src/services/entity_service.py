@@ -23,12 +23,6 @@ from sqlmodel import select
 
 from src.models.identity import Entity, EntityAlias
 
-_NAMING_RE = re.compile(
-    r"\b(?:his|her|their|my|your|our)\s+name\s+is\s+([A-Z][A-Za-z'-]+)"
-)
-_ROLE_LIKE_RE = re.compile(
-    r"^(my|her|his|their|your|our|the)\s+[a-z]+", re.IGNORECASE
-)
 def normalize_alias(value: str) -> str:
     return " ".join((value or "").split()).lower()
 
@@ -105,40 +99,6 @@ async def resolve_mention(
         display_name=mention.strip(), frame=frame, message_id=message_id)
     return entity, "provisioned"
 
-
-async def apply_naming_assertion(
-    db: AsyncSession, *, workspace_id: str, session_id: str,
-    text: str, message_id: str, frame: Optional[str] = None,
-) -> Optional[Entity]:
-    """'His name is Leo' attaches Leo to the single recent role-described
-    provisional entity in the session. Anything else -> None (caller falls
-    back to normal mention resolution, i.e. a separate provisional)."""
-    match = _NAMING_RE.search(text or "")
-    if not match:
-        return None
-    name = match.group(1)
-    recent = (await db.execute(
-        select(Entity)
-        .where(
-            Entity.honcho_workspace_id == workspace_id,
-            Entity.provisional == True,  # noqa: E712
-        )
-        .order_by(Entity.created_at.desc())
-        .limit(5)
-    )).scalars().all()
-    role_like = [e for e in recent if _ROLE_LIKE_RE.match(e.display_name or "")]
-    if len(role_like) != 1:
-        return None
-    entity = role_like[0]
-    exists = (await db.execute(select(EntityAlias).where(
-        EntityAlias.entity_id == entity.id,
-        EntityAlias.alias == normalize_alias(name),
-    ))).scalar_one_or_none()
-    if exists is None:
-        db.add(EntityAlias(entity_id=entity.id, alias=normalize_alias(name),
-                           provenance_message_id=message_id))
-        await db.commit()
-    return entity
 
 
 async def link_object(

@@ -15,7 +15,6 @@ from src.services.cortex_handshake_service import CortexHandshakeService
 from src.services.attention_state_service import (
     AttentionStateService, compile_attention_state_with_follow_through,
 )
-from src.services.cortex_router_service import CortexRouterService
 from src.models.work_item import WorkItem  # noqa: F401  (register metadata for create_all)
 from src.models.current_meaning import CurrentMeaning  # noqa: F401  (register metadata for create_all)
 from src.runtime_model import get_agenda_adapter
@@ -38,7 +37,6 @@ router = APIRouter(prefix="/v1/cortex", tags=["cortex"])
 
 handshake_service = CortexHandshakeService()
 attention_service = AttentionStateService()
-router_service = CortexRouterService()
 candidate_service = CommitmentCandidateService()
 
 
@@ -686,10 +684,6 @@ class HandshakeRequest(BaseModel):
     chronology: Optional[Dict[str, Any]] = None
 
 
-class RouteRequest(BaseModel):
-    query: str
-
-
 @router.post("/handshake")
 async def get_cortex_handshake(
     req: HandshakeRequest,
@@ -728,14 +722,6 @@ async def evaluate_cortex_handshake(
     )
     result["evaluation"] = {"mode": "evaluation", "effects_rolled_back": True}
     return result
-
-
-@router.post("/route")
-async def route_cortex_query(req: RouteRequest):
-    """
-    Routes query to information source (HONCHO_MEMORY, SYNAPSE_STATE, BOTH, CURRENT_SESSION, NO_RETRIEVAL).
-    """
-    return router_service.route_query(req.query)
 
 
 @router.get("/attention-state")

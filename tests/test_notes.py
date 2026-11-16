@@ -437,7 +437,7 @@ async def test_the_state_carries_a_small_user_block_a_version_stamp_and_what_she
         # her exploring page: one closed thread, one open one
         from src.models.world import NotebookPage
         db.add(NotebookPage(honcho_workspace_id=WS, owner_peer_id=o, page_key="exploring", product="sophie", version=99,
-                            text="# Things\n\n**Old metaphor**\n*   It is resolved and retired.\n\n**Why running feels different on wet pavement**\n*   Still turning it over: the sound changes."))
+                            text="# Things\n\n**Old metaphor [closed]**\n*   Dropped.\n\n**Why running feels different on wet pavement**\n*   Still turning it over: the sound changes."))
         await db.commit()
     async with async_session_maker() as db:
         after = await memory_pipeline.read_state(db, workspace_id=WS, owner=o)

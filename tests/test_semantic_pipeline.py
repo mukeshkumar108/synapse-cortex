@@ -72,7 +72,7 @@ def test_question_kinds_bounded():
         "resolves", "fulfils", "partially_fulfils", "factual_claim",
         "same_person", "accepts", "eased",
         "supersedes", "undertaking", "revisit_worthy",
-        "self_undertaking", "same_matter"}
+        "self_undertaking", "same_matter", "raises_topic"}
 
 
 @pytest.mark.asyncio

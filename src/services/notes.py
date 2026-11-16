@@ -776,7 +776,7 @@ async def user_block(db: AsyncSession, ws: str, owner: str, limit: int = 8) -> s
     return _neutral("\n\n".join(parts))
 
 
-_CLOSED = re.compile(r"resolved|retired|closed|shelved|dead end|dead for|genuinely dead|abandon", re.I)
+_CLOSED_MARK = "[closed]"      # the page writer is told to end a finished exploration's heading with this; a structural marker, not a search of the prose for words like "resolved"
 
 
 def holding_lines(page_text: str, limit: int = 3) -> List[str]:
@@ -784,7 +784,7 @@ def holding_lines(page_text: str, limit: int = 3) -> List[str]:
     out = []
     for sec in re.split(r"\n(?=\*\*)", page_text or ""):
         m = re.match(r"\*\*(.+?)\*\*", sec.strip())
-        if not m or _CLOSED.search(sec):
+        if not m or _CLOSED_MARK in m.group(1).lower():
             continue
         first = next((re.sub(r"^[\s*\-]+", "", l).replace("**", "").strip() for l in sec.splitlines()[1:] if re.sub(r"[\s*\-]", "", l)), "")
         out.append(f"- {m.group(1).strip()}" + (f": {first[:140]}" if first else ""))
