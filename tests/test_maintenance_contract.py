@@ -182,7 +182,7 @@ async def test_missing_date_advisory_is_advice_not_a_write():
     try:
         async with async_session_maker() as db:
             res = await ma._tools(db, "wsC", o, "create_item", {"title": "Send the deck", "timing": "by Friday"})
-            assert any("names a day" in a and "upcoming one is 2026-10-23" in a and "most recent is 2026-10-16" in a for a in res["advisories"])
+            assert any("expected_date is empty" in a and "by Friday" in a for a in res["advisories"])
             (row,) = await _rows(o)
             assert row.expected_date is None                       # the check never forces a value
     finally:
@@ -250,8 +250,6 @@ def test_resolve_clock_uses_where_and_when_the_person_spoke():
     assert mp.resolve_clock("2026-10-20T04:30:00Z", "America/Los_Angeles")["today"] == "2026-10-19"
     assert mp.resolve_clock("2026-10-19T21:30:00", "America/Los_Angeles")["today"] == "2026-10-19"   # naive = their wall time
     assert mp.resolve_clock("2026-10-19T12:00:00+00:00", "Not/AZone")["tz"] == "UTC"
-    tomorrow = mp.resolve_date("tomorrow", c["today"])
-    assert tomorrow.strftime("%Y-%m-%d") == "2026-10-20"
 
 
 def test_marker_ahead_of_item_on_one_line_is_honoured_not_dropped():
@@ -418,71 +416,6 @@ TIMING: "tomorrow at 6"
     assert [(i["title"], i["detail"]) for i in again] == [("A", "one second line")]
 
 
-@pytest.mark.asyncio
-async def test_a_stated_time_of_day_is_nominated_to_the_agent_never_set_by_code():
-    o = _owner()
-    steps = [{"calls": [_tc(1, "list_open", {}), _tc(2, "create_item", {"title": "Submit proposal", "expected_date": "2026-10-20", "time_role": "deadline", "timing": "by 5pm today"})]},
-             {"calls": [_tc(3, "list_open", {})]},
-             {"calls": [_tc(4, "finish", {"transcript_sweep": "nothing beyond the observations", "summary": "x", "accounting": [{"obs": 1, "treatment": "applied", "key": "submit-proposal"}]})]},
-             {"calls": [_tc(5, "update_item", {"key": "submit-proposal", "expected_time": "17:00", "time_basis": "stated"}), _tc(6, "list_open", {})]},
-             {"calls": [_tc(7, "finish", {"transcript_sweep": "nothing beyond the observations", "summary": "x", "accounting": [{"obs": 1, "treatment": "applied", "key": "submit-proposal"}]})]}]
-    seen = []
-    async with async_session_maker() as db:
-        ma.set_chat_fn(_scripted(steps, seen))
-        try:
-            out = await ma.run_maintenance(db, workspace_id="wsC", owner=o, session_id="s", observations="obs", n_observations=1, today="2026-10-20",
-                                           weekday="Tuesday", obs_timing={1: '"by 5pm"'})
-        finally:
-            ma.set_chat_fn(None)
-    refusals = " ".join(m["content"] for msgs in seen for m in msgs if m.get("role") == "tool" and "finish refused" in m["content"])
-    assert "states a time of day" in refusals and out["status"] == "verified"
-    (r,) = await _rows(o)
-    assert r.expected_time == "17:00"                                          # set by the agent after the nomination, not by code
-    assert "ENDED outranks STATUS-HINT" in ma.CONTRACT
-
-
-@pytest.mark.asyncio
-async def test_a_reasonable_assumption_is_welcome_but_must_be_labelled_as_one():
-    """'tomorrow at 6' may be read as 18:00. What may not happen is the reading being stored as if the person had said it."""
-    o = _owner()
-    steps = [{"calls": [_tc(1, "list_open", {}), _tc(2, "create_item", {"title": "Call Mum", "expected_date": "2026-10-21", "expected_time": "18:00",
-                                                                          "time_basis": "stated", "time_role": "happens"})]},
-             {"calls": [_tc(3, "list_open", {})]},
-             {"calls": [_tc(4, "finish", {"transcript_sweep": "none", "summary": "x", "accounting": [{"obs": 1, "treatment": "applied", "key": "call-mum"}]})]},
-             {"calls": [_tc(5, "update_item", {"key": "call-mum", "time_basis": "assumed", "question_text": "6 am or 6 pm?", "timing_text": "tomorrow at 6"}), _tc(6, "list_open", {})]},
-             {"calls": [_tc(7, "finish", {"transcript_sweep": "none", "summary": "x", "accounting": [{"obs": 1, "treatment": "applied", "key": "call-mum"}]})]}]
-    seen = []
-    async with async_session_maker() as db:
-        ma.set_chat_fn(_scripted(steps, seen))
-        try:
-            out = await ma.run_maintenance(db, workspace_id="wsC", owner=o, session_id="s", observations="obs", n_observations=1, today="2026-10-20",
-                                           weekday="Tuesday", obs_timing={1: '"tomorrow at 6"'})
-        finally:
-            ma.set_chat_fn(None)
-    refusals = " ".join(m["content"] for msgs in seen for m in msgs if m.get("role") == "tool" and "finish refused" in m["content"])
-    assert "is your reading" in refusals and "assumed" in refusals and out["status"] == "verified"
-    (r,) = await _rows(o)
-    assert r.expected_time == "18:00" and r.time_basis == "assumed"            # the best reading is KEPT, honestly labelled
-    assert r.timing_text == "tomorrow at 6" and "6 am or 6 pm" in r.question_text   # the person's words and the open question survive
-
-    # an explicitly stated time never triggers the "this is your reading" nudge
-    o2 = _owner()
-    ok = [{"calls": [_tc(1, "list_open", {}), _tc(2, "create_item", {"title": "Call Mum", "expected_date": "2026-10-21", "expected_time": "18:00",
-                                                                      "time_basis": "stated", "time_role": "happens", "timing": "tomorrow at 6pm"})]},
-          {"calls": [_tc(3, "list_open", {})]},
-          {"calls": [_tc(4, "finish", {"transcript_sweep": "none", "summary": "x", "accounting": [{"obs": 1, "treatment": "applied", "key": "call-mum"}]})]}]
-    seen2 = []
-    async with async_session_maker() as db:
-        ma.set_chat_fn(_scripted(ok, seen2))
-        try:
-            quiet = await ma.run_maintenance(db, workspace_id="wsC", owner=o2, session_id="s", observations="obs", n_observations=1, today="2026-10-20",
-                                             weekday="Tuesday", obs_timing={1: '"tomorrow at 6pm"'})
-        finally:
-            ma.set_chat_fn(None)
-    assert quiet["status"] == "verified" and len(quiet["calls"]) == 3
-    assert not any("is your reading" in m["content"] for msgs in seen2 for m in msgs if m.get("role") == "tool")
-
-
 def test_the_witness_keeps_timing_verbatim_as_evidence_but_may_record_its_reading_elsewhere():
     pr = mp.SITUATIONS_PROMPT
     assert "VERBATIM" in pr and "it is evidence" in pr
@@ -518,3 +451,9 @@ def test_placeholders_in_parentheses_are_never_proof_of_an_end():
 
 def test_contract_says_an_input_arriving_does_not_end_the_dependent_matter():
     assert "An input arriving" in ma.CONTRACT and "does not end the matter that depends on it" in ma.CONTRACT
+
+
+def test_no_pattern_over_the_persons_words_nominates_a_time_of_day():
+    import inspect
+    src = inspect.getsource(ma)
+    assert "states a time of day" not in src and "give no am/pm" not in src

@@ -227,21 +227,8 @@ async def test_tagged_lines_parse_and_shape():
     assert items[0]["waiting_on"] == "Ana's numbers"
     st, _ = await memory_pipeline.shape_situations(items, "2026-10-19", [])
     assert len(st["new"]) == 3
-    assert st["new"][0]["expected_date"] == "2026-10-22"  # Thursday from Mon Oct 19, deterministic
+    assert st["new"][0]["expected_date"] is None  # no day-word parser sets it: the maintenance agent reads the words
     assert st["new"][1]["kind"] == "aspiration" and st["new"][1]["expected_date"] is None
-
-
-def test_resolve_date_conservative():
-    r = memory_pipeline.resolve_date
-    assert r("tomorrow", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-20"
-    assert r("Friday", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-23"
-    assert r('"before tomorrow afternoon"', "2026-10-19").strftime("%Y-%m-%d") == "2026-10-20"
-    assert r('"by Tuesday morning"', "2026-10-19").strftime("%Y-%m-%d") == "2026-10-20"
-    assert r("2026-10-24", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-24"
-    assert r("someday", "2026-10-19") is None
-    assert r("next week", "2026-10-19") is None
-    assert r("", "2026-10-19") is None
-    assert r("N/A", "2026-10-19") is None
 
 
 def test_clean_drops_null_words():
@@ -355,38 +342,12 @@ def test_weekday_slip_fixture_documents_known_failure():
     assert text.lstrip().startswith("It’s Sunday afternoon")
 
 
-@pytest.mark.asyncio
-async def test_backfill_expected_dates_fills_only_missing():
-    from src.db import async_session_maker
-    async with async_session_maker() as db:
-        await memory_pipeline.apply_situations(
-            db, workspace_id="ws1", owner="u1", run_id=None, session_id="s1",
-            statements={"new": [{"key": "d1", "title": "Dated", "timing_text": "Friday",
-                                 "evidence": ["friday"]},
-                                {"key": "v1", "title": "Vague", "timing_text": "someday",
-                                 "evidence": ["someday"]}], "update": [], "close": []})
-        await db.commit()
-        n = await memory_pipeline.backfill_expected_dates(db, workspace_id="ws1", owner="u1")
-        assert n == 1
-        rows = {r.situation_key: r for r in await memory_pipeline.open_ledger(db, "ws1", "u1", limit=10)}
-        assert rows["d1"].expected_date is not None
-        assert rows["v1"].expected_date is None
-        assert await memory_pipeline.backfill_expected_dates(db, workspace_id="ws1", owner="u1") == 0
-
-
 def test_preparation_prompt_bans_coaching_and_divides_labor():
     from src.services import memory_pipeline as mp
     assert "Never write behavioural intentions" in mp.PREPARATION_PROMPT
     assert "I will keep this thread warm" in mp.PREPARATION_PROMPT
     assert "Dated obligations" in mp.PREPARATION_PROMPT
     assert "Observations and curiosity only" in mp.PREPARATION_PROMPT
-
-
-def test_resolve_month_names():
-    r = memory_pipeline.resolve_date
-    assert r("Due by October 24th", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-24"
-    assert r("october 24", "2026-10-19").strftime("%Y-%m-%d") == "2026-10-24"
-    assert r("not a date at all", "2026-10-19") is None
 
 
 @pytest.mark.asyncio
@@ -512,3 +473,7 @@ def test_stored_account_days_become_dates_from_the_persons_day():
 def test_the_witness_is_told_to_note_what_the_companion_promised():
     """29 Oct: 'I'll fire off the list before you sit down with him' reached neither the real ledger nor one of four lab ledgers."""
     assert "offered or promised the person to do" in memory_pipeline.SITUATIONS_PROMPT
+
+
+def test_no_code_resolves_a_date_from_the_persons_words():
+    assert not hasattr(memory_pipeline, "resolve_date") and not hasattr(memory_pipeline, "backfill_expected_dates")

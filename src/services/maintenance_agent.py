@@ -262,13 +262,7 @@ def _advisories(r: LedgerItem) -> List[str]:
     if r.status in ("open", "waiting", "watching") and r.timing_text and r.expected_date is None:
         today = _TODAY_CTX.get()
         if today:
-            from src.services.memory_pipeline import resolve_date
-            d = resolve_date(r.timing_text, today)
-            if d is not None:
-                prev = d - timedelta(days=7) if d.strftime("%Y-%m-%d") != today else None
-                both = (f"the upcoming one is {d.strftime('%Y-%m-%d')}, the most recent is {prev.strftime('%Y-%m-%d')}; set the one the person meant"
-                        if prev is not None else f"that is {d.strftime('%Y-%m-%d')}; set it if right")
-                out.append(f"{r.situation_key}: timing_text '{r.timing_text[:60]}' names a day but expected_date is empty — {both}.")
+            out.append(f"{r.situation_key}: timing_text '{r.timing_text[:60]}' but expected_date is empty — if those words name a day, set expected_date from the day table (the person's meaning decides whether it is the coming day or the one just past).")
     if r.status in ("open", "waiting", "watching") and r.expected_date is not None and not (r.time_role or "").strip():
         out.append(f"{r.situation_key}: has a date but no time_role — if the person's words make clear it HAPPENS at that time "
                    f"(appointment, meeting, call) or is a DEADLINE, set time_role; leave it empty only if unclear.")
@@ -599,38 +593,14 @@ async def _check_finish(db: AsyncSession, workspace_id: str, owner: str, args: D
         by_key = {str(r.situation_key): r for r in rows}
         for r in rows:
             adv.extend(_advisories(r))
-        # A time of day the person stated unambiguously ("by 5pm", "15:30") should reach expected_time. A lexical NOMINATION
-        # for the agent to confirm or decline — it is advice; code never sets the field.
-        for e in entries:
-            raw_t = state.obs_timing.get(e["obs"], "")
-            rec = by_key.get(str(e.get("key") or ""))
-            if (raw_t and rec is not None and e["treatment"] in ("applied", "merged") and not (rec.expected_time or "").strip()
-                    and rec.expected_date is not None and re.search(r"\b\d{1,2}(:\d{2})?\s?(am|pm)\b|\b([01]?\d|2[0-3]):[0-5]\d\b", raw_t, re.IGNORECASE)):
-                adv.append(f"{rec.situation_key}: O{e['obs']} states a time of day (\"{raw_t[:60]}\") but expected_time is empty — set it in 24-hour HH:MM if it is unambiguous.")
-        # A precise clock time whose observation carried no am/pm must be labelled as an assumption (never silently presented as stated).
-        for e in entries:
-            raw_t = state.obs_timing.get(e["obs"], "")
-            rec = by_key.get(str(e.get("key") or ""))
-            if (raw_t and rec is not None and (rec.expected_time or "").strip() and (rec.time_basis or "") != "assumed"
-                    and e["treatment"] in ("applied", "merged")
-                    and re.search(r"\bat\s+\d{1,2}\b(?!\s?(:\d{2}|am|pm|a\.m|p\.m))", raw_t, re.IGNORECASE)
-                    and not re.search(r"\b\d{1,2}(:\d{2})?\s?(am|pm)\b|\b([01]?\d|2[0-3]):[0-5]\d\b|\bo.clock\b|\b(morning|evening|afternoon|night|noon|midnight)\b", raw_t, re.IGNORECASE)):
-                adv.append(f"{rec.situation_key}: O{e['obs']}'s words (\"{raw_t[:60]}\") give no am/pm, so expected_time {rec.expected_time} is your reading: "
-                           f"set time_basis \"assumed\" and keep the open question (unless the transcript states which).")
-        # A day the person named in their own timing words ("due on Sunday") should reach expected_date. Direction (past or coming)
-        # is the model's call, so both candidates are offered; code never sets the field.
-        from src.services.memory_pipeline import resolve_date
+        # The time of day (HH:MM, and whether it was stated or assumed) is set by the agent under the CONTRACT; no pattern over the person's words nominates it.
+        # A day the person named in their own timing words should reach expected_date; the agent reads the words and the day table and decides.
         today_s = _TODAY_CTX.get()
         for e in entries:
             raw_t = state.obs_timing.get(e["obs"], "")
             rec = by_key.get(str(e.get("key") or ""))
             if raw_t and today_s and rec is not None and e["treatment"] in ("applied", "merged") and rec.expected_date is None:
-                d = resolve_date(raw_t.strip('"'), today_s)
-                if d is not None:
-                    up = d.strftime("%Y-%m-%d")
-                    prev = (d - timedelta(days=7)).strftime("%Y-%m-%d") if up != today_s else None
-                    adv.append(f"{rec.situation_key}: O{e['obs']} names a day (\"{raw_t[:60]}\") but expected_date is empty — "
-                               + (f"upcoming {up}, most recent {prev}; set the one the person meant." if prev else f"that is {up}."))
+                adv.append(f"{rec.situation_key}: O{e['obs']} gave timing words (\"{raw_t[:60]}\") but expected_date is empty — if they name a day, set it from the day table.")
         # The person's own words for timing must survive the hand-off ("tomorrow at 6" is not just a date).
         for e in entries:
             raw_t = state.obs_timing.get(e["obs"], "")

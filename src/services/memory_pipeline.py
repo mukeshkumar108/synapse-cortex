@@ -534,46 +534,6 @@ async def match_situations(new_items: List[Dict[str, Any]], known: List[LedgerIt
     return {"same": resolved, "close": closes}, out
 
 
-def resolve_date(text: str, today_utc: str) -> Optional[datetime]:
-    """Deterministic relative-date resolution against an injected today. Only
-    unambiguous cases resolve; everything else stays None (timing_text keeps
-    the person's own words regardless)."""
-    from datetime import datetime as _dt, timedelta as _td
-    try:
-        today = _dt.strptime(str(today_utc or "")[:10], "%Y-%m-%d").date()
-    except Exception:
-        return None
-    s = _clean(text, 100).lower()
-    if not s:
-        return None
-    s = re.sub(r"^(by|before|until|till|until|on|at|around|about|from|after|due|deadline)\b\s*", "", s).strip()
-    s = re.sub(r"^(by|before|until|till|until|on|at|around|about|from|after|due|deadline)\b\s*", "", s).strip()
-    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s[:10])
-    if m:
-        try:
-            return _dt(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-        except ValueError:
-            return None
-    if s.startswith("tomorrow"):
-        return _dt.combine(today + _td(days=1), _dt.min.time())
-    if s.startswith("tonight") or s.startswith("today"):
-        return _dt.combine(today, _dt.min.time())
-    days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    for i, name in enumerate(days):
-        if re.match(rf"^((on|by|before|until|till|until|on|at|around|about|from|after|due|deadline)\s+)?{name}\b", s):
-            delta = (i - today.weekday()) % 7
-            return _dt.combine(today + _td(days=delta), _dt.min.time())
-    months = {"january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
-              "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12}
-    m = re.match(r"^([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\b", s)
-    if m and m.group(1) in months:
-        try:
-            return _dt(today.year, months[m.group(1)], int(m.group(2)))
-        except ValueError:
-            return None
-    return None
-
-
 async def shape_situations(items: List[Dict[str, Any]], today_utc: str,
                      known: List[LedgerItem]) -> Dict[str, List[Dict[str, Any]]]:
     """Deterministic structuring + model-judged matching: stable keys, date
@@ -634,11 +594,9 @@ async def shape_situations(items: List[Dict[str, Any]], today_utc: str,
                 if it.get("reminder_authorised"):
                     upd["reminder_authorised"] = True
                 statements["update"].append(upd)
-    # resolve expected dates deterministically (never from model prose)
-    for group in ("new",):
-        for e in statements[group]:
-            d = resolve_date(e.get("timing_text"), today_utc)
-            e["expected_date"] = d.strftime("%Y-%m-%d") if d else None
+    # expected_date is the maintenance agent's decision, made from the person's own timing words and the day table; no English day-word parser sets it here
+    for e in statements["new"]:
+        e["expected_date"] = None
     # judged matching: same circumstance in different words merges, never duplicates
     match_out, match_call = await match_situations(
         [{"title": e["title"], "detail": e.get("detail", "")} for e in statements["new"]], known)
@@ -1678,29 +1636,10 @@ Return ONLY a JSON object: {"updates": [{key (must match an open key), plus chan
 Rules: repetition is not a personality judgement. Time passing proves nothing — never mark something resolved, abandoned or completed without evidence. An aspiration stays an aspiration. Keep every update grounded in the findings above; if nothing changed, return empty lists."""
 
 
-async def backfill_expected_dates(db: AsyncSession, *, workspace_id: str, owner: str) -> int:
-    """Deterministic one-time-per-row fill: rows whose timing_text names an
-    exact date get expected_date without any model call. Never overwrites."""
-    from datetime import datetime as _dt
-    today = _dt.now(timezone.utc).date().isoformat()
-    items = await open_ledger(db, workspace_id, owner, limit=200)
-    n = 0
-    for i in items:
-        if i.expected_date is None and i.timing_text:
-            d = resolve_date(i.timing_text, today)
-            if d is not None:
-                i.expected_date, i.updated_at = d, utc_now()
-                n += 1
-    if n:
-        await db.commit()
-    return n
-
-
 async def review(db: AsyncSession, *, workspace_id: str, owner: str, lookback_runs: int = 6) -> Dict[str, Any]:
     """Longitudinal noticing across recent sessions: one model call over open
     situations + recent findings. Applies updates, never closes."""
     from datetime import datetime as _dt
-    await backfill_expected_dates(db, workspace_id=workspace_id, owner=owner)
     items = await open_ledger(db, workspace_id, owner, limit=100)
     runs = (await db.execute(select(MemoryRun).where(
         MemoryRun.honcho_workspace_id == workspace_id,
