@@ -139,6 +139,8 @@ async def adjudicate(
         return Adjudication(kind, "unavailable", 0.0, "", "", "call_failed")
     if not isinstance(raw, dict):
         return Adjudication(kind, "unavailable", 0.0, "", "", "malformed")
+    if "verdict" not in raw and isinstance(raw.get("properties"), dict):
+        raw = raw["properties"]                    # some models echo the schema wrapper and put the answer under "properties"; same answer, our format
     verdict = str(raw.get("verdict") or "").strip().lower()
     if verdict not in ("yes", "no", "unclear"):
         return Adjudication(kind, "unavailable", 0.0, "", "", "bad_verdict")
