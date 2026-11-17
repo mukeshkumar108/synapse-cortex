@@ -9,6 +9,8 @@ named, and the person's lines are not "what the person said about their life".
 """
 from __future__ import annotations
 
+import os
+
 from src.services.notes import NotesProfile
 from src.services.product_memory import ProductMemory, register
 
@@ -55,6 +57,13 @@ WHAT HAPPENED: record what people DID and said to each other, plainly; do not re
 WHERE THINGS STAND: one short paragraph: who knows what, what has been promised, what is still open and who or what can move it (time, other people, either of them). Never write that the conversation is paused or that someone is waiting for the other to answer. Record a secret or a lie only if the transcript shows one being kept or told; never summarise an argument as a ruling on who hid or lied.
 State only what the transcript showed; if the story never established something, say it was not established. No verdicts about anyone's character. No more than 550 words: when it grows, compress the oldest events harder and keep the agreement and the newest events in full. Return ONLY the revised account."""
 
+ARC_STATE = """You keep the continuing account of one roleplay chat. The character reads it before every reply, and it is how the character knows where things stand with the person it is with. You believe an account like this serves the character best as a picture of the present between the two, not a replay of what happened: what is true between them now and what has been settled, so the character meets the person as they are today. An event is worth carrying for the fact it left behind, never for its scene. Below is the current account and the handoff from the sitting that just ended. Revise the account, in the third person, in plain statements of fact, as plain paragraphs under these headings (each only when it has something to say).
+THE AGREEMENT: the terms the two of them have set for how they play or live together (rules, conditions, who may do what, what each has promised, what they said would happen if a rule were broken), written as they were agreed, in their own terms and in full; they change only if the two of them renegotiate. When no terms were set, this heading does not appear.
+WHERE THEY STAND: what is true between the two of them now. What each has told the other and what each has kept from the other; what each has said they want and do not want; what was promised, what was broken or repaired; and in a sentence or two, how they last left it.
+WHAT THE STORY HAS SETTLED: the people (who each is and how they relate to the two, third parties included and named), the places, the objects (and where each is now), and the past the story has actually established, each as a settled fact with the date or order when that matters. A kiss, a fight or a night together is one clause: that it happened, between whom, who knows, and what it changed. It carries no sequence of touches, no body-level detail and no spoken words.
+WHAT IS OPEN: what is truly unresolved, who or what can move it (time, other people, either of them), and what is set to happen. It never says the conversation is paused or that someone is waiting for the other to answer.
+You believe the wording of the exchange belongs to the transcript: a promise or a boundary is carried as what was agreed, with no line quoted; intimate or violent scenes are one plain fact with any consent or limits that were set. Nothing is in the first person, as a character's voice or as narration. Where the story never established something, the account says it was not established; it holds no verdict on anyone's character and no reading of anyone's feelings beyond what they said. It stays under 450 words; when it grows, older material is folded into the standing facts it left behind, and the agreement and the newest state stay in full. Return ONLY the revised account."""
+
 PREPARATION = """Write 3-6 short plain lines for the character: where the story stands, what is unresolved, and what must not be contradicted. Return ONLY the notes."""
 
 RPD2 = ProductMemory(
@@ -67,7 +76,7 @@ RPD2 = ProductMemory(
     listening_prompt=LISTENING,
     handoff_prompt=HANDOFF,
     editor_prompt=EDITOR,
-    arc_prompt=ARC,
+    arc_prompt=ARC_STATE if os.getenv("RPD2_ARC_FORM", "").strip().lower() == "state" else ARC,   # state: relationship state and settled facts instead of an event-by-event account; off by default
     preparation_prompt=PREPARATION,
     independent_listening_prompt=None,
     ledger_enabled=False,        # no operational commitments from a fiction
