@@ -18,6 +18,13 @@ from src.routers import v1_events
 from src.schemas.candidate import ExtractionCandidate
 from src.services.commitment_candidate_service import CommitmentCandidateService
 
+from tests import judge_double as _jd
+
+
+@pytest.fixture(autouse=True)
+def _sender_owns_it(monkeypatch):
+    _jd.install(monkeypatch, ("Sam from the studio",))
+
 
 def _commitment_candidate(*, sender: str, text: str, title: str) -> ExtractionCandidate:
     return ExtractionCandidate(
@@ -179,6 +186,7 @@ async def test_user_reported_third_party_promise_does_not_inherit_user_authority
     ).model_copy(update={
         "actor_peer_id": "studio_sam",
         "evidence_class": "implicit_self_commitment",
+        "is_reported_speech": True,                  # the extractor's own reading: this reports what Sam said (no English "said he'd" pattern decides it)
         "temporal_phrase": "today",
     })
     monkeypatch.setattr(

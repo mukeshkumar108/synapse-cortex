@@ -35,27 +35,6 @@ from src.services.semantic_promotion import promote_transition
 logger = logging.getLogger(__name__)
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
-_REPORTED_FUTURE_RE = re.compile(
-    r"\b(?:said|says|told|promised|confirmed)\b.{0,100}"
-    r"\b(?:he|she|they)\s*(?:['’]d|would|will)\b",
-    re.IGNORECASE,
-)
-# Deterministic floor for granting ACT authority to an "implicit self
-# commitment" reading: the evidence must contain the sender speaking of
-# their OWN future action, not a third party's ("Sam said he'd send it",
-# "Andree needs the school money") wrongly inferred into the sender's own
-# obligation. This mirrors the same modal-verb self-reference family already
-# used elsewhere in this codebase (expectation title cleaning, counterparty
-# reported-future detection) — a narrow grammatical-attribution check, not a
-# semantic-identity/merge decision.
-_FIRST_PERSON_COMMITMENT_RE = re.compile(
-    r"\bi(?:'m| am| have| need| should| must| will| promise|'ll|'d|'ve)\b",
-    re.IGNORECASE,
-)
-
-
-def _has_first_person_commitment_marker(text: str) -> bool:
-    return bool(_FIRST_PERSON_COMMITMENT_RE.search(text or ""))
 _STOPWORDS = {
     "about", "after", "again", "also", "been", "could", "from", "have",
     "into", "just", "that", "their", "them", "then", "there", "they",
@@ -113,7 +92,6 @@ def _is_reported_counterparty(
     reported = bool(
         candidate.is_reported_speech
         or candidate.epistemic_provenance == "reported_statement"
-        or _REPORTED_FUTURE_RE.search(evidence)
     )
     return actor_is_distinct and reported
 
@@ -141,7 +119,7 @@ async def _confirm_self_undertaking(evidence: str, *, owner_peer_id: str) -> boo
             kind="self_undertaking",
             earlier="the message's own sender",
             later=evidence,
-            context=f"The message sender's own identifying name or alias is '{owner_peer_id}'.",
+            context=f"The message sender's own identifying name or alias is '{owner_peer_id}'. They are talking to their companion.",
             adapter=adapter,
         )
     except Exception as err:
@@ -220,8 +198,7 @@ class CommitmentCandidateService:
             not is_counterparty
             and resolved_model_authority == "act"
             and (candidate.evidence_class or "implicit_self_commitment") == "implicit_self_commitment"
-            and (marker_defeated or not _has_first_person_commitment_marker(evidence))
-        )
+        )                                              # always the semantic judge (who owns the action); no English first-person marker decides whether it is skipped
         if needs_actor_check and not await _confirm_self_undertaking(
             evidence, owner_peer_id=owner_peer_id,
         ):

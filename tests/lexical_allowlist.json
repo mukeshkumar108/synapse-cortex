@@ -1,7 +1,7 @@
 {
  "src/longitudinal_read/retrieval.py": 1,
  "src/services/agenda_service.py": 1,
- "src/services/commitment_candidate_service.py": 4,
+ "src/services/commitment_candidate_service.py": 1,
  "src/services/companion_work.py": 1,
  "src/services/lifecycle_service.py": 2,
  "src/services/memory_pipeline.py": 1,

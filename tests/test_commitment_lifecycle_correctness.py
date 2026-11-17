@@ -29,6 +29,13 @@ from src.models.commitment_candidate import (
 from src.routers import v1_events
 from src.schemas.candidate import ExtractionCandidate
 
+from tests import judge_double as _jd
+
+
+@pytest.fixture(autouse=True)
+def _sender_owns_it(monkeypatch):
+    _jd.install(monkeypatch, ("Andree just told me", "Andree will handle", "Sam from the studio"))
+
 UTC = timezone.utc
 
 

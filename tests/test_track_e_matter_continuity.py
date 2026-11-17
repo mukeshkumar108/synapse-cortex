@@ -46,7 +46,7 @@ class _KindJudge:
             kind = "resolves"
         elif "SAME specific" in prompt:
             kind = "same_matter"
-        elif "personally undertaking" in prompt:
+        elif "Who owns the action" in prompt:
             kind = "self_undertaking"
         elif "SAME person" in prompt:
             kind = "same_person"

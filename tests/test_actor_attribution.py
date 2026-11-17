@@ -100,8 +100,8 @@ async def _ingest(async_client, monkeypatch, *, workspace_id: str, sender: str,
 # ── B1: genuine direct user commitment — cheap marker, no judge call ───────
 
 @pytest.mark.asyncio
-async def test_b1_direct_first_person_stays_act_without_judge_call(async_client, monkeypatch):
-    adapter = _ScriptedActorAdapter(lambda later, prompt: "no")  # would be WRONG if called
+async def test_b1_direct_first_person_is_confirmed_by_the_judge_not_a_word_marker(async_client, monkeypatch):
+    adapter = _ScriptedActorAdapter(lambda later, prompt: "yes")
     row = await _ingest(
         async_client, monkeypatch, workspace_id="ws-actor-b1", sender="ashley",
         candidate=_commitment_candidate(
@@ -109,7 +109,7 @@ async def test_b1_direct_first_person_stays_act_without_judge_call(async_client,
         adapter=adapter,
     )
     assert row.authority == CommitmentCandidateAuthority.ACT
-    assert adapter.calls == []  # cheap marker resolved it; no model call spent
+    assert len(adapter.calls) == 1  # no English marker skips the judge
 
 
 # ── B2: indirect user commitment — needs the judge ─────────────────────────

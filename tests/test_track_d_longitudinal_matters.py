@@ -51,7 +51,7 @@ class _KindJudge:
             kind = "resolves"
         elif "SAME specific" in prompt:
             kind = "same_matter"
-        elif "personally undertaking" in prompt:
+        elif "Who owns the action" in prompt:
             kind = "self_undertaking"
         elif "SAME person" in prompt:
             kind = "same_person"
@@ -483,6 +483,7 @@ async def test_c_completion_changed_owner_and_recall(async_client, monkeypatch):
         candidate=_commitment_candidate(
             key="c1", text="I'll pick up the flowers tomorrow morning.",
             title="Pick up the flowers", refs=[]),
+        judge=_KindJudge({"self_undertaking": "yes"}),
     )
     commitments, *_ = await _state(ws)
     assert len(commitments) == 1
