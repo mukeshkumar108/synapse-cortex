@@ -290,7 +290,7 @@ async def test_saying_they_are_tired_meets_the_sleep_pattern_in_the_moment_even_
 async def test_a_plan_they_asked_us_not_to_raise_keeps_their_words_and_the_day():
     from src.services import known_world as kw, opportunities as op
     o = owner()
-    await write(o, {"notes": [note(area="preferences", text="The person asked the companion not to bring up Callie's wedding.", quote="barely slept")]}, datetime(2026, 9, 19),
+    await write(o, {"notes": [note(area="preferences", text="The person asked the companion not to bring up Callie's wedding.", quote="barely slept", asked_not_to_raise=True)]}, datetime(2026, 9, 19),
                 transcript="Him: don't bring the callie thing up, i'm not ready, i barely slept")
     async with async_session_maker() as db:
         # the quote must be in their words for a stated note; reuse a verified phrase and the boundary words in the text
@@ -673,3 +673,26 @@ def test_a_line_the_companion_relayed_from_a_source_is_marked_in_the_transcript_
     assert t.splitlines()[0].startswith("Sophie: [relayed from their email:") and "not the person's words" in t.splitlines()[0]
     assert t.splitlines()[1] == "Him: No, it's still January."
     assert "relayed from" in notes.SYSTEM and "NO note from the relayed text" in notes.SYSTEM
+
+
+def test_boundary_is_the_models_flag_with_the_persons_own_words_never_a_phrase_search():
+    said = "please don't ask me about my dad again. i would never ask you a question like that"
+    out, _ = notes.clean([
+        note(text="They asked the companion not to bring up their dad.", quote="please don't ask me about my dad again", area="family-parents", asked_not_to_raise=True),
+        note(text="They said they would never ask a question like that.", quote="i would never ask you a question like that", asked_not_to_raise=False),      # same words as a boundary phrase, flagged false by the model
+        note(text="Flag without their words behind it.", quote="not in their words", asked_not_to_raise=True),
+        note(text="Plain note.", quote="please don't ask me about my dad"),
+    ], said)
+    by = {n["text"]: n["boundary"] for n in out}
+    assert by == {"They asked the companion not to bring up their dad.": True, "They said they would never ask a question like that.": False,
+                  "Flag without their words behind it.": False, "Plain note.": False}
+
+
+def test_boundary_for_uses_the_stored_flag_not_the_wording():
+    def row(text, boundary):
+        return Note(honcho_workspace_id=WS, owner_peer_id="o", sitting_on=datetime(2026, 11, 3), subject="the person", subject_key="the person", area="family-parents",
+                    certainty="stated", text=text, quote="don't ask me about my dad again", boundary=boundary)
+    flagged = row("Their dad's health worries them.", True)
+    unflagged = row("They don't want to talk; never mention it, they said in the story.", False)
+    assert "not to bring this up" in notes.boundary_for("Their dad's health has come up again", [flagged])
+    assert notes.boundary_for("Their dad's health has come up again", [unflagged]) == ""

@@ -6,7 +6,7 @@
  "src/services/lifecycle_service.py": 2,
  "src/services/maintenance_agent.py": 2,
  "src/services/memory_pipeline.py": 5,
- "src/services/notes.py": 7,
+ "src/services/notes.py": 6,
  "src/services/object_lifecycle_service.py": 1,
  "src/services/opportunities.py": 1,
  "src/services/ownership.py": 1,

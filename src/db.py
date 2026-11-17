@@ -95,6 +95,7 @@ _ADDITIVE_COLUMNS = (
     ("ledger_items", "time_basis", "TEXT DEFAULT ''"),
     ("ledger_items", "importance", "INTEGER DEFAULT 2"),
     ("ledger_items", "party", "VARCHAR DEFAULT ''"),
+    ("notes", "boundary", "BOOLEAN DEFAULT FALSE"),
     ("known_entities", "form", "VARCHAR DEFAULT ''"),
     ("known_entities", "tags", "TEXT DEFAULT ''"),
     ("known_entities", "occurred_on", "TIMESTAMP"),

@@ -108,7 +108,7 @@ def fmt_day(d: Optional[datetime]) -> str:
     return "" if d is None else f"{d.strftime('%a')} {d.day} {d.strftime('%b')}"
 
 
-SYSTEM = """You write the notes a companion keeps after one conversation with one person: what a close friend would want to remember the next time they talk, including small things (how they felt today, what they plan, something they keep saying and never do). Skip only pleasantries and chatter that says nothing about them. Reply with ONE JSON object: {"notes": [{"subject": "...", "area": "...", "certainty": "...", "when": "...", "key": "...", "text": "...", "quote": "...", "resolves": "..."}]}
+SYSTEM = """You write the notes a companion keeps after one conversation with one person: what a close friend would want to remember the next time they talk, including small things (how they felt today, what they plan, something they keep saying and never do). Skip only pleasantries and chatter that says nothing about them. Reply with ONE JSON object: {"notes": [{"subject": "...", "area": "...", "certainty": "...", "when": "...", "key": "...", "text": "...", "quote": "...", "resolves": "...", "asked_not_to_raise": false}]}
 
 - subject: who the note is about: "the person" for the person you are talking with, otherwise the name used for someone else, a pet, a place or a project. When a note is mainly about another person that person is the subject ("Mum's knee has been bad" has subject Mum). The first time someone is named or described by relationship (my mum, Dad, my friend Morgan), ALSO write a note whose subject is that person, with key relationship_to_the_person, saying who they are to the person and anything said about them, even when your other notes from that moment are about the person's own feelings or routine. Example: {"subject": "Mum", "area": "family-parents", "certainty": "stated", "key": "relationship_to_the_person", "text": "Mum is the person's mother; she died three years ago in March.", "quote": "..."}.
 - area: exactly one of these, by what the note is about whatever the wording:
@@ -118,6 +118,7 @@ SYSTEM = """You write the notes a companion keeps after one conversation with on
 - key: for a standing fact that could later change (birthday, residence, employer, relationship_to_the_person, living_situation) a short snake_case key, reusing a key from "known" for the same subject if it is the same fact; otherwise "".
 - text: one plain sentence that keeps how sure or serious they were. Never use relative time words (tomorrow, yesterday, last year, this morning, tonight): use dates or a month.
 - quote: a short phrase copied exactly from what THEY said.
+- asked_not_to_raise: true only when THEY asked THIS companion, in their own words, not to bring up, ask about or mention what the note is about (a request about how the companion treats them); false for everything else, including anyone refusing or leaving something unsaid inside an event they describe, and including what is merely uncomfortable for them.
 - resolves: only if they say something listed under "open intentions" has now happened, was dropped or changed: that item's id. Otherwise "".
 
 Rules: only what the person said, never what the companion said or guessed. A companion line that begins "[relayed from their ...]" repeats what a connected source (their email, calendar or task list) reported: the person only heard it. Hearing it, asking about it or not objecting is NOT confirmation and is not something they said, so write NO note from the relayed text itself (not even as hearsay). Write a note only from what the person adds, confirms, corrects or commits to in THEIR OWN lines (then it is stated or an intention as usual, and may say that the email or calendar was the occasion), and keep new commitments they make. How two other people are related is a note only if the person said it; if they did not, do not guess it. The same goes for how someone is related to the person: if they did not say, write that it is not stated. Do not turn a hypothetical into an intention or a relayed remark into a fact about the person it concerns. No diagnoses, no motives, no character labels. A thing they must do or an appointment is still a note (a separate ledger handles follow-through). Up to %d notes. Even a very short conversation usually gives one or two.""" % ("\n".join(f"  - {k}: {v}" for k, v in AREAS.items()), MAX_NOTES)
@@ -180,7 +181,8 @@ def clean(raw: Any, person_text: str, areas: Optional[Dict[str, str]] = None, ma
         out.append({"subject": SELF if subject_key(subject) == SELF else subject, "subject_key": subject_key(subject),
                     "area": area if area in areas else "other", "certainty": certainty, "when_on": _parse_day(n.get("when")),
                     "key": re.sub(r"[^a-z0-9_]+", "_", str(n.get("key") or "").strip().lower()).strip("_")[:40],
-                    "text": text, "quote": quote, "quote_verified": verified, "resolves": str(n.get("resolves") or "").strip()[:12]})
+                    "text": text, "quote": quote, "quote_verified": verified, "resolves": str(n.get("resolves") or "").strip()[:12],
+                    "boundary": n.get("asked_not_to_raise") is True and verified})
         if len(out) >= max_notes:
             break
     return out, stats
@@ -251,7 +253,7 @@ async def write(db: AsyncSession, *, workspace_id: str, owner: str, product: str
     for n in notes:
         row = Note(honcho_workspace_id=workspace_id, owner_peer_id=owner, product=product, run_id=run_id, session_id=session_id, sitting_on=session_day,
                    subject=n["subject"], subject_key=n["subject_key"], area=n["area"], certainty=n["certainty"], when_on=n["when_on"], key=n["key"], text=n["text"],
-                   quote=n["quote"], quote_verified=n["quote_verified"], source=source)
+                   quote=n["quote"], quote_verified=n["quote_verified"], boundary=bool(n.get("boundary")), source=source)
         db.add(row)
         await db.flush()
         stored += 1
@@ -457,7 +459,6 @@ async def recurring(db: AsyncSession, ws: str, owner: str, today: date, minimum:
     return out
 
 
-_BOUNDARY = re.compile(r"(don'?t|do not|not to|never) (bring|mention|raise|ask|talk)|rather not|not ready|leave (it|that|this) (alone|be)|stop (asking|mentioning)|asked (the companion |me |her |him )?not to", re.I)
 _BOUNDARY_NOISE = {"asked", "companion", "bring", "matter", "mention", "raise", "talk", "talking", "person", "ready", "about", "again", "thing", "things"}
 
 
@@ -466,7 +467,7 @@ def boundary_for(text: str, rows: Sequence[Note]) -> str:
     is the persona's call, exactly as for the world records."""
     mine = _stems(text) - _BOUNDARY_NOISE
     for r in reversed(list(rows)):
-        if r.certainty == "stated" and _BOUNDARY.search(f"{r.quote} {r.text}") and _meet(mine, _stems(f"{r.text} {r.quote}") - _BOUNDARY_NOISE):
+        if r.certainty == "stated" and r.boundary and _meet(mine, _stems(f"{r.text} {r.quote}") - _BOUNDARY_NOISE):
             q = f": \"{r.quote[:160]}\"" if r.quote else "."
             return f"They asked me on {fmt_day(r.sitting_on)} not to bring this up{q}"
     return ""
@@ -501,7 +502,7 @@ async def asks(db: AsyncSession, ws: str, owner: str, today: date) -> List[Dict[
     for r in rows:                      # a plan for a particular day, in the last few days, with nothing since (the evening asks about the morning); a life aim has no day and is not one
         if r.certainty == "intention" and r.when_on is not None and today - timedelta(days=PLAN_DAYS) <= r.when_on.date() <= today:
             out.append({"kind": "plan", "area": r.area, "sittings": 1, "ref": f"plan:{str(r.id)[:8]}", "text": f"{r.text.rstrip('.')} (for {fmt_day(r.when_on)}, said {fmt_day(r.sitting_on)}); nothing since on how it went"})
-    asked_rows = [r for r in rows if _BOUNDARY.search(f"{r.quote} {r.text}")]
+    asked_rows = [r for r in rows if r.boundary]
     for o in out:
         o["asked"] = boundary_for(o["text"], asked_rows) if asked_rows else ""
     seen: set = set()

@@ -32,6 +32,7 @@ class Note(SQLModel, table=True):
     key: str = Field(default="", index=True, nullable=False)                # standing facts only (birthday, residence): a later note with the same key replaces it
     text: str = Field(nullable=False)
     quote: str = Field(default="")                                          # the person's own words, copied exactly
+    boundary: bool = Field(default=False)                                   # the model read this as the person asking the companion not to raise the subject (their request, with their own words as the quote)
     quote_verified: bool = Field(default=False)                             # the quote was found in the person's own lines
     source: str = Field(default="session")                                  # session | import
     source_kind: str = Field(default="", index=True, nullable=False)       # "" = said in a sitting; otherwise a connected source that reported it (email, calendar, ...). Never a user-confirmed fact
