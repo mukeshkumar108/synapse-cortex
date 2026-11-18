@@ -55,6 +55,19 @@ def or_equivalent(model_id: str) -> str:
     return m
 
 
+_PREMIUM = ("anthropic/", "openai/gpt-5", "google/gemini-3.7")
+
+
+def or_routing(model_id: str = "") -> dict:
+    """Every OpenRouter request names its provider policy: a model's headline price is one provider's; unrouted requests land on providers up to 3-4x that.
+    Cheapest provider first, no 4-bit builds, a ceiling in $ per million tokens (higher only for premium tiers). OPENROUTER_PROVIDER_ROUTING=off disables."""
+    quant = [q.strip() for q in (os.getenv("OPENROUTER_QUANTIZATIONS") or "fp8,bf16,fp16,fp32,unknown").split(",") if q.strip()]
+    prem = model_id.startswith(_PREMIUM)
+    return {"sort": "price", "allow_fallbacks": True, "quantizations": quant,
+            "max_price": {"prompt": float(os.getenv("OPENROUTER_MAX_PRICE_PROMPT") or (2.5 if prem else 1.0)),
+                          "completion": float(os.getenv("OPENROUTER_MAX_PRICE_COMPLETION") or (11 if prem else 4.0))}}
+
+
 def nano_only() -> bool:
     """LLM_NANO_ONLY: the flat-rate subscription is the only provider; `openrouter:` chain entries are skipped, never spent."""
     return os.getenv("LLM_NANO_ONLY", "").strip().lower() in ("1", "true", "yes", "on") and bool(os.getenv("NANO_API_KEY", "").strip())
@@ -135,6 +148,8 @@ async def generate_text(*, system: str, prompt: str, models: Optional[Sequence[s
                                             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
                 if via_or and model.startswith("openai/gpt-5"):
                     body_req["reasoning"] = {"effort": "low", "exclude": True}
+                if via_or and os.getenv("OPENROUTER_PROVIDER_ROUTING", "").strip().lower() != "off":
+                    body_req["provider"] = or_routing(model)
                 headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
                 if via_or:
                     headers["X-Title"] = f"cortex-{title}"

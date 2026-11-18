@@ -178,6 +178,9 @@ class AgendaRankerAdapter:
             "temperature": temperature,
             "response_format": {"type": "json_object"},
         }
+        if "openrouter.ai" in url and os.getenv("OPENROUTER_PROVIDER_ROUTING", "").strip().lower() != "off":
+            from src.services import nano_adapter as _na2
+            payload["provider"] = _na2.or_routing(model_id)
         if "openrouter.ai" in url:
             payload["usage"] = {"include": True}               # the response then carries its own cost (the breaker and the call ledger use it)
         if str(model_id).startswith("openai/gpt-5"):         # reasoning models: pick the effort for this job instead of letting the model decide how long to think
