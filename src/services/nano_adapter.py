@@ -38,6 +38,23 @@ def _roll() -> None:
         _usage.update({"day": today, "out": 0, "calls": 0, "failures": 0, "by_model": {}})
 
 
+def emergency_openrouter() -> bool:
+    """PROVIDER_FALLBACK=openrouter: NanoGPT is unavailable (token limit, outage): every chain entry is served through OpenRouter on a cheap equivalent."""
+    return os.getenv("PROVIDER_FALLBACK", "").strip().lower() == "openrouter"
+
+
+_OR_EQUIVALENT = {"z-ai/glm-5.2": "z-ai/glm-5.3-flash", "qwen/qwen3.8-27b": "qwen/qwen3.8-flash"}
+
+
+def or_equivalent(model_id: str) -> str:
+    m = model_id.split(":", 1)[1] if model_id.startswith("openrouter:") else model_id
+    if m in _OR_EQUIVALENT:
+        return _OR_EQUIVALENT[m]
+    if m.startswith(("Gemma-4-31B", "TheDrummer", "Sao10K", "EVA-", "huihui", "ReadyArt", "Steelskull", "bytedance", "anthracite", "nvidia/Llama", "Qwen3.5")):
+        return os.getenv("OPENROUTER_FALLBACK_MODEL", "deepseek/deepseek-v4-flash")
+    return m
+
+
 def nano_only() -> bool:
     """LLM_NANO_ONLY: the flat-rate subscription is the only provider; `openrouter:` chain entries are skipped, never spent."""
     return os.getenv("LLM_NANO_ONLY", "").strip().lower() in ("1", "true", "yes", "on") and bool(os.getenv("NANO_API_KEY", "").strip())
@@ -103,11 +120,11 @@ async def generate_text(*, system: str, prompt: str, models: Optional[Sequence[s
         return None
     chain: List[str] = list(models or DEFAULT_CHAIN)
     for entry in chain:
-        via_or = entry.startswith("openrouter:")
-        if via_or and nano_only():
+        via_or = entry.startswith("openrouter:") or emergency_openrouter()
+        if via_or and nano_only() and not emergency_openrouter():
             logger.info("skipping %s: LLM_NANO_ONLY keeps calls on the NanoGPT subscription", entry)
             continue
-        model = entry.split(":", 1)[1] if via_or else entry
+        model = (or_equivalent(entry) if emergency_openrouter() else entry.split(":", 1)[1]) if via_or else entry
         key, base = (or_key, "https://openrouter.ai/api/v1") if via_or else (nano_key, BASE_URL)
         if not key:
             continue

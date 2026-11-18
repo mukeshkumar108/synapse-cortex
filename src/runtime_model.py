@@ -137,6 +137,10 @@ class AgendaRankerAdapter:
         # existing OpenRouter route. Tomorrow's model change is an env edit.
         _nano_models = _nano_model_set()
         _nano_key = os.getenv("NANO_API_KEY", "").strip()
+        from src.services import nano_adapter as _na
+        if _na.emergency_openrouter():
+            model_id = _na.or_equivalent(model_id)   # NanoGPT unavailable: the OpenRouter route below, on a cheap equivalent
+            _nano_key = ""
         if _nano_key and (force_nano or model_id in _nano_models):
             url, api_key, provider = "https://nano-gpt.com/api/v1/chat/completions", _nano_key, "nanogpt"
         else:
