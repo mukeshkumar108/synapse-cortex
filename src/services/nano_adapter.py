@@ -146,8 +146,8 @@ async def generate_text(*, system: str, prompt: str, models: Optional[Sequence[s
             try:
                 body_req: Dict[str, Any] = {"model": model, "max_tokens": min(max_tokens, HARD_MAX_OUTPUT_TOKENS), "temperature": temperature,
                                             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
-                if via_or and model.startswith("openai/gpt-5"):
-                    body_req["reasoning"] = {"effort": "low", "exclude": True}
+                if via_or:           # measured 21 Nov: glm/qwen flash spent the whole 2-3k output cap thinking and returned empty text, 30-50s a call, so the memory gate timed out and the chat failed
+                    body_req["reasoning"] = {"effort": "low" if model.startswith("openai/gpt-5") else "minimal", "exclude": True}
                 if via_or and os.getenv("OPENROUTER_PROVIDER_ROUTING", "").strip().lower() != "off":
                     body_req["provider"] = or_routing(model)
                 headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
@@ -205,8 +205,8 @@ async def generate_json(*, system: str, prompt: str, models: Optional[Sequence[s
             try:
                 body_req: Dict[str, Any] = {"model": model, "max_tokens": min(max_tokens, HARD_MAX_OUTPUT_TOKENS), "temperature": temperature,
                                             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
-                if via_or and model.startswith("openai/gpt-5"):
-                    body_req["reasoning"] = {"effort": "low", "exclude": True}          # a budgeted fallback, never an open-ended thinker
+                if via_or:           # measured 21 Nov: glm/qwen flash spent the whole 2-3k output cap thinking and returned empty text, 30-50s a call, so the memory gate timed out and the chat failed
+                    body_req["reasoning"] = {"effort": "low" if model.startswith("openai/gpt-5") else "minimal", "exclude": True}          # a budgeted fallback, never an open-ended thinker
                 async with httpx.AsyncClient(timeout=TIMEOUT) as client:
                     resp = await client.post(f"{base}/chat/completions", headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, json=body_req)
                     resp.raise_for_status()
